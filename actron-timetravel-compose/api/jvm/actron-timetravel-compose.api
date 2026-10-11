@@ -203,6 +203,23 @@ public final class actron/timetravel/compose/ComposableSingletons$InspectorScree
 	public final fun getLambda$873159957$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
+public final class actron/timetravel/compose/ComposableSingletons$TimeTravelPanelKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$TimeTravelPanelKt;
+	public fun <init> ()V
+	public final fun getLambda$-1422572858$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1442989076$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-1647928043$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1754760837$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1904079325$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-2071037708$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-587411892$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1011482011$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1378975204$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1796026766$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1971260679$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$457263343$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
 public final class actron/timetravel/compose/GroupReplayControls {
 	public static final field $stable I
 	public fun <init> (Lactron/timetravel/GroupReplaySession;)V
@@ -516,5 +533,12 @@ public final class actron/timetravel/compose/StoreFilter$Single : actron/timetra
 	public fun hashCode ()I
 	public fun includes (Lactron/observability/RecordSubject;)Z
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/compose/TimeTravelPanelKt {
+	public static final fun TimeTravelPanel (Lactron/timetravel/compose/InspectorState;Lactron/timetravel/compose/GroupReplayControls;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+	public static final fun TimeTravelPanel (Lactron/timetravel/compose/InspectorState;Lactron/timetravel/compose/GroupTimeTravelControls;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+	public static final fun TimeTravelPanel (Lactron/timetravel/compose/InspectorState;Lactron/timetravel/compose/ReplayControls;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+	public static final fun TimeTravelPanel (Lactron/timetravel/compose/InspectorState;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
 }
 
