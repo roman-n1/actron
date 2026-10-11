@@ -26,10 +26,10 @@ class StorePendingActionCancellationTest {
 
     private fun createTestStore(
         testDispatcher: TestDispatcher,
-        onHoldAndCancelStarted: CompletableDeferred<Unit>? = null,
-        onHoldAndCancelCompleted: CompletableDeferred<Unit>? = null,
-        onTransactionStarted: CompletableDeferred<Unit>? = null,
-        onTransactionCompleted: CompletableDeferred<Unit>? = null,
+        onHoldAndCancelStarted: CompletableDeferred<Unit> = CompletableDeferred(),
+        onHoldAndCancelCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
+        onTransactionStarted: CompletableDeferred<Unit> = CompletableDeferred(),
+        onTransactionCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
     ): Store<AppState, AppAction, Nothing> {
         return Store(AppState.Active()) {
             coroutineContext(testDispatcher)
@@ -37,20 +37,20 @@ class StorePendingActionCancellationTest {
 
             state<AppState.Active> {
                 action<AppAction.HoldAndCancel>(testDispatcher) {
-                    onHoldAndCancelStarted?.complete(Unit)
+                    onHoldAndCancelStarted.complete(Unit)
                     delay(100)
                     clearPendingActions()
-                    onHoldAndCancelCompleted?.complete(Unit)
+                    onHoldAndCancelCompleted.complete(Unit)
                     nextState { state.copy(value = state.value + 100) }
                 }
 
                 action<AppAction.LaunchTransactionAndCancel>(testDispatcher) {
                     launch(testDispatcher) {
                         transaction(testDispatcher) {
-                            onTransactionStarted?.complete(Unit)
+                            onTransactionStarted.complete(Unit)
                             delay(100)
                             clearPendingActions()
-                            onTransactionCompleted?.complete(Unit)
+                            onTransactionCompleted.complete(Unit)
                             nextState { state.copy(value = state.value + 100) }
                         }
                     }

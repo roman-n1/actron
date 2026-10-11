@@ -40,11 +40,12 @@ class StoreRecorderTest {
     }
 
     private class RecordingStateSaver(
-        private val restoredState: AppState?,
+        private val restoring: (AppState) -> AppState = { it },
     ) : StateSaver<AppState> {
+        constructor(restoredState: AppState) : this({ restoredState })
         override fun save(state: AppState) = Unit
 
-        override fun restore(initialState: AppState): AppState = restoredState ?: initialState
+        override fun restore(initialState: AppState): AppState = restoring(initialState)
     }
 
     private fun createTestStore(): Store<AppState, AppAction, AppEvent> {
@@ -142,7 +143,7 @@ class StoreRecorderTest {
     fun patch_shouldReconfigureStoreBeforeFirstUse() {
         val store = Store<AppState, AppAction, AppEvent>(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
-            stateSaver(RecordingStateSaver(restoredState = null))
+            stateSaver(RecordingStateSaver())
         }.patch {
             stateSaver(RecordingStateSaver(restoredState = AppState.Main(count = 7)))
         }

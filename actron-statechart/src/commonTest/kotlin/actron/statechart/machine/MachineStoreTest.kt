@@ -153,7 +153,10 @@ class MachineStoreTest {
         val started = mutableListOf<CommandEnvelope<ListCommand>>()
         val cancelled = mutableListOf<CommandId>()
         val sinks = mutableMapOf<CommandId, ResultSink<ListAction>>()
-        var snapshotSeen: MachineSnapshot<ListContext>? = null
+        val snapshots = mutableListOf<MachineSnapshot<ListContext>>()
+        var snapshotSeen: MachineSnapshot<ListContext>
+            get() = snapshots.last()
+            set(value) { snapshots += value }
         var behaviour: suspend (CommandEnvelope<ListCommand>, ResultSink<ListAction>) -> Unit = { _, _ -> awaitCancellation() }
 
         override suspend fun execute(command: CommandEnvelope<ListCommand>, results: ResultSink<ListAction>) {
@@ -204,7 +207,7 @@ class MachineStoreTest {
 
         assertEquals(listOf(CommandEnvelope<ListCommand>(CommandId(1), ListCommand.Connect, ActivationId(1), net)), h.handler.started)
         assertEquals(1, h.store.currentState.revision)
-        assertTrue(h.handler.snapshotSeen!!.isStarted, "the handler sees the committed snapshot")
+        assertTrue(kotlin.test.assertNotNull(h.handler.snapshotSeen).isStarted, "the handler sees the committed snapshot")
         h.close()
     }
 
@@ -466,22 +469,22 @@ class MachineStoreTest {
 
     @Test
     fun closeBetweenCommitAndScheduling_startsNothing() = runTest {
-        lateinit var h: Harness
-        h = harness {
+        val hObservations = mutableListOf<Harness>()
+        hObservations.add(harness {
             pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder)
-            plugin(Plugin(onState = { _, state -> if (state.revision == 2L) h.store.close() }))
-        }
-        h.store.startAndAwait()
+            plugin(Plugin(onState = { _, state -> if (state.revision == 2L) hObservations.single().store.close() }))
+        })
+        hObservations.single().store.startAndAwait()
         runCurrent()
-        assertEquals(1, h.handler.started.size)
+        assertEquals(1, hObservations.single().handler.started.size)
 
-        h.store.dispatch(ListAction.Load("cats"))
+        hObservations.single().store.dispatch(ListAction.Load("cats"))
         runCurrent()
 
-        assertEquals(2, h.store.currentState.revision, "the decision was committed")
-        assertEquals(1, h.handler.started.size, "the Fetch it registered never started")
-        assertEquals(listOf(CommandId(1)), h.handler.cancelled, "close cancelled Connect")
-        h.close()
+        assertEquals(2, hObservations.single().store.currentState.revision, "the decision was committed")
+        assertEquals(1, hObservations.single().handler.started.size, "the Fetch it registered never started")
+        assertEquals(listOf(CommandId(1)), hObservations.single().handler.cancelled, "close cancelled Connect")
+        hObservations.single().close()
     }
 
     @Test

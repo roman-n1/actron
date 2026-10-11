@@ -63,14 +63,19 @@ class SocketSourceIntegrationTest {
         override val id = SourceId("socket:frames")
         override val kind = "socket"
         private val feedLock = Mutex()
-        private val activeSocket = AtomicReference<Socket?>()
+        private sealed interface Connection {
+            fun close()
+            data object Disconnected : Connection { override fun close() = Unit }
+            class Connected(val socket: Socket) : Connection { override fun close() = socket.close() }
+        }
+        private val activeSocket = AtomicReference<Connection>(Connection.Disconnected)
         val connected = Channel<Int>(Channel.UNLIMITED)
         val read = Channel<Int>(Channel.UNLIMITED)
         val admitted = Channel<Int>(Channel.UNLIMITED)
         val attempted = Channel<Attempt>(Channel.UNLIMITED)
         val retry = Channel<Unit>(Channel.UNLIMITED)
         val pauseEntered = Channel<Unit>(Channel.UNLIMITED)
-        var pauseRelease: CompletableDeferred<Unit>? = null
+        var pauseRelease: CompletableDeferred<Unit> = CompletableDeferred(Unit)
         private var generation = 0
         private var lastAccepted = 0
         private val stopped = CompletableDeferred<Unit>()
@@ -79,7 +84,8 @@ class SocketSourceIntegrationTest {
             try {
                 while (!stopped.isCompleted) {
                     val socket = Socket()
-                    activeSocket.set(socket)
+                    val connection = Connection.Connected(socket)
+                    activeSocket.set(connection)
                     socket.use {
                         socket.connect(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 5_000)
                         feedLock.withLock { generation++; connected.send(generation) }
@@ -100,7 +106,7 @@ class SocketSourceIntegrationTest {
                             }) retry.receive()
                         }
                     }
-                    activeSocket.compareAndSet(socket, null)
+                    activeSocket.compareAndSet(connection, Connection.Disconnected)
                 }
             } catch (failure: Throwable) {
                 if (!stopped.isCompleted) throw failure
@@ -111,7 +117,7 @@ class SocketSourceIntegrationTest {
             feedLock.lock()
             try {
                 pauseEntered.send(Unit)
-                pauseRelease?.await()
+                pauseRelease.await()
             } catch (failure: Throwable) {
                 feedLock.unlock()
                 throw failure
@@ -122,7 +128,7 @@ class SocketSourceIntegrationTest {
         suspend fun close() {
             stopped.complete(Unit)
             try {
-                activeSocket.getAndSet(null)?.close() // Unblocks a real readLine or connect.
+                checkNotNull(activeSocket.getAndSet(Connection.Disconnected)).close() // Unblocks a real readLine or connect.
             } finally {
                 reader.cancel()
                 reader.join()
@@ -132,7 +138,7 @@ class SocketSourceIntegrationTest {
 
     private class Fixture(
         admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
-        plugin: Plugin<MachineSnapshot<List<Int>>, MachineInput<Frame>, Ev>? = null,
+        plugin: Plugin<MachineSnapshot<List<Int>>, MachineInput<Frame>, Ev> = actron.core.Plugin(),
     ) {
         val server = ServerSocket(0, 4, InetAddress.getLoopbackAddress()).apply { soTimeout = 5_000 }
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -146,19 +152,20 @@ class SocketSourceIntegrationTest {
             onAction(root, ActionMatcher.of<Frame>("Frame")) { context = context + (action as Frame).sequence }
         }
         val store = MachineStore(machine, emptyList(), CommandHandler<Nothing, Frame> { _, _ -> }, scope,
-            admission = admission, observers = listOf(member)) { plugin?.let { plugin(it) } }
-        lateinit var source: SocketSource
+            admission = admission, observers = listOf(member)) { plugin(plugin) }
+        private val sourcePublication = kotlinx.coroutines.CompletableDeferred<SocketSource>()
+        val source: SocketSource get() = sourcePublication.getCompleted()
         suspend fun start() {
             member.attach(store)
             store.startAndAwait()
-            source = SocketSource(server.localPort, store, scope)
+            sourcePublication.complete(SocketSource(server.localPort, store, scope))
             group.source(source)
         }
-        suspend fun accept(): Socket = withContext(Dispatchers.IO) { server.accept() }
+        suspend fun accept(): Socket = withContext(Dispatchers.IO) { checkNotNull(server.accept()) }
         suspend fun close() {
             withContext(NonCancellable) {
                 try {
-                    withTimeout(5_000) { if (::source.isInitialized) source.close() }
+                    withTimeout(5_000) { if (sourcePublication.isCompleted) source.close() }
                 } finally {
                     try {
                         server.close()

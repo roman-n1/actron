@@ -22,7 +22,7 @@ class StoreSaverTest {
         initialState: AppState,
         stateSaver: StateSaver<AppState>,
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
-        errorStateOnException: AppState? = null,
+        recovery: StoreBuilder.StateHandlerConfig<AppState, AppAction, Nothing, AppState>.() -> Unit = {},
     ): Store<AppState, AppAction, Nothing> {
         return Store(initialState) {
             coroutineContext(Dispatchers.Unconfined)
@@ -32,11 +32,7 @@ class StoreSaverTest {
                 action<AppAction.Update> {
                     nextState { state.copy(value = action.value) }
                 }
-                if (errorStateOnException != null) {
-                    recover<Exception> {
-                        nextState { errorStateOnException }
-                    }
-                }
+                recovery()
             }
         }
     }
@@ -61,22 +57,22 @@ class StoreSaverTest {
 
     @Test
     fun store_saveException_isHandledWithoutUsingStoreErrorHandling() = runTest(testDispatcher) {
-        var handledException: Throwable? = null
+        val handledExceptionObservations = mutableListOf<Throwable>()
         val store = createTestStore(
             initialState = AppState(0),
             stateSaver = StateSaver(
                 save = { throw IllegalArgumentException("save failed") },
                 restore = { it },
             ),
-            exceptionHandler = ExceptionHandler { handledException = it },
-            errorStateOnException = AppState(-1),
+            exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
+            recovery = { recover<Exception> { nextState { AppState(-1) } } },
         )
 
         store.dispatch(AppAction.Update(20))
         testScheduler.runCurrent()
 
         assertEquals(AppState(20), store.currentState)
-        val error = assertIs<IllegalArgumentException>(handledException)
+        val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
         assertEquals("save failed", error.message)
     }
 }

@@ -38,6 +38,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
+private sealed interface DemoPlayback {
+    data object AwaitingRecording : DemoPlayback
+    data class Opened(
+        val recording: CheckoutDemo.Loaded,
+        val controls: GroupTimeTravelControls,
+        val inspector: InspectorState,
+    ) : DemoPlayback
+}
+
 /** `--check [parent-directory]` exercises the same disk/replay/experiment path without a window. */
 fun main(args: Array<String>) {
     if (args.firstOrNull() == "--check") {
@@ -76,24 +85,22 @@ fun main(args: Array<String>) {
 internal fun DemoScreen(initialDirectory: Path = Path.of("build/time-travel-demo")) {
     val scope = rememberCoroutineScope()
     var directory by remember { mutableStateOf(initialDirectory.toAbsolutePath().toString()) }
-    var loaded by remember { mutableStateOf<CheckoutDemo.Loaded?>(null) }
-    var controls by remember { mutableStateOf<GroupTimeTravelControls?>(null) }
-    var inspector by remember { mutableStateOf<InspectorState?>(null) }
+    var playback by remember { mutableStateOf<DemoPlayback>(DemoPlayback.AwaitingRecording) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Record the synthetic checkout, then open the same files with the changed reducer.") }
 
     fun show(run: CheckoutDemo.Loaded, fixed: Boolean) {
-        loaded = run
-        inspector = InspectorState(Inspector(run.journal.events, run.recording.members))
-        controls = run.controls(fixed)
-        controls!!.replay.verify()
+        val controls = run.controls(fixed)
+        val inspector = InspectorState(Inspector(run.journal.events, run.recording.members))
+        controls.replay.verify()
         if (fixed) {
-            val mismatch = (controls!!.replay.verification as actron.timetravel.compose.GroupVerification.Checked).problems.filterIsInstance<GroupMismatch.Replay>().firstOrNull()
-            if (mismatch != null) {
-                controls!!.replay.seek(mismatch.position)
-                controls!!.replay.stepForward()
+            for (mismatch in (controls.replay.verification as actron.timetravel.compose.GroupVerification.Checked).problems.filterIsInstance<GroupMismatch.Replay>()) {
+                controls.replay.seek(mismatch.position)
+                controls.replay.stepForward()
+                break
             }
         }
+        playback = DemoPlayback.Opened(run, controls, inspector)
         message = if (fixed) "Changed reducer: forward stops before the wrong calculation. Branch here, then answer Price 100: cart and summary become 80. Return keeps the original failure." else "Original reducer: Verify matches the saved run. The live bug charged 100 instead of 80. Seek or step through both machines."
     }
 
@@ -132,10 +139,10 @@ internal fun DemoScreen(initialDirectory: Path = Path.of("build/time-travel-demo
                 Button(enabled = !busy, modifier = Modifier.testTag("demo-changed"), onClick = { open(fixed = true) }) { Text("3. Compare changed reducer") }
             }
             Text(if (busy) "Working with recording files…" else message, modifier = Modifier.testTag("demo-status"))
-            loaded?.let { Text("${it.recording.length} group inputs saved; ${it.journal.records.size} journal records. All amounts are synthetic.") }
+            val opened = playback
+            if (opened is DemoPlayback.Opened) Text("${opened.recording.recording.length} group inputs saved; ${opened.recording.journal.records.size} journal records. All amounts are synthetic.")
         }
-        val state = inspector
-        val travel = controls
-        if (state != null && travel != null) InspectorScreen(state, timeTravel = travel, modifier = Modifier.weight(1f))
+        val opened = playback
+        if (opened is DemoPlayback.Opened) InspectorScreen(opened.inspector, timeTravel = opened.controls, modifier = Modifier.weight(1f))
     }
 }

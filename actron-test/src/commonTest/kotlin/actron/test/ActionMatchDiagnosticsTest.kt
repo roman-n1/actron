@@ -88,7 +88,7 @@ class ActionMatchDiagnosticsTest {
 
         assertTrue(diagnostics.matchedHandlerIndices.isEmpty())
         assertEquals(0, diagnostics.matchedHandlerCount)
-        assertNull(diagnostics.observedSelectedIndex())
+        diagnostics.withSelectedHandler { error("Unexpected handler: $it") }
         assertEquals(
             "ActionMatchDiagnostics(state=Error, action=Increment: no handler matches)",
             diagnostics.toString(),

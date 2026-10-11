@@ -30,7 +30,7 @@ apiValidation {
 
 tasks.register("checkNullability") {
     group = "verification"
-    description = "Rejects new nullable constructs and optional containers in library sources."
+    description = "Rejects new nullable constructs and optional containers in all authored Kotlin sources."
     dependsOn(":nullability-guard:checkPolicy")
 }
 
@@ -38,28 +38,25 @@ val nullabilityPluginJar = layout.projectDirectory.file("verification/nullabilit
 val nullabilityStrictMarker = layout.projectDirectory.file(".actron/nullability/strict")
 val finishingNullabilityMigration = gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "finishMigration" }
 subprojects {
-    if (name.startsWith("actron-")) {
+    if (name != "nullability-guard") {
         tasks.withType<KotlinCompilationTask<*>>().configureEach {
-            if (!name.contains("test", ignoreCase = true)) {
-                dependsOn(":nullability-guard:jar")
-                inputs.files(nullabilityPluginJar, nullabilityStrictMarker)
-                compilerOptions.freeCompilerArgs.addAll(
-                    "-Xplugin=${nullabilityPluginJar.asFile.absolutePath}",
-                    "-P", "plugin:actron-nullability:root=${rootProject.projectDir.absolutePath}",
-                    "-P", "plugin:actron-nullability:enforce=$finishingNullabilityMigration",
-                )
-            }
+            dependsOn(":nullability-guard:jar")
+            inputs.files(nullabilityPluginJar, nullabilityStrictMarker)
+            compilerOptions.freeCompilerArgs.addAll(
+                "-Xplugin=${nullabilityPluginJar.asFile.absolutePath}",
+                "-P", "plugin:actron-nullability:root=${rootProject.projectDir.absolutePath}",
+                "-P", "plugin:actron-nullability:enforce=$finishingNullabilityMigration",
+            )
         }
     }
 }
 gradle.projectsEvaluated {
-    val libraryCompilations = subprojects.filter { it.name.startsWith("actron-") }.flatMap {
-        it.tasks.withType<KotlinCompilationTask<*>>().filter { task -> !task.name.contains("test", ignoreCase = true) }
+    val compilations = subprojects.filter { it.name != "nullability-guard" }.flatMap {
+        // IR executable linking introduces no additional authored declarations.
+        it.tasks.withType<KotlinCompilationTask<*>>().filter { task -> !task.name.contains("Executable") }
     }
-    tasks.named("checkNullability") { dependsOn(libraryCompilations) }
-    project(":nullability-guard").tasks.named("finishMigration") {
-        dependsOn(libraryCompilations)
-    }
+    tasks.named("checkNullability") { dependsOn(compilations) }
+    project(":nullability-guard").tasks.named("finishMigration") { dependsOn(compilations) }
 }
 
 // The time-travel modules are debug tooling (handoff §11, §12): no production module may depend

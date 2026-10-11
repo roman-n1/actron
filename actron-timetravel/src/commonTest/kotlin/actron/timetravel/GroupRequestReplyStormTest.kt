@@ -117,6 +117,6 @@ class GroupRequestReplyStormTest {
         assertEquals(senders * perSender, replies.size)
         assertTrue(requests.all { it.cause == actron.observability.MessageCause.Unprompted }, "a request replies to nothing")
         assertTrue(replies.all { (it.cause as? actron.observability.MessageRef)?.from == pickerId }, "every reply names the pick it was decided from")
-        assertEquals(requests.map { it.message }.toSet(), replies.mapNotNull { it.cause as? actron.observability.MessageRef }.toSet(), "every pick was replied to, once")
+        assertEquals(requests.map { it.message }.toSet(), replies.map { it.cause }.filterIsInstance<actron.observability.MessageRef>().toSet(), "every pick was replied to, once")
     }
 }

@@ -31,8 +31,8 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
     @Override public boolean getSupportsK2() { return true; }
 
     @Override public void registerExtensions(ExtensionStorage storage, CompilerConfiguration configuration) {
-        if (!"2.3.20".equals(KotlinCompilerVersion.getVersion())) {
-            throw new IllegalStateException("Revalidate Actron's nullability compiler plugin before changing Kotlin 2.3.20");
+        if (!Set.of("2.3.20", "2.3.0").contains(KotlinCompilerVersion.getVersion())) {
+            throw new IllegalStateException("Revalidate Actron's nullability compiler plugin before changing the validated Kotlin 2.3.20 / Gradle Kotlin 2.3.0 compilers");
         }
         String configuredRoot = configuration.get(NullabilityOptions.ROOT);
         if (configuredRoot == null) throw new IllegalStateException("Actron nullability plugin requires its repository root");
@@ -44,7 +44,7 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
             for (IrFile file : module.getFiles()) {
                 String path = file.getFileEntry().getName().replace('\\', '/');
                 if (!Path.of(path).toAbsolutePath().normalize().startsWith(root)
-                    || !path.matches(".*?/actron-[^/]+/src/[^/]+Main/.*\\.kt")) continue;
+                    || !path.contains("/src/") || path.matches(".*?/(build|\\.gradle|node_modules)/.*") || !path.endsWith(".kt")) continue;
                 file.accept(new Audit(messages, strict), file);
             }
         });
@@ -88,12 +88,22 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
             return false;
         }
 
+        private boolean optional(IrType type) {
+            if (!(type instanceof IrSimpleType simple)) return false;
+            if (simple.getClassifier().getOwner() instanceof IrClass klass) {
+                FqName name = IrUtilsKt.getFqNameWhenAvailable(klass);
+                if (name != null && Set.of("Optional", "OptionalInt", "OptionalLong", "OptionalDouble", "Option", "Maybe", "Some", "None").contains(name.shortName().asString())) return true;
+            }
+            return simple.getArguments().stream().anyMatch(argument ->
+                argument instanceof IrTypeProjection projection && optional(projection.getType()));
+        }
+
         private void check(IrDeclaration declaration, IrType type, IrFile file, String kind) {
-            if (!authored(declaration) || !nullable(type)) return;
+            if (!authored(declaration) || (!nullable(type) && !optional(type))) return;
             int offset = declaration.getStartOffset();
             String name = declaration instanceof IrDeclarationWithName named ? named.getName().asString() : kind;
             messages.report(strict ? CompilerMessageSeverity.ERROR : CompilerMessageSeverity.WARNING,
-                "[Actron nullability] " + kind + " '" + name + "' has a nullable resolved type",
+                "[Actron nullability] " + kind + " '" + name + "' has a forbidden " + (optional(type) ? "optional-container" : "nullable") + " resolved type",
                 CompilerMessageLocation.create(file.getFileEntry().getName(), file.getFileEntry().getLineNumber(offset) + 1,
                     file.getFileEntry().getColumnNumber(offset) + 1, null));
         }
@@ -111,7 +121,7 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
             // A library selector such as compareBy has a nullable expected return, even when
             // the authored lambda only returns non-null values. Inspect those actual returns;
             // inferred nullable results (map lookup, firstOrNull, etc.) still fail.
-            if (!function.getOrigin().getName().equals("LOCAL_FUNCTION_FOR_LAMBDA") || !returnsNonNull(function)) {
+            if (optional(function.getReturnType()) || !function.getOrigin().getName().equals("LOCAL_FUNCTION_FOR_LAMBDA") || !returnsNonNull(function)) {
                 check(function, function.getReturnType(), file, "return");
             }
             return visitElement(function, file);

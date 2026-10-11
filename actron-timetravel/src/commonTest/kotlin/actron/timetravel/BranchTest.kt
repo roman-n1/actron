@@ -169,7 +169,7 @@ class BranchTest {
 
         // The recording answered an equal Fetch("cats") from the same node: reusable.
         val reused = branch.reuseRecordedAnswers(awaiting.id)
-        assertTrue(reused != null && reused.isNotEmpty())
+        assertTrue(reused.isNotEmpty())
         assertTrue(branch.snapshot.isActive(content))
         assertEquals(listOf("tom", "felix"), branch.snapshot.context.items)
         assertEquals(listOf(Ev.Shown), branch.effects.map { it.event })
@@ -258,8 +258,7 @@ class BranchTest {
         assertEquals(listOf(Fetch("b")), branch.awaiting.map { it.command }, "a's command was superseded in the lane")
         assertTrue(branch.history.any { d -> d.snapshot.commands.keys.none { it == CommandId(1) } })
         assertTrue(branch.history.size >= 2, "the abandonment was decided as an input, as the live executor would feed it")
-        val abandoned = branch.history.drop(1).firstOrNull()
-        assertTrue(abandoned != null)
+        assertTrue(branch.history.drop(1).isNotEmpty())
         assertEquals(setOf(CommandId(2)), branch.snapshot.commands.keys)
         assertEquals(AbandonReason.Superseded, AbandonReason.Superseded)
     }

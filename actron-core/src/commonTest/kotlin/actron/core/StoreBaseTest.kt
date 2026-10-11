@@ -94,13 +94,13 @@ class StoreBaseTest {
             initialState = AppState.Loading,
             autoStartPolicy = AutoStartPolicy.OnDispatch,
         )
-        var observedState: AppState? = null
+        val observedStateObservations = mutableListOf<AppState>()
 
         store.collectState { state ->
-            observedState = state
+            observedStateObservations.add(state)
         }
 
-        assertEquals(AppState.Loading, observedState)
+        assertEquals(AppState.Loading, observedStateObservations.single())
         assertIs<AppState.Loading>(store.currentState)
     }
 
@@ -291,15 +291,15 @@ class StoreBaseTest {
     fun tartStore_shouldEmitEvents() = runTest(testDispatcher) {
         val store = createTestStore(AppState.Loading)
 
-        var emittedEvent: AppEvent? = null
+        val emittedEventObservations = mutableListOf<AppEvent>()
         store.collectEvent { event ->
-            emittedEvent = event
+            emittedEventObservations.add(event)
         }
 
         store.dispatch(AppAction.Increment)
         store.dispatch(AppAction.EmitEvent)
 
-        assertNotNull(emittedEvent)
-        assertEquals(AppEvent.CountUpdated(1), emittedEvent)
+        assertNotNull(emittedEventObservations.single())
+        assertEquals(AppEvent.CountUpdated(1), emittedEventObservations.single())
     }
 }

@@ -32,8 +32,20 @@ public final class CompilerGuardTest {
             accept(plugin, root, "fun copy(values: List<String>) = values.map { it.length }");
             accept(plugin, root, "fun install(job: kotlinx.coroutines.Job) { job.invokeOnCompletion { cause -> if (cause is IllegalStateException) println(cause.message.orEmpty()) } }");
             reject(plugin, root, "fun install(job: kotlinx.coroutines.Job) { job.invokeOnCompletion { cause -> val copied = cause; println(copied) } }", "SPI parameter copied into owned nullable local");
-            // Tests may deliberately supply invalid/nullable values to verify the boundary.
-            compile(plugin, root, "val adversarial: String? = null", false, "commonTest");
+            // Every authored source set has the same policy, including examples and tooling.
+            for (String set : java.util.List.of("commonTest", "jvmTest", "androidDeviceTest", "jvmMain")) {
+                compile(plugin, root, "val adversarial: String? = null", true, set);
+                compile(plugin, root, "val inferredOptional = java.util.Optional.of(\"value\")", true, set);
+            }
+            reject(plugin, root, "import java.util.Optional as Renamed; val inferred = Renamed.of(\"x\")", "aliased optional inferred type");
+            reject(plugin, root, "val nested = listOf(java.util.OptionalInt.of(1))", "optional nested generic argument");
+            reject(plugin, root, "fun discarded() { listOf(1).map { java.util.OptionalInt.of(it) } }", "discarded optional lambda return");
+            reject(plugin, root, "val initialized = arrayOfNulls<String>(2)", "inferred nullable array element");
+            reject(plugin, root, "fun optionalResult() = java.util.OptionalLong.empty()", "inferred optional return");
+            for (String path : java.util.List.of("examples/demo/src/jvmMain/kotlin", "tooling/intellij-plugin/src/test/kotlin", "build-logic/convention/src/main/kotlin", "verification/harness/src/commonMain/kotlin")) {
+                compile(plugin, root, "fun lookup() = listOf(1).firstOrNull()", true, path);
+                compile(plugin, root, "val normalized = listOf(1).firstOrNull() ?: 0", false, path);
+            }
             Files.delete(policy.resolve("strict"));
             compile(plugin, root, "fun lookup() = listOf(\"one\").firstOrNull()", false, "commonMain");
             System.out.println("Resolved nullability compiler tests passed.");
@@ -52,7 +64,7 @@ public final class CompilerGuardTest {
         compile(plugin, root, source, false, "commonMain");
     }
     private static String compile(Path plugin, Path root, String source, boolean reject, String set) throws Exception {
-        Path file = root.resolve("actron-fixture/src/" + set + "/kotlin/Fixture.kt");
+        Path file = root.resolve(set.contains("/") ? set + "/Fixture.kt" : "actron-fixture/src/" + set + "/kotlin/Fixture.kt");
         Files.createDirectories(file.getParent());
         Files.writeString(file, source);
         ByteArrayOutputStream captured = new ByteArrayOutputStream();

@@ -13,7 +13,7 @@ actual object SoakPlatform {
         "memoryUnits" to "bytes; resident=Debug.MemoryInfo.totalPss*1024")
     actual suspend fun afterGc(): MemorySample {
         repeat(2) { System.gc(); System.runFinalization(); delay(100) }
-        val runtime = Runtime.getRuntime()
+        val runtime = checkNotNull(Runtime.getRuntime())
         val info = Debug.MemoryInfo().also(Debug::getMemoryInfo)
         return MemorySample(runtime.totalMemory() - runtime.freeMemory(), Debug.getNativeHeapAllocatedSize(), info.totalPss.toLong() * 1024,
             File("/proc/self/task").list()?.size ?: -1)
@@ -25,6 +25,6 @@ actual object SoakPlatform {
 }
 
 internal actual fun weakWitness(value: Any): WeakWitness {
-    val reference = java.lang.ref.WeakReference(value)
-    return object : WeakWitness { override val isAlive get() = reference.get() != null }
+    val reference: java.lang.ref.WeakReference<Any> = java.lang.ref.WeakReference(value)
+    return object : WeakWitness { override val isAlive get() = reference.get() is Any }
 }

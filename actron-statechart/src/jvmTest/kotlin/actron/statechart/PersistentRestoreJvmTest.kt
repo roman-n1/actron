@@ -120,7 +120,7 @@ class PersistentRestoreJvmTest {
     }
 
     private fun withFile(test: (File) -> Unit) {
-        val directory = Files.createTempDirectory("actron-restore-").toFile()
+        val directory = checkNotNull(Files.createTempDirectory("actron-restore-").toFile())
         try {
             test(File(directory, "state.bin"))
         } finally {
@@ -130,16 +130,20 @@ class PersistentRestoreJvmTest {
 
     private fun process(phase: String, file: File) {
         // Support both an ordinary JVM runtime and Gradle workers with a separate test loader.
-        val loaderPaths = generateSequence(javaClass.classLoader) { it.parent }
-            .filterIsInstance<URLClassLoader>().flatMap { it.urLs.asSequence() }
-            .map { File(it.toURI()).path }.toList()
-        val classpath = (loaderPaths + System.getProperty("java.class.path").split(File.pathSeparator)).distinct()
+        val loaderPaths = buildList<String> {
+            var loader = checkNotNull(javaClass.classLoader)
+            while (true) {
+                if (loader is URLClassLoader) for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                loader = loader.parent ?: break
+            }
+        }
+        val classpath = checkNotNull((loaderPaths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct())
         val output = File(file.parentFile, "$phase.log")
-        val child = ProcessBuilder(
+        val child = checkNotNull(ProcessBuilder(
             File(System.getProperty("java.home"), "bin/java").path,
             "-cp", classpath.joinToString(File.pathSeparator),
             PersistentRestoreProcess::class.java.name, phase, file.path,
-        ).redirectErrorStream(true).redirectOutput(output).start()
+        ).redirectErrorStream(true).redirectOutput(output).start())
         try {
             assertTrue(child.waitFor(30, TimeUnit.SECONDS), "Child timed out: $phase\n${output.readText()}")
             assertEquals(0, child.exitValue(), "Child failed: $phase\n${output.readText()}")

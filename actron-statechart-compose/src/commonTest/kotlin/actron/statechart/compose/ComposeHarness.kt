@@ -22,22 +22,27 @@ internal class ComposeHarness(
     private val frameClock: BroadcastFrameClock,
 ) {
     private var frameTimeNanos = 0L
-    private var composition: Composition? = null
+    private sealed interface Phase {
+        data object AwaitingContent : Phase
+        data class Showing(val composition: Composition) : Phase
+        data object Disposed : Phase
+    }
+    private var phase: Phase = Phase.AwaitingContent
 
     /** Disposes the current composition, if any, and composes [content] anew. */
     fun compose(content: @Composable () -> Unit) {
-        composition?.dispose()
-        composition = Composition(NoOpApplier(), recomposer).also { it.setContent(content) }
+        if (phase is Phase.Showing) (phase as Phase.Showing).composition.dispose()
+        phase = Phase.Showing(Composition(NoOpApplier(), recomposer).also { it.setContent(content) })
     }
 
     /** Recomposes the current composition with [content]: the same composition, new lambdas. */
     fun recompose(content: @Composable () -> Unit) {
-        checkNotNull(composition) { "compose first" }.setContent(content)
+        check(phase is Phase.Showing) { "compose first" }; (phase as Phase.Showing).composition.setContent(content)
     }
 
     fun dispose() {
-        composition?.dispose()
-        composition = null
+        if (phase is Phase.Showing) (phase as Phase.Showing).composition.dispose()
+        phase = Phase.Disposed
     }
 
     fun pumpFrame() {

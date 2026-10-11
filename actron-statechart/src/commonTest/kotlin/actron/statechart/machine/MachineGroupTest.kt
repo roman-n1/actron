@@ -61,7 +61,7 @@ import kotlin.time.TestTimeSource
  */
 class MachineGroupTest {
 
-    data class PickerCtx(val last: String? = null, val acks: List<Int> = emptyList(), val fetched: List<String> = emptyList())
+    data class PickerCtx(val picks: List<String> = emptyList(), val acks: List<Int> = emptyList(), val fetched: List<String> = emptyList())
 
     sealed interface PickerAct : Action {
         data class Pick(val name: String) : PickerAct
@@ -90,9 +90,10 @@ class MachineGroupTest {
     private fun chart(matcher: ActionMatcher) = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, matcher, effect = actron.statechart.EffectKey("remember"))))
 
     private val picker = Machine<PickerCtx, PickerAct, Fetch, PickerEv>(DefinitionId("picker"), DefinitionVersion("1"), chart(ActionMatcher.of<PickerAct.Pick>("Pick"))) {
-        effect("remember") { c, a -> c.copy(last = (a as PickerAct.Pick).name) }
+        effect("remember") { c, a -> c.copy(picks = c.picks + (a as PickerAct.Pick).name) }
         onEnter(idle) {
-            context.last?.let { last ->
+            if (context.picks.isNotEmpty()) {
+                val last = context.picks.last()
                 event(PickerEv.Picked(last))
                 command(Fetch(last))
             }
@@ -119,7 +120,7 @@ class MachineGroupTest {
     }
 
     /** The group with both members attached and routed, on a journal. */
-    private inner class Fixture(scope: TestScope, attachRoot: Boolean = true, pickerPlugin: Plugin<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>, PickerEv>? = null, routed: Boolean = true, rootContext: CoroutineContext? = null) {
+    private inner class Fixture(scope: TestScope, attachRoot: Boolean = true, pickerPlugin: Plugin<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>, PickerEv> = actron.core.Plugin(), routed: Boolean = true, rootContext: CoroutineContext = StandardTestDispatcher(scope.testScheduler)) {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val session = RecordingSession(scope.backgroundScope, id = RuntimeSessionId("g"), group = MachineGroupId("picker"), timeSource = TestTimeSource())
@@ -136,9 +137,9 @@ class MachineGroupTest {
             executionScope, TestClock(scope.testScheduler), dispatcher, admission = AdmissionPolicy.Bounded(1), observers = listOf(pickerMember),
         ) {
             exceptionHandler(ExceptionHandler.Ignore)
-            pickerPlugin?.let { plugin(it) }
+            plugin(pickerPlugin)
         }
-        val rootStore = MachineStore(rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, TestClock(scope.testScheduler), rootContext ?: dispatcher, observers = listOf(rootMember)) {
+        val rootStore = MachineStore(rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, TestClock(scope.testScheduler), rootContext, observers = listOf(rootMember)) {
             exceptionHandler(ExceptionHandler.Ignore)
         }
 
@@ -418,11 +419,11 @@ class MachineGroupTest {
         f.pickerStore.dispatch(PickerAct.Pick("b"))
         f.pickerStore.deliver(MessageId(rootId, EffectId(7)), PickerAct.Ack(7))
         runCurrent()
-        assertEquals("a", f.pickerStore.currentState.context.last, "nothing entered while frozen")
+        assertEquals("a", f.pickerStore.currentState.context.picks.last(), "nothing entered while frozen")
         assertEquals(2, pickerImpl.heldInputs)
         pickerImpl.thaw()
         runCurrent()
-        assertEquals("b", f.pickerStore.currentState.context.last)
+        assertEquals("b", f.pickerStore.currentState.context.picks.last())
         assertTrue(7 in f.pickerStore.currentState.context.acks)
         assertEquals(listOf("a", "b"), f.rootStore.currentState.context.names, "the held pick reached the root after the thaw")
         f.close()
@@ -454,7 +455,7 @@ class MachineGroupTest {
         var stuck = false
         val slow = object : Plugin<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>, PickerEv> {
             override suspend fun onState(scope: PluginScope<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>>, prevState: MachineSnapshot<PickerCtx>, state: MachineSnapshot<PickerCtx>) {
-                if (state.context.last == "slow" && !stuck) {
+                if (state.context.picks.lastOrNull() == "slow" && !stuck) {
                     stuck = true
                     gate.await()
                 }
@@ -505,7 +506,7 @@ class MachineGroupTest {
         assertEquals(listOf(cut), seen, "the listener saw the cut the caller got")
         assertEquals(listOf(1), heldDuring, "the members were frozen while the listener ran")
         runCurrent()
-        assertEquals("inside", f.pickerStore.currentState.context.last, "what the listener dispatched entered after the thaw")
+        assertEquals("inside", f.pickerStore.currentState.context.picks.last(), "what the listener dispatched entered after the thaw")
 
         f.group.removeCutListener(listener)
         val failing = CutListener { throw IllegalStateException("the listener failed") }
@@ -516,7 +517,7 @@ class MachineGroupTest {
         f.group.removeCutListener(failing)
         f.pickerStore.dispatch(PickerAct.Pick("after"))
         runCurrent()
-        assertEquals("after", f.pickerStore.currentState.context.last, "the group resumed after the failed cut")
+        assertEquals("after", f.pickerStore.currentState.context.picks.last(), "the group resumed after the failed cut")
         val again = f.group.checkpoint(1.seconds)
         kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(again, "a cut without listeners succeeds again")
         f.close()

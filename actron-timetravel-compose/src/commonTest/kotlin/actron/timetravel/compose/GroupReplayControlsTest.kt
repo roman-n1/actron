@@ -49,7 +49,7 @@ class GroupReplayControlsTest {
     @Test
     fun oneCursor_restoresEveryMember_andVerificationDoesNotMoveIt() {
         val controls = GroupReplayFixture.controls()
-        assertNull(controls.selected)
+        kotlin.test.assertFalse(controls.hasSelection)
         assertFalse(controls.canStepBackward)
         repeat(3) { controls.stepForward() }
         assertEquals(3, controls.position)
@@ -79,7 +79,7 @@ class GroupReplayControlsTest {
         assertTrue(checkNotNull(controls.forwardUnavailable).contains("end of the group"))
         controls.seek(-1)
         assertEquals(0, controls.position)
-        assertNull(controls.selected)
+        kotlin.test.assertFalse(controls.hasSelection)
     }
 
     @Test
@@ -101,7 +101,7 @@ class GroupReplayControlsTest {
         assertTrue(checkNotNull(controls.observedVerification).isNotEmpty())
         assertEquals(3, controls.position)
         controls.seek(2)
-        assertNull(controls.divergence)
+        kotlin.test.assertIs<GroupReplayMovement.Open>(controls.movement)
         assertTrue(controls.canStepForward)
     }
 
@@ -113,7 +113,7 @@ class GroupReplayControlsTest {
         controls.stepBackward()
         controls.verify()
         assertEquals(0, controls.position)
-        assertNull(controls.selected)
+        kotlin.test.assertFalse(controls.hasSelection)
         assertFalse(controls.canStepForward)
         assertEquals(emptyList(), controls.observedVerification)
     }

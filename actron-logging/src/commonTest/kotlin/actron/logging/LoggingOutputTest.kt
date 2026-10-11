@@ -140,7 +140,7 @@ class LoggingOutputTest {
         assertEquals(1, readyEntered)
         assertEquals(
             listOf("Action: Go", "State: Ready(work=0) <- Loading", "Action: Work", "State: Ready(work=1) <- Ready(work=0)"),
-            handled.map { it.message?.removePrefix("logger failed on: ") },
+            handled.map { it.message.orEmpty().removePrefix("logger failed on: ") },
         )
         store.close()
     }

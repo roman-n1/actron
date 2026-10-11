@@ -137,14 +137,18 @@ class ExecutorCheckpointStormTest {
             assertTrue(net !in lanes.queued && ping !in lanes.queued, "checkpoint $index: Latest and DropIfRunning never queue")
             if (log in lanes.queued) assertEquals(1, lanes.runningIn(log).size, "checkpoint $index: queued behind a free Sequential lane")
             if (work in lanes.queued) assertEquals(2, lanes.runningIn(work).size, "checkpoint $index: queued behind a free Parallel lane")
-            val active = checkpoint.snapshot.activations[busy]
-            assertTrue(checkpoint.registrations.values.all { it.scope == active }, "checkpoint $index: a command of an exited activation")
+            if (busy in checkpoint.snapshot.activations) {
+                val active = checkpoint.snapshot.activations.getValue(busy)
+                assertTrue(checkpoint.registrations.values.all { it.scope == active }, "checkpoint $index: a command of an exited activation")
+            } else {
+                assertTrue(checkpoint.registrations.isEmpty(), "checkpoint $index: commands survived their busy activation")
+            }
             if (index > 0) assertTrue(checkpoint.snapshot.revision >= checkpoints[index - 1].snapshot.revision, "checkpoint $index: the revision went back")
         }
         val last = checkpoints.last()
         assertTrue(last.lanes.running.isEmpty() && last.lanes.queued.isEmpty() && last.ending.isEmpty(), "quiescent: $last")
         // How much the storm exercised depends on the platform's threads; informational.
         println("checkpoints with a full lane: ${checkpoints.count { it.lanes.queued.isNotEmpty() }}, with a command ending: ${checkpoints.count { it.ending.isNotEmpty() }} of ${checkpoints.size}")
-        assertEquals(null, handled.tryReceive().getOrNull(), "nothing was reported")
+        assertTrue(handled.tryReceive().isFailure, "nothing was reported")
     }
 }

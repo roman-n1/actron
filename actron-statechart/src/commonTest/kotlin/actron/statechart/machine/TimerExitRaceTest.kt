@@ -92,12 +92,12 @@ class TimerExitRaceTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val gate = CompletableDeferred<Unit>()
-        var sink: ResultSink<Act>? = null
+        val sinkObservations = mutableListOf<ResultSink<Act>>()
         val ignored = mutableListOf<Pair<MachineInput<Act>, IgnoreReason>>()
         val handled = mutableListOf<Throwable>()
         val store = MachineStore(
             machine, Unit,
-            CommandHandler<Fetch, Act> { _, results -> sink = results; gate.await(); awaitCancellation() },
+            CommandHandler<Fetch, Act> { _, results -> sinkObservations.add(results); gate.await(); awaitCancellation() },
             executionScope, TestClock(testScheduler), dispatcher,
             observers = listOf(object : DecisionObserver<Unit, Act, Fetch, Nothing> {
                 override fun onIgnored(input: InputAttribution, machineInput: MachineInput<Act>, reason: IgnoreReason) {
@@ -114,11 +114,11 @@ class TimerExitRaceTest {
         // Both events land on the same virtual instant; only their order differs.
         advanceTimeBy(100.milliseconds)
         if (resultFirst) {
-            sink!!.result(Act.Loaded)
+            kotlin.test.assertNotNull(sinkObservations.single()).result(Act.Loaded)
             runCurrent()
         } else {
             runCurrent()
-            sink!!.result(Act.Loaded)
+            kotlin.test.assertNotNull(sinkObservations.single()).result(Act.Loaded)
             runCurrent()
         }
 

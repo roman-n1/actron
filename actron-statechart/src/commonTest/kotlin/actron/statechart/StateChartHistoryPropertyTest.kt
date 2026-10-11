@@ -65,7 +65,7 @@ class StateChartHistoryPropertyTest {
 
     private fun StateConfiguration.asReference() = HistoryConfiguration(active, history)
 
-    private fun HistoryFired.asResult() = StepResult.Transitioned(listOf(transition), exited, entered, after.asConfiguration())
+    private fun HistoryDecision.asResult(): StepResult = if (transitions.isEmpty()) StepResult.Ignored else StepResult.Transitioned(listOf(transition), exited, entered, after.asConfiguration())
 
     private fun ValidationIssue.isStructural() = this is ValidationIssue.UnknownParent || this is ValidationIssue.AtomicParent ||
         this is ValidationIssue.HistoryParent || this is ValidationIssue.ParentCycle || this is ValidationIssue.InitialNotChild ||
@@ -144,7 +144,7 @@ class StateChartHistoryPropertyTest {
                 val action = RandomCharts.actions.random(random)
                 val result = runtime.step(configuration, RandomState(leaf), action)
                 val expected = reference.step(configuration.asReference(), action, table::holds)
-                assertEquals(expected?.asResult() ?: StepResult.Ignored, result, "seed $seed: $leaf on $action")
+                assertEquals(expected.asResult(), result, "seed $seed: $leaf on $action")
                 if (result !is StepResult.Transitioned) return@repeat
                 steps++
                 assertTrue(result.entered.none { chart.node(it) is HistoryState }, "seed $seed: entered ${result.entered}")
@@ -156,8 +156,9 @@ class StateChartHistoryPropertyTest {
                 if (target is HistoryState) {
                     val after = result.configuration.active
                     val newLeaf = chart.activeLeaves(result.configuration).single()
-                    val remembered = if (target.deep) lastLeaf[target.parent] else lastChild[target.parent]
-                    if (remembered != null) {
+                    val rememberedStates = if (target.deep) lastLeaf else lastChild
+                    if (target.parent in rememberedStates) {
+                        val remembered = rememberedStates.getValue(target.parent)
                         restoredRecord++
                         if (target.deep) assertEquals(remembered, newLeaf, "seed $seed: deep ${target.id}") else assertTrue(remembered in after, "seed $seed: shallow ${target.id}")
                         if (target.deep && chart.ancestorsOf(remembered).indexOf(target.parent) >= 1) restoredDeep++
@@ -217,10 +218,10 @@ class StateChartHistoryPropertyTest {
         val nodes = first.values.toList()
         fun ancestors(id: StateId): List<StateId> {
             val chain = mutableListOf<StateId>()
-            var p = first[id]?.parent as? StateId
-            while (p != null && p in first && p !in chain && p != id) {
+            var p: StateParent = if (id in first) first.getValue(id).parent else StateParent.Root
+            while (p is StateId && p in first && p !in chain && p != id) {
                 chain += p
-                p = first.getValue(p).parent as? StateId
+                p = first.getValue(p).parent
             }
             return chain
         }
@@ -237,12 +238,11 @@ class StateChartHistoryPropertyTest {
         }
         for (node in nodes) {
             if (node !is HistoryState || node.default !is StateId || first[node.parent] !is CompoundState) continue
-            val default = first[node.default]
-            val ok = when {
-                default == null || default is HistoryState -> false
+            val ok = node.default in first && first.getValue(node.default).let { default -> when {
+                default is HistoryState -> false
                 node.deep -> node.parent in ancestors(default.id)
                 else -> default.parent == node.parent
-            }
+            } }
             if (!ok) issues += ValidationIssue.InvalidHistoryDefault(node.id, node.default)
         }
         for (t in chart.transitions) if (first[t.source] is HistoryState) issues += ValidationIssue.TransitionFromHistory(t)
@@ -260,7 +260,7 @@ class StateChartHistoryPropertyTest {
                 it is ValidationIssue.HistoryParent || it is ValidationIssue.HistoryAsInitial || it is ValidationIssue.InvalidHistoryDefault || it is ValidationIssue.TransitionFromHistory
             }
             assertEquals(referenceHistoryIssues(chart), history, "seed $seed")
-            history.forEach { kinds += it::class.simpleName!! }
+            history.forEach { kinds += kotlin.test.assertNotNull(it::class.simpleName) }
             // Structural issues first, then per transition (unknown source, unknown target, from history), then the rest.
             val structural = issues.takeWhile { it is ValidationIssue.DuplicateStateId || it is ValidationIssue.UnknownInitialState || it.isStructural() }
             assertEquals(issues.filter { it.isStructural() }, structural.filter { it.isStructural() }, "seed $seed")
@@ -303,12 +303,12 @@ class StateChartHistoryPropertyTest {
             "seed $seed",
         )
         for (id in chart.states.map { it.id }) {
-            val path = chart.shortestPathTo(id)
-            val distance = distances[id]
-            if (distance == null) {
-                assertNull(path, "seed $seed: $id")
+            if (id !in distances) {
+                kotlin.test.assertFalse(chart.shortestPathTo(id) { error("Unexpected path: $it") }, "seed $seed: $id")
                 continue
             }
+            val path = chart.shortestPathTo(id)
+            val distance = distances.getValue(id)
             assertNotNull(path, "seed $seed: $id")
             assertEquals(distance, path.transitions.size, "seed $seed: $id")
             assertTrue(id in replay(seed, reference, path).active, "seed $seed: $id not active at the end of $path")
@@ -353,13 +353,13 @@ class StateChartHistoryPropertyTest {
         val refOf = mutableMapOf<String, String>()
         for (line in lines) labelled.matchEntire(line)?.let { m -> if (!m.groupValues[1].startsWith("[H")) refOf[m.groupValues[1].replace("'", "\"")] = m.groupValues[2] }
         fun ref(id: StateId) = refOf[id.value] ?: id.value
-        val drawn = mutableListOf<Triple<String?, Boolean, String>>()
+        val drawn = mutableListOf<Triple<String, Boolean, String>>()
         val stack = ArrayDeque<String>()
         for (line in lines.drop(1)) {
             blockLine.matchEntire(line)?.let { stack.addLast(it.groupValues[2]) }
             if (line.trim() == "}") stack.removeLast()
             val match = historyLine.matchEntire(line) ?: continue
-            drawn += Triple(stack.lastOrNull(), match.groupValues[2] == "*", match.groupValues[3])
+            drawn += Triple(stack.last(), match.groupValues[2] == "*", match.groupValues[3])
         }
         // Each history once, labelled by its kind, in its parent's block, with a ref of its own.
         assertEquals(histories.map { ref(it.parent) to it.deep }.sortedBy { it.toString() }, drawn.map { it.first to it.second }.sortedBy { it.toString() }, "seed $seed: $text")
@@ -391,7 +391,12 @@ class StateChartHistoryPropertyTest {
     private fun guardHolds(label: String, action: RandomAction) = guards.getValue(label)(RandomState(StateId("any")), action)
 
     /** A Store that keeps the chart configuration and follows the runtime, except at [wrongAt]. */
-    private fun storeFor(chart: StateChartDefinition, wrongAt: Int?, wrongLeaf: StateId?, scope: TestScope): Store<RandomState, RandomAction, NoEvent> {
+    private sealed interface WalkPlan {
+        data object Declared : WalkPlan
+        data class Mutation(val index: Int, val from: StateId, val target: StateId) : WalkPlan
+    }
+
+    private fun storeFor(chart: StateChartDefinition, plan: WalkPlan, scope: TestScope): Store<RandomState, RandomAction, NoEvent> {
         val runtime = StateChartRuntime(chart, { s: RandomState -> s.id }, guards)
         var configuration = runtime.initialConfiguration()
         var index = 0
@@ -400,8 +405,8 @@ class StateChartHistoryPropertyTest {
             pendingActionPolicy(PendingActionPolicy.Keep)
             state<RandomState> {
                 action<RandomAction> {
-                    if (index++ == wrongAt) {
-                        configuration = chart.configurationOf(wrongLeaf!!).copy(history = configuration.history)
+                    if (plan is WalkPlan.Mutation && index++ == plan.index) {
+                        configuration = chart.configurationOf(plan.target).copy(history = configuration.history)
                     } else {
                         (runtime.step(configuration, state, action) as? StepResult.Transitioned)?.let { configuration = it.configuration }
                     }
@@ -418,8 +423,8 @@ class StateChartHistoryPropertyTest {
     private fun couldEnter(reference: HistoryReference, from: StateId, t: Transition, history: Map<StateId, Set<StateId>>): Set<StateId> {
         val configuration = HistoryConfiguration(reference.tree.configurationOf(from), history)
         val entered = reference.fire(configuration, t).entered.toMutableSet()
-        val target = reference.chart.states.firstOrNull { it.id == t.target } as? HistoryState
-        if (target != null && target.id !in history) {
+        val target = reference.chart.states.firstOrNull { it.id == t.target } ?: return entered
+        if (target is HistoryState && target.id !in history) {
             for (node in reference.chart.states) {
                 val fits = node !is HistoryState &&
                     if (target.deep) node is AtomicState && reference.tree.isProperAncestor(target.parent, node.id) else node.parent == target.parent
@@ -437,24 +442,28 @@ class StateChartHistoryPropertyTest {
         for ((from, to, action) in changes) {
             val configuration = HistoryConfiguration(reference.tree.configurationOf(from), history)
             if (from == to) {
-                val first = reference.tree.priority(from).firstOrNull { HierarchyReference.matches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action) }
-                if (first != null && reference.leaf(reference.fire(configuration, first).after) == from && first !in covered) covered += first
+                val firstIndex = reference.tree.priority(from).indexOfFirst { HierarchyReference.matches(it.trigger, action) }
+                val priority = reference.tree.priority(from)
+                if (firstIndex >= 0) {
+                    val first = priority[firstIndex]
+                    if (reference.leaf(reference.fire(configuration, first).after) == from && first !in covered) covered += first
+                }
                 // The runtime records history on a self-loop it takes (the first matching transition
                 // whose guard holds); the plugin keeps that as a possibility, so the report follows it.
                 val fired = reference.step(configuration, action, ::guardHolds)
-                if (fired != null && reference.leaf(fired.after) == from) history = fired.after.history
+                if (fired.transitions.isNotEmpty() && reference.leaf(fired.after) == from) history = fired.after.history
                 continue
             }
             val candidates = reference.tree.priority(from).filter { to in couldEnter(reference, from, it, history) }
-            val taken = candidates.firstOrNull { HierarchyReference.matches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action) }
-            history = if (taken != null) {
-                reference.fire(configuration, taken).after.history
+            val takenIndex = candidates.indexOfFirst { HierarchyReference.matches(it.trigger, action) }
+            history = if (takenIndex >= 0) {
+                reference.fire(configuration, candidates[takenIndex]).after.history
             } else {
                 val exited = reference.tree.chain(from) - reference.tree.chain(to).toSet()
                 history + reference.chart.states.filterIsInstance<HistoryState>().filter { it.parent in exited }.associate { it.id to reference.record(it, configuration.active) }
             }
             when {
-                taken != null -> if (taken !in covered) covered += taken
+                takenIndex >= 0 -> if (candidates[takenIndex] !in covered) covered += candidates[takenIndex]
                 candidates.isEmpty() -> violations += ConformanceViolation.UndeclaredTransition(from, to, action)
                 else -> violations += ConformanceViolation.UnexpectedTrigger(from, to, action)
             }
@@ -477,7 +486,7 @@ class StateChartHistoryPropertyTest {
                 fun next(action: RandomAction) = reference.step(at, action, ::guardHolds)
                 val moving = RandomCharts.actions.filter { next(it)?.let { f -> reference.leaf(f.after) != reference.leaf(at) } == true }
                 val action = if (moving.isNotEmpty() && random.nextInt(4) != 0) moving.random(random) else RandomCharts.actions.random(random)
-                next(action)?.let { fired ->
+                next(action).takeIf { it.transitions.isNotEmpty() }?.let { fired ->
                     if (chart.node(fired.transition.target) is HistoryState) restores++
                     at = fired.after
                 }
@@ -487,28 +496,30 @@ class StateChartHistoryPropertyTest {
             val walk = actions.mapIndexed { i, action -> Change(reference.leaf(configurations[i]), reference.leaf(configurations[i + 1]), action) }
 
             // One wrong leaf, one that no transition from the current leaf could enter whatever was recorded.
-            val wrongAt = if (actions.isEmpty()) null else random.nextInt(actions.size)
-            val wrongFrom = wrongAt?.let { walk[it].from }
-            val wrongLeaf = wrongFrom?.let { from ->
+            val plans = mutableListOf<WalkPlan>(WalkPlan.Declared)
+            if (actions.isNotEmpty()) {
+                val index = random.nextInt(actions.size)
+                val from = walk[index].from
                 val enterable = reference.tree.priority(from).flatMap { couldEnter(reference, from, it, emptyMap()) }.toSet()
-                chart.states.filterIsInstance<AtomicState>().map { it.id }.filter { it != from && it !in enterable }.randomOrNull(random)
+                val targets = chart.states.filterIsInstance<AtomicState>().map { it.id }.filter { it != from && it !in enterable }
+                if (targets.isNotEmpty()) plans += WalkPlan.Mutation(index, from, targets.random(random))
             }
 
-            for (mutated in listOf(false, true)) {
-                if (mutated && wrongLeaf == null) continue
+            for (plan in plans) {
+                val mutated = plan is WalkPlan.Mutation
                 val conformance = StateChartConformance<RandomState, RandomAction, NoEvent>(chart) { it.id }
-                val store = storeFor(chart, wrongAt.takeIf { mutated }, wrongLeaf, this).patch { plugin(conformance) }
+                val store = storeFor(chart, plan, this).patch { plugin(conformance) }
                 store.startAndAwait()
                 for (action in actions) store.dispatchAndAwait(action)
 
-                val changes = if (mutated) mutatedWalk(reference, actions, wrongAt!!, wrongLeaf!!) else walk
+                val changes = if (mutated) mutatedWalk(reference, actions, (plan as WalkPlan.Mutation).index, plan.target) else walk
                 val (violations, covered) = expectedReport(reference, changes)
                 assertEquals(violations, conformance.violations, "seed $seed")
                 assertEquals(covered, conformance.coveredTransitions.toList(), "seed $seed")
                 assertEquals(changes.lastOrNull()?.to ?: reference.leaf(reference.initialConfiguration()), store.currentState.id, "seed $seed")
                 if (mutated) {
                     mutants++
-                    assertEquals(ConformanceViolation.UndeclaredTransition(wrongFrom!!, wrongLeaf!!, actions[wrongAt!!]), violations.firstOrNull(), "seed $seed")
+                    assertEquals(ConformanceViolation.UndeclaredTransition((plan as WalkPlan.Mutation).from, plan.target, actions[(plan as WalkPlan.Mutation).index]), violations.firstOrNull(), "seed $seed")
                 } else {
                     assertEquals(emptyList(), violations, "seed $seed: the runtime itself must conform")
                 }

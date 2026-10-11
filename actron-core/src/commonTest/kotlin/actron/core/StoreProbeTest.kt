@@ -17,7 +17,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
 import kotlin.test.Test
@@ -141,7 +140,7 @@ class StoreProbeTest {
         }
     }
 
-    private val StoreTrace<*, *, *>.input: InputAttribution?
+    private val StoreTrace<*, *, *>.input: InputAttribution
         get() = when (this) {
             is StoreTrace.InputAccepted -> input
             is StoreTrace.InputDiscarded -> input
@@ -150,10 +149,10 @@ class StoreProbeTest {
             is StoreTrace.EventEmitted -> input
             is StoreTrace.FailureReported -> input
             is StoreTrace.ProcessingFinished -> input
-            StoreTrace.StoreClosed -> null
+            StoreTrace.StoreClosed -> error("Store closure has no input attribution")
         }
 
-    private fun <S : State, A : Action, E : Event> List<StoreTrace<S, A, E>>.of(input: InputId) = filter { it.input == input }
+    private fun <S : State, A : Action, E : Event> List<StoreTrace<S, A, E>>.of(input: InputId) = filter { it !== StoreTrace.StoreClosed && it.input == input }
 
     private inline fun <reified T : StoreTrace<*, *, *>> List<StoreTrace<*, *, *>>.singleOf(): T = filterIsInstance<T>().single()
 
@@ -659,7 +658,7 @@ class StoreProbeTest {
             probe.traces.filterIsInstance<StoreTrace.EventEmitted<AppEvent>>(),
         )
         // The launched event came after the Noop dispatch was processed, yet names its own input.
-        val order = probe.traces.map { it::class.simpleName to it.input }
+        val order = probe.traces.map { checkNotNull(it::class.simpleName) to it.input }
         assertTrue(order.indexOf("ProcessingFinished" to InputId(4)) < order.indexOf("EventEmitted" to InputId(3)))
         store.close()
     }
@@ -771,10 +770,14 @@ class StoreProbeTest {
             // has its end, bounded so that a real gap fails the assertions below by name.
             val traces = mutableListOf<StoreTrace<StormState, StormAction, Nothing>>()
             withContext(Dispatchers.Default) {
-                withTimeoutOrNull(10_000) {
+                withTimeout(10_000) {
                     while (true) {
                         traces += recorded.receive()
-                        generateSequence { recorded.tryReceive().getOrNull() }.forEach { traces += it }
+                        while (true) {
+                            val received = recorded.tryReceive()
+                            if (received.isFailure) break
+                            traces += received.getOrThrow()
+                        }
                         if (traces.none { it === StoreTrace.StoreClosed }) continue
                         val waiting = traces.filterIsInstance<StoreTrace.InputAccepted<StormAction>>().map { it.input }.toSet() -
                             traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }.toSet() -
@@ -801,7 +804,7 @@ class StoreProbeTest {
             val closedAt = traces.indexOfFirst { it === StoreTrace.StoreClosed }
             assertTrue(traces.drop(closedAt + 1).none { it is StoreTrace.ProcessingStarted || it is StoreTrace.StateCommitted<*> }, "iteration $iteration: processing after StoreClosed")
             // Dispatches that arrive after the close are accepted and discarded at once, so they may follow StoreClosed.
-            assertTrue(traces.drop(closedAt + 1).all { it is StoreTrace.InputAccepted<*> || it is StoreTrace.InputDiscarded }, "iteration $iteration: ${traces.drop(closedAt + 1).map { it::class.simpleName }.toSet()}")
+            assertTrue(traces.drop(closedAt + 1).all { it is StoreTrace.InputAccepted<*> || it is StoreTrace.InputDiscarded }, "iteration $iteration: ${traces.drop(closedAt + 1).map { checkNotNull(it::class.simpleName) }.toSet()}")
         }
     }
 
@@ -849,7 +852,7 @@ class StoreProbeTest {
             withTimeout(10_000) { store.state.first { it.count == total } }
         }
         store.close()
-        val traces = generateSequence { recorded.tryReceive().getOrNull() }.toList()
+        val traces = buildList { while (true) { val received = recorded.tryReceive(); if (received.isFailure) break; add(received.getOrThrow()) } }
 
         val accepted = traces.filterIsInstance<StoreTrace.InputAccepted<CounterAction>>()
         val transactions = total / 2

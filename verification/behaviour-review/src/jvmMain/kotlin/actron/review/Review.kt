@@ -21,7 +21,7 @@ private fun machine(version: String, extraRetry: Boolean): Machine<Unit, Action,
 /** Real model execution, coverage and exported artifacts used by the PR integration. */
 fun main(args: Array<String>) {
     val output = File(args[0]).apply { mkdirs() }
-    val baseline = args.getOrNull(1)?.let(::File)?.takeIf { it.isFile }?.readText()?.let(BehaviouralSnapshot::fromJson)
+
     val current = machine("2", true)
     val generator = current.inputGenerator(listOf(actionGenerator<Unit, Send>("send") { _, _ -> listOf(Send(false), Send(true)) },
         actionGenerator<Unit, Retry>("retry") { _, _ -> listOf(Retry) }))
@@ -38,7 +38,9 @@ fun main(args: Array<String>) {
         "state:idle" to ModelSource(sourcePath, 13), "state:sent" to ModelSource(sourcePath, 13),
         "transition:0" to ModelSource(sourcePath, 15), "transition:1" to ModelSource(sourcePath, 16)),
         active = frame.decision.snapshot.configuration.active, selectedTransitions = frame.decision.transitions.toSet())
-    val artifacts = if (baseline == null) behaviouralReviewArtifacts(after) else behaviouralReviewArtifacts(baseline, after)
+    val artifacts = if (args.size > 1 && File(args[1]).isFile) {
+        behaviouralReviewArtifacts(BehaviouralSnapshot.fromJson(File(args[1]).readText()), after)
+    } else behaviouralReviewArtifacts(after)
     artifacts.forEach { (name, text) -> File(output, name).writeText(text) }
     check(!artifacts.getValue("behaviour.diff").contains("VERSION BUMP REQUIRED")) { "Version unchanged after structural behaviour change" }
     check(!artifacts.getValue("coverage.diff").contains("REGRESSED")) { "Behavioural coverage regressed" }

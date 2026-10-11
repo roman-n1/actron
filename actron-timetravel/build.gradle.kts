@@ -67,7 +67,7 @@ kotlin {
 }
 
 publishConvention {
-    artifactId = "actron-timetravel"
+    artifactId.set("actron-timetravel")
 }
 
 // ENOSPC is opt-in on a bounded CI mount; cached ordinary JVM results must not skip that mode.

@@ -121,9 +121,14 @@ class MachineStoreSoakTest {
         assertEquals(ticks, final.context.ticks)
         assertEquals(senders * perSender / 2, final.context.loads, "every Load was decided once")
         assertTrue(final.loaded() >= 0, "the last load answered")
-        val commits = generateSequence { traces.tryReceive().getOrNull() }.count { it is StoreTrace.StateCommitted<*> }
+        var commits = 0
+        while (true) {
+            val received = traces.tryReceive()
+            if (received.isFailure) break
+            if (received.getOrThrow() is StoreTrace.StateCommitted<*>) commits++
+        }
         assertEquals(final.revision, commits.toLong(), "one commit per handled decision")
-        assertEquals(null, handled.tryReceive().getOrNull(), "nothing was reported")
+        assertTrue(handled.tryReceive().isFailure, "nothing was reported")
     }
 
     private fun MachineSnapshot<Ctx>.loaded(): Int = context.loaded

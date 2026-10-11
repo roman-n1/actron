@@ -38,8 +38,8 @@ class StoreActionCoroutineScopeTest {
     }
 
     private fun createTestStore(
-        onLongRunningStart: (() -> Unit)? = null,
-        onLongRunningCancelled: (() -> Unit)? = null,
+        onLongRunningStart: () -> Unit = {},
+        onLongRunningCancelled: () -> Unit = {},
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
     ): Store<AppState, AppAction, Nothing> {
         return Store(AppState.Active()) {
@@ -66,11 +66,11 @@ class StoreActionCoroutineScopeTest {
 
                 action<AppAction.LaunchLongRunning> {
                     launch {
-                        onLongRunningStart?.invoke()
+                        onLongRunningStart()
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onLongRunningCancelled?.invoke()
+                            onLongRunningCancelled()
                         }
                     }
                 }
@@ -203,16 +203,16 @@ class StoreActionCoroutineScopeTest {
 
     @Test
     fun actionLaunch_fatalError_isForwardedToExceptionHandler() = runTest(testDispatcher) {
-        var handledThrowable: Throwable? = null
+        val handledThrowableObservations = mutableListOf<Throwable>()
         val store = createTestStore(
-            exceptionHandler = ExceptionHandler { handledThrowable = it },
+            exceptionHandler = ExceptionHandler { handledThrowableObservations.add(it) },
         )
 
         store.dispatch(AppAction.LaunchFatal)
         repeat(3) { yield() }
 
-        assertNotNull(handledThrowable)
-        val error = handledThrowable
+        assertNotNull(handledThrowableObservations.single())
+        val error = handledThrowableObservations.single()
         assertIs<AssertionError>(error)
         assertEquals("fatal launch", error.message)
         assertEquals(AppState.Active(value = 0), store.currentState)
@@ -220,16 +220,16 @@ class StoreActionCoroutineScopeTest {
 
     @Test
     fun actionLaunch_nonExceptionThrowable_isForwardedToExceptionHandler() = runTest(testDispatcher) {
-        var handledThrowable: Throwable? = null
+        val handledThrowableObservations = mutableListOf<Throwable>()
         val store = createTestStore(
-            exceptionHandler = ExceptionHandler { handledThrowable = it },
+            exceptionHandler = ExceptionHandler { handledThrowableObservations.add(it) },
         )
 
         store.dispatch(AppAction.LaunchBareThrowable)
         repeat(3) { yield() }
 
-        assertNotNull(handledThrowable)
-        val error = handledThrowable
+        assertNotNull(handledThrowableObservations.single())
+        val error = handledThrowableObservations.single()
         assertIs<DirectThrowable>(error)
         assertEquals("bare throwable", error.message)
         assertEquals(AppState.Active(value = 0), store.currentState)
@@ -237,16 +237,16 @@ class StoreActionCoroutineScopeTest {
 
     @Test
     fun actionLaunch_transactionFatalError_isForwardedToExceptionHandler() = runTest(testDispatcher) {
-        var handledThrowable: Throwable? = null
+        val handledThrowableObservations = mutableListOf<Throwable>()
         val store = createTestStore(
-            exceptionHandler = ExceptionHandler { handledThrowable = it },
+            exceptionHandler = ExceptionHandler { handledThrowableObservations.add(it) },
         )
 
         store.dispatch(AppAction.LaunchTransactionFatal)
         repeat(3) { yield() }
 
-        assertNotNull(handledThrowable)
-        val error = handledThrowable
+        assertNotNull(handledThrowableObservations.single())
+        val error = handledThrowableObservations.single()
         assertIs<AssertionError>(error)
         assertEquals("fatal transaction", error.message)
         assertEquals(AppState.Active(value = 0), store.currentState)

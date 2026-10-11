@@ -40,8 +40,8 @@ class GroupTimeTravelControlsTest {
         assertSame(recording, replay.session.recording)
 
         controls.returnToReplay()
-        assertNull(controls.branch)
-        assertNull(controls.branchPosition)
+        kotlin.test.assertIs<GroupTravel.Replaying>(controls.travel)
+        kotlin.test.assertIs<GroupTravel.Replaying>(controls.travel)
         assertEquals(InspectorMode.Replay, controls.mode)
         replay.stepForward()
         assertEquals(5, replay.position)

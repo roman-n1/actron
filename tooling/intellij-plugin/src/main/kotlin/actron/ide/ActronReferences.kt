@@ -18,14 +18,15 @@ class ActronReferenceContributor : PsiReferenceContributor() {
             override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<PsiReference> {
                 val literal = element as JsonStringLiteral
                 val file = literal.containingFile as? JsonFile ?: return emptyArray()
-                if (ActronModel.root(file) == null || ActronModel.declarationKey(literal) != null) return emptyArray()
-                val property = literal.parent as? JsonProperty
-                val arrayProperty = (literal.parent as? JsonArray)?.parent as? JsonProperty
-                if (property != null && (property.value != literal || property.name !in setOf("source", "target", "parent", "initial", "default"))) return emptyArray()
-                if (property == null && arrayProperty?.name !in setOf("active", "coveredStates", "selectedTransitions")) return emptyArray()
-                val key = if (arrayProperty?.name == "selectedTransitions") literal.value else "state:${literal.value}"
-                return arrayOf(object : PsiReferenceBase<JsonStringLiteral>(literal) {
-                    override fun resolve(): PsiElement? = ActronModel.declaration(file, key)
+                if (!ActronModel.withRoot(file) {} || ActronModel.declarationKey(literal) {}) return emptyArray()
+                val parent = literal.parent ?: return emptyArray()
+                val arrayKind = (((parent as? JsonArray)?.parent as? JsonProperty)?.name).orEmpty()
+                if (parent is JsonProperty && (parent.value != literal || parent.name !in setOf("source", "target", "parent", "initial", "default"))) return emptyArray()
+                if (parent !is JsonProperty && arrayKind !in setOf("active", "coveredStates", "selectedTransitions")) return emptyArray()
+                val key = if (arrayKind == "selectedTransitions") literal.value else "state:${literal.value}"
+                return arrayOf(object : PsiPolyVariantReferenceBase<JsonStringLiteral>(literal) {
+                    override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> =
+                        ActronModel.declarations(file, key).map { PsiElementResolveResult(it) }.toTypedArray()
                     override fun getVariants(): Array<Any> = emptyArray()
                 })
             }
@@ -34,12 +35,12 @@ class ActronReferenceContributor : PsiReferenceContributor() {
 }
 
 class ActronFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
-    override fun canFindUsages(element: PsiElement): Boolean = ActronModel.declarationKey(element) != null
+    override fun canFindUsages(element: PsiElement): Boolean = ActronModel.declarationKey(element) {}
     override fun createFindUsagesHandler(element: PsiElement, forHighlightUsages: Boolean): FindUsagesHandler = object : FindUsagesHandler(element) {
         override fun processElementUsages(element: PsiElement, processor: Processor<in UsageInfo>, options: FindUsagesOptions): Boolean {
             // A definition is local to one versioned export; identical ids in other machines are unrelated.
-            for (literal in PsiTreeUtil.findChildrenOfType(element.containingFile, JsonStringLiteral::class.java)) {
-                for (reference in PsiReferenceService.getService().getReferences(literal, PsiReferenceService.Hints.NO_HINTS)) if (reference.isReferenceTo(element) && !processor.process(UsageInfo(reference))) return false
+            for (literal in checkNotNull(PsiTreeUtil.findChildrenOfType(element.containingFile, JsonStringLiteral::class.java)).filterNotNull()) {
+                for (reference in checkNotNull(PsiReferenceService.getService().getReferences(literal, PsiReferenceService.Hints.NO_HINTS)).filterNotNull()) if (reference.isReferenceTo(element) && !processor.process(UsageInfo(reference))) return false
             }
             return true
         }

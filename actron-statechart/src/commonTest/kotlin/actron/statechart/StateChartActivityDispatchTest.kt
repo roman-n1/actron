@@ -37,10 +37,10 @@ class StateChartActivityDispatchTest {
     fun anActivityActionQueuedDuringExitIsIgnoredAfterItsActivationEnds() = runTest {
         val enteringB = CompletableDeferred<Unit>()
         val finishEntry = CompletableDeferred<Unit>()
-        lateinit var oldScope: ChartLaunchScope<Unit, Input, Nothing>
+        val oldScopeObservations = mutableListOf<ChartLaunchScope<Unit, Input, Nothing>>()
         val seen = mutableListOf<Input>()
         val store = StateChartStore<Unit, Input, Nothing>(chart, Unit, backgroundScope.coroutineContext) {
-            activity(a) { oldScope = this }
+            activity(a) { oldScopeObservations.add(this) }
             onEnter(b) { enteringB.complete(Unit); finishEntry.await() }
             store { plugin(Plugin(onAction = { _, action -> seen += action })) }
         }
@@ -49,8 +49,8 @@ class StateChartActivityDispatchTest {
             runCurrent()
             store.dispatch(Input.Move)
             enteringB.await()
-            assertTrue(oldScope.isActive)
-            oldScope.dispatch(Input.Result)
+            assertTrue(oldScopeObservations.single().isActive)
+            oldScopeObservations.single().dispatch(Input.Result)
             finishEntry.complete(Unit)
             runCurrent()
 

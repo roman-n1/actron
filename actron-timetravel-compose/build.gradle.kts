@@ -18,9 +18,7 @@ kotlin {
         minSdk = libs.versions.android.minSdk.get().toInt()
 
         withHostTestBuilder {}.configure {}
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }
+        // Common Compose tests run on the host; device lifecycle tests live in actron-compose.
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -64,5 +62,5 @@ kotlin {
 }
 
 publishConvention {
-    artifactId = "actron-timetravel-compose"
+    artifactId.set("actron-timetravel-compose")
 }

@@ -53,10 +53,7 @@ class StoreAwaitIdleTest {
         var effects = 0
         val gate = CompletableDeferred<Unit>()
         val handled = mutableListOf<Throwable>()
-        lateinit var store: Store<State, Act, Nothing>
-
-        init {
-            store = Store(Counter()) {
+        val store: Store<State, Act, Nothing> by lazy { Store(Counter()) {
             coroutineContext(Dispatchers.Default)
             exceptionHandler(ExceptionHandler { handled += it })
             state<Counter> {
@@ -69,8 +66,7 @@ class StoreAwaitIdleTest {
                 action<Act.Finish> { nextState { Done } }
             }
             state<Done> { }
-            }
-        }
+            } }
     }
 
     // The Store runs on real dispatchers, so the wait runs on one too: under runTest's own
@@ -134,14 +130,18 @@ class StoreAwaitIdleTest {
     @Test
     fun awaitIdle_fromInsideTheStore_failsFast() = runTest {
         val handled = mutableListOf<Throwable>()
-        lateinit var store: Store<State, Act, Nothing>
-        store = Store(Counter()) {
+        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<State, Act, Nothing>>()
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val store: Store<State, Act, Nothing> = Store(Counter()) {
             coroutineContext(Dispatchers.Default)
             exceptionHandler(ExceptionHandler { handled += it })
             state<Counter> {
-                action<Act.Add> { store.awaitIdleForTest() }
+                action<Act.Add> { storePublication.getCompleted().awaitIdleForTest() }
             }
         }
+        storePublication.complete(store)
+
+
 
         store.dispatchAndAwaitForTest(Act.Add)
 
@@ -163,14 +163,18 @@ class StoreAwaitIdleTest {
     fun underAStorm_awaitIdle_returnsOnlyWhenEveryLaunchedEffectHappened() = runTest {
         repeat(10) { round ->
             val effects = MutableStateFlow(0)
-            lateinit var store: Store<State, Act, Nothing>
-            store = Store(Counter()) {
+            val storePublication = kotlinx.coroutines.CompletableDeferred<Store<State, Act, Nothing>>()
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val store: Store<State, Act, Nothing> = Store(Counter()) {
                 coroutineContext(Dispatchers.Default)
                 state<Counter> {
                     action<Act.Add> { launch(Dispatchers.Default) { delay(Random.nextLong(0, 3)); effects.update { it + 1 } } }
-                    action<Act.Chain> { launch { delay(Random.nextLong(0, 2)); store.dispatch(Act.Add) } }
+                    action<Act.Chain> { launch { delay(Random.nextLong(0, 2)); storePublication.getCompleted().dispatch(Act.Add) } }
                 }
             }
+        storePublication.complete(store)
+
+
             val senders = 8
             val perSender = 100
             withContext(Dispatchers.Default) {

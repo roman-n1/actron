@@ -186,7 +186,7 @@ class StoreLifecycleTest {
         store.dispatchAndAwaitForTest(AppAction.Throw)
 
         assertEquals(1, recoverCount)
-        assertEquals(listOf("second"), handled.map { it.message })
+        assertEquals(listOf("second"), handled.map { it.message.orEmpty() })
         assertEquals(AppState.Failed("first"), store.currentState)
     }
 
@@ -223,7 +223,7 @@ class StoreLifecycleTest {
         }
 
         assertEquals(AppState.Idle(value = 7), store.currentState)
-        assertEquals(listOf("corrupted snapshot"), handled.map { it.message })
+        assertEquals(listOf("corrupted snapshot"), handled.map { it.message.orEmpty() })
     }
 
     @Test

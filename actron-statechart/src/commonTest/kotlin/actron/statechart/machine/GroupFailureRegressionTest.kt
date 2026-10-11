@@ -30,27 +30,27 @@ class GroupFailureRegressionTest {
 
     private class Source(
         name: String,
-        val pauseFailure: Throwable? = null,
-        val snapshotFailure: Throwable? = null,
-        val resumeFailure: Throwable? = null,
-        val gate: CompletableDeferred<Unit>? = null,
+        val pauseFailure: () -> Unit = {},
+        val snapshotFailure: () -> Unit = {},
+        val resumeFailure: () -> Unit = {},
+        val gate: CompletableDeferred<Unit> = CompletableDeferred(Unit),
     ) : ExternalSource {
         override val id = SourceId(name)
         override val kind = "test"
         var paused = false
         var resumes = 0
         override suspend fun pause() {
-            gate?.await()
-            pauseFailure?.let { throw it }
+            gate.await()
+            pauseFailure()
             paused = true
         }
         override fun snapshot(): SourceSnapshot {
-            snapshotFailure?.let { throw it }
+            snapshotFailure()
             return SourceSnapshot(id, kind, 1, emptyMap())
         }
         override fun resume() {
             resumes++
-            resumeFailure?.let { throw it }
+            resumeFailure()
             paused = false
         }
     }
@@ -80,7 +80,7 @@ class GroupFailureRegressionTest {
     fun aResumeFailureDoesNotSkipTheRemainingSources() = runTest {
         val failure = IllegalStateException("resume")
         val group = MachineGroup()
-        val first = Source("first", resumeFailure = failure)
+        val first = Source("first", resumeFailure = { throw failure })
         val last = Source("last")
         group.source(first)
         group.source(last)
@@ -96,8 +96,8 @@ class GroupFailureRegressionTest {
         val secondFailure = IllegalArgumentException("second resume")
         val group = MachineGroup()
         val last = Source("last")
-        group.source(Source("first", resumeFailure = firstFailure))
-        group.source(Source("second", resumeFailure = secondFailure))
+        group.source(Source("first", resumeFailure = { throw firstFailure }))
+        group.source(Source("second", resumeFailure = { throw secondFailure }))
         group.source(last)
         assertSame(firstFailure, assertFailsWith<IllegalStateException> { group.checkpoint() })
         assertEquals(listOf(secondFailure), firstFailure.suppressedExceptions)
@@ -110,7 +110,7 @@ class GroupFailureRegressionTest {
         val cleanupFailure = IllegalArgumentException("resume")
         val group = MachineGroup()
         val last = Source("last")
-        group.source(Source("first", snapshotFailure = failure, resumeFailure = cleanupFailure))
+        group.source(Source("first", snapshotFailure = { throw failure }, resumeFailure = { throw cleanupFailure }))
         group.source(last)
         assertSame(failure, assertFailsWith<IllegalStateException> { group.checkpoint() })
         assertEquals(listOf(cleanupFailure), failure.suppressedExceptions)
@@ -122,7 +122,7 @@ class GroupFailureRegressionTest {
         val failure = IllegalStateException("pause")
         val group = MachineGroup()
         val first = Source("first")
-        val failing = Source("failing", pauseFailure = failure)
+        val failing = Source("failing", pauseFailure = { throw failure })
         val last = Source("last")
         listOf(first, failing, last).forEach(group::source)
         // Coroutine stack-trace recovery can copy an exception across pause's suspension.

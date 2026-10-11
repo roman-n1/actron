@@ -151,18 +151,18 @@ class BranchControlsTest {
         assertEquals(1, (c.snapshot(store).context as Ctx).loaded)
         assertTrue(c.awaiting(store).isEmpty(), "the transition exited the command's activation, which cancelled it")
         assertEquals(listOf("Load", "Loaded -> c1"), c.decisions.map { it.cause })
-        assertNull(c.problem)
+        kotlin.test.assertIs<BranchRequest.Ready>(c.request)
 
         // A command that is not awaiting any more is refused: a problem, not a decision.
         c.complete(store, awaiting.id)
-        assertTrue(c.problem != null, "refused")
+        kotlin.test.assertIs<BranchRequest.Refused>(c.request, "refused")
         c.complete(store, CommandId(9))
-        assertTrue(c.problem != null, "refused")
+        kotlin.test.assertIs<BranchRequest.Refused>(c.request, "refused")
         assertEquals(2, c.decisions.size)
 
         // Back to Loading from Content; the clock fires the timer.
         c.dispatch(BranchInput.Dispatch(store, "Load", Act.Load))
-        assertNull(c.problem, "the next request clears the problem")
+        kotlin.test.assertIs<BranchRequest.Ready>(c.request, "the next request clears the problem")
         assertTrue(c.snapshot(store).isActive(loading))
         c.advance(11.seconds)
         assertTrue(c.snapshot(store).isActive(idle))

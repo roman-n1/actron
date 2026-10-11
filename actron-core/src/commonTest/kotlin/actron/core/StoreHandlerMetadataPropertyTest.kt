@@ -45,8 +45,8 @@ class StoreHandlerMetadataPropertyTest {
                 val actual = metadata.of(kind)
                 val context = "seed=$seed kind=$kind"
                 assertEquals(expected.indices.toList(), actual.map { it.index }, context)
-                assertEquals(expected.map { it?.stateType }, actual.map { it.stateType }, context)
-                assertEquals(expected.map { it?.inputType }, actual.map { it.inputType }, context)
+                assertEquals(expected.map { it.stateType }, actual.map { it.stateType }, context)
+                assertEquals(expected.map { it.inputType }, actual.map { it.inputType }, context)
                 if (kind == HandlerKind.ENTER || kind == HandlerKind.EXIT) {
                     assertTrue(actual.all { it.inputType == Unit::class }, context)
                 }
@@ -87,18 +87,22 @@ class StoreHandlerMetadataPropertyTest {
 
     @Test
     fun metadataIsAvailableWhileAHandlerHoldsTheStore() = runTest {
-        lateinit var store: Store<RtState, RtAction, RtEvent>
-        var fromInside: StoreHandlerMetadata? = null
-        store = Store(RtState.A(0)) {
+        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<RtState, RtAction, RtEvent>>()
+        val fromInsideObservations = mutableListOf<StoreHandlerMetadata>()
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val store: Store<RtState, RtAction, RtEvent> = Store(RtState.A(0)) {
             coroutineContext(StandardTestDispatcher(testScheduler))
             state<RtState.A> {
                 action<RtAction.P> {
-                    fromInside = store.api().handlerMetadata()
+                    fromInsideObservations.add(storePublication.getCompleted().api().handlerMetadata())
                     delay(5_000)
                 }
                 recover<CustomBoom> { }
             }
         }
+        storePublication.complete(store)
+
+
 
         store.dispatch(RtAction.P())
         testScheduler.advanceTimeBy(1)
@@ -107,7 +111,7 @@ class StoreHandlerMetadataPropertyTest {
 
         assertEquals(t, currentTime)
         assertEquals(listOf(RtAction.P::class), outside.action.map { it.inputType })
-        assertEquals(listOf(CustomBoom::class), fromInside!!.recover.map { it.inputType })
+        assertEquals(listOf(CustomBoom::class), kotlin.test.assertNotNull(fromInsideObservations.single()).recover.map { it.inputType })
         store.close()
     }
 }

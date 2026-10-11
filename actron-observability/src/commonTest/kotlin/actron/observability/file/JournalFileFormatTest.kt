@@ -49,8 +49,8 @@ class JournalFileFormatTest {
     private val group = MachineGroupId("g")
     private val store = StoreInstanceId("store-a")
 
-    private fun record(seq: Long, entry: JournalEntry<*, *, *>, store: StoreInstanceId? = this.store, storeSeq: Long? = seq, elapsed: Duration = seq.milliseconds) =
-        JournalRecord(JOURNAL_FORMAT_VERSION, session, group, store ?: actron.observability.RecordSubject.Session, ExecutionMode.Live, GroupSeq(seq), storeSeq?.let(::StoreSeq) ?: actron.observability.RecordOrdinal.Session, elapsed, entry)
+    private fun record(seq: Long, entry: JournalEntry<*, *, *>, store: actron.observability.RecordSubject = this.store, ordinal: actron.observability.RecordOrdinal = StoreSeq(seq), elapsed: Duration = seq.milliseconds) =
+        JournalRecord(JOURNAL_FORMAT_VERSION, session, group, store, ExecutionMode.Live, GroupSeq(seq), ordinal, elapsed, entry)
 
     private data class Loaded(val items: List<String>) : actron.core.Event
 
@@ -80,7 +80,7 @@ class JournalFileFormatTest {
             ),
         ),
         record(17, JournalEntry.DecisionIgnored(InputAttribution.Unattributed, "NoTransition")),
-        record(18, JournalEntry.JournalGap(3), store = null, storeSeq = null),
+        record(18, JournalEntry.JournalGap(3), store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
         record(19, JournalEntry.BridgeSent(InputId(5), MessageRef(store, 1), StoreInstanceId("root-1"), delivered = true, cause = MessageRef(StoreInstanceId("root-1"), 4))),
         record(20, JournalEntry.BridgeSent(InputAttribution.Unattributed, MessageRef(store, 2), StoreInstanceId("nobody"), delivered = false)),
         record(21, JournalEntry.BridgeReceived(InputId(6), MessageRef(StoreInstanceId("root-1"), 1))),
@@ -89,8 +89,8 @@ class JournalFileFormatTest {
         record(24, JournalEntry.EffectAcknowledged(4)),
         record(25, JournalEntry.EffectDiscarded(5, "Superseded")),
         record(26, JournalEntry.ExternalReceived(InputId(7), "paging:chat-1")),
-        record(27, JournalEntry.CheckpointCreated(listOf(store, StoreInstanceId("root-1")), listOf("paging:chat-1"), 1), store = null, storeSeq = null),
-        record(28, JournalEntry.RecordingStopped, store = null, storeSeq = null),
+        record(27, JournalEntry.CheckpointCreated(listOf(store, StoreInstanceId("root-1")), listOf("paging:chat-1"), 1), store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
+        record(28, JournalEntry.RecordingStopped, store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
         record(29, JournalEntry.CommandsAbandoned("StoreClosed", listOf(3, 4), listOf(2))),
         record(30, JournalEntry.BridgeDropped(MessageRef(StoreInstanceId("root-1"), 3), store, "StoreClosed")),
     )
@@ -113,7 +113,7 @@ class JournalFileFormatTest {
 
         assertEquals(SegmentHeader(JOURNAL_FILE_FORMAT_VERSION, JOURNAL_FORMAT_VERSION, session, group, ExecutionMode.Live, 0), decoded.header)
         assertEquals(expected, decoded.records)
-        assertNull(decoded.mark)
+        kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
         assertTrue(decoded.finished)
         assertEquals(Payload.Described("Loaded(items=[tom, felix])"), (decoded.records[9].entry as JournalEntry.EventEmitted<*>).event, "a retained object is kept as its text")
     }
@@ -141,7 +141,7 @@ class JournalFileFormatTest {
         assertEquals(6, decoded.header?.recordFormatVersion)
         val sent = expected[18].entry as JournalEntry.BridgeSent
         assertEquals(listOf(expected[0].entry, sent.copy(cause = actron.observability.MessageCause.Unprompted)), decoded.records.map { it.entry }, "a reader of a version reads every earlier one: variants only grow at the end, fields at the end of a variant")
-        assertNull(decoded.mark)
+        kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
     }
 
     @Test
@@ -184,7 +184,7 @@ class JournalFileFormatTest {
         assertEquals(all.size + 1, unfinishedCuts, "one cut per frame boundary: after the header and after each record")
         assertTrue(truncatedCuts > all.size, "truncated cuts: $truncatedCuts")
         val whole = JournalFileFormat.decodeSegment("whole", bytes)
-        assertTrue(whole.finished && whole.mark == null, "the whole segment: ${whole.mark}")
+        assertTrue(whole.finished && whole.ending is SegmentEnding.Finalized, "the whole segment: ${whole.ending}")
     }
 
     @Test
@@ -200,8 +200,8 @@ class JournalFileFormatTest {
             damaged[offset] = (damaged[offset].toInt() xor (1 shl bit)).toByte()
             val decoded = JournalFileFormat.decodeSegment("bit", damaged)
             assertEquals(expected.take(decoded.records.size), decoded.records, "flip at $offset bit $bit")
-            assertTrue(decoded.mark != null || decoded.records.size == expected.size, "flip at $offset bit $bit went unnoticed and lost records")
-            if (decoded.mark != null) caught++
+            assertTrue(decoded.ending.withIssue {} || decoded.records.size == expected.size, "flip at $offset bit $bit went unnoticed and lost records")
+            if (decoded.ending.withIssue {}) caught++
         }
         assertTrue(caught >= flips.size - 8, "every flip but those in the end frame's trailing bytes is marked: $caught of ${flips.size}")
     }
@@ -211,9 +211,9 @@ class JournalFileFormatTest {
         assertEquals("s1-000042.journal", JournalFileFormat.segmentName(session, 42))
         assertEquals(session to 42, JournalFileFormat.parseSegmentName("s1-000042.journal"))
         assertEquals(RuntimeSessionId("a-b-c") to 7, JournalFileFormat.parseSegmentName("a-b-c-000007.journal"), "a session id may contain dashes")
-        assertNull(JournalFileFormat.parseSegmentName("notes.txt"))
-        assertNull(JournalFileFormat.parseSegmentName("s1-42.journal"))
-        assertNull(JournalFileFormat.parseSegmentName("-000001.journal"))
+        kotlin.test.assertFalse(JournalFileFormat.parseSegmentName("notes.txt") { _, _ -> error("Unexpected parsed segment") })
+        kotlin.test.assertFalse(JournalFileFormat.parseSegmentName("s1-42.journal") { _, _ -> error("Unexpected parsed segment") })
+        kotlin.test.assertFalse(JournalFileFormat.parseSegmentName("-000001.journal") { _, _ -> error("Unexpected parsed segment") })
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }

@@ -259,7 +259,7 @@ class StateChartHistoryTest {
             broken.validate(),
         )
         val error = assertFailsWith<IllegalArgumentException> { StateChartRuntime(broken, stateIdOf) }
-        assertTrue(error.message!!.startsWith("[Actron] Malformed state hierarchy: HistoryParent"), error.message)
+        assertTrue(kotlin.test.assertNotNull(error.message).startsWith("[Actron] Malformed state hierarchy: HistoryParent"), error.message)
         // Tools keep working on it.
         assertEquals(listOf(Transition(chatHistory, inbox, ActionMatcher("Go"))), broken.transitionCoveragePaths().single().transitions)
     }
@@ -293,7 +293,7 @@ class StateChartHistoryTest {
         assertEquals(StateChartPath(splash, listOf(start, send, retry), listOf(composing, sending, chatHistory)), badDefault.shortestPathTo(chatHistory))
         val historyInitial = chart.copy(states = chart.states.map { if (it.id == chat) CompoundState(chat, initial = chatHistory, parent = main) else it })
         assertEquals(StateChartPath(splash, listOf(start), listOf(composing)), historyInitial.shortestPathTo(composing))
-        assertNull(historyInitial.shortestPathTo(StateId("Nowhere")))
+        kotlin.test.assertFalse(historyInitial.shortestPathTo(StateId("Nowhere")) { error("Unexpected path: $it") })
     }
 
     // endregion

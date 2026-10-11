@@ -55,5 +55,5 @@ kotlin {
 }
 
 publishConvention {
-    artifactId = "actron-test"
+    artifactId.set("actron-test")
 }

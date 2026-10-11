@@ -49,8 +49,8 @@ class StoreMatchActionHandlersPropertyTest {
                 val context = "seed=$seed s=$s a=$a"
                 assertEquals(planned.indices.toList(), matches.map { it.index }, context)
                 assertEquals(planned.map { it.matches(s, a) }, matches.map { it.matches }, context)
-                assertEquals(registry.action.map { it?.stateType }, matches.map { it.stateType }, context)
-                assertEquals(registry.action.map { it?.inputType }, matches.map { it.actionType }, context)
+                assertEquals(registry.action.map { it.stateType }, matches.map { it.stateType }, context)
+                assertEquals(registry.action.map { it.inputType }, matches.map { it.actionType }, context)
                 legacyMatches += matches.count { it.matches && it.actionType == RtAction::class }
             }
         }
@@ -72,13 +72,13 @@ class StoreMatchActionHandlersPropertyTest {
                 exceptionHandler(ExceptionHandler.Ignore)
             }
 
-            val selected = store.match(initial, action).firstOrNull { it.matches }?.index
+            val selected = store.match(initial, action).indexOfFirst { it.matches }
             store.startAndAwaitForTest()
             log.clear()
             store.dispatchAndAwaitForTest(action)
 
-            assertEquals(selected?.let { actionIds[it] }, log.firstOrNull { it in actionIds }, "seed=$seed")
-            if (selected != null) checked++
+            assertEquals(if (selected < 0) emptyList() else listOf(actionIds[selected]), log.filter { it in actionIds }.take(1), "seed=$seed")
+            if (selected >= 0) checked++
             store.close()
         }
         assertTrue(checked > 90, "checked=$checked")
@@ -105,13 +105,14 @@ class StoreMatchActionHandlersPropertyTest {
     @Test
     fun matchingAnswersImmediatelyWhileADispatchHoldsTheStore() = runTest {
         val inside = mutableListOf<List<Boolean>>()
-        lateinit var store: Store<RtState, RtAction, RtEvent>
-        store = Store(RtState.A(0)) {
+        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<RtState, RtAction, RtEvent>>()
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val store: Store<RtState, RtAction, RtEvent> = Store(RtState.A(0)) {
             coroutineContext(StandardTestDispatcher(testScheduler))
             state<RtState.A> {
                 action<RtAction.P> {
                     // Re-entrant call from inside a running handler: must not wait for the Store.
-                    inside += store.match(state, RtAction.Q()).map { it.matches }
+                    inside += storePublication.getCompleted().match(state, RtAction.Q()).map { it.matches }
                     delay(1_000)
                     nextState { RtState.B }
                 }
@@ -121,6 +122,9 @@ class StoreMatchActionHandlersPropertyTest {
                 action<RtAction> { }
             }
         }
+        storePublication.complete(store)
+
+
 
         store.dispatch(RtAction.P())
         testScheduler.advanceTimeBy(10)
@@ -174,8 +178,8 @@ class StoreMatchActionHandlersPropertyTest {
             }
             advanceUntilIdle()
 
-            val expectedIds = seen.mapNotNull { (s, a) ->
-                store.match(s, a).firstOrNull { it.matches }?.let { program.planned(HandlerKind.ACTION)[it.index].id }
+            val expectedIds = seen.flatMap { (s, a) ->
+                store.match(s, a).filter { it.matches }.take(1).map { program.planned(HandlerKind.ACTION)[it.index].id }
             }
             assertEquals(expectedIds, log.filter { it in actionIds }, "seed=$seed")
             // Answers taken mid-flight are a pure function of (state, action).

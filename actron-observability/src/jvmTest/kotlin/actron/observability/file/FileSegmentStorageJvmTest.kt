@@ -33,7 +33,7 @@ class FileSegmentStorageJvmTest {
 
     @Test
     fun invalidDirectoryAndFileOperationsReportErrorsWithoutCreatingSegments() {
-        val directory = Files.createTempDirectory("actron-file-errors").toFile()
+        val directory = checkNotNull(Files.createTempDirectory("actron-file-errors").toFile())
         try {
             val storage = FileSegmentStorage(directory.path)
             storage.append("plain").close()
@@ -56,9 +56,9 @@ class FileSegmentStorageJvmTest {
 
     @Test
     fun segmentsAreFilesOfTheDirectory_readableByAnotherStorage_andRecoveredAfterACut() = runTest {
-        val directory = Files.createTempDirectory("actron-journal").toFile()
+        val directory = checkNotNull(Files.createTempDirectory("actron-journal").toFile())
         try {
-            val nested = File(directory, "journal/segments").path
+            val nested = checkNotNull(File(directory, "journal/segments").path)
             val sink = JournalFileSink(FileSegmentStorage(nested), JournalFileConfig(maxSegmentBytes = 300, maxSegments = 4, flushEveryRecords = 1))
             val records = (1L..30L).map { record(it) }
             for (record in records) sink.write(record)
@@ -71,8 +71,8 @@ class FileSegmentStorageJvmTest {
             val contents = files.read(session)
 
             assertEquals(listOf(session), files.sessions())
-            assertTrue(File(nested).listFiles()!!.all { it.name.endsWith(JournalFileFormat.EXTENSION) })
-            assertEquals(4, File(nested).listFiles()!!.size, "four segments kept")
+            assertTrue(kotlin.test.assertNotNull(File(nested).listFiles()).filterNotNull().all { it.name.endsWith(JournalFileFormat.EXTENSION) })
+            assertEquals(4, kotlin.test.assertNotNull(File(nested).listFiles()).size, "four segments kept")
             val marks = contents.marks
             assertIs<SegmentMark.MissingSegments>(marks[0])
             val tail = assertIs<SegmentMark.TruncatedTail>(marks[1])
@@ -81,7 +81,7 @@ class FileSegmentStorageJvmTest {
             val read = contents.records.map { it.groupSeq.value }
             assertEquals((read.first()..29L).toList(), read, "everything but the frame that was cut")
 
-            assertEquals(listOf(File(nested, "jvm-000000.journal").name).filter { File(nested, it).exists() }, emptyList(), "segment 0 rotated away")
+            assertEquals(listOf(checkNotNull(File(nested, "jvm-000000.journal").name)).filter { File(nested, it).exists() }, emptyList(), "segment 0 rotated away")
             assertTrue(files.prune(maxTotalBytes = 0).isEmpty(), "the newest session stays")
             val other = JournalFileSink(FileSegmentStorage(nested))
             other.write(record(1).copy(session = RuntimeSessionId("later")))

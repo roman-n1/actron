@@ -31,18 +31,18 @@ class StoreExceptionTest {
 
     @Test
     fun store_shouldUseExceptionHandlerOnError() = runTest(testDispatcher) {
-        var handledException: Throwable? = null
+        val handledExceptionObservations = mutableListOf<Throwable>()
 
         val store = createTestStore(
             initialState = AppState(0),
             exceptionHandler = ExceptionHandler { error ->
-                handledException = error
+                handledExceptionObservations.add(error)
             },
         )
 
         store.collectState { } // start Store
 
-        assertNotNull(handledException)
+        assertNotNull(handledExceptionObservations.single())
     }
 
     @Suppress("DEPRECATION")

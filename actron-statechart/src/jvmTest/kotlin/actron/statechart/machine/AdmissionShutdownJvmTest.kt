@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.InternalActronApi::class, actron.core.ExperimentalActronApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class, actron.core.ExperimentalActronApi::class)
 
 package actron.statechart.machine
 
@@ -102,12 +102,12 @@ class AdmissionShutdownJvmTest {
     private fun closeDuringTimestamp(feed: Boolean) = runBlocking {
         Fixture().use { f ->
             f.store.startAndAwait()
-            val executor = Executors.newSingleThreadExecutor()
+            val executor = checkNotNull(Executors.newSingleThreadExecutor())
             try {
                 f.clock.armed.set(true)
-                val outcome = executor.submit<Admission> {
+                val outcome: java.util.concurrent.Future<Admission> = checkNotNull(executor.submit<Admission> {
                     if (feed) f.store.feed(SourceId("socket"), Tick) else f.store.admit(Tick)
-                }
+                })
                 assertTrue(f.clock.entered.await(10, TimeUnit.SECONDS))
                 f.store.close()
                 f.clock.release.countDown()
@@ -145,16 +145,16 @@ class AdmissionShutdownJvmTest {
     @Test fun closeDuringAwaitTimestampThrowsAndDoesNotReserveSpace() = runBlocking {
         Fixture().use { f ->
             f.store.startAndAwait()
-            val executor = Executors.newSingleThreadExecutor()
+            val executor = checkNotNull(Executors.newSingleThreadExecutor())
             try {
                 f.clock.armed.set(true)
-                val outcome = executor.submit<Throwable> {
+                val outcome: java.util.concurrent.Future<Throwable> = checkNotNull(executor.submit<Throwable> {
                     runBlocking { assertFailsWith<IllegalStateException> { f.store.dispatchAndAwait(Tick) } }
-                }
+                })
                 assertTrue(f.clock.entered.await(10, TimeUnit.SECONDS))
                 f.store.close()
                 f.clock.release.countDown()
-                assertTrue(outcome.get(10, TimeUnit.SECONDS).message!!.contains("closed"))
+                assertTrue(kotlin.test.assertNotNull(outcome.get(10, TimeUnit.SECONDS).message).contains("closed"))
                 assertEquals(0, f.impl.pendingAdmissions)
                 assertEquals(0, f.impl.heldInputs)
             } finally {
@@ -243,18 +243,19 @@ class AdmissionShutdownJvmTest {
             f.impl.freeze()
             val start = CountDownLatch(1)
             val ready = CountDownLatch(8)
-            val executor = Executors.newFixedThreadPool(8)
+            val executor = checkNotNull(Executors.newFixedThreadPool(8))
             try {
-                val outcomes = (0 until 8).map {
-                    executor.submit<List<Admission>> {
+                val outcomes: List<java.util.concurrent.Future<List<Admission>>> = (0 until 8).map {
+                    val task: java.util.concurrent.Future<List<Admission>> = checkNotNull(executor.submit<List<Admission>> {
                         ready.countDown()
                         check(start.await(10, TimeUnit.SECONDS))
                         List(12) { index -> if (index % 2 == 0) f.store.admit(Tick) else f.store.feed(SourceId("socket"), Tick) }
-                    }
+                    })
+                    task
                 }
                 assertTrue(ready.await(10, TimeUnit.SECONDS))
                 start.countDown()
-                val results = outcomes.flatMap { it.get(10, TimeUnit.SECONDS) }
+                val results = outcomes.flatMap { checkNotNull(it.get(10, TimeUnit.SECONDS)) }
                 assertEquals(7, results.count { it == Admission.Accepted })
                 assertEquals(89, results.count { it == Admission.Rejected(7, 7) })
                 assertEquals(7, f.impl.pendingAdmissions)
@@ -272,20 +273,22 @@ class AdmissionShutdownJvmTest {
     }
 
     @Test fun inlineObserversCanReenterAdmissionAndCloseDuringThaw() = runBlocking {
-        lateinit var store: MachineStore<Int, Tick, Nothing, Never>
+        val storePublication = kotlinx.coroutines.CompletableDeferred<MachineStore<Int, Tick, Nothing, Never>>()
+
         val observer = object : DecisionObserver<Int, Tick, Nothing, Never> {
             override fun onCommitted(input: InputAttribution, machineInput: MachineInput<Tick>, decision: Decision<Int, Nothing, Never>) {
                 if (machineInput !is MachineInput.Dispatch) return
-                if (decision.snapshot.context == 1) assertEquals(Admission.Accepted, store.admit(Tick))
-                else store.close()
+                if (decision.snapshot.context == 1) assertEquals(Admission.Accepted, storePublication.getCompleted().admit(Tick))
+                else storePublication.getCompleted().close()
             }
         }
         Fixture(observers = listOf(observer), coroutineContext = Dispatchers.Unconfined).use { f ->
-            store = f.store
+            storePublication.complete(f.store)
+
             f.store.startAndAwait()
             f.impl.freeze()
             assertEquals(Admission.Accepted, f.store.admit(Tick))
-            val executor = Executors.newSingleThreadExecutor()
+            val executor = checkNotNull(Executors.newSingleThreadExecutor())
             try {
                 executor.submit { f.impl.thaw() }.get(10, TimeUnit.SECONDS)
                 assertEquals(2, f.store.currentState.context)
@@ -309,9 +312,9 @@ class AdmissionShutdownJvmTest {
         }
         Fixture(observers = listOf(observer), coroutineContext = Dispatchers.Unconfined).use { f ->
             f.store.startAndAwait()
-            val executor = Executors.newSingleThreadExecutor()
+            val executor = checkNotNull(Executors.newSingleThreadExecutor())
             try {
-                val offering = executor.submit<Admission> { f.store.admit(Tick) }
+                val offering: java.util.concurrent.Future<Admission> = checkNotNull(executor.submit<Admission> { f.store.admit(Tick) })
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 f.impl.freeze()
                 val api: StoreInternalApi<MachineSnapshot<Int>, Tick, Never> = f.impl
@@ -337,13 +340,20 @@ class AdmissionShutdownJvmTest {
     @Test fun aRethrowingProcessingStartProbeHandlerDoesNotStrandItsInputWaiter() {
         // ExceptionHandler.Rethrow intentionally reaches global uncaught reporting. Isolate
         // the JVM so coroutine-test does not attribute that expected failure to a later test.
-        val log = Files.createTempFile("actron-machine-probe-", ".log").toFile()
-        val paths = generateSequence(javaClass.classLoader) { it.parent }.filterIsInstance<URLClassLoader>()
-            .flatMap { it.urLs.asSequence() }.map { File(it.toURI()).path }.toList()
-        val classpath = (paths + System.getProperty("java.class.path").split(File.pathSeparator)).distinct()
-        val child = ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
+        val log = checkNotNull(Files.createTempFile("actron-machine-probe-", ".log").toFile())
+        val paths = buildList<String> {
+            var loader = checkNotNull(javaClass.classLoader)
+            while (true) {
+                if (loader is URLClassLoader) {
+                    for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                }
+                loader = loader.parent ?: break
+            }
+        }
+        val classpath = (paths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct()
+        val child = checkNotNull(ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
             "-cp", classpath.joinToString(File.pathSeparator), MachineProbeFailureProcess::class.java.name)
-            .redirectErrorStream(true).redirectOutput(log).start()
+            .redirectErrorStream(true).redirectOutput(log).start())
         try {
             assertTrue(child.waitFor(20, TimeUnit.SECONDS), "Rethrow child timed out")
             assertEquals(0, child.exitValue(), log.readText())
@@ -360,9 +370,9 @@ class AdmissionShutdownJvmTest {
         val closed = CountDownLatch(1)
         // Capture a Rethrow handler's uncaught failure on this dedicated thread, without
         // changing global JVM exception handlers or suppressing unrelated coroutine failures.
-        val dispatcher = Executors.newSingleThreadExecutor { runnable ->
+        val dispatcher = Executors.newSingleThreadExecutor { runnable: Runnable ->
             Thread(runnable, "actron-admission-probe-failure").apply {
-                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, failure -> failures.offer(failure) }
+                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _: Thread, failure: Throwable -> failures.offer(failure) }
             }
         }.asCoroutineDispatcher()
         try {
@@ -378,7 +388,7 @@ class AdmissionShutdownJvmTest {
                 f.store.startAndAwait()
                 armed.set(true)
                 withTimeout(10_000) { f.store.dispatchAndAwait(Tick) }
-                assertTrue(failures.poll(10, TimeUnit.SECONDS) != null)
+                assertTrue(failures.poll(10, TimeUnit.SECONDS) is Throwable)
                 assertEquals(0, f.impl.pendingAdmissions)
                 assertEquals(0, f.store.currentState.context)
                 withTimeout(10_000) { f.store.awaitIdle() }
@@ -392,21 +402,23 @@ class AdmissionShutdownJvmTest {
     }
 
     @Test fun awaitingFromTheSameStoresPluginStillFailsFast() = runBlocking {
-        lateinit var store: MachineStore<Int, Tick, Nothing, Never>
+        val storePublication = kotlinx.coroutines.CompletableDeferred<MachineStore<Int, Tick, Nothing, Never>>()
+
         val checked = AtomicBoolean(false)
         Fixture(configure = {
             plugin(object : Plugin<MachineSnapshot<Int>, MachineInput<Tick>, Never> {
                 override suspend fun onAction(scope: PluginScope<MachineSnapshot<Int>, MachineInput<Tick>>, state: MachineSnapshot<Int>, action: MachineInput<Tick>) {
-                    assertFailsWith<IllegalStateException> { store.dispatchAndAwait(Tick) }
-                    assertFailsWith<IllegalStateException> { store.awaitIdle() }
+                    assertFailsWith<IllegalStateException> { storePublication.getCompleted().dispatchAndAwait(Tick) }
+                    assertFailsWith<IllegalStateException> { storePublication.getCompleted().awaitIdle() }
                     checked.set(true)
                 }
             })
         }).use { f ->
-            store = f.store
-            withTimeout(10_000) { store.dispatchAndAwait(Tick) }
+            storePublication.complete(f.store)
+
+            withTimeout(10_000) { storePublication.getCompleted().dispatchAndAwait(Tick) }
             assertTrue(checked.get())
-            assertEquals(1, store.currentState.context)
+            assertEquals(1, storePublication.getCompleted().currentState.context)
             assertEquals(0, f.impl.pendingAdmissions)
         }
     }

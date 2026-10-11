@@ -18,7 +18,7 @@ import kotlin.test.Test
 class DemoScreenTest {
     @Test
     fun theButtonsRecordReopenCompareAndExperiment_onRealFiles() {
-        val parent = Files.createTempDirectory("actron-demo-ui-")
+        val parent = checkNotNull(Files.createTempDirectory("actron-demo-ui-"))
         try {
             runComposeUiTest {
                 setContent { MaterialTheme { DemoScreen(parent) } }

@@ -2,10 +2,12 @@ package actron.buildlogic
 
 import actron.buildlogic.dsl.mavenPublishing
 import org.gradle.api.Project
+import org.gradle.api.model.ObjectFactory
+import javax.inject.Inject
 
-open class PublishConventionExtension {
+open class PublishConventionExtension @Inject constructor(objects: ObjectFactory) {
     @Suppress("MemberVisibilityCanBePrivate")
-    var artifactId: String? = null
+    val artifactId: org.gradle.api.provider.Property<String> = objects.property(String::class.java)
 
     internal fun applyToProject(project: Project) {
         // Keep project coordinates aligned with publications for composite build substitution.
@@ -16,8 +18,7 @@ open class PublishConventionExtension {
         project.mavenPublishing {
             coordinates(
                 groupId = groupId,
-                artifactId = artifactId
-                    ?: error("`publishConvention.artifactId` is not configured in `${project.path}`."),
+                artifactId = artifactId.get(),
                 version = version,
             )
         }

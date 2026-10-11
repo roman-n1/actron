@@ -162,7 +162,7 @@ class MessengerChartTest {
         send(store, MessengerAction.SubmitCredentials("roman", "secret"))
         advance(1.seconds)
         assertEquals(listOf(connecting, chatList), store.leaves, "one leaf per region")
-        assertEquals("roman", store.context.user)
+        assertEquals(MessengerAccount.Authenticated("roman"), store.context.account)
         advance(500.milliseconds)
         assertEquals(listOf(online, chatList), store.leaves)
         store.close()
@@ -223,7 +223,7 @@ class MessengerChartTest {
         assertEquals(composing, store.leaves.last())
         assertEquals(listOf("family" to "hi"), services.sent)
         assertEquals(listOf("hi"), store.context.delivered)
-        assertEquals(null, store.context.outgoing)
+        assertEquals(OutgoingMessage.Composing, store.context.outgoing)
         store.close()
     }
 
@@ -322,11 +322,11 @@ class MessengerChartTest {
         runCurrent()
         assertEquals(path.startLeaves, store.leaves, "path $index start")
         path.transitions.forEachIndexed { step, transition ->
-            val delay = (transition.trigger as? actron.statechart.Trigger.After)?.delay
-            if (delay != null) {
-                advance(delay)
+            val trigger = transition.trigger
+            if (trigger is actron.statechart.Trigger.After) {
+                advance(trigger.delay)
             } else {
-                send(store, sampleActions.first { (transition.trigger as? actron.statechart.Trigger.OnAction)?.matcher!!.matches(it) })
+                send(store, sampleActions.first { kotlin.test.assertNotNull((transition.trigger as? actron.statechart.Trigger.OnAction)?.matcher).matches(it) })
             }
             assertEquals(path.activeLeaves[step], store.leaves, "path $index step $step: $transition")
         }

@@ -217,7 +217,7 @@ class InspectorTest {
             assertEquals(Availability.Available, inspector.replayability(store.id))
         }
         assertTrue(inspector.completeness.isComplete, inspector.completeness.reasons.toString())
-        assertEquals(inspector.timeline.size, inspector.timelineOf(tab1).size + inspector.timelineOf(tab2).size - inspector.timeline.count { it.store == null })
+        assertEquals(inspector.timeline.size, inspector.timelineOf(tab1).size + inspector.timelineOf(tab2).size - inspector.timeline.count { it.subject is actron.observability.RecordSubject.Session })
     }
 
     @Test
@@ -229,28 +229,28 @@ class InspectorTest {
 
         assertIs<TimelineItem.Registered>(timeline.first())
         assertIs<TimelineItem.Stopped>(timeline.last())
-        assertTrue(timeline.zipWithNext().all { (a, b) -> (a.groupSeq?.value ?: 0) <= (b.groupSeq?.value ?: Long.MAX_VALUE) }, "in order")
+        assertTrue(timeline.zipWithNext().all { (a, b) -> (a.groupSeq.value) <= (b.groupSeq.value) }, "in order")
         val processings = timeline.filterIsInstance<TimelineItem.Processing>()
         val startup = processings.first()
         assertEquals(InputDescriptor.Startup, startup.kind)
         assertEquals(1L, startup.revision)
         assertEquals(listOf("Idle", "Root"), startup.activeNodes)
-        assertTrue(startup.isFinished && startup.outcome?.kind == OutcomeKind.Handled)
-        val load = processings.first { it.decision?.commands?.isNotEmpty() == true }
-        assertEquals(listOf("Fetch(query=cats)"), load.decision!!.commands.map { actron.observability.JournalFormat.payload(it.command) })
-        assertEquals(1, load.decision!!.timersScheduled.size)
+        assertTrue(startup.isFinished && startup.outcome.kind == OutcomeKind.Handled)
+        val load = processings.first { it.withDecision { } && it.decision.commands.isNotEmpty() }
+        assertEquals(listOf("Fetch(query=cats)"), kotlin.test.assertNotNull(load.decision).commands.map { actron.observability.JournalFormat.payload(it.command) })
+        assertEquals(1, kotlin.test.assertNotNull(load.decision).timersScheduled.size)
         // The answered Fetch completes after Content was entered: its completion is stale; the
         // Refresh in Loading finds no transition.
-        assertEquals("StaleCommand", processings.first { it.ignored != null }.ignored)
-        val stale = processings.first { it.ignored == "NoTransition" }
-        assertNull(stale.revision)
+        assertEquals("StaleCommand", processings.first { it.withIgnored {} }.ignored)
+        val stale = processings.first { it.withIgnored {} && it.ignored == "NoTransition" }
+        kotlin.test.assertFalse(stale.withRevision { error("Stale completion acquired a revision") })
         val rejected = timeline.filterIsInstance<TimelineItem.Rejected>()
         assertEquals(1, rejected.size, "the second Refresh was refused by the bounded admission while the first waited: $rejected")
         val failed = processings.first { it.failures.isNotEmpty() }
-        assertEquals(OutcomeKind.Failed, failed.outcome?.kind)
+        assertEquals(OutcomeKind.Failed, failed.outcome.kind)
         assertEquals("IllegalStateException", failed.failures.single().typeLabel)
-        val timeout = processings.first { it.decision?.transitions == listOf(3) }
-        assertTrue(timeout.revision!! > load.revision!!)
+        val timeout = processings.first { it.withDecision { } && it.decision.transitions == listOf(3) }
+        assertTrue(kotlin.test.assertNotNull(timeout.revision) > kotlin.test.assertNotNull(load.revision))
         assertTrue(timeline.any { it is TimelineItem.Closed && it.store == tab1 })
         assertTrue(timeline.none { it is TimelineItem.Unattributed }, timeline.filterIsInstance<TimelineItem.Unattributed>().toString())
         assertTrue(timeline.none { it is TimelineItem.Pending })
@@ -263,21 +263,21 @@ class InspectorTest {
         val inspector = Inspector.of(run.session, run.recordings)
         val decisions = inspector.timeline.filterIsInstance<TimelineItem.Processing>().filter { it.isDecision }
 
-        assertTrue(decisions.all { it.recorded != null && it.before != null && it.after != null && it.diff != null }, "every decision is enriched")
-        val load = decisions.first { it.decision?.commands?.isNotEmpty() == true }
-        val diff = load.diff!!
+        assertTrue(decisions.all { it.attachment is ProcessingAttachment.Recorded }, "every decision is enriched")
+        val load = decisions.first { it.withDecision { } && it.decision.commands.isNotEmpty() }
+        val diff = kotlin.test.assertNotNull(load.diff)
         assertTrue(diff.revisionAdvanced && diff.contextChanged)
         assertEquals(setOf(loading), diff.entered)
         assertEquals(setOf(idle), diff.exited)
         assertEquals(1, diff.commandsRegistered.size)
         assertEquals(1, diff.timersScheduled.size)
-        assertEquals(Ctx(query = "cats"), load.after!!.context)
-        assertEquals(Ctx(), load.before!!.context)
-        val stale = decisions.first { it.ignored != null }
-        assertTrue(stale.diff!!.isEmpty)
+        assertEquals(Ctx(query = "cats"), kotlin.test.assertNotNull(load.after).context)
+        assertEquals(Ctx(), kotlin.test.assertNotNull(load.before).context)
+        val stale = decisions.first { it.withIgnored {} }
+        assertTrue(kotlin.test.assertNotNull(stale.diff).isEmpty)
         assertEquals(stale.before, stale.after)
-        val answer = decisions.first { it.after?.configuration?.active?.contains(content) == true }
-        assertEquals(listOf("tom", "felix"), (answer.after!!.context as Ctx).items)
+        val answer = decisions.first { it.attachment is ProcessingAttachment.Recorded && it.after.configuration.active.contains(content) }
+        assertEquals(listOf("tom", "felix"), (kotlin.test.assertNotNull(answer.after).context as Ctx).items)
         val detail = InspectorText.detail(load)
         assertTrue(detail.any { it.startsWith("  before: revision=1") } && detail.any { it.startsWith("  after:  revision=2") }, detail.joinToString("\n"))
         assertTrue(detail.any { it.startsWith("  changed: context; entered Loading; exited Idle; commands +c1; timers +t1") }, detail.joinToString("\n"))
@@ -296,10 +296,10 @@ class InspectorTest {
         assertTrue(omitted.count > 10, omitted.toString())
         val replay = assertIs<Availability.Unavailable>(inspector.replayability(tab1))
         assertTrue("InspectOnly" in replay.reasons.single(), replay.reasons.toString())
-        val load = inspector.timeline.filterIsInstance<TimelineItem.Processing>().first { it.decision?.commands?.isNotEmpty() == true }
-        assertNull(load.before)
+        val load = inspector.timeline.filterIsInstance<TimelineItem.Processing>().first { it.withDecision { } && it.decision.commands.isNotEmpty() }
+        kotlin.test.assertIs<ProcessingAttachment.JournalOnly>(load.attachment)
         assertEquals(Payload.Omitted, load.commits.single().after)
-        assertEquals(listOf("Idle", "Loading"), load.decision!!.exited.map { it.node } + load.decision!!.entered.map { it.node })
+        assertEquals(listOf("Idle", "Loading"), kotlin.test.assertNotNull(load.decision).exited.map { it.node } + kotlin.test.assertNotNull(load.decision).entered.map { it.node })
         val detail = InspectorText.detail(load)
         assertTrue(detail.any { it.startsWith("  commit revision=2: - <- -") }, detail.joinToString("\n"))
         val overview = InspectorText.overview(inspector)
@@ -328,14 +328,14 @@ class InspectorTest {
         val trimmed = run.recordings.getValue(tab1).let { r -> r.since(r.checkpointAt(r.length)) }
         val past = Inspector.of(run.session, mapOf(tab1 to trimmed))
         assertEquals(RecordingStatus.Attached(trimmed.length), past.stores.single().recording)
-        assertEquals(trimmed.length, past.timeline.filterIsInstance<TimelineItem.Processing>().count { it.recorded != null })
+        assertEquals(trimmed.length, past.timeline.filterIsInstance<TimelineItem.Processing>().count { it.attachment is ProcessingAttachment.Recorded })
         val foreign = Recording(machine.id, machine.version, machine.initialSnapshot(Ctx(query = "other")), run.recordings.getValue(tab1).steps.drop(1))
         val mismatched = Inspector.of(run.session, mapOf(tab1 to foreign))
         val status = assertIs<RecordingStatus.Mismatch>(mismatched.stores.single().recording)
         assertTrue("step 0" in status.reason, status.reason)
         assertTrue(mismatched.stores.single().completeness.reasons.any { it is Incompleteness.RecordingMismatch })
         assertIs<Availability.Unavailable>(mismatched.replayability(tab1))
-        assertTrue(mismatched.timeline.filterIsInstance<TimelineItem.Processing>().none { it.recorded != null }, "nothing enriched from a mismatching recording")
+        assertTrue(mismatched.timeline.filterIsInstance<TimelineItem.Processing>().none { it.attachment is ProcessingAttachment.Recorded }, "nothing enriched from a mismatching recording")
         val nobody = assertIs<Availability.Unavailable>(Inspector.of(run.session, mapOf(StoreInstanceId("nobody") to foreign)).replayability(StoreInstanceId("nobody")))
         assertTrue("no records of nobody" in nobody.reasons.single(), nobody.reasons.toString())
     }
@@ -389,7 +389,7 @@ class InspectorTest {
         val inspector = Inspector.of(session)
         val effects = inspector.timeline.filterIsInstance<TimelineItem.Effect>()
 
-        assertEquals(listOf("EffectQueued", "EffectHandlingStarted", "EffectAcknowledged"), effects.map { it.entry::class.simpleName })
+        assertEquals(listOf("EffectQueued", "EffectHandlingStarted", "EffectAcknowledged"), effects.map { checkNotNull(it.entry::class.simpleName) })
         assertTrue(effects.all { it.effect == 1L && it.store == tab1 })
         assertTrue(InspectorText.timeline(inspector).any { "EffectQueued" in it && "Retained" in it && "Shown" in it }, InspectorText.timeline(inspector).joinToString("\n"))
     }
@@ -399,8 +399,8 @@ class InspectorTest {
         val session = RuntimeSessionId("hand")
         val store = StoreInstanceId("s")
         var seq = 0L
-        fun record(entry: JournalEntry<*, *, *>, forStore: StoreInstanceId? = store) =
-            JournalRecord(JOURNAL_FORMAT_VERSION, session, MachineGroupId("g"), forStore ?: actron.observability.RecordSubject.Session, ExecutionMode.Live, GroupSeq(++seq), forStore?.let { StoreSeq(seq) } ?: actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
+        fun record(entry: JournalEntry<*, *, *>, forStore: actron.observability.RecordSubject = store) =
+            JournalRecord(JOURNAL_FORMAT_VERSION, session, MachineGroupId("g"), forStore, ExecutionMode.Live, GroupSeq(++seq), if (forStore is StoreInstanceId) StoreSeq(seq) else actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
         val records = listOf(
             record(JournalEntry.StoreRegistered(Capability.InspectOnly)),
             record(JournalEntry.InputAccepted(InputId(1), InputDescriptor.Startup)),
@@ -411,12 +411,12 @@ class InspectorTest {
             record(JournalEntry.InputAccepted(InputId(3), InputDescriptor.Transaction(InputId(1)))),
             record(JournalEntry.EventEmitted(InputId(1), Payload.Projected("Ping"))),
             record(JournalEntry.EventEmitted(InputId(9), Payload.Projected("Orphan"))),
-            record(JournalEntry.JournalGap(4), forStore = null),
+            record(JournalEntry.JournalGap(4), forStore = actron.observability.RecordSubject.Session),
             record(JournalEntry.ProcessingStarted(InputId(3), 2)),
             record(JournalEntry.CommandsAbandoned("StoreClosed", listOf(3), listOf(2))),
             record(JournalEntry.BridgeDropped(MessageRef(StoreInstanceId("p"), 7), store, "StoreClosed")),
             record(JournalEntry.BridgeSent(InputId(1), MessageRef(store, 3), StoreInstanceId("p"), delivered = true, cause = MessageRef(StoreInstanceId("p"), 7))),
-            record(JournalEntry.RecordingStopped, forStore = null),
+            record(JournalEntry.RecordingStopped, forStore = actron.observability.RecordSubject.Session),
         )
 
         val inspector = Inspector.of(records)

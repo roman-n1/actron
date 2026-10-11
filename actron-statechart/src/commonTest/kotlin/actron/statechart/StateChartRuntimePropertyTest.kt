@@ -37,16 +37,18 @@ class StateChartRuntimePropertyTest {
         RandomAction.Reset to "Reset",
     )
 
-    private fun referenceMatches(matcher: ActionMatcher?, action: RandomAction): Boolean {
-        if (matcher == null) return false
-        val name = simpleNames[action] ?: "Go"
-        return when (val type = (matcher.matching as? ActionMatching.ByType)?.type) {
-            null -> matcher.name == name
-            RandomAction::class -> true
-            RandomAction.Go::class -> action is RandomAction.Go
-            RandomAction.Ping::class -> action == RandomAction.Ping
-            RandomAction.Pong::class -> action == RandomAction.Pong
-            else -> error("unexpected matcher $matcher")
+    private fun referenceMatches(trigger: Trigger, action: RandomAction): Boolean {
+        if (trigger !is Trigger.OnAction) return false
+        val matcher = trigger.matcher
+        return when (val matching = matcher.matching) {
+            ActionMatching.ByName -> matcher.name == (simpleNames[action] ?: "Go")
+            is ActionMatching.ByType -> when (matching.type) {
+                RandomAction::class -> true
+                RandomAction.Go::class -> action is RandomAction.Go
+                RandomAction.Ping::class -> action == RandomAction.Ping
+                RandomAction.Pong::class -> action == RandomAction.Pong
+                else -> error("unexpected matcher $matcher")
+            }
         }
     }
 
@@ -77,8 +79,8 @@ class StateChartRuntimePropertyTest {
     private fun referenceStep(chart: StateChartDefinition, table: GuardTable, current: RandomState, action: RandomAction): StepResult {
         for (t in chart.transitions) {
             if (t.source != current.id) continue
-            if (!referenceMatches((t.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action)) continue
-            if ((t.guard as? actron.statechart.GuardKey)?.name != null && !table.holds((t.guard as actron.statechart.GuardKey).name, current, action)) continue
+            if (!referenceMatches(t.trigger, action)) continue
+            if (t.guard is GuardKey && !table.holds((t.guard as actron.statechart.GuardKey).name, current, action)) continue
             return StepResult.Transitioned(t)
         }
         return StepResult.Ignored
@@ -111,7 +113,7 @@ class StateChartRuntimePropertyTest {
             // Every guard receives exactly the state and action passed to step.
             val expectedCalls = mutableListOf<Triple<String, RandomState, Action>>()
             for (t in chart.transitionsFrom(current.id)) {
-                if (!referenceMatches((t.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action)) continue
+                if (!referenceMatches(t.trigger, action)) continue
                 val guard = (t.guard as? actron.statechart.GuardKey)?.name ?: break
                 expectedCalls += Triple(guard, current, action)
                 if (table.holds(guard, current, action)) break
@@ -128,21 +130,20 @@ class StateChartRuntimePropertyTest {
         val actions = List(random.nextInt(0, 60)) { RandomCharts.actions.random(random) }
 
         // An ignored action counts as a failed attempt (up to maxAttempts); a transition resets it.
-        fun next(state: RandomState, target: StateId?): RandomState =
-            if (target == null) state.copy(attempts = minOf(state.attempts + 1, GuardTable.maxAttempts)) else RandomState(target)
-
+        fun next(state: RandomState, result: StepResult): RandomState = when (result) {
+            StepResult.Ignored -> state.copy(attempts = minOf(state.attempts + 1, GuardTable.maxAttempts))
+            is StepResult.Transitioned -> RandomState(result.target)
+        }
         val actual = actions.runningFold(RandomState(chart.initial)) { state, action ->
-            when (val result = runtime.step(state, action)) {
-                is StepResult.Transitioned -> {
-                    assertEquals(state.id, result.transition.source, "seed $seed")
-                    assertEquals(result.transition.target, result.target, "seed $seed")
-                    next(state, result.target)
-                }
-                StepResult.Ignored -> next(state, null)
+            val result = runtime.step(state, action)
+            if (result is StepResult.Transitioned) {
+                assertEquals(state.id, result.transition.source, "seed $seed")
+                assertEquals(result.transition.target, result.target, "seed $seed")
             }
+            next(state, result)
         }
         val expected = actions.runningFold(RandomState(chart.initial)) { state, action ->
-            next(state, (referenceStep(chart, table, state, action) as? StepResult.Transitioned)?.transition?.target)
+            next(state, referenceStep(chart, table, state, action))
         }
         assertEquals(expected, actual, "seed $seed")
         assertTrue(reachable.containsAll(actual.map { it.id }), "seed $seed: the runtime left the reachable set")
@@ -163,7 +164,7 @@ class StateChartRuntimePropertyTest {
     @Test
     fun missingGuardsAreAllListedOnceInFirstUseOrder() = RandomCharts.forEachChart(valid = false) { seed, random, chart ->
         val provided = RandomCharts.guards.filter { random.nextBoolean() }
-        val used = chart.transitions.mapNotNull { (it.guard as? actron.statechart.GuardKey)?.name }.distinct()
+        val used = chart.transitions.map { it.guard }.filterIsInstance<actron.statechart.GuardKey>().map { it.name }.distinct()
         val missing = used.filter { it !in provided }
         val guards = (provided + "unused-${random.nextInt(5)}").associateWith { { _: RandomState, _: Action -> true } }
 
@@ -179,7 +180,7 @@ class StateChartRuntimePropertyTest {
     fun matchesAgreesWithTheReferenceTable() {
         for (matcher in RandomCharts.matchers + ActionMatcher("RandomAction") + ActionMatcher("ping")) {
             for (action in RandomCharts.actions) {
-                assertEquals(referenceMatches(matcher, action), matcher.matches(action), "$matcher on $action")
+                assertEquals(referenceMatches(Trigger.OnAction(matcher), action), matcher.matches(action), "$matcher on $action")
             }
         }
     }
@@ -228,11 +229,11 @@ class StateChartRuntimePropertyTest {
         repeat(10) {
             val id = chart.states.random(random).id
             val action = RandomCharts.actions.random(random)
-            val matching = chart.transitionsFrom(id).filter { referenceMatches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action) }
+            val matching = chart.transitionsFrom(id).filter { referenceMatches(it.trigger, action) }
             for (attempts in 0..5) {
-                val expected = matching.firstOrNull { (it.guard as? actron.statechart.GuardKey)?.name == null || attempts < 3 }
+                val expected = matching.firstOrNull { it.guard is GuardCondition.Unconditional || attempts < 3 }?.let { StepResult.Transitioned(it) } ?: StepResult.Ignored
                 val result = runtime.step(RandomState(id, attempts), action)
-                assertEquals(expected?.let { StepResult.Transitioned(it) } ?: StepResult.Ignored, result, "seed $seed: $id/$attempts on $action")
+                assertEquals(expected, result, "seed $seed: $id/$attempts on $action")
             }
         }
     }

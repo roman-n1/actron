@@ -95,7 +95,7 @@ class ExternalSourceTest {
     private val listId = StoreInstanceId("list-1")
     private val pagingId = SourceId("paging:list-1")
 
-    private inner class Fixture(scope: TestScope, admission: AdmissionPolicy = AdmissionPolicy.Unbounded, plugin: Plugin<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>? = null) {
+    private inner class Fixture(scope: TestScope, admission: AdmissionPolicy = AdmissionPolicy.Unbounded, plugin: Plugin<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing> = actron.core.Plugin()) {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val session = RecordingSession(scope.backgroundScope, id = RuntimeSessionId("e"), group = MachineGroupId("list"), timeSource = TestTimeSource())
@@ -111,7 +111,7 @@ class ExternalSourceTest {
             }),
         ) {
             exceptionHandler(ExceptionHandler.Ignore)
-            plugin?.let { plugin(it) }
+            plugin(plugin)
         }
         val source = PagedSource(pagingId, store)
 
@@ -135,7 +135,7 @@ class ExternalSourceTest {
         assertEquals(listOf(pagingId, pagingId), f.inputs.filterIsInstance<MachineInput.External<Act>>().map { it.source })
         val received = f.session.records().map { it.entry }.filterIsInstance<JournalEntry.ExternalReceived>()
         assertEquals(listOf("paging:list-1", "paging:list-1"), received.map { it.source })
-        assertTrue(received.all { it.input != null })
+        assertTrue(received.all { it.input is actron.core.InputId })
         assertEquals(listOf(pagingId), f.group.sourceIds)
         f.store.close()
     }

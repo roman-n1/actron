@@ -69,7 +69,7 @@ import kotlin.test.assertTrue
 class GroupRecordingFilesTest {
 
     @Serializable
-    data class PingCtx(val last: Int? = null, val acks: List<Int> = emptyList())
+    data class PingCtx(val messages: List<Int> = emptyList(), val acks: List<Int> = emptyList())
 
     @Serializable
     sealed interface PingAct : Action {
@@ -90,7 +90,7 @@ class GroupRecordingFilesTest {
     }
 
     @Serializable
-    data class PongCtx(val last: Int? = null, val count: Int = 0)
+    data class PongCtx(val messages: List<Int> = emptyList(), val count: Int = 0)
 
     @Serializable
     sealed interface PongAct : Action {
@@ -114,14 +114,14 @@ class GroupRecordingFilesTest {
     private fun chart(matcher: ActionMatcher) = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, matcher, effect = actron.statechart.EffectKey("remember"))))
 
     private val ping = Machine<PingCtx, PingAct, NoCommand, PingEv>(DefinitionId("ping"), DefinitionVersion("1"), chart(ActionMatcher.of<PingAct.Kick>("Kick"))) {
-        effect("remember") { c, a -> c.copy(last = (a as PingAct.Kick).n) }
-        onEnter(idle) { context.last?.let { event(PingEv.Ping(it)) } }
+        effect("remember") { c, a -> c.copy(messages = c.messages + (a as PingAct.Kick).n) }
+        onEnter(idle) { if (context.messages.isNotEmpty()) event(PingEv.Ping(context.messages.last())) }
         onAction(root, ActionMatcher.of<PingAct.Acked>("Acked")) { context = context.copy(acks = context.acks + (action as PingAct.Acked).n) }
     }
 
     private val pong = Machine<PongCtx, PongAct, NoCommand, PongEv>(DefinitionId("pong"), DefinitionVersion("1"), chart(ActionMatcher.of<PongAct.Pong>("Pong"))) {
-        effect("remember") { c, a -> c.copy(last = (a as PongAct.Pong).n, count = c.count + 1) }
-        onEnter(idle) { context.last?.let { event(PongEv.Ack(it)) } }
+        effect("remember") { c, a -> c.copy(messages = c.messages + (a as PongAct.Pong).n, count = c.count + 1) }
+        onEnter(idle) { if (context.messages.isNotEmpty()) event(PongEv.Ack(context.messages.last())) }
     }
 
     private val pingId = StoreInstanceId("ping-1")
@@ -276,7 +276,7 @@ class GroupRecordingFilesTest {
             output.write(Framing.END)
         }
         val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-        assertEquals(null, contents.recording, "An unavailable checkpoint must not become a future state")
+        assertIs<GroupRecordingFileContents.Unreadable>(contents, "An unavailable checkpoint must not become a future state")
         assertTrue(contents.marks.any { it is RecordingFileMark.StartMismatch && it.store == pongId })
     }
 
@@ -420,11 +420,11 @@ class GroupRecordingFilesTest {
 
         assertEquals(header, decoded.header)
         assertEquals(entries, decoded.entries)
-        assertTrue(decoded.finished && decoded.mark == null)
+        assertTrue(decoded.finished && !decoded.ending.withIssue {})
         for (length in 0 until bytes.size) {
             val cut = GroupRecordingFileFormat.decodeSegment("cut", bytes.copyOf(length))
             assertEquals(entries.take(cut.entries.size), cut.entries, "cut at $length")
-            assertTrue(cut.mark != null, "cut at $length")
+            assertTrue(cut.ending.withIssue {}, "cut at $length")
         }
         assertEquals(groupId to 3, GroupRecordingFileFormat.parseSegmentName("pingpong-000003.group"))
         assertIs<SegmentMark.UnsupportedFormat>(GroupRecordingFileFormat.decodeSegment("n", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = GroupRecordingFileFormat.VERSION + 1)) + Framing.END).mark)
@@ -434,7 +434,7 @@ class GroupRecordingFilesTest {
         val old = GroupRecordingFileFormat.decodeSegment("old", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = 1, routes = unpaired, boundary = GroupBoundary.Continuation)) + GroupRecordingFileFormat.entryFrame(entries[0]) + Framing.END)
         assertEquals(header.copy(fileFormatVersion = 1, routes = unpaired, boundary = GroupBoundary.Continuation), old.header)
         assertEquals(entries.take(1), old.entries)
-        assertTrue(old.finished && old.mark == null)
+        assertTrue(old.finished && !old.ending.withIssue {})
         val v2 = GroupRecordingFileFormat.decodeSegment("v2", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = 2, routes = unpaired)) + Framing.END)
         assertEquals(header.copy(fileFormatVersion = 2, routes = unpaired), v2.header)
     }

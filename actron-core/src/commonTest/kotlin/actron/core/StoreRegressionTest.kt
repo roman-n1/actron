@@ -20,8 +20,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -74,7 +73,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(AppAction.Finish)
         store.dispatchAndAwaitForTest(AppAction.LaunchIncrement)
 
-        assertEquals(emptyList(), handled.map { it.message })
+        assertEquals(emptyList(), handled.map { it.message.orEmpty() })
         assertEquals(AppState.Active(value = 1), store.currentState)
     }
 
@@ -127,7 +126,7 @@ class StoreRegressionTest {
         }
 
         val results = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(2_000) {
+            withTimeout(2_000) {
                 val initial = store.state.first()
                 val taken = store.state.take(1).toList()
                 store.dispatch(AppAction.Finish)
@@ -197,12 +196,12 @@ class StoreRegressionTest {
     private fun enterStore(
         handled: MutableList<Throwable>,
         stateSaver: StateSaver<EnterState> = StateSaver.Noop(),
-        plugin: Plugin<EnterState, EnterAction, Nothing>? = null,
+        plugin: Plugin<EnterState, EnterAction, Nothing> = actron.core.Plugin(),
     ): Store<EnterState, EnterAction, Nothing> = Store(EnterState.Start) {
         coroutineContext(Dispatchers.Unconfined)
         exceptionHandler(ExceptionHandler { handled += it })
         stateSaver(stateSaver)
-        plugin?.let { plugin(it) }
+        plugin(plugin)
         state<EnterState.Start> {
             action<EnterAction.Go> { nextState { EnterState.Entered() } }
         }
@@ -238,7 +237,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(EnterAction.LaunchInEntered)
 
         assertEquals(EnterState.Entered(entered = true, launched = true), store.currentState)
-        assertEquals(listOf("disk full"), handled.map { it.message })
+        assertEquals(listOf("disk full"), handled.map { it.message.orEmpty() })
     }
 
     /**
@@ -256,7 +255,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(EnterAction.LaunchInEntered)
 
         assertEquals(EnterState.Entered(entered = true, launched = true), store.currentState)
-        assertEquals(listOf("plugin failed"), handled.map { it.message })
+        assertEquals(listOf("plugin failed"), handled.map { it.message.orEmpty() })
     }
 
     data class Emitting(val done: Boolean = false) : State
@@ -287,7 +286,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(EmitThenFinish)
 
         assertEquals(Emitting(done = true), store.currentState)
-        assertEquals(listOf("onEvent failed"), handled.map { it.message })
+        assertEquals(listOf("onEvent failed"), handled.map { it.message.orEmpty() })
     }
 
     data class Booting(val ready: Boolean = false) : State
@@ -325,7 +324,7 @@ class StoreRegressionTest {
         assertEquals(1, enterCalls)
         assertEquals(1, pluginStarts)
         assertEquals(2, pokes)
-        assertEquals(listOf("boot failed"), handled.map { it.message })
+        assertEquals(listOf("boot failed"), handled.map { it.message.orEmpty() })
     }
 
     sealed interface Net : State {
@@ -341,11 +340,11 @@ class StoreRegressionTest {
         data object Ping : NetAction
     }
 
-    private fun netStore(handled: MutableList<Throwable>, dispatcher: TestDispatcher, plugin: Plugin<Net, NetAction, Nothing>? = null, policy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent): Store<Net, NetAction, Nothing> = Store(Net.Idle) {
+    private fun netStore(handled: MutableList<Throwable>, dispatcher: TestDispatcher, plugin: Plugin<Net, NetAction, Nothing> = actron.core.Plugin(), policy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent): Store<Net, NetAction, Nothing> = Store(Net.Idle) {
         coroutineContext(dispatcher)
         exceptionHandler(ExceptionHandler { handled += it })
         pluginExecutionPolicy(policy)
-        plugin?.let { plugin(it) }
+        plugin(plugin)
         state<Net.Idle> {
             action<NetAction.Load> {
                 withTimeout(10) { delay(10_000) }
@@ -454,7 +453,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(Poke)
 
         val reported = assertIs<IllegalArgumentException>(handled.single())
-        assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message })
+        assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message.orEmpty() })
     }
 
     sealed interface Loop : State {
@@ -503,18 +502,22 @@ class StoreRegressionTest {
         val handled = mutableListOf<Throwable>()
         val recovered = mutableListOf<String>()
         var pokes = 0
-        lateinit var store: Store<Booting, Action, Nothing>
-        store = Store(Booting()) {
+        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<Booting, Action, Nothing>>()
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val store: Store<Booting, Action, Nothing> = Store(Booting()) {
             coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(ExceptionHandler { handled += it })
-            plugin(Plugin(onAction = { _, action -> if (action is Enter) store.dispatchAndAwaitForTest(Poke) }))
+            plugin(Plugin(onAction = { _, action -> if (action is Enter) storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }))
             state<Booting> {
-                enter { store.startAndAwaitForTest() }
-                action<Nested> { store.dispatchAndAwaitForTest(Poke) }
+                enter { storePublication.getCompleted().startAndAwaitForTest() }
+                action<Nested> { storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }
                 action<Poke> { pokes++ }
                 recover<IllegalStateException> { recovered += error.message.orEmpty().substringBefore(":") }
             }
         }
+        storePublication.complete(store)
+
+
 
         store.dispatchAndAwaitForTest(Nested)
         store.dispatchAndAwaitForTest(Enter)
@@ -550,7 +553,7 @@ class StoreRegressionTest {
 
             assertEquals(listOf(1), seen, "$policy")
             val reported = assertIs<IllegalStateException>(handled.single(), "$policy")
-            assertEquals(listOf("second"), reported.suppressedExceptions.map { it.message }, "$policy")
+            assertEquals(listOf("second"), reported.suppressedExceptions.map { it.message.orEmpty() }, "$policy")
         }
     }
 
@@ -566,17 +569,18 @@ class StoreRegressionTest {
     @Test
     fun awaitingTheStoreFromAnOnEventRoundOfALaunchedEvent_failsFast() = runTest {
         val outcome = CompletableDeferred<String>()
-        lateinit var store: Store<Booting, Action, Beep>
-        store = Store(Booting()) {
+        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<Booting, Action, Beep>>()
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val store: Store<Booting, Action, Beep> = Store(Booting()) {
             coroutineContext(Dispatchers.Default)
             exceptionHandler(ExceptionHandler.Ignore)
             plugin(
                 Plugin(
                     onEvent = { _, _ ->
                         outcome.complete(
-                            withTimeoutOrNull(5_000) {
+                            withTimeout(5_000) {
                                 try {
-                                    store.dispatchAndAwaitForTest(Poke)
+                                    storePublication.getCompleted().dispatchAndAwaitForTest(Poke)
                                     "completed"
                                 } catch (e: IllegalStateException) {
                                     "rejected"
@@ -591,6 +595,9 @@ class StoreRegressionTest {
                 action<Poke> { }
             }
         }
+        storePublication.complete(store)
+
+
 
         withContext(Dispatchers.Default) {
             store.dispatch(EmitFromLaunch)
@@ -646,7 +653,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(Poke)
 
         val reported = assertIs<AssertionError>(handled.single())
-        assertEquals(listOf("first"), reported.suppressedExceptions.map { it.message })
+        assertEquals(listOf("first"), reported.suppressedExceptions.map { it.message.orEmpty() })
     }
 
     data object LaunchInLoopState : Action
@@ -675,7 +682,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(Enter)
         store.dispatchAndAwaitForTest(LaunchInLoopState)
 
-        assertEquals(emptyList(), handled.map { it.message })
+        assertEquals(emptyList(), handled.map { it.message.orEmpty() })
         assertEquals(1, launched)
     }
 
@@ -699,7 +706,7 @@ class StoreRegressionTest {
         store.dispatchAndAwaitForTest(NetAction.Ping)
 
         val reported = assertIs<IllegalArgumentException>(handled.single())
-        assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message })
+        assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message.orEmpty() })
     }
 
     /**
@@ -745,7 +752,7 @@ class StoreRegressionTest {
 
         assertEquals(Net.Done("pong"), store.currentState)
         assertEquals(0, recovered)
-        assertEquals(listOf("launch failed"), handled.map { it.message })
+        assertEquals(listOf("launch failed"), handled.map { it.message.orEmpty() })
     }
 
     /**
@@ -780,6 +787,6 @@ class StoreRegressionTest {
 
         assertEquals(Net.Idle, store.currentState)
         assertEquals(0, recovered)
-        assertEquals(emptyList(), handled.map { it.message })
+        assertEquals(emptyList(), handled.map { it.message.orEmpty() })
     }
 }

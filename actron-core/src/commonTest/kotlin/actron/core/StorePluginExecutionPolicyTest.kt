@@ -28,7 +28,7 @@ class StorePluginExecutionPolicyTest {
         secondPluginStarted: CompletableDeferred<Unit>,
         firstPluginCanFinish: CompletableDeferred<Unit>,
         setupPolicy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent,
-        patchedPolicy: PluginExecutionPolicy? = null,
+        patch: StorePatchBuilder<AppState, AppAction, Nothing>.() -> Unit = {},
     ): Store<AppState, AppAction, Nothing> {
         val store = Store<AppState, AppAction, Nothing>(initialState = AppState()) {
             coroutineContext(testDispatcher)
@@ -58,11 +58,7 @@ class StorePluginExecutionPolicyTest {
                 }
             }
         }
-        if (patchedPolicy != null) {
-            store.patchForTest {
-                pluginExecutionPolicy(patchedPolicy)
-            }
-        }
+        store.patchForTest(patch)
         return store
     }
 
@@ -148,7 +144,7 @@ class StorePluginExecutionPolicyTest {
             secondPluginStarted = secondPluginStarted,
             firstPluginCanFinish = firstPluginCanFinish,
             setupPolicy = PluginExecutionPolicy.Concurrent,
-            patchedPolicy = PluginExecutionPolicy.InRegistrationOrder,
+            patch = { pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder) },
         )
 
         store.dispatch(AppAction.Increment)

@@ -103,13 +103,13 @@ class StoreSoakJvmTest {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T> field(store: Any, name: String): T {
-        var cls: Class<*>? = store.javaClass
-        while (cls != null) {
+    private fun <T : Any> field(store: Any, name: String): T {
+        var cls: Class<out Any> = store.javaClass
+        while (true) {
             try {
-                val f = cls.getDeclaredField(name); f.isAccessible = true
+                val f = checkNotNull(cls.getDeclaredField(name)); f.isAccessible = true
                 return f.get(store) as T
-            } catch (_: NoSuchFieldException) { cls = cls.superclass }
+            } catch (_: NoSuchFieldException) { cls = cls.superclass ?: break }
         }
         error("no field $name")
     }
@@ -156,11 +156,11 @@ class StoreSoakJvmTest {
         assertEquals(incs.get(), store.currentState.count)
         assertEquals(emptyList(), handled.map { it.toString() })
         // internal maps do not grow
-        val runtimes: Map<*, *> = field(store, "stateRuntimes")
+        val runtimes: Map<Any, Any> = field(store, "stateRuntimes")
                 assertTrue(runtimes.size <= 1, "stateRuntimes=${runtimes.size}")
-        val dispatchScopeLazy: Lazy<*> = field(store, "dispatchScope\$delegate")
+        val dispatchScopeLazy: Lazy<kotlinx.coroutines.CoroutineScope> = field(store, "dispatchScope\$delegate")
         val dispatchScope = dispatchScopeLazy.value as kotlinx.coroutines.CoroutineScope
-        val children = dispatchScope.coroutineContext[Job]!!.children.count()
+        val children = kotlin.test.assertNotNull(dispatchScope.coroutineContext[Job]).children.count()
                 assertTrue(children <= 1, "children=$children")
         store.close()
     }
@@ -209,8 +209,8 @@ class StoreSoakJvmTest {
         withContext(Dispatchers.Default) {
             store.dispatch(A.Inc)
             store.state.first { it.count == 1 }
-            val last: MutableStateFlow<Job?> = field(store, "lastDispatchDone")
-            val ref = WeakReference(last.value!!)
+            val last: MutableStateFlow<Job> = field(store, "lastDispatchDone")
+            val ref: WeakReference<Job> = WeakReference(last.value)
             repeat(5000) { store.dispatch(A.Inc) }
             store.state.first { it.count == 5001 }
             repeat(5) { System.gc(); delay(50) }

@@ -39,8 +39,8 @@ class DurableEffectProcessTest {
         val durable = DiskOutbox(directory.resolve("domain.json")).durable.value
         val ledger = DiskLedger(directory.resolve("ledger.json")).read()
         assertEquals(if (boundary == Boundary.BeforeEffect) 0L else 25L, ledger.balance)
-        if (boundary == Boundary.BeforeEffect || boundary == Boundary.AfterEffect) assertEquals(intent, durable.pending)
-        else assertEquals(intent, durable.completed)
+        if (boundary == Boundary.BeforeEffect || boundary == Boundary.AfterEffect) assertTrue(durable.pendingMatches(intent))
+        else assertTrue(durable.completedMatches(intent))
         process(directory, "recover")
         process(directory, "recover") // A third fresh Store/process is also harmless.
         assertEquals(Ledger(25, mapOf(intent.id to 25L)), DiskLedger(directory.resolve("ledger.json")).read())
@@ -79,7 +79,7 @@ class DurableEffectProcessTest {
                     }
                 }
                 withTimeout(10_000) { subscription.join() }
-                assertEquals(intent, session.saver.durable.value.completed)
+                assertTrue(session.saver.durable.value.completedMatches(intent))
                 assertEquals(1, session.store.mailbox.pending.size)
                 withTimeout(10_000) { session.store.mailbox.subscribe().take(1).collect { session.handle(it) } }
                 assertTrue(session.store.mailbox.pending.isEmpty())
@@ -92,12 +92,12 @@ class DurableEffectProcessTest {
         runBlocking {
             CreditSession(directory).use { session ->
                 session.start()
-                val domain = directory.resolve("domain.json")
+                val domain = checkNotNull(directory.resolve("domain.json"))
                 // Make rename-to-target fail on the actual filesystem.
                 Files.deleteIfExists(domain); Files.createDirectory(domain)
                 Files.writeString(domain.resolve("blocker"), "block replacement")
                 session.store.dispatch(CreditAction.Request(intent))
-                withTimeout(10_000) { session.failures.first { it != null } }
+                withTimeout(10_000) { session.failures.first() }
                 assertFailsWith<IllegalStateException> {
                     withTimeout(10_000) { session.store.mailbox.subscribe().take(1).collect { session.handle(it) } }
                 }
@@ -111,8 +111,8 @@ class DurableEffectProcessTest {
         runBlocking {
             CreditSession(directory).use { session ->
                 session.start(); session.request(intent)
-                val domain = directory.resolve("domain.json")
-                val backup = directory.resolve("backup.json")
+                val domain = checkNotNull(directory.resolve("domain.json"))
+                val backup = checkNotNull(directory.resolve("backup.json"))
                 val subscriber = launch {
                     session.store.mailbox.subscribe().take(1).collect { delivery ->
                         session.handle(delivery) { boundary ->
@@ -124,14 +124,15 @@ class DurableEffectProcessTest {
                         }
                     }
                 }
-                withTimeout(10_000) { session.failures.first { it != null } }
-                assertEquals(intent, session.saver.durable.value.pending)
+                withTimeout(10_000) { session.failures.first() }
+                assertTrue(session.saver.durable.value.pendingMatches(intent))
                 assertEquals(25L, session.ledger.read().balance)
                 assertEquals(1, session.store.mailbox.pending.size)
                 assertTrue(subscriber.isActive, "Handler must still await a durable completion")
-                assertTrue(session.failures.value != null)
+                assertTrue(session.failures.replayCache.isNotEmpty())
                 subscriber.cancelAndJoin()
                 Files.delete(domain.resolve("blocker")); Files.delete(domain); Files.move(backup, domain)
+                Unit
             }
         }
         process(directory, "recover")
@@ -167,6 +168,22 @@ class DurableEffectProcessTest {
         assertEquals("truncated", Files.readString(directory.resolve("ledger.json")))
     }
 
+    @Test fun schemaOneOutboxesRemainReadableThroughEachBusinessPhase() = withDirectory { directory ->
+        val pending = """{"id":"invoice-42","amount":25}"""
+        val prior = """{"id":"invoice-41","amount":10}"""
+        val path = checkNotNull(directory.resolve("domain.json"))
+        for ((wire, expected) in listOf(
+            """{"pending":null,"completed":null}""" to Outbox.Unstarted,
+            """{"pending":$pending,"completed":null}""" to Outbox.Awaiting(intent),
+            """{"pending":null,"completed":$pending}""" to Outbox.Completed(intent),
+            """{"pending":$pending,"completed":$prior}""" to
+                Outbox.Awaiting(intent, Outbox.Completed(CreditIntent("invoice-41", 10))),
+        )) {
+            Files.writeString(path, """{"schema":1,"outbox":$wire}""")
+            assertEquals(expected, DiskOutbox(path).durable.value)
+        }
+    }
+
     @Test fun incompatibleSchemasFailClosed() = withDirectory { directory ->
         Files.writeString(directory.resolve("domain.json"), "{\"schema\":2,\"outbox\":{}}")
         assertFailsWith<IllegalArgumentException> { DiskOutbox(directory.resolve("domain.json")) }
@@ -187,10 +204,10 @@ class DurableEffectProcessTest {
                 val subscriber = launch {
                     session.store.mailbox.subscribe().take(1).collect { session.handle(it) }
                 }
-                var closing: CompletableFuture<Void>? = null
                 try {
                     assertTrue(withContext(Dispatchers.IO) { entered.await(10, TimeUnit.SECONDS) })
-                    closing = CompletableFuture.runAsync { session.close() }
+                    val closing: CompletableFuture<Unit> = checkNotNull(CompletableFuture.supplyAsync { session.close(); Unit })
+                    try {
                     withTimeout(10_000) { while (!session.isClosing) delay(5) }
                     assertFalse(closing.isDone, "Close must await the blocking ledger operation")
                     assertFailsWith<java.nio.channels.OverlappingFileLockException> { CreditSession(directory) }
@@ -203,11 +220,14 @@ class DurableEffectProcessTest {
                         restarted.start()
                         withTimeout(10_000) { restarted.store.mailbox.subscribe().take(1).collect { restarted.handle(it) } }
                         assertEquals(25L, restarted.ledger.read().balance)
-                        assertEquals(intent, restarted.saver.durable.value.completed)
+                        assertTrue(restarted.saver.durable.value.completedMatches(intent))
+                    }
+                    } finally {
+                        release.countDown()
+                        withContext(Dispatchers.IO) { closing.get(10, TimeUnit.SECONDS) }
                     }
                 } finally {
                     release.countDown()
-                    closing?.let { withContext(Dispatchers.IO) { it.get(10, TimeUnit.SECONDS) } }
                     subscriber.cancelAndJoin()
                 }
             }
@@ -219,14 +239,14 @@ class DurableEffectProcessTest {
             val saver = DiskOutbox(directory.resolve("domain.json"))
             val next = CreditIntent("invoice-43", 10)
             val completedA = async(start = CoroutineStart.UNDISPATCHED) {
-                saver.awaitSaved({ it.completed == intent }) {}
+                saver.awaitSaved({ it.completedMatches(intent) }) {}
             }
             // All real disk saves happen before the awaiting coroutine can resume. StateFlow
             // exposes only completed B by then; completion A must remain a one-shot signal.
-            saver.save(creditMachine.initialSnapshot(Outbox(completed = intent)))
-            saver.save(creditMachine.initialSnapshot(Outbox(pending = next, completed = intent)))
-            saver.save(creditMachine.initialSnapshot(Outbox(completed = next)))
-            assertEquals(next, saver.durable.value.completed)
+            saver.save(creditMachine.initialSnapshot(Outbox.Completed(intent)))
+            saver.save(creditMachine.initialSnapshot(Outbox.Awaiting(next, Outbox.Completed(intent))))
+            saver.save(creditMachine.initialSnapshot(Outbox.Completed(next)))
+            assertTrue(saver.durable.value.completedMatches(next))
             withTimeout(10_000) { completedA.await() }
         }
     }
@@ -243,7 +263,7 @@ class DurableEffectProcessTest {
                         }
                     }
                 }
-                assertEquals(next, session.saver.durable.value.pending)
+                assertTrue(session.saver.durable.value.pendingMatches(next))
                 // Persistence completes before the scheduler publishes this revision's effects.
                 // Wait for that real boundary before inspecting the retained mailbox.
                 val revision = session.saver.savedRevision.value
@@ -266,18 +286,23 @@ class DurableEffectProcessTest {
     }
 
     private fun withDirectory(block: (Path) -> Unit) {
-        val directory = Files.createTempDirectory("actron-durable-effect-")
+        val directory = checkNotNull(Files.createTempDirectory("actron-durable-effect-"))
         try { block(directory) } finally { directory.toFile().deleteRecursively() }
     }
 
     private fun process(directory: Path, phase: String) {
-        val loaderPaths = generateSequence(javaClass.classLoader) { it.parent }
-            .filterIsInstance<URLClassLoader>().flatMap { it.urLs.asSequence() }.map { File(it.toURI()).path }.toList()
-        val classpath = (loaderPaths + System.getProperty("java.class.path").split(File.pathSeparator)).distinct()
-        val output = directory.resolve("$phase.log").toFile()
-        val child = ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
+        val loaderPaths = buildList<String> {
+            var loader = checkNotNull(javaClass.classLoader)
+            while (true) {
+                if (loader is URLClassLoader) for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                loader = loader.parent ?: break
+            }
+        }
+        val classpath = (loaderPaths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct()
+        val output = checkNotNull(directory.resolve("$phase.log").toFile())
+        val child = checkNotNull(ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
             "-cp", classpath.joinToString(File.pathSeparator), DurableEffectProcess::class.java.name,
-            directory.toString(), phase).redirectErrorStream(true).redirectOutput(output).start()
+            directory.toString(), phase).redirectErrorStream(true).redirectOutput(output).start())
         try {
             assertTrue(child.waitFor(30, TimeUnit.SECONDS), "Child timed out: ${output.readText()}")
             assertEquals(0, child.exitValue(), output.readText())
@@ -289,12 +314,12 @@ class DurableEffectProcessTest {
 /** Child JVM has only persisted files; Runtime.halt skips Store close and all finally blocks. */
 object DurableEffectProcess {
     @JvmStatic fun main(args: Array<String>) = runBlocking {
-        val directory = Path.of(args[0])
+        val directory = checkNotNull(Path.of(args[0]))
         val phase = args[1]
         CreditSession(directory).use { session ->
             session.start()
             if (phase != "recover") session.request(intent)
-            if (session.saver.durable.value.pending != null) {
+            if (session.saver.durable.value.hasPending) {
                 withTimeout(10_000) {
                     session.store.mailbox.subscribe().take(1).collect { delivery ->
                         assertEquals(intent, delivery.event.intent)
@@ -309,7 +334,7 @@ object DurableEffectProcess {
                 }
             }
             assertEquals(25L, session.ledger.read().balance)
-            assertEquals(intent, session.saver.durable.value.completed)
+            assertTrue(session.saver.durable.value.completedMatches(intent))
             assertTrue(session.store.mailbox.pending.isEmpty())
             session.request(intent) // Recreating UI and retrying the business request is harmless.
             assertTrue(session.store.mailbox.pending.isEmpty())

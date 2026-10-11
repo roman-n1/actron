@@ -168,10 +168,10 @@ class ReplaySessionTest {
         assertTrue(recording.steps.any { it.input is MachineInput.TimerFired })
 
         val session = ReplaySession(machine, recording)
-        assertNull(session.verify())
+        kotlin.test.assertFalse(session.verify() { error("Unexpected replay mismatch: $it") })
         var matched = 0
         while (true) {
-            val step = session.observedStepForward() ?: break
+            val step = session.stepForward().takeUnless { it is ReplayStep.Finished } ?: break
             assertIs<ReplayStep.Matched<Ctx, Act, Fetch, Ev>>(step)
             matched++
         }
@@ -202,7 +202,7 @@ class ReplaySessionTest {
         assertEquals(recording.snapshotAt(recording.length - 3), session.snapshot)
         repeat(3) { assertIs<ReplayStep.Matched<Ctx, Act, Fetch, Ev>>(session.observedStepForward()) }
         assertEquals(recording.snapshotAt(recording.length), session.snapshot)
-        assertNull(session.observedStepForward())
+        kotlin.test.assertTrue(session.stepForward() is ReplayStep.Finished)
         session.seek(0)
         assertTrue(!session.stepBackward())
         assertFailsWith<IllegalArgumentException> { session.seek(recording.length + 1) }
@@ -224,7 +224,7 @@ class ReplaySessionTest {
 
         val session = ReplaySession(changed, recording)
         val mismatch = session.verify()
-        assertTrue(mismatch != null, "the changed effect must show")
+        assertTrue(mismatch.differences.isNotEmpty(), "the changed effect must show")
         val firstLoaded = recording.steps.indexOfFirst { it.input is MachineInput.CommandResult<*> && it is RecordedStep.Committed }
         assertEquals(firstLoaded, mismatch.position)
         assertTrue(mismatch.differences.any { it.startsWith("context:") }, mismatch.describe())
@@ -235,7 +235,7 @@ class ReplaySessionTest {
         assertIs<ReplayStep.Diverged<Ctx, Act, Fetch, Ev>>(step)
         assertEquals(firstLoaded, session.position, "a divergence does not advance")
         assertIs<ReplayStep.Diverged<Ctx, Act, Fetch, Ev>>(session.observedStepForward())
-        assertNull(session.verify(0, firstLoaded), "everything before it still matches")
+        kotlin.test.assertFalse(session.verify(0, firstLoaded) { error("Unexpected replay mismatch: $it") }, "everything before it still matches")
     }
 
     @Test
@@ -250,7 +250,7 @@ class ReplaySessionTest {
 
         val mismatch = ReplaySession(machine, tampered).verify()
 
-        assertTrue(mismatch != null && mismatch.position == timerIndex)
+        assertTrue(mismatch.position == timerIndex)
         assertTrue(mismatch.differences.any { "before its deadline" in it }, mismatch.describe())
     }
 
@@ -280,7 +280,7 @@ class ReplaySessionTest {
 
         recorder.onCommitted(InputAttribution.Unattributed, MachineInput.Start(MachineTime.Zero), start)
 
-        assertTrue(recorder.problem != null)
+        assertIs<RecordingOrigin.UnknownBeginning>(recorder.origin)
     }
 
     @Test

@@ -48,7 +48,7 @@ class ExternalSourceContractTest {
         private val feedLock = Mutex()
         var next = 0
             private set
-        var pauseGate: CompletableDeferred<Unit>? = null
+        var pauseGate: CompletableDeferred<Unit> = CompletableDeferred(Unit)
         var resumes = 0
             private set
         val paused get() = feedLock.isLocked
@@ -62,7 +62,7 @@ class ExternalSourceContractTest {
             try {
                 // Models a multi-resource adapter: feeding stopped, subscription acknowledgement
                 // still pending. Cancellation must relinquish the resource already acquired.
-                pauseGate?.await()
+                pauseGate.await()
             } catch (failure: Throwable) {
                 feedLock.unlock()
                 throw failure
@@ -128,7 +128,7 @@ class ExternalSourceContractTest {
             assertFalse(f.pager.paused, "the source owns rollback of an unfinished pause")
             assertEquals(0, f.pager.resumes, "the group never acquired the partial pause")
             assertEquals(Admission.Accepted, f.pager.loadNext())
-            f.pager.pauseGate = null
+            f.pager.pauseGate = CompletableDeferred(Unit)
             val next = async { f.group.checkpoint() }
             runCurrent()
             assertEquals(listOf(0), kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(next.await()).checkpoint.members.getValue(f.id).snapshot.context)
@@ -178,7 +178,7 @@ class ExternalSourceContractTest {
             val pendingPage = async { f.pager.loadNext() }
             runCurrent()
             assertTrue(pendingPage.isActive)
-            f.pager.pauseGate!!.complete(Unit)
+            kotlin.test.assertNotNull(f.pager.pauseGate).complete(Unit)
             runCurrent()
             val checkpoint = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(cut.await()).checkpoint
             assertEquals(listOf(0), checkpoint.members.getValue(f.id).snapshot.context)

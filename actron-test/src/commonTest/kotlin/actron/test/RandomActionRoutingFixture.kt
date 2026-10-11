@@ -45,7 +45,7 @@ internal val ktActions: List<KtAction> = listOf(KtAction.P, KtAction.Q, KtAction
 internal class Registration(
     val kind: String,
     val stateType: KClass<*>,
-    val inputType: KClass<*>?,
+    val inputType: KClass<*>,
     val register: KtBuilder.(tag: Int, log: MutableList<String>) -> Unit,
 )
 
@@ -53,10 +53,10 @@ internal inline fun <reified S2 : KtState, reified A2 : KtAction> actionReg() =
     Registration("action", S2::class, A2::class) { tag, log -> state<S2> { action<A2> { log += "action#$tag" } } }
 
 internal inline fun <reified S2 : KtState> enterReg() =
-    Registration("enter", S2::class, null) { tag, log -> state<S2> { enter { log += "enter#$tag" } } }
+    Registration("enter", S2::class, Unit::class) { tag, log -> state<S2> { enter { log += "enter#$tag" } } }
 
 internal inline fun <reified S2 : KtState> exitReg() =
-    Registration("exit", S2::class, null) { tag, log -> state<S2> { exit { log += "exit#$tag" } } }
+    Registration("exit", S2::class, Unit::class) { tag, log -> state<S2> { exit { log += "exit#$tag" } } }
 
 internal inline fun <reified S2 : KtState, reified T : Exception> recoverReg() =
     Registration("recover", S2::class, T::class) { tag, log -> state<S2> { recover<T> { log += "recover#$tag" } } }

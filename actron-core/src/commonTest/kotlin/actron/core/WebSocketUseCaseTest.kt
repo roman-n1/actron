@@ -104,7 +104,7 @@ class WebSocketUseCaseTest {
 
         data class Connected(
             val connectionStatus: ConnectionStatus = ConnectionStatus.CONNECTING,
-            val latestMessage: WebSocketMessage? = null,
+            val messages: List<WebSocketMessage> = emptyList(),
         ) : AppState
 
         data class Error(val error: Throwable) : AppState
@@ -173,7 +173,7 @@ class WebSocketUseCaseTest {
                             transaction {
                                 // Only update messages if in CONNECTED status
                                 if (state.connectionStatus == AppState.ConnectionStatus.CONNECTED) {
-                                    nextState { state.copy(latestMessage = message) }
+                                    nextState { state.copy(messages = state.messages + message) }
                                 }
                                 // Otherwise ignore messages that arrive before fully connected
                                 // or after disconnecting has started
@@ -234,7 +234,7 @@ class WebSocketUseCaseTest {
         // State should update with the latest message
         val stateWithMessage = store.currentState
         assertIs<AppState.Connected>(stateWithMessage)
-        assertEquals(testMessage, stateWithMessage.latestMessage)
+        assertEquals(testMessage, stateWithMessage.messages.last())
         assertEquals(AppState.ConnectionStatus.CONNECTED, stateWithMessage.connectionStatus)
 
         // Disconnect

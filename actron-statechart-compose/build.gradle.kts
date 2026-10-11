@@ -23,9 +23,7 @@ kotlin {
         withHostTestBuilder {}.configure {
             isReturnDefaultValues = true
         }
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }
+        // Common Compose tests run on the host; device lifecycle tests live in actron-compose.
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -73,5 +71,5 @@ configurations.configureEach {
 }
 
 publishConvention {
-    artifactId = "actron-statechart-compose"
+    artifactId.set("actron-statechart-compose")
 }

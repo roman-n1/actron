@@ -38,13 +38,13 @@ class RecordingDurabilityJvmTest {
     @Test fun fullFilesystemStopsAllWritersAndPreservesTheirFlushedPrefix() {
         // Only the dedicated Linux CI supplies a small, isolated mount. Never fill a developer's disk.
         val mount = System.getenv("ACTRON_ENOSPC_DIRECTORY") ?: return
-        val root = File(mount)
+        val root = checkNotNull(File(mount))
         require(File(root, ".actron-bounded-filesystem").isFile)
         val capacity = Files.getFileStore(root.toPath()).totalSpace
         require(capacity in 1..(16L * 1024 * 1024)) { "Refusing to fill a filesystem of $capacity bytes" }
         for (kind in listOf("journal", "member", "group")) {
-            val directory = Files.createTempDirectory(root.toPath(), "$kind-").toFile()
-            val control = Files.createTempDirectory("actron-enospc-control-").toFile()
+            val directory = checkNotNull(Files.createTempDirectory(root.toPath(), "$kind-").toFile())
+            val control = checkNotNull(Files.createTempDirectory("actron-enospc-control-").toFile())
             try {
                 runChild("full", kind, "full", directory, control)
                 runChild("read", kind, "full", directory, control)
@@ -57,9 +57,9 @@ class RecordingDurabilityJvmTest {
 
     private fun crashCases(kind: String) {
         for (cut in listOf("buffered", "flushed", "frame", "rotation-header", "rotation-end")) {
-            val root = Files.createTempDirectory("actron-crash-$kind-").toFile()
-            val directory = File(root, "segments").apply { mkdir() }
-            val control = File(root, "control").apply { mkdir() }
+            val root = checkNotNull(Files.createTempDirectory("actron-crash-$kind-").toFile())
+            val directory = checkNotNull(File(root, "segments").apply { mkdir() })
+            val control = checkNotNull(File(root, "control").apply { mkdir() })
             val child = startChild("write", kind, cut, directory, control)
             try {
                 val ready = File(control, "ready")
@@ -90,9 +90,16 @@ class RecordingDurabilityJvmTest {
     }
 
     private fun startChild(phase: String, kind: String, cut: String, directory: File, control: File): Process {
-        val paths = generateSequence(javaClass.classLoader) { it.parent }.filterIsInstance<URLClassLoader>()
-            .flatMap { it.urLs.asSequence() }.map { File(it.toURI()).path }.toList()
-        val classpath = (paths + System.getProperty("java.class.path").split(File.pathSeparator)).distinct()
+        val paths = buildList<String> {
+            var loader = checkNotNull(javaClass.classLoader)
+            while (true) {
+                if (loader is URLClassLoader) {
+                    for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                }
+                loader = loader.parent ?: break
+            }
+        }
+        val classpath = checkNotNull((paths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct())
         return ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
             "-cp", classpath.joinToString(File.pathSeparator), RecordingDurabilityProcess::class.java.name,
             phase, kind, cut, directory.path, control.path)
@@ -116,8 +123,8 @@ object RecordingDurabilityProcess {
 
     @JvmStatic fun main(args: Array<String>) = runBlocking {
         val (phase, kind, cut, path, controlPath) = args.toList()
-        val directory = File(path)
-        val control = File(controlPath)
+        val directory = checkNotNull(File(path))
+        val control = checkNotNull(File(controlPath))
         when (phase) {
             "write" -> write(kind, cut, directory, control)
             "read" -> read(kind, cut, directory)
@@ -140,7 +147,7 @@ object RecordingDurabilityProcess {
         private fun stopWhenMemberFlushed(): Nothing {
             if (kind == "group" && cut != "buffered") {
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-                while ((RecordingFiles(actual).read(member, codec).recording?.length ?: 0) < 2) {
+                while (RecordingFiles(actual).read(member, codec).let { if (it is RecordingFileContents.Readable) it.recording.length else 0 } < 2) {
                     check(System.nanoTime() < deadline) { "Member writer did not flush its first step" }
                     Thread.sleep(5)
                 }
@@ -224,14 +231,14 @@ object RecordingDurabilityProcess {
             }
             "member" -> {
                 val contents = RecordingFiles(storage).read(member, codec)
-                assertEquals(expected, contents.recording?.length ?: 0)
-                contents.recording?.let { assertNull(ReplaySession(machine, it).verify()) }
+                assertEquals(expected, if (contents is RecordingFileContents.Readable) contents.recording.length else 0)
+                if (contents is RecordingFileContents.Readable) assertFalse(ReplaySession(machine, contents.recording).verify() { error("Unexpected mismatch: $it") })
                 damaged = contents.marks.filterIsInstance<RecordingFileMark.Damaged>().map { it.mark }
             }
             else -> {
                 val contents = GroupRecordingFiles(storage).read(groupId, mapOf(member to codec))
-                assertEquals(expected, contents.recording?.order?.size ?: 0)
-                contents.recording?.let { assertTrue(GroupReplaySession(mapOf(member to machine), it).verify().isEmpty()) }
+                assertEquals(expected, if (contents is GroupRecordingFileContents.Readable) contents.recording.order.size else 0)
+                if (contents is GroupRecordingFileContents.Readable) assertTrue(GroupReplaySession(mapOf(member to machine), contents.recording).verify().isEmpty())
                 damaged = contents.marks.filterIsInstance<RecordingFileMark.Damaged>().map { it.mark }
             }
         }
@@ -244,18 +251,34 @@ object RecordingDurabilityProcess {
         assertTrue(damaged.none { it is SegmentMark.Corrupt }, damaged.toString())
     }
 
+    private sealed interface FullWriter {
+        data class Journal(val sink: JournalFileSink) : FullWriter
+        class Recording(val observer: DecisionObserver<Int, Add, Unit, NoEvent>, val close: suspend () -> Unit) : FullWriter
+    }
+
     private suspend fun full(kind: String, directory: File, control: File) {
         val storage = FileSegmentStorage(directory.path)
         val failures = java.util.concurrent.CopyOnWriteArrayList<Throwable>()
         val config = RecordingFileConfig(flushEveryFrames = 1, onFailure = { failures += it })
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val journal = if (kind == "journal") JournalFileSink(storage, JournalFileConfig(flushEveryRecords = 1)) else null
-        val sink = if (kind == "member") RecordingFileSink(member, machine, 0, codec, storage, scope, config) else null
-        val group = if (kind == "group") GroupRecordingFileSink(MachineGroup(), groupId, storage, scope, config) else null
-        val observer = sink ?: group?.member(member, machine, 0, codec)
         val start = MachineInput.Start(MachineTime(0.milliseconds))
         val decision = machine.decide(machine.initialSnapshot(0), start)
-        journal?.write(journalRecord(1)) ?: observer!!.onCommitted(InputAttribution.Unattributed, start, decision)
+        val writer = when (kind) {
+            "journal" -> FullWriter.Journal(JournalFileSink(storage, JournalFileConfig(flushEveryRecords = 1)))
+            "member" -> {
+                val sink = RecordingFileSink(member, machine, 0, codec, storage, scope, config)
+                FullWriter.Recording(sink) { sink.close() }
+            }
+            "group" -> {
+                val group = GroupRecordingFileSink(MachineGroup(), groupId, storage, scope, config)
+                FullWriter.Recording(group.member(member, machine, 0, codec)) { group.close() }
+            }
+            else -> error("Unknown format: $kind")
+        }
+        when (writer) {
+            is FullWriter.Journal -> writer.sink.write(journalRecord(1))
+            is FullWriter.Recording -> writer.observer.onCommitted(InputAttribution.Unattributed, start, decision)
+        }
         // Wait for the actual frames to reach the filesystem before exhausting it.
         withTimeout(10_000) {
             while (storage.list().size < (if (kind == "group") 2 else 1) || storage.list().any { it.size == 0L }) delay(5)
@@ -268,7 +291,8 @@ object RecordingDurabilityProcess {
             assertTrue(failure.message.orEmpty().contains("No space left on device"), failure.toString())
         }
         assertEquals(0L, Files.getFileStore(directory.toPath()).usableSpace)
-        if (journal != null) {
+        if (writer is FullWriter.Journal) {
+            val journal = writer.sink
             val failure = assertFailsWith<IOException> { journal.write(journalRecord(2).copy(entry = JournalEntry.FailureReported(InputId(2), FailureDescriptor("disk-full", "x".repeat(32_768))))); journal.flush() }
             assertTrue(failure.message.orEmpty().contains("No space left on device"))
             journal.write(journalRecord(3))
@@ -280,13 +304,13 @@ object RecordingDurabilityProcess {
             // even with usableSpace == 0. Drive it across that page boundary, not a fake quota.
             repeat(if (kind == "group") 300 else 1) {
                 val next = machine.decide(snapshot, input)
-                observer!!.onCommitted(InputAttribution.Unattributed, input, next)
+                (writer as FullWriter.Recording).observer.onCommitted(InputAttribution.Unattributed, input, next)
                 snapshot = next.snapshot
             }
             withTimeout(10_000) { while (failures.size < (if (kind == "group") 2 else 1)) delay(5) }
-            sink?.close() ?: group!!.close()
+            (writer as FullWriter.Recording).close()
             assertEquals(if (kind == "group") 2 else 1, failures.size)
-            assertTrue(failures.all { it is IOException && it.message.orEmpty().contains("No space left on device") }, failures.toString())
+            assertTrue(failures.all { it: Throwable -> it is IOException && it.message.orEmpty().contains("No space left on device") }, failures.toString())
         }
         // Retain ENOSPC artifacts until a fresh reader process has checked the prefix.
         scope.cancel()

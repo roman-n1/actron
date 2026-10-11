@@ -419,16 +419,16 @@ class StateChartRegressionTest {
     fun launchScope_reportsWhatReallyHappened() = runTest {
         val results = mutableListOf<Boolean>()
         val recovered = mutableListOf<String>()
-        var activeAfterClose: Boolean? = null
-        lateinit var leakedScope: ChartEnterScope<Int, ChartAction, ChartEvent>
+        val activeAfterCloseObservations = mutableListOf<Boolean>()
+        val leakedScopeObservations = mutableListOf<ChartEnterScope<Int, ChartAction, ChartEvent>>()
         val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
         val store = StateChartStore<Int, ChartAction, ChartEvent>(chart, 0, backgroundScope.coroutineContext) {
-            onEnter(a) { leakedScope = this }
+            onEnter(a) { leakedScopeObservations.add(this) }
             activity(a) {
                 results += updateContext { throw IllegalStateException("transform failed") }
                 results += updateContext { it + 1 }
                 try {
-                    leakedScope.launch { }
+                    leakedScopeObservations.single().launch { }
                 } catch (e: IllegalStateException) {
                     recovered += "late launch: " + (e.message?.contains("after the onEnter hook") ?: false)
                 }
@@ -436,7 +436,7 @@ class StateChartRegressionTest {
                 try {
                     closed.await()
                 } finally {
-                    activeAfterClose = isActive
+                    activeAfterCloseObservations.add(isActive)
                 }
             }
             store { recover<IllegalStateException> { recovered += error.message.orEmpty() } }
@@ -451,7 +451,7 @@ class StateChartRegressionTest {
         store.close()
         closed.complete(Unit)
         runCurrent()
-        assertEquals(false, activeAfterClose)
+        assertEquals(false, activeAfterCloseObservations.single())
     }
 
     /**
@@ -505,14 +505,14 @@ class StateChartRegressionTest {
     @Test
     fun timerHooksDelegateToTransactionScope() = runTest {
         val timed = chart.copy(transitions = listOf(Transition(a, b, Trigger.After(1.seconds))))
-        var underlying: actron.core.StoreScope? = null
+        val underlyingObservations = mutableListOf<actron.core.StoreScope>()
         val store = StateChartStore<Unit, ChartAction, ChartEvent>(timed, Unit, backgroundScope.coroutineContext) {
-            onEnter(b) { underlying = store }
+            onEnter(b) { underlyingObservations.add(store) }
         }
         store.startAndAwait()
         advanceTimeBy(1.seconds)
         runCurrent()
-        assertIs<actron.core.EnterTransactionScope<*, *, *>>(underlying)
+        assertIs<actron.core.EnterTransactionScope<*, *, *>>(underlyingObservations.single())
         assertTrue(store.currentState.isActive(b))
         store.close()
     }

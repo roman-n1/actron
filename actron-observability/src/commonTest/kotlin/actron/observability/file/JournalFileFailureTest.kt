@@ -31,7 +31,7 @@ class JournalFileFailureTest {
         JournalEntry.ProcessingStarted(InputId(seq), seq),
     )
 
-    private class Storage(val fail: (String, Int) -> Throwable?) : SegmentStorage {
+    private class Storage(val fail: (String, Int) -> Unit) : SegmentStorage {
         private val memory = InMemorySegmentStorage()
         private val calls = mutableMapOf<String, Int>()
         var opened = 0
@@ -39,7 +39,7 @@ class JournalFileFailureTest {
         private fun check(operation: String) {
             val call = (calls[operation] ?: 0) + 1
             calls[operation] = call
-            fail(operation, call)?.let { throw it }
+            fail(operation, call)
         }
         override fun list() = memory.list()
         override fun read(name: String) = memory.read(name)
@@ -61,7 +61,7 @@ class JournalFileFailureTest {
 
     @Test
     fun aHeaderWriteFailureClosesTheOpenedOutput() = runTest {
-        val storage = Storage { op, call -> failure.takeIf { op == "write" && call == 1 } }
+        val storage = Storage { op, call -> if (op == "write" && call == 1) throw failure }
         val sink = JournalFileSink(storage)
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record()) })
         sink.close()
@@ -70,7 +70,7 @@ class JournalFileFailureTest {
 
     @Test
     fun anEndFrameWriteFailureStillClosesTheOutputOnce() = runTest {
-        val storage = Storage { op, call -> failure.takeIf { op == "write" && call == 3 } }
+        val storage = Storage { op, call -> if (op == "write" && call == 3) throw failure }
         val sink = JournalFileSink(storage)
         sink.write(record())
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.close() })
@@ -81,7 +81,7 @@ class JournalFileFailureTest {
 
     @Test
     fun aRecordWriteFailureStopsTheSinkAndClosesItsOutput() = runTest {
-        val storage = Storage { op, call -> failure.takeIf { op == "write" && call == 2 } }
+        val storage = Storage { op, call -> if (op == "write" && call == 2) throw failure }
         val sink = JournalFileSink(storage)
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record()) })
         val bytes = storage.read(storage.list().single().name)
@@ -93,7 +93,7 @@ class JournalFileFailureTest {
 
     @Test
     fun appendFailureDoesNotLeaveAHandleAndCloseIsSafe() = runTest {
-        val storage = Storage { op, _ -> failure.takeIf { op == "append" } }
+        val storage = Storage { op, _ -> if (op == "append") throw failure }
         val sink = JournalFileSink(storage)
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record()) })
         sink.close()
@@ -102,7 +102,7 @@ class JournalFileFailureTest {
 
     @Test
     fun periodicFlushFailureClosesTheOutput() = runTest {
-        val storage = Storage { op, _ -> failure.takeIf { op == "flush" } }
+        val storage = Storage { op, _ -> if (op == "flush") throw failure }
         val sink = JournalFileSink(storage, JournalFileConfig(flushEveryRecords = 1))
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record()) })
         sink.close()
@@ -111,7 +111,7 @@ class JournalFileFailureTest {
 
     @Test
     fun explicitFlushFailureClosesTheOutput() = runTest {
-        val storage = Storage { op, _ -> failure.takeIf { op == "flush" } }
+        val storage = Storage { op, _ -> if (op == "flush") throw failure }
         val sink = JournalFileSink(storage)
         sink.write(record())
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.flush() })
@@ -121,7 +121,7 @@ class JournalFileFailureTest {
 
     @Test
     fun aCloseFailureIsNotRetriedByAnIdempotentClose() = runTest {
-        val storage = Storage { op, _ -> failure.takeIf { op == "close" } }
+        val storage = Storage { op, _ -> if (op == "close") throw failure }
         val sink = JournalFileSink(storage)
         sink.write(record())
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.close() })
@@ -132,7 +132,7 @@ class JournalFileFailureTest {
 
     @Test
     fun failedRotationReleasesTheNewOutputAndDoesNotAppendAfterwards() = runTest {
-        val storage = Storage { op, call -> failure.takeIf { op == "write" && call == 4 } }
+        val storage = Storage { op, call -> if (op == "write" && call == 4) throw failure }
         val sink = JournalFileSink(storage, JournalFileConfig(maxSegmentBytes = 1))
         sink.write(record())
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record(2)) })
@@ -143,7 +143,7 @@ class JournalFileFailureTest {
 
     @Test
     fun failedPruningReleasesTheNewOutput() = runTest {
-        val storage = Storage { op, _ -> failure.takeIf { op == "delete" } }
+        val storage = Storage { op, _ -> if (op == "delete") throw failure }
         val sink = JournalFileSink(storage, JournalFileConfig(maxSegmentBytes = 1, maxSegments = 1))
         sink.write(record())
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record(2)) })
@@ -154,9 +154,9 @@ class JournalFileFailureTest {
     @Test
     fun aCleanupFailureDoesNotHideTheHeaderWriteFailure() = runTest {
         val storage = Storage { op, call -> when {
-            op == "write" && call == 1 -> failure
-            op == "close" -> cleanupFailure
-            else -> null
+            op == "write" && call == 1 -> throw failure
+            op == "close" -> throw cleanupFailure
+            else -> Unit
         } }
         val sink = JournalFileSink(storage)
         assertSame(failure, assertFailsWith<IllegalStateException> { sink.write(record()) })

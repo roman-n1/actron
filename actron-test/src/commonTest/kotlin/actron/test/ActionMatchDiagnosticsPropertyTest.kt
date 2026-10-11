@@ -35,7 +35,7 @@ class ActionMatchDiagnosticsPropertyTest {
         val body = if (matched.isEmpty()) {
             "no handler matches"
         } else {
-            "selected " + matched.joinToString(", shadowed ") { "#${it.index} state<${it.stateType!!.simpleName}> / action<${it.actionType!!.simpleName}>" }
+            "selected " + matched.joinToString(", shadowed ") { "#${it.index} state<${kotlin.test.assertNotNull(it.stateType).simpleName}> / action<${kotlin.test.assertNotNull(it.actionType).simpleName}>" }
         }
         return "ActionMatchDiagnostics(state=$s, action=$a: $body)"
     }
@@ -52,7 +52,7 @@ class ActionMatchDiagnosticsPropertyTest {
 
             for (s in ktStates) for (a in ktActions) {
                 val d = store.diagnoseActionMatches(s, a)
-                val model = actionRegs.indices.filter { actionRegs[it].stateType.isInstance(s) && actionRegs[it].inputType!!.isInstance(a) }
+                val model = actionRegs.indices.filter { actionRegs[it].stateType.isInstance(s) && kotlin.test.assertNotNull(actionRegs[it].inputType).isInstance(a) }
                 val context = "seed=$seed s=$s a=$a"
 
                 assertSame(s, d.state, context)
@@ -60,7 +60,8 @@ class ActionMatchDiagnosticsPropertyTest {
                 assertEquals(expectedHandlers, d.handlers, context)
                 assertEquals(model, d.matchedHandlerIndices, context)
                 assertEquals(model.size, d.matchedHandlerCount, context)
-                assertEquals(model.firstOrNull(), d.observedSelectedIndex(), context)
+                val selectedHandlers = buildList<Int> { d.withSelectedHandler { add(it.index) } }
+                assertEquals(model.take(1), selectedHandlers, context)
                 assertEquals(model.map { expectedHandlers[it] }, d.matchedHandlers, context)
                 assertTrue(d.matchedHandlerIndices.zipWithNext().all { (x, y) -> x < y }, context)
                 assertEquals(expectedText(s, a, d.matchedHandlers), d.toString(), context)
@@ -83,11 +84,11 @@ class ActionMatchDiagnosticsPropertyTest {
             val log = mutableListOf<String>()
             val store = buildKtStore(regs, s, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
 
-            val selected = store.diagnoseActionMatches(s, a).observedSelectedIndex()
+            val selected = buildList<Int> { store.diagnoseActionMatches(s, a).withSelectedHandler { add(it.index) } }
             store.dispatchAndAwait(a)
 
-            assertEquals(listOfNotNull(selected?.let { "action#$it" }), log, "seed=$seed")
-            if (selected != null) handled++
+            assertEquals(selected.map { "action#$it" }, log, "seed=$seed")
+            if (selected.isNotEmpty()) handled++
             store.close()
         }
         assertTrue(handled > 100, "handled=$handled")

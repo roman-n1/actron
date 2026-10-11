@@ -210,32 +210,32 @@ class CounterUseCaseTest {
     fun counter_eventEmission() = runTest(testDispatcher) {
         val store = createTestStore(AppState.Active(5))
 
-        var capturedEvent: AppEvent? = null
+        val capturedEventObservations = mutableListOf<AppEvent>()
         store.collectEvent { event ->
-            capturedEvent = event
+            capturedEventObservations.add(event)
         }
 
         store.dispatch(AppAction.Increment)
 
-        assertNotNull(capturedEvent)
-        assertTrue(capturedEvent is AppEvent.CountChanged)
-        assertEquals(6, (capturedEvent as AppEvent.CountChanged).newCount)
+        assertNotNull(capturedEventObservations.last())
+        assertTrue(capturedEventObservations.last() is AppEvent.CountChanged)
+        assertEquals(6, (capturedEventObservations.last() as AppEvent.CountChanged).newCount)
     }
 
     @Test
     fun counter_thresholdReached() = runTest(testDispatcher) {
         val store = createTestStore(AppState.Active(9))
 
-        var thresholdEvent: AppEvent.ThresholdReached? = null
+        val thresholdEventObservations = mutableListOf<AppEvent.ThresholdReached>()
         store.collectEvent { event ->
             if (event is AppEvent.ThresholdReached) {
-                thresholdEvent = event
+                thresholdEventObservations.add(event)
             }
         }
 
         store.dispatch(AppAction.Increment) // This should reach 10
 
-        assertNotNull(thresholdEvent)
-        assertEquals(10, thresholdEvent?.threshold)
+        assertNotNull(thresholdEventObservations.single())
+        assertEquals(10, thresholdEventObservations.single()?.threshold)
     }
 }

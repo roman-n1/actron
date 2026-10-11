@@ -60,8 +60,8 @@ class InspectorScreenTest {
 
     private fun journal(): List<JournalRecord<*, *, *>> {
         var seq = 0L
-        fun record(entry: JournalEntry<*, *, *>, forStore: StoreInstanceId? = store) =
-            JournalRecord(JOURNAL_FORMAT_VERSION, RuntimeSessionId("run"), MachineGroupId("chat"), forStore ?: actron.observability.RecordSubject.Session, ExecutionMode.Live, GroupSeq(++seq), forStore?.let { StoreSeq(seq) } ?: actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
+        fun record(entry: JournalEntry<*, *, *>, forStore: actron.observability.RecordSubject = store) =
+            JournalRecord(JOURNAL_FORMAT_VERSION, RuntimeSessionId("run"), MachineGroupId("chat"), forStore, ExecutionMode.Live, GroupSeq(++seq), if (forStore is StoreInstanceId) StoreSeq(seq) else actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
         return listOf(
             record(JournalEntry.StoreRegistered(Capability.InspectOnly)),
             record(JournalEntry.InputAccepted(InputId(1), InputDescriptor.Startup)),
@@ -71,7 +71,7 @@ class InspectorScreenTest {
             record(JournalEntry.InputAccepted(InputId(2), InputDescriptor.Dispatch(Payload.Projected("Send", mapOf("chars" to "12"))))),
             record(JournalEntry.ProcessingStarted(InputId(2), 2)),
             record(JournalEntry.ProcessingFinished(InputId(2), 2, OutcomeDescriptor(OutcomeKind.Unchanged), 2.milliseconds)),
-            record(JournalEntry.JournalGap(3), forStore = null),
+            record(JournalEntry.JournalGap(3), forStore = actron.observability.RecordSubject.Session),
             record(JournalEntry.StoreClosed),
         )
     }

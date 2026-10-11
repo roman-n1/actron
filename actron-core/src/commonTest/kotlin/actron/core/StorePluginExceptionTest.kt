@@ -54,7 +54,7 @@ class StorePluginExceptionTest {
 
     @Test
     fun pluginException_isHandledWithoutUsingStoreErrorHandling() = runTest(testDispatcher) {
-        var handledException: Throwable? = null
+        val handledExceptionObservations = mutableListOf<Throwable>()
         val store = createStore(
             plugin = object : Plugin<AppState, AppAction, Nothing> {
                 override suspend fun onAction(
@@ -65,20 +65,20 @@ class StorePluginExceptionTest {
                     throw IllegalArgumentException("plugin failed")
                 }
             },
-            exceptionHandler = ExceptionHandler { handledException = it },
+            exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
         )
 
         store.dispatch(AppAction.Increment)
         testScheduler.runCurrent()
 
         assertEquals(AppState.Ready(), store.currentState)
-        val error = assertIs<IllegalArgumentException>(handledException)
+        val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
         assertEquals("plugin failed", error.message)
     }
 
     @Test
     fun pluginOnStateException_isHandledWithoutRetryingStoreErrorHandling() = runTest(testDispatcher) {
-        var handledException: Throwable? = null
+        val handledExceptionObservations = mutableListOf<Throwable>()
         val store = createStore(
             plugin = object : Plugin<AppState, AppAction, Nothing> {
                 override suspend fun onState(
@@ -89,14 +89,14 @@ class StorePluginExceptionTest {
                     throw IllegalArgumentException("onState failed")
                 }
             },
-            exceptionHandler = ExceptionHandler { handledException = it },
+            exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
         )
 
         store.dispatch(AppAction.Increment)
         testScheduler.runCurrent()
 
         assertEquals(AppState.Ready(value = 1), store.currentState)
-        val error = assertIs<IllegalArgumentException>(handledException)
+        val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
         assertEquals("onState failed", error.message)
     }
 

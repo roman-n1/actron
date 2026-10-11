@@ -49,7 +49,7 @@ public final class NullabilityGuard {
             int rootIndex = List.of(args).indexOf("--root");
             if (rootIndex >= 0 && rootIndex + 1 >= args.length) throw new IllegalArgumentException("Missing root path");
             Path root = Path.of(rootIndex >= 0 ? args[rootIndex + 1] : "").toAbsolutePath();
-            List<Finding> findings = scanRepository(root, parser);
+            List<Finding> findings = args[0].equals("--audit") ? scanAllKotlin(root, parser) : scanRepository(root, parser);
             List<String> current = findings.stream().map(Finding::key).sorted().toList();
             boolean strict = Files.exists(root.resolve(STRICT));
             List<String> baseline = readBaseline(root.resolve(BASELINE));
@@ -71,6 +71,10 @@ public final class NullabilityGuard {
                 }
             }
             switch (args[0]) {
+                case "--audit" -> {
+                    findings.forEach(f -> System.out.println(f.diagnostic()));
+                    System.out.println("Repository-wide Kotlin findings: " + findings.size());
+                }
                 case "--report" -> {
                     Map<String, Integer> kinds = new java.util.TreeMap<>();
                     Map<String, Integer> modules = new java.util.TreeMap<>();
@@ -117,25 +121,27 @@ public final class NullabilityGuard {
     }
 
     private static List<Finding> scanRepository(Path root, KtPsiFactory parser) throws IOException {
-        List<Finding> result = new ArrayList<>();
-        try (Stream<Path> modules = Files.list(root)) {
-            for (Path module : modules.filter(p -> p.getFileName().toString().startsWith("actron-") && Files.isDirectory(p)).sorted().toList()) {
-                Path src = module.resolve("src");
-                if (!Files.isDirectory(src)) continue;
-                try (Stream<Path> sets = Files.list(src)) {
-                    for (Path set : sets.filter(p -> p.getFileName().toString().endsWith("Main") && Files.isDirectory(p)).sorted().toList()) {
-                        try (Stream<Path> files = Files.walk(set)) {
-                            for (Path file : files.filter(p -> p.toString().endsWith(".kt")).sorted().toList()) {
-                                result.addAll(scan(parser, root.relativize(file).toString(), Files.readString(file)));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (result.isEmpty() && !Files.isDirectory(root.resolve("actron-core/src/commonMain"))) {
+        if (!Files.isDirectory(root.resolve("actron-core/src/commonMain"))) {
             throw new IllegalStateException("Run the policy checker at the repository root");
         }
+        return scanAllKotlin(root, parser);
+    }
+
+    private static List<Finding> scanAllKotlin(Path root, KtPsiFactory parser) throws IOException {
+        List<Finding> result = new ArrayList<>();
+        Files.walkFileTree(root, new java.nio.file.SimpleFileVisitor<>() {
+            @Override public java.nio.file.FileVisitResult preVisitDirectory(Path path, java.nio.file.attribute.BasicFileAttributes attributes) {
+                String name = path.getFileName().toString();
+                return !path.equals(root) && Set.of(".git", ".gradle", ".kotlin", "build", "node_modules", ".codegraph").contains(name)
+                    ? java.nio.file.FileVisitResult.SKIP_SUBTREE : java.nio.file.FileVisitResult.CONTINUE;
+            }
+            @Override public java.nio.file.FileVisitResult visitFile(Path path, java.nio.file.attribute.BasicFileAttributes attributes) throws IOException {
+                if (path.toString().endsWith(".kt") || path.toString().endsWith(".kts")) {
+                    result.addAll(scan(parser, root.relativize(path).toString(), Files.readString(path)));
+                }
+                return java.nio.file.FileVisitResult.CONTINUE;
+            }
+        });
         return result;
     }
 

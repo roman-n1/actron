@@ -29,13 +29,20 @@ class StoreProbeFailureJvmTest {
     @Test fun rethrowingProcessingStartProbeHandlerStillFinishesInputAndReleasesPendingWork() {
         // A real Rethrow reaches coroutine-test's global exception collector too. Keep that
         // deliberate uncaught failure in a fresh process, without contaminating later tests.
-        val log = Files.createTempFile("actron-core-probe-", ".log").toFile()
-        val paths = generateSequence(javaClass.classLoader) { it.parent }.filterIsInstance<URLClassLoader>()
-            .flatMap { it.urLs.asSequence() }.map { File(it.toURI()).path }.toList()
-        val classpath = (paths + System.getProperty("java.class.path").split(File.pathSeparator)).distinct()
-        val child = ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
+        val log = checkNotNull(Files.createTempFile("actron-core-probe-", ".log").toFile())
+        val paths = buildList<String> {
+            var loader = checkNotNull(javaClass.classLoader)
+            while (true) {
+                if (loader is URLClassLoader) {
+                    for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                }
+                loader = loader.parent ?: break
+            }
+        }
+        val classpath = checkNotNull((paths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct())
+        val child = checkNotNull(ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
             "-cp", classpath.joinToString(File.pathSeparator), CoreProbeFailureProcess::class.java.name)
-            .redirectErrorStream(true).redirectOutput(log).start()
+            .redirectErrorStream(true).redirectOutput(log).start())
         try {
             assertTrue(child.waitFor(20, TimeUnit.SECONDS), "Rethrow child timed out")
             assertEquals(0, child.exitValue(), log.readText())
@@ -51,9 +58,9 @@ class StoreProbeFailureJvmTest {
         val errors = LinkedBlockingQueue<Throwable>()
         val armed = AtomicBoolean(false)
         val closed = CountDownLatch(1)
-        val dispatcher = Executors.newSingleThreadExecutor { runnable ->
+        val dispatcher = Executors.newSingleThreadExecutor { runnable: Runnable ->
             Thread(runnable, "actron-core-probe-failure").apply {
-                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, error -> errors.offer(error) }
+                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _: Thread, error: Throwable -> errors.offer(error) }
             }
         }.asCoroutineDispatcher()
         val store = Store<Counter, Bump, Nothing>(Counter()) {
@@ -74,7 +81,7 @@ class StoreProbeFailureJvmTest {
             withTimeout(10_000) { api.startAndAwait() }
             armed.set(true)
             withTimeout(10_000) { api.dispatchAndAwait(Bump) }
-            assertTrue(errors.poll(10, TimeUnit.SECONDS) != null)
+            kotlin.test.assertNotNull(errors.poll(10, TimeUnit.SECONDS))
             assertEquals(Counter(), store.currentState)
             assertTrue(api.awaitIdle(Duration.ZERO).isIdle, "Failure at start must release pendingInputs")
             val actionInput = traces.filterIsInstance<StoreTrace.InputAccepted<Bump>>()

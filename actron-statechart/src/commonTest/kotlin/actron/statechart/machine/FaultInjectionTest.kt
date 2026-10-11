@@ -116,7 +116,7 @@ class FaultInjectionTest {
         snapshots += store.currentState
     }
 
-    private fun TestScope.newStore(faults: Random?, session: RecordingSession?, handled: MutableList<Throwable>, committed: MutableList<MachineSnapshot<Ctx>>): Pair<MachineStore<Ctx, Act, Fetch, Nothing>, CoroutineScope> {
+    private fun TestScope.newStore(inject: (Int, String) -> Unit = { _, _ -> }, configure: actron.statechart.StoreConfiguration<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>.() -> Unit = {}, handled: MutableList<Throwable>, committed: MutableList<MachineSnapshot<Ctx>>): Pair<MachineStore<Ctx, Act, Fetch, Nothing>, CoroutineScope> {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val handler = CommandHandler<Fetch, Act> { command, results ->
@@ -128,24 +128,16 @@ class FaultInjectionTest {
                 committed += decision.snapshot
             }
         }
-        val faulty = faults?.let { random ->
-            object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
+        val faulty = object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
                 override fun onCommitted(input: actron.core.InputAttribution, machineInput: MachineInput<Act>, decision: Decision<Ctx, Fetch, Nothing>) {
-                    if (random.nextInt(4) == 0) throw IllegalStateException("observer fault")
+                    inject(4, "observer fault")
                 }
-            }
         }
-        val store = MachineStore(machine, Ctx(), handler, executionScope, TestClock(testScheduler), dispatcher, observers = listOfNotNull(recorder, faulty)) {
+        val store = MachineStore(machine, Ctx(), handler, executionScope, TestClock(testScheduler), dispatcher, observers = listOf(recorder, faulty)) {
             exceptionHandler(ExceptionHandler { handled += it })
-            if (faults != null) {
-                probe(StoreProbe { if (faults.nextInt(5) == 0) throw IllegalStateException("probe fault") })
-            }
-            if (session != null) {
-                val policy = PayloadPolicy<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>(
-                    state = { if (faults != null && faults.nextInt(3) == 0) throw IllegalStateException("policy fault") else Payload.Omitted },
-                )
-                recordTo(session, StoreInstanceId("faulty"), policy)
-            }
+            probe(StoreProbe { inject(5, "probe fault") })
+            configure()
+
         }
         return store to executionScope
     }
@@ -155,7 +147,7 @@ class FaultInjectionTest {
         val clean = mutableListOf<MachineSnapshot<Ctx>>()
         val cleanHandled = mutableListOf<Throwable>()
         val cleanFinal = mutableListOf<MachineSnapshot<Ctx>>()
-        val (cleanStore, cleanScope) = newStore(faults = null, session = null, handled = cleanHandled, committed = clean)
+        val (cleanStore, cleanScope) = newStore(handled = cleanHandled, committed = clean)
         scenario(cleanStore, cleanFinal)
         cleanStore.close()
         cleanScope.cancel()
@@ -169,16 +161,22 @@ class FaultInjectionTest {
             val sink = JournalSink { if (faults.nextInt(6) == 0) throw IllegalStateException("sink fault") }
             val session = RecordingSession(backgroundScope, config = JournalConfig(onFailure = { journalFailures += it }), sinks = listOf(sink))
             val final = mutableListOf<MachineSnapshot<Ctx>>()
-            val (store, scope) = newStore(faults, session, handled, committed)
+            val (store, scope) = newStore(
+                inject = { denominator, message -> if (faults.nextInt(denominator) == 0) throw IllegalStateException(message) },
+                configure = {
+                    recordTo(session, StoreInstanceId("faulty"), PayloadPolicy(
+                        state = { if (faults.nextInt(3) == 0) throw IllegalStateException("policy fault") else Payload.Omitted },
+                    ))
+                }, handled = handled, committed = committed,
+            )
             scenario(store, final)
             store.close()
             session.close()
             scope.cancel()
 
-            val divergence = (0 until maxOf(clean.size, committed.size)).firstOrNull { clean.getOrNull(it) != committed.getOrNull(it) }
-            assertTrue(divergence == null, "seed $seed: commit $divergence differs (clean ${clean.size}, faulty ${committed.size}):\n  clean  ${clean.getOrNull(divergence ?: 0)}\n  faulty ${committed.getOrNull(divergence ?: 0)}")
+            assertEquals(clean, committed, "seed $seed: every committed snapshot must match the clean run")
             assertEquals(cleanFinal, final, "seed $seed")
-            val messages = handled.map { it.message }.toSet()
+            val messages = handled.map { it.message.orEmpty() }.toSet()
             assertTrue(messages.all { it == "probe fault" || it == "observer fault" }, "seed $seed: unexpected report $messages")
             assertTrue(handled.isNotEmpty(), "seed $seed: no fault was reported, so none was injected")
             assertTrue(journalFailures.isNotEmpty(), "seed $seed: no policy or sink fault reached the session")

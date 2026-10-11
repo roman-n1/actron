@@ -14,6 +14,9 @@ import actron.observability.StoreInstanceId
 import actron.statechart.recordTo
 import actron.statechart.example.picker.AddressBookSearchMachine.Contact
 import actron.statechart.example.picker.AddressBookSearchMachine.Group
+import actron.statechart.example.picker.AddressBookSearchMachine.GroupFilter
+import actron.statechart.example.picker.AddressBookSearchMachine.SearchStatus
+import actron.statechart.StoreConfiguration
 import actron.statechart.example.picker.AddressBookSearchMachine.Guest
 import actron.statechart.example.picker.AddressBookSearchMachine.Role
 import actron.statechart.example.picker.AddressBookSearchMachine.SearchAction
@@ -61,7 +64,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class AddressBookSearchPilotTest {
 
-    private val alice = Contact("1", "Alice", email = "alice@example.com")
+    private val alice = Contact("1", "Alice", emails = listOf("alice@example.com"))
     private val alina = Contact("2", "Alina")
     private val bob = Contact("3", "Bob")
     private val directory = listOf(alice, alina, bob)
@@ -112,14 +115,14 @@ class AddressBookSearchPilotTest {
         }
     }
 
-    private class Tab(scope: TestScope, val repository: FakeRepository, session: RecordingSession?, id: String) {
+    private class Tab(scope: TestScope, val repository: FakeRepository, configure: StoreConfiguration<actron.statechart.machine.MachineSnapshot<SearchContext>, actron.statechart.machine.MachineInput<SearchAction>, SearchEvent>.() -> Unit) {
         val handled = mutableListOf<Throwable>()
         val events = mutableListOf<SearchEvent>()
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val store = MachineStore(AddressBookSearchMachine.machine(), SearchContext(), repository, executionScope, TestClock(scope.testScheduler), dispatcher) {
             exceptionHandler(ExceptionHandler { handled += it })
-            if (session != null) recordTo(session, StoreInstanceId(id), PayloadPolicy.metadataOnly())
+            configure()
         }
         private val collector = executionScope.launch { store.event.collect { events += it } }
 
@@ -134,12 +137,15 @@ class AddressBookSearchPilotTest {
         }
     }
 
-    private suspend fun TestScope.tab(repository: FakeRepository = FakeRepository(), session: RecordingSession? = null, id: String = "picker-search-1"): Tab {
-        val tab = Tab(this, repository, session, id)
+    private suspend fun TestScope.tab(repository: FakeRepository = FakeRepository(), configure: StoreConfiguration<actron.statechart.machine.MachineSnapshot<SearchContext>, actron.statechart.machine.MachineInput<SearchAction>, SearchEvent>.() -> Unit = {}): Tab {
+        val tab = Tab(this, repository, configure)
         tab.store.startAndAwait()
         runCurrent()
         return tab
     }
+
+    private suspend fun TestScope.tab(repository: FakeRepository = FakeRepository(), session: RecordingSession, id: String): Tab =
+        tab(repository) { recordTo(session, StoreInstanceId(id), PayloadPolicy.metadataOnly()) }
 
     @Test
     fun typingFast_searchesOnceAfterTheDebounce_withTheLastQuery() = runTest {
@@ -156,7 +162,7 @@ class AddressBookSearchPilotTest {
         assertTrue(tab.repository.searches.isEmpty(), "no search before the debounce")
         advanceTimeBy(AddressBookSearchMachine.debounce); runCurrent()
 
-        assertEquals(listOf(SearchCommand.Search("ali", null)), tab.repository.searches, "one search, for the last query")
+        assertEquals(listOf(SearchCommand.Search("ali", GroupFilter.All)), tab.repository.searches, "one search, for the last query")
         advanceTimeBy(100.milliseconds); runCurrent()
         assertEquals(listOf(alice, alina), tab.ui.contacts)
         assertTrue(tab.ui.isSearchDone && !tab.ui.isLoading)
@@ -245,7 +251,7 @@ class AddressBookSearchPilotTest {
         tab.store.dispatch(SearchAction.GroupChanged("g1"))
         runCurrent()
         assertTrue(tab.store.currentState.isActive(idle) && tab.repository.searches.isEmpty())
-        assertEquals("g1", tab.ui.selectedGroupId)
+        assertEquals(GroupFilter.Selected("g1"), tab.ui.selectedGroup)
 
         tab.type("al")
         advanceTimeBy(AddressBookSearchMachine.debounce + 100.milliseconds); runCurrent()
@@ -288,12 +294,12 @@ class AddressBookSearchPilotTest {
         tab.type("al")
         advanceTimeBy(AddressBookSearchMachine.debounce + 100.milliseconds); runCurrent()
 
-        assertEquals("search error", tab.ui.errorMessage)
+        assertEquals(SearchStatus.Failed("search error"), tab.ui.status)
         assertEquals(listOf<SearchEvent>(SearchEvent.ShowError("search error")), tab.events)
         tab.store.dispatch(SearchAction.Retry)
         advanceTimeBy(100.milliseconds); runCurrent()
         assertEquals(listOf(alice, alina), tab.ui.contacts)
-        assertEquals(null, tab.ui.errorMessage)
+        assertEquals(SearchStatus.Completed, tab.ui.status)
         tab.close()
     }
 
@@ -301,7 +307,7 @@ class AddressBookSearchPilotTest {
     fun groups_loadOnStart_andAFailureLeavesTheAllContactsEntry() = runTest {
         val tab = tab()
         advanceTimeBy(10.milliseconds); runCurrent()
-        assertEquals(listOf(Group(null, "")) + groups, tab.ui.groups)
+        assertEquals(listOf(Group(GroupFilter.All, "")) + groups, tab.ui.groups)
         assertTrue(tab.store.currentState.isActive(groupsReady))
         tab.close()
 

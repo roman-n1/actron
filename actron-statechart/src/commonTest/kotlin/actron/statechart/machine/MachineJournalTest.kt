@@ -102,7 +102,7 @@ class MachineJournalTest {
         }
     }
 
-    private class Harness(scope: TestScope, machine: Machine<Unit, Act, Fetch, Nothing>, admission: AdmissionPolicy, describeCommand: (Fetch) -> Payload<Fetch>, extraObserver: DecisionObserver<Unit, Act, Fetch, Nothing>?) {
+    private class Harness(scope: TestScope, machine: Machine<Unit, Act, Fetch, Nothing>, admission: AdmissionPolicy, describeCommand: (Fetch) -> Payload<Fetch>, extraObserver: DecisionObserver<Unit, Act, Fetch, Nothing>) {
         val handled = mutableListOf<Throwable>()
         val session = RecordingSession(scope.backgroundScope, id = RuntimeSessionId("s"), group = MachineGroupId("g"))
         val id = StoreInstanceId("m")
@@ -116,7 +116,7 @@ class MachineJournalTest {
             TestClock(scope.testScheduler),
             dispatcher,
             admission = admission,
-            observers = listOfNotNull(session.decisionsOf(id, command = describeCommand), extraObserver),
+            observers = listOf(session.decisionsOf(id, command = describeCommand), extraObserver),
         ) {
             exceptionHandler(ExceptionHandler { handled += it })
             recordTo(session, id)
@@ -134,7 +134,7 @@ class MachineJournalTest {
     private suspend fun TestScope.harness(
         admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
         describeCommand: (Fetch) -> Payload<Fetch> = { Payload.Omitted },
-        observer: DecisionObserver<Unit, Act, Fetch, Nothing>? = null,
+        observer: DecisionObserver<Unit, Act, Fetch, Nothing> = object : DecisionObserver<Unit, Act, Fetch, Nothing> {},
     ): Harness {
         val h = Harness(this, machine, admission, describeCommand, observer)
         h.store.startAndAwait()
@@ -166,7 +166,7 @@ class MachineJournalTest {
         val startup = h.records().of(InputId(1))
         assertEquals(
             listOf("InputAccepted", "ProcessingStarted", "StateCommitted", "DecisionCommitted", "ProcessingFinished"),
-            startup.map { it::class.simpleName },
+            startup.map { checkNotNull(it::class.simpleName) },
         )
         val started = assertIs<JournalEntry.DecisionCommitted>(startup[3])
         assertEquals(1, started.revision)
@@ -176,7 +176,7 @@ class MachineJournalTest {
         val load = h.records().of(InputId(2))
         assertEquals(
             listOf("InputAccepted", "ProcessingStarted", "StateCommitted", "DecisionCommitted", "ProcessingFinished"),
-            load.map { it::class.simpleName },
+            load.map { checkNotNull(it::class.simpleName) },
         )
         val committed = assertIs<JournalEntry.StateCommitted<*>>(load[2])
         val decision = assertIs<JournalEntry.DecisionCommitted>(load[3])
@@ -255,7 +255,7 @@ class MachineJournalTest {
                 command(Fetch, LaneId("load"), ConcurrencyPolicy.Sequential)
             }
         }
-        val h = Harness(this, twoInALane, AdmissionPolicy.Unbounded, { Payload.Omitted }, null)
+        val h = Harness(this, twoInALane, AdmissionPolicy.Unbounded, { Payload.Omitted }, object : DecisionObserver<Unit, Act, Fetch, Nothing> {})
         h.store.startAndAwait()
         runCurrent()
         h.store.dispatch(Act.Load)

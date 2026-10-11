@@ -67,8 +67,8 @@ class StateChartPathTest {
 
     @Test
     fun shortestPathToUnreachableStateIsNull() {
-        assertNull(chart.shortestPathTo(orphan))
-        assertNull(chart.shortestPathTo(StateId("Unknown")))
+        kotlin.test.assertFalse(chart.shortestPathTo(orphan) { error("Orphan became reachable: $it") })
+        kotlin.test.assertFalse(chart.shortestPathTo(StateId("Unknown")) { error("Unknown state became reachable: $it") })
     }
 
     @Test

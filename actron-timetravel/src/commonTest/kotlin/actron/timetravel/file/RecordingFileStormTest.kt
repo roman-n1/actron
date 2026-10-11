@@ -154,12 +154,12 @@ class RecordingFileStormTest {
         assertTrue(end <= recording.length, "the files hold $end steps of ${recording.length}")
         assertEquals(recording.steps.subList(firstStep, end), read.steps, "a piece of the run from $firstStep to $end of ${recording.length}")
         assertEquals(recording.checkpointAt(firstStep), read.start)
-        assertNull(ReplaySession(machine, read).verify())
-        assertNull(sink.problem)
+        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
+        kotlin.test.assertIs<actron.timetravel.RecordingOrigin.InitialSnapshot>(sink.origin)
         assertTrue(sink.stats.written + sink.stats.dropped == recording.length.toLong(), "${sink.stats} of ${recording.length}")
         // A step dropped with no step after it (the run's last ones) is absent from the files: only the counters tell.
         if (end < recording.length) assertTrue(recording.length - end <= sink.stats.dropped, "the run's last ${recording.length - end} steps are absent but only ${sink.stats.dropped} were dropped")
         assertTrue(sink.stats.dropped > 0 || end == recording.length, "nothing dropped, so the files reach the run's end")
-        println("recorded ${recording.length}, dropped ${sink.stats.dropped}, files hold ${read.length} from step $firstStep to $end in ${contents.segments.size} segments; marks ${contents.marks.map { it::class.simpleName }}")
+        println("recorded ${recording.length}, dropped ${sink.stats.dropped}, files hold ${read.length} from step $firstStep to $end in ${contents.segments.size} segments; marks ${contents.marks.map { checkNotNull(it::class.simpleName) }}")
     }
 }

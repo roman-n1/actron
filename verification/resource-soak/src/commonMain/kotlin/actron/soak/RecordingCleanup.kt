@@ -10,13 +10,13 @@ import kotlinx.coroutines.withTimeout
 
 /** A failed/timed-out journal drain must still stop its writer and release the real file output. */
 internal suspend fun closeRecordingResources(
-    session: RecordingSession?,
+    drain: suspend () -> Unit,
     sink: JournalFileSink,
     writerOwner: Job,
     timeoutMillis: Long = 10_000,
 ) = withContext(NonCancellable) {
     try {
-        withTimeout(timeoutMillis) { session?.close() }
+        withTimeout(timeoutMillis) { drain() }
     } finally {
         try {
             withTimeout(timeoutMillis) { writerOwner.cancelAndJoin() }
@@ -25,3 +25,6 @@ internal suspend fun closeRecordingResources(
         }
     }
 }
+
+internal suspend fun closeRecordingResources(session: RecordingSession, sink: JournalFileSink, writerOwner: Job, timeoutMillis: Long = 10_000) =
+    closeRecordingResources(session::close, sink, writerOwner, timeoutMillis)

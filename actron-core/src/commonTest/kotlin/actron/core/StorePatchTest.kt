@@ -32,15 +32,16 @@ class StorePatchTest {
     }
 
     private class RecordingStateSaver(
-        private val restoredState: AppState?,
+        private val restoring: (AppState) -> AppState = { it },
     ) : StateSaver<AppState> {
+        constructor(restoredState: AppState) : this({ restoredState })
         val savedStates = mutableListOf<AppState>()
 
         override fun save(state: AppState) {
             savedStates += state
         }
 
-        override fun restore(initialState: AppState): AppState = restoredState ?: initialState
+        override fun restore(initialState: AppState): AppState = restoring(initialState)
     }
 
     private fun recordingPlugin(
@@ -294,7 +295,7 @@ class StorePatchTest {
 
         assertFailsWith<IllegalStateException> {
             store.patchForTest {
-                stateSaver(RecordingStateSaver(restoredState = null))
+                stateSaver(RecordingStateSaver())
             }
         }
     }
