@@ -25,3 +25,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "published-actron-consumer"
 include(":app", ":tooling")
+
+include(":nullability-policy")

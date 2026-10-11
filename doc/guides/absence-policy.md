@@ -91,7 +91,8 @@ Run:
 The source check covers every authored `.kt` and `.kts` in the repository, including examples,
 tests, verification programs, build logic and IntelliJ tooling. Generated build output and dependency
 directories are excluded. The resolved-type check runs on every Kotlin compilation in the root
-build and in the independent build-logic and IntelliJ builds; generated compiler ABI is excluded.
+build and in the independent build-logic, IntelliJ and published Maven consumer builds;
+generated compiler ABI is excluded.
 
 1. **Source check:** Kotlin PSI from the pinned compiler parses the source and rejects nullable
    syntax, null literals, `!!`, `lateinit`, unconstrained type parameters and optional-container

@@ -40,3 +40,19 @@ tasks.register("verifyPublishedGraphs") {
         logger.lifecycle("Published $target graphs verified: production=$production; tooling=$tooling")
     }
 }
+
+// External Maven consumption remains isolated; its authored Kotlin follows the same policy.
+val actronRepository = rootProject.projectDir.parentFile.parentFile
+val nullabilityPolicyJar = project(":nullability-policy").layout.buildDirectory.file("libs/nullability-policy.jar")
+subprojects {
+    if (name != "nullability-policy") {
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+            dependsOn(":nullability-policy:jar")
+            inputs.files(nullabilityPolicyJar, actronRepository.resolve(".actron/nullability/strict"))
+            compilerOptions.freeCompilerArgs.addAll(
+                "-Xplugin=${nullabilityPolicyJar.get().asFile.absolutePath}",
+                "-P", "plugin:actron-nullability:root=${actronRepository.absolutePath}",
+            )
+        }
+    }
+}
