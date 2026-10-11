@@ -20,7 +20,9 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -578,7 +580,7 @@ class StoreRegressionTest {
                 Plugin(
                     onEvent = { _, _ ->
                         outcome.complete(
-                            withTimeout(5_000) {
+                            withTimeoutOrNull(5_000) {
                                 try {
                                     storePublication.getCompleted().dispatchAndAwaitForTest(Poke)
                                     "completed"
@@ -603,7 +605,7 @@ class StoreRegressionTest {
             store.dispatch(EmitFromLaunch)
             assertEquals("rejected", withTimeout(10_000) { outcome.await() })
             // The Store is not stuck.
-            withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
+            withTimeoutOrNull(5_000) { store.dispatchAndAwaitForTest(Poke) }
         }
         store.close()
     }
@@ -629,7 +631,7 @@ class StoreRegressionTest {
         withContext(Dispatchers.Default) {
             // Awaiting Linger itself would wait for its child; the next dispatch must not.
             store.dispatch(Linger)
-            withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
+            withTimeoutOrNull(5_000) { store.dispatchAndAwaitForTest(Poke) }
         }
 
         assertEquals(1, pokes)

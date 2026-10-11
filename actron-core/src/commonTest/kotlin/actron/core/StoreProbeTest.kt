@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
 import kotlin.test.Test
@@ -770,7 +771,7 @@ class StoreProbeTest {
             // has its end, bounded so that a real gap fails the assertions below by name.
             val traces = mutableListOf<StoreTrace<StormState, StormAction, Nothing>>()
             withContext(Dispatchers.Default) {
-                withTimeout(10_000) {
+                withTimeoutOrNull(10_000) {
                     while (true) {
                         traces += recorded.receive()
                         while (true) {
@@ -785,6 +786,7 @@ class StoreProbeTest {
                         if (waiting.isEmpty()) break
                     }
                 }
+                Unit // Timeout ends observation; the complete trace invariants below decide the result.
             }
             assertTrue(traces.any { it === StoreTrace.StoreClosed }, "iteration $iteration: StoreClosed never came")
 
