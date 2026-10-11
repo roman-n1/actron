@@ -27,14 +27,17 @@ class DurableMachineTest {
     }
 
     private class Storage<C : Any, CMD : Any> : DurableMachineStorage<C, CMD> {
-        var saved: DurableCheckpoint<C, CMD>? = null
+        val commits = mutableListOf<DurableCheckpoint<C, CMD>>()
+        var saved: DurableCheckpoint<C, CMD>
+            get() = commits.last()
+            set(value) { commits += value }
         var fail = false
         var conflict = false
-        override suspend fun read(accept: (DurableCheckpoint<C, CMD>) -> Unit): Boolean { saved?.let(accept); return saved != null }
+        override suspend fun read(accept: (DurableCheckpoint<C, CMD>) -> Unit): Boolean { if (commits.isEmpty()) return false; accept(saved); return true }
         override suspend fun commit(expectedGeneration: DurableGeneration, checkpoint: DurableCheckpoint<C, CMD>): Boolean {
             if (fail) { fail = false; error("disk failed") }
             if (conflict) return false
-            if ((saved?.generation?.let { DurableGeneration.Existing(it) } ?: DurableGeneration.Fresh) != expectedGeneration) return false
+            if ((if (commits.isEmpty()) DurableGeneration.Fresh else DurableGeneration.Existing(saved.generation)) != expectedGeneration) return false
             saved = checkpoint
             return true
         }
@@ -54,15 +57,15 @@ class DurableMachineTest {
             emit(Applied)
         }
         assertFailsWith<IllegalStateException> { runner(storage).executeObserved(handler) { MachineTime.Zero } }
-        assertEquals(DurableStatus.Pending, storage.saved!!.outbox.values.single().status)
+        assertEquals(DurableStatus.Pending, kotlin.test.assertNotNull(storage.saved).outbox.values.single().status)
         assertEquals(10, balance)
         val restarted = runner(storage)
         val result = restarted.executeObserved(handler) { MachineTime.Zero }
         assertEquals(listOf(1L, 2L), attempts)
         assertEquals(10, balance)
-        assertEquals(1, result!!.checkpoint.snapshot.context)
+        assertEquals(1, kotlin.test.assertNotNull(result).checkpoint.snapshot.context)
         assertEquals(DurableStatus.Completed, result.checkpoint.outbox.values.single().status)
-        assertNull(restarted.executeObserved(handler) { MachineTime.Zero })
+        assertFalse(restarted.executeNext(handler, { error("Unexpected durable commit: $it") }) { MachineTime.Zero })
     }
 
     @Test fun stateExitWhileIoAwaitsDoesNotLoseTheDurableIntent() = runTest {
@@ -76,10 +79,10 @@ class DurableMachineTest {
         }
         started.await()
         runner.commit(MachineInput.Dispatch(Leave, MachineTime.Zero))
-        assertTrue(storage.saved!!.snapshot.commands.isEmpty())
-        assertEquals(DurableStatus.Pending, storage.saved!!.outbox.values.single().status)
+        assertTrue(kotlin.test.assertNotNull(storage.saved).snapshot.commands.isEmpty())
+        assertEquals(DurableStatus.Pending, kotlin.test.assertNotNull(storage.saved).outbox.values.single().status)
         release.complete(Unit)
-        val result = drain.await()!!
+        val result = kotlin.test.assertNotNull(drain.await())
         assertTrue(result.checkpoint.snapshot.isActive(left))
         assertEquals(1, result.checkpoint.snapshot.context)
     }
@@ -88,9 +91,9 @@ class DurableMachineTest {
         val storage = Storage<Int, Pay>()
         storage.fail = true
         assertFailsWith<IllegalStateException> { runner(storage).initialize(0, MachineTime.Zero) }
-        assertNull(storage.saved)
+        assertTrue(storage.commits.isEmpty())
         val first = runner(storage).initialize(0, MachineTime.Zero)
-        val restored = runner(storage).restoreObserved()!!
+        val restored = kotlin.test.assertNotNull(runner(storage).restoreObserved())
         assertEquals(first.checkpoint, restored)
         assertTrue(runner(storage).dueTimers(MachineTime.Zero + 9.seconds).isEmpty())
         assertEquals(1, runner(storage).dueTimers(MachineTime.Zero + 11.seconds).size)
@@ -106,14 +109,14 @@ class DurableMachineTest {
         val durable = DurableMachine(retryMachine, storage) { _, classify -> classify(IdempotencyKey("same")) }
         durable.initialize(0, MachineTime.Zero)
         repeat(2) { durable.commit(MachineInput.Dispatch(Retry, MachineTime.Zero)) }
-        assertEquals(2, storage.saved!!.snapshot.commands.size)
-        assertEquals(1, storage.saved!!.outbox.size)
+        assertEquals(2, kotlin.test.assertNotNull(storage.saved).snapshot.commands.size)
+        assertEquals(1, kotlin.test.assertNotNull(storage.saved).outbox.size)
         var calls = 0
         durable.executeObserved(DurableCommandHandler { _, _, _, emit -> calls++ }) { MachineTime.Zero }
-        assertTrue(storage.saved!!.snapshot.commands.isEmpty())
+        assertTrue(kotlin.test.assertNotNull(storage.saved).snapshot.commands.isEmpty())
         durable.commit(MachineInput.Dispatch(Retry, MachineTime.Zero))
-        assertTrue(storage.saved!!.snapshot.commands.isEmpty())
-        assertNull(durable.executeObserved(DurableCommandHandler { _, _, _, emit -> calls++ }) { MachineTime.Zero })
+        assertTrue(kotlin.test.assertNotNull(storage.saved).snapshot.commands.isEmpty())
+        assertFalse(durable.executeNext(DurableCommandHandler { _, _, _, emit -> calls++ }, { error("Unexpected durable commit: $it") }) { MachineTime.Zero })
         assertEquals(1, calls)
     }
 
@@ -145,7 +148,7 @@ class DurableMachineTest {
         assertTrue(committed.checkpoint.snapshot.isActive(left))
         assertEquals(Pay(20), committed.ephemeralCommands.single().command)
         assertEquals(committed.ephemeralCommands, durable.initialize(0, MachineTime.Zero).ephemeralCommands)
-        assertNull(durable.executeObserved(DurableCommandHandler { _, _, _, emit -> error("Receipt must suppress IO") }) { MachineTime.Zero })
+        assertFalse(durable.executeNext(DurableCommandHandler { _, _, _, emit -> error("Receipt must suppress IO") }, { error("Unexpected durable commit: $it") }) { MachineTime.Zero })
     }
 
     @Test fun receiptCleanupFailureRollsBackWithTheOriginalCause() = runTest {
@@ -172,7 +175,7 @@ class DurableMachineTest {
         val storage = Storage<Int, Pay>()
         val durable = runner(storage)
         durable.initialize(0, MachineTime.Zero)
-        val base = storage.saved!!
+        val base = kotlin.test.assertNotNull(storage.saved)
         val command = base.outbox.values.single()
         val ordinary = CommandRegistration(command.registration, command.command,
             base.snapshot.commands.getValue(command.registration).scope)
@@ -239,10 +242,10 @@ class DurableMachineTest {
         assertSame(failure, assertFailsWith<IllegalStateException> {
             durable.executeObserved(DurableCommandHandler { _, _, _, emit -> emit(Applied) }) { MachineTime.Zero }
         })
-        assertEquals(initial, storage.saved!!.snapshot)
-        assertEquals(DurableStatus.Pending, storage.saved!!.outbox.values.single().status)
-        assertEquals(1L, storage.saved!!.outbox.values.single().attempts)
-        val completed = durable.executeObserved(DurableCommandHandler { _, _, _, emit -> emit(Leave) }) { MachineTime.Zero }!!
+        assertEquals(initial, kotlin.test.assertNotNull(storage.saved).snapshot)
+        assertEquals(DurableStatus.Pending, kotlin.test.assertNotNull(storage.saved).outbox.values.single().status)
+        assertEquals(1L, kotlin.test.assertNotNull(storage.saved).outbox.values.single().attempts)
+        val completed = kotlin.test.assertNotNull(durable.executeObserved(DurableCommandHandler { _, _, _, emit -> emit(Leave) }) { MachineTime.Zero })
         assertTrue(completed.checkpoint.snapshot.isActive(left))
         assertEquals(DurableStatus.Completed, completed.checkpoint.outbox.values.single().status)
         assertEquals(2L, completed.checkpoint.outbox.values.single().attempts)
@@ -257,14 +260,14 @@ class DurableMachineTest {
             throw failure
         }
         assertSame(failure, assertFailsWith<IllegalStateException> { first.initialize(0, MachineTime.Zero) })
-        assertNull(failed.saved)
+        assertTrue(failed.commits.isEmpty())
         val duplicated = Storage<Int, Pay>()
         val second = DurableMachine(machine, duplicated) { _, classify ->
             classify(IdempotencyKey("one"))
             classify(IdempotencyKey("two"))
         }
         assertFailsWith<IllegalStateException> { second.initialize(0, MachineTime.Zero) }
-        assertNull(duplicated.saved)
+        assertTrue(duplicated.commits.isEmpty())
     }
 
     @Test fun aFailedOrDuplicateResultLeavesItsReservedOperationPending() = runTest {
@@ -280,9 +283,9 @@ class DurableMachineTest {
                 }) { MachineTime.Zero }
             }
             if (!duplicate) assertSame(failure, thrown)
-            assertEquals(initial, storage.saved!!.snapshot)
-            assertEquals(DurableStatus.Pending, storage.saved!!.outbox.values.single().status)
-            assertEquals(1L, storage.saved!!.outbox.values.single().attempts)
+            assertEquals(initial, kotlin.test.assertNotNull(storage.saved).snapshot)
+            assertEquals(DurableStatus.Pending, kotlin.test.assertNotNull(storage.saved).outbox.values.single().status)
+            assertEquals(1L, kotlin.test.assertNotNull(storage.saved).outbox.values.single().attempts)
         }
     }
 
@@ -324,16 +327,16 @@ class DurableMachineTest {
 
 private suspend fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DurableMachine<C, A, CMD, E>.executeObserved(
     handler: DurableCommandHandler<CMD, A>, now: () -> MachineTime,
-): DurableCommit<C, CMD, E>? {
-    var observed: DurableCommit<C, CMD, E>? = null
-    val executed = executeNext(handler, { check(observed == null); observed = it }, now)
-    kotlin.test.assertEquals(observed != null, executed)
-    return observed
+): DurableCommit<C, CMD, E> {
+    val observedObservations = mutableListOf<DurableCommit<C, CMD, E>>()
+    val executed = executeNext(handler, { check(observedObservations.isEmpty()); observedObservations.add(it) }, now)
+    kotlin.test.assertEquals(observedObservations.isNotEmpty(), executed)
+    return observedObservations.single()
 }
 
-private suspend fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DurableMachine<C, A, CMD, E>.restoreObserved(): DurableCheckpoint<C, CMD>? {
-    var observed: DurableCheckpoint<C, CMD>? = null
-    val found = restore { check(observed == null); observed = it }
-    kotlin.test.assertEquals(observed != null, found)
-    return observed
+private suspend fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DurableMachine<C, A, CMD, E>.restoreObserved(): DurableCheckpoint<C, CMD> {
+    val observedObservations = mutableListOf<DurableCheckpoint<C, CMD>>()
+    val found = restore { check(observedObservations.isEmpty()); observedObservations.add(it) }
+    kotlin.test.assertEquals(observedObservations.isNotEmpty(), found)
+    return observedObservations.single()
 }

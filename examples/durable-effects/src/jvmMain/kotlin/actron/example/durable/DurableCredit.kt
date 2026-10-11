@@ -36,12 +36,24 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /** A business key created by the caller; it must survive every Store/process recreation. */
 @Serializable
@@ -49,9 +61,75 @@ data class CreditIntent(val id: String, val amount: Long) {
     init { require(id.isNotBlank() && amount > 0) }
 }
 
+/** Business lifecycle, including the authentic completion preceding the next pending intent. */
+@Serializable(with = OutboxSerializer::class)
+sealed interface Outbox {
+    val hasPending: Boolean get() = false
+    fun pendingMatches(intent: CreditIntent): Boolean = false
+    fun completedMatches(intent: CreditIntent): Boolean = false
+    fun completedIdMatches(id: String): Boolean = false
+    fun withPending(accept: (CreditIntent) -> Unit): Boolean = false
+    fun withCompleted(accept: (CreditIntent) -> Unit): Boolean = false
+    fun request(intent: CreditIntent): Outbox
+    fun applied(intent: CreditIntent): Outbox = this
+
+    sealed interface Ready : Outbox {
+        override fun request(intent: CreditIntent): Outbox {
+            if (completedIdMatches(intent.id)) {
+                require(completedMatches(intent)) { "Another intent is pending" }
+                return this
+            }
+            return Awaiting(intent, this)
+        }
+    }
+
+    data object Unstarted : Ready
+
+    data class Completed(val intent: CreditIntent) : Ready {
+        override fun completedMatches(intent: CreditIntent): Boolean = this.intent == intent
+        override fun completedIdMatches(id: String): Boolean = intent.id == id
+        override fun withCompleted(accept: (CreditIntent) -> Unit): Boolean { accept(intent); return true }
+    }
+
+    data class Awaiting(val intent: CreditIntent, val previous: Ready = Unstarted) : Outbox {
+        init { require(!previous.completedIdMatches(intent.id)) }
+        override val hasPending: Boolean get() = true
+        override fun pendingMatches(intent: CreditIntent): Boolean = this.intent == intent
+        override fun completedMatches(intent: CreditIntent): Boolean = previous.completedMatches(intent)
+        override fun completedIdMatches(id: String): Boolean = previous.completedIdMatches(id)
+        override fun withPending(accept: (CreditIntent) -> Unit): Boolean { accept(intent); return true }
+        override fun withCompleted(accept: (CreditIntent) -> Unit): Boolean = previous.withCompleted(accept)
+        override fun request(intent: CreditIntent): Outbox {
+            require(pendingMatches(intent) || completedMatches(intent)) { "Another intent is pending" }
+            return this
+        }
+        override fun applied(intent: CreditIntent): Outbox = if (pendingMatches(intent)) Completed(intent) else this
+    }
+}
+
+/** Preserve the original schema-1 JSON fields, including real protocol JsonNull nodes. */
 @Serializable
-data class Outbox(val pending: CreditIntent? = null, val completed: CreditIntent? = null) {
-    init { require(pending == null || completed == null || pending.id != completed.id) }
+private data class OutboxWire(val pending: JsonElement = JsonNull, val completed: JsonElement = JsonNull)
+
+private object OutboxSerializer : KSerializer<Outbox> {
+    override val descriptor = OutboxWire.serializer().descriptor
+    override fun serialize(encoder: Encoder, value: Outbox) {
+        require(encoder is JsonEncoder) { "The disk outbox uses JSON" }
+        encoder.encodeJsonElement(buildJsonObject {
+            put("pending", JsonNull)
+            put("completed", JsonNull)
+            value.withPending { put("pending", encoder.json.encodeToJsonElement(it)) }
+            value.withCompleted { put("completed", encoder.json.encodeToJsonElement(it)) }
+        })
+    }
+    override fun deserialize(decoder: Decoder): Outbox {
+        require(decoder is JsonDecoder) { "The disk outbox uses JSON" }
+        val wire = decoder.decodeSerializableValue(OutboxWire.serializer())
+        val previous: Outbox.Ready = if (wire.completed == JsonNull) Outbox.Unstarted
+            else Outbox.Completed(decoder.json.decodeFromJsonElement<CreditIntent>(wire.completed))
+        return if (wire.pending == JsonNull) previous
+            else Outbox.Awaiting(decoder.json.decodeFromJsonElement<CreditIntent>(wire.pending), previous)
+    }
 }
 
 sealed interface CreditAction : Action {
@@ -65,19 +143,18 @@ val creditMachine: Machine<Outbox, CreditAction, Nothing, ApplyCredit> = run {
     val ready = StateId("Ready")
     Machine(DefinitionId("durable-credit"), DefinitionVersion("1"),
         StateChartDefinition(ready, listOf(AtomicState(ready)), emptyList())) {
-        onEnter(ready) { context.pending?.let { event(ApplyCredit(it)) } }
+        onEnter(ready) { context.withPending { event(ApplyCredit(it)) } }
         onAction(ready, ActionMatcher.of<CreditAction.Request>("Request")) {
             val intent = (action as CreditAction.Request).intent
-            if (context.pending == null && context.completed?.id != intent.id) {
-                context = context.copy(pending = intent)
+            val next = context.request(intent)
+            if (next != context) {
+                context = next
                 event(ApplyCredit(intent))
-            } else {
-                require(context.pending == intent || context.completed == intent) { "Another intent is pending" }
             }
         }
         onAction(ready, ActionMatcher.of<CreditAction.Applied>("Applied")) {
             val intent = (action as CreditAction.Applied).intent
-            if (context.pending == intent) context = Outbox(completed = intent)
+            if (context.pendingMatches(intent)) context = context.applied(intent)
         }
     }
 }
@@ -101,15 +178,15 @@ private val storageJson = Json { encodeDefaults = true }
 
 /** POSIX local filesystem recipe; fails closed if atomic move or directory fsync is unsupported. */
 internal fun durableReplace(path: Path, text: String) {
-    val temporary = Files.createTempFile(path.parent, "pending-", ".tmp")
+    val temporary = checkNotNull(Files.createTempFile(path.parent, "pending-", ".tmp"))
     try {
-        FileChannel.open(temporary, WRITE).use { channel ->
-            val bytes = ByteBuffer.wrap(text.toByteArray(Charsets.UTF_8))
+        checkNotNull(FileChannel.open(temporary, WRITE)).use { channel ->
+            val bytes = checkNotNull(ByteBuffer.wrap(text.toByteArray(Charsets.UTF_8)))
             while (bytes.hasRemaining()) channel.write(bytes)
             channel.force(true)
         }
         Files.move(temporary, path, ATOMIC_MOVE, REPLACE_EXISTING)
-        FileChannel.open(path.parent, READ).use { it.force(true) }
+        checkNotNull(FileChannel.open(path.parent, READ)).use { it.force(true) }
     } finally {
         Files.deleteIfExists(temporary)
     }
@@ -129,11 +206,11 @@ class DiskOutbox(private val path: Path) : StateSaver<MachineSnapshot<Outbox>> {
             dispatch()
             barrier.await()
         } finally {
-            synchronized(barriers) { barriers.remove(barrier) }
+            synchronized(barriers) { barriers.remove(barrier); Unit }
         }
     }
 
-    private fun read(): Outbox = if (!Files.exists(path)) Outbox() else {
+    private fun read(): Outbox = if (!Files.exists(path)) Outbox.Unstarted else {
         val decoded = storageJson.decodeFromString<DomainFile>(Files.readString(path))
         require(decoded.schema == 1) { "Unsupported domain schema" }
         decoded.outbox
@@ -167,8 +244,8 @@ class DiskLedger(private val path: Path) {
     @Synchronized
     fun apply(intent: CreditIntent): Boolean {
         val previous = read()
-        previous.receipts[intent.id]?.let {
-            require(it == intent.amount) { "Intent id reused with another amount" }
+        if (intent.id in previous.receipts) {
+            require(previous.receipts.getValue(intent.id) == intent.amount) { "Intent id reused with another amount" }
             return false
         }
         val next = Ledger(Math.addExact(previous.balance, intent.amount), previous.receipts + (intent.id to intent.amount))
@@ -186,7 +263,7 @@ private class SessionFiles(val channel: FileChannel, val lock: FileLock, val sav
 
 private fun acquireSessionFiles(directory: Path): SessionFiles {
     // An OS lock survives screen changes and is released even by Runtime.halt/process death.
-    val channel = FileChannel.open(directory.resolve("owner.lock"), CREATE, WRITE)
+    val channel = checkNotNull(FileChannel.open(directory.resolve("owner.lock"), CREATE, WRITE))
     try {
         val lock = checkNotNull(channel.tryLock()) { "Another process owns this outbox" }
         try {
@@ -204,14 +281,14 @@ class CreditSession private constructor(private val files: SessionFiles) : AutoC
     private val scope = CoroutineScope(Dispatchers.Default + ownerJob)
     val saver = files.saver
     val ledger = files.ledger
-    val failures = MutableStateFlow<Throwable?>(null)
+    val failures = MutableSharedFlow<Throwable>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val store = MachineStore(
-        creditMachine, Outbox(), CommandHandler<Nothing, CreditAction> { _, _ -> }, scope,
+        creditMachine, Outbox.Unstarted, CommandHandler<Nothing, CreditAction> { _, _ -> }, scope,
         coroutineContext = scope.coroutineContext,
         mailbox = MailboxConfig(policy = { EffectPolicy.Retained() }),
     ) {
         stateSaver(saver)
-        exceptionHandler(ExceptionHandler { failures.value = it })
+        exceptionHandler(ExceptionHandler { check(failures.tryEmit(it)) })
     }
 
     suspend fun start() = withTimeout(10_000) {
@@ -220,7 +297,7 @@ class CreditSession private constructor(private val files: SessionFiles) : AutoC
     }
 
     suspend fun request(intent: CreditIntent) = withTimeout(10_000) {
-        saver.awaitSaved({ it.pending == intent || it.completed == intent }) {
+        saver.awaitSaved({ it.pendingMatches(intent) || it.completedMatches(intent) }) {
             store.dispatch(CreditAction.Request(intent))
         }
     }
@@ -244,16 +321,17 @@ class CreditSession private constructor(private val files: SessionFiles) : AutoC
     private suspend fun handleOwned(delivery: Delivery<ApplyCredit>, boundary: (Boundary) -> Unit) = withTimeout(10_000) {
         val intent = delivery.event.intent
         // StateSaver failures do not abort a Actron commit. Never apply an unpersisted intent.
-        if (saver.durable.value.completed == intent) {
-            check(ledger.read().receipts[intent.id] == intent.amount) { "Completed intent has no matching receipt" }
+        if (saver.durable.value.completedMatches(intent)) {
+            val receipts = ledger.read().receipts
+            check(intent.id in receipts && receipts.getValue(intent.id) == intent.amount) { "Completed intent has no matching receipt" }
             check(delivery.acknowledge())
             return@withTimeout
         }
-        check(saver.durable.value.pending == intent) { "Intent is not durably pending" }
+        check(saver.durable.value.pendingMatches(intent)) { "Intent is not durably pending" }
         boundary(Boundary.BeforeEffect)
         withContext(Dispatchers.IO) { ledger.apply(intent) }
         boundary(Boundary.AfterEffect)
-        saver.awaitSaved({ it.completed == intent }) {
+        saver.awaitSaved({ it.completedMatches(intent) }) {
             store.dispatch(CreditAction.Applied(intent))
         }
         boundary(Boundary.AfterDomainAck)

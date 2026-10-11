@@ -10,9 +10,9 @@ import kotlin.test.*
 class BehaviouralArtifactsTest {
     private data object Go : Action
     private val idle = StateId("idle"); private val done = StateId("done")
-    private fun machine(version: String, guard: String? = null) = Machine<Unit, Action, Nothing, Event>(DefinitionId("review"), DefinitionVersion(version),
-        StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, ActionMatcher.of<Go>("go"), (guard)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional)))) {
-        if (guard != null) guard(guard) { _, _ -> false }
+    private fun machine(version: String, condition: GuardCondition = GuardCondition.Unconditional) = Machine<Unit, Action, Nothing, Event>(DefinitionId("review"), DefinitionVersion(version),
+        StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, ActionMatcher.of<Go>("go"), condition)))) {
+        if (condition is GuardKey) guard(condition.name) { _, _ -> false }
     }
     private fun coverage(machine: Machine<Unit, Action, Nothing, Event>, covered: Boolean): MachineCoverage =
         machine.runScenario(machine.initialSnapshot(Unit), MachineScenario("case", listOf(MachineInput.Start(MachineTime.Zero)) +
@@ -32,7 +32,7 @@ class BehaviouralArtifactsTest {
     }
 
     @Test fun changedGuardWithSameVersionRequiresBumpAndUncoveredNewDeclarationIsReported() {
-        val before = machine("1"); val after = machine("1", "blocked")
+        val before = machine("1"); val after = machine("1", GuardKey("blocked"))
         val files = behaviouralReviewArtifacts(before.behaviouralSnapshot(coverage(before, true)), after.behaviouralSnapshot(coverage(after, false)))
         assertTrue(files.getValue("behaviour.diff").contains("VERSION BUMP REQUIRED"))
         assertTrue(files.getValue("coverage.diff").contains("NEW UNCOVERED"))

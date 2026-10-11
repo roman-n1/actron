@@ -15,7 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.TimeoutCancellationException
 import actron.timetravel.GroupMismatch
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
 class CheckoutDemoTest {
     @Test
     fun scenarioWaitsForStartupRecordingBeforeCreatingTheReplayBranchPrefix() = runBlocking {
-        val parent = Files.createTempDirectory("actron-checkout-startup-")
+        val parent = checkNotNull(Files.createTempDirectory("actron-checkout-startup-"))
         val entered = CompletableDeferred<Unit>()
         val release = CountDownLatch(1)
         val calls = AtomicInteger()
@@ -45,13 +45,12 @@ class CheckoutDemoTest {
                 }
                 try {
                     entered.await() // Active state is already published; Start is not in group order yet.
-                    val prematurePrice = withTimeoutOrNull(250) {
+                    assertFailsWith<TimeoutCancellationException> { withTimeout(250) {
                         while (calls.get() == 0) delay(1)
                         calls.get()
-                    }
+                    } }
                     release.countDown()
                     val loaded = CheckoutDemo.load(recording.await().directory)
-                    assertNull(prematurePrice, "The price lookup must wait until every startup observer is recorded")
                     assertEquals(emptyList(), loaded.replay(fixed = false).session.verify())
                     val controls = loaded.controls(fixed = true)
                     val failure = controls.replay.session.verify().filterIsInstance<GroupMismatch.Replay>().single()
@@ -75,7 +74,7 @@ class CheckoutDemoTest {
 
     @Test
     fun recordingWaitsForCommittedObserversBeforeFinalizingTheFiles() = runBlocking {
-        val parent = Files.createTempDirectory("actron-checkout-observer-")
+        val parent = checkNotNull(Files.createTempDirectory("actron-checkout-observer-"))
         val entered = CompletableDeferred<Unit>()
         val flushed = CompletableDeferred<Unit>()
         val release = CountDownLatch(1)
@@ -89,10 +88,10 @@ class CheckoutDemoTest {
                 }
                 try {
                     entered.await() // The summary StateFlow already says 100; its file observer has not run.
-                    assertNull(withTimeoutOrNull(250) { recording.await() }, "A published snapshot must not finalize recording before observers finish")
+                    assertFailsWith<TimeoutCancellationException> { withTimeout(250) { recording.await() } }
                     assertFalse(recording.isCompleted)
                     flushed.await() // A real sink write and flush has completed on the independent writer.
-                    val directory = Files.list(parent).use { it.findFirst().orElseThrow() }
+                    val directory = checkNotNull(Files.list(parent)).use { stream: java.util.stream.Stream<java.nio.file.Path> -> checkNotNull(stream.iterator().next()) }
                     val journals = JournalFiles(FileSegmentStorage(directory.toString()))
                     assertTrue(journals.read(RuntimeSessionId("checkout-demo-run")).marks.any { it is SegmentMark.Unfinished },
                         "The flushed journal must remain unfinished while a committed observer is held")
@@ -116,12 +115,12 @@ class CheckoutDemoTest {
 
     @Test
     fun diskRecordingReopens_reproducesTheBug_andExperimentsWithoutCallingLiveHandlers() = runBlocking {
-        val parent = Files.createTempDirectory("actron-checkout-test-")
+        val parent = checkNotNull(Files.createTempDirectory("actron-checkout-test-"))
         try {
             val calls = AtomicInteger()
             val recorded = CheckoutDemo.record(parent, calls)
             assertEquals(1, calls.get())
-            assertTrue(Files.list(recorded.directory).use { it.count() >= 4 }, "journal, order and two member files")
+            assertTrue(checkNotNull(Files.list(recorded.directory)).use { stream: java.util.stream.Stream<java.nio.file.Path> -> stream.count() >= 4 }, "journal, order and two member files")
             val loaded = CheckoutDemo.load(recorded.directory)
             val original = loaded.replay(fixed = false)
             assertEquals(emptyList(), original.session.verify())
@@ -162,7 +161,7 @@ class CheckoutDemoTest {
 
     @Test
     fun anUnrelatedDirectoryIsRefused_withAUsefulReason() {
-        val parent = Files.createTempDirectory("actron-empty-demo-")
+        val parent = checkNotNull(Files.createTempDirectory("actron-empty-demo-"))
         try {
             val error = assertFailsWith<IllegalArgumentException> { CheckoutDemo.load(parent) }
             assertTrue(checkNotNull(error.message).contains("No checkout recording"))

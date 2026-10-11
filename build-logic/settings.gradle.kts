@@ -18,3 +18,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "build-logic"
 include(":convention")
+
+include(":nullability-policy")

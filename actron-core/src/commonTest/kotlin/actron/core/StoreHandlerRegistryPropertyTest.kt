@@ -77,15 +77,15 @@ class StoreHandlerRegistryPropertyTest {
             val store = buildRtStore(program, RtState.B, mutableListOf())
             val builderPredicates = store.registry()
             for (kind in HandlerKind.entries) {
-                val inputs: List<Any?> = when (kind) {
+                val inputs: List<Any> = when (kind) {
                     HandlerKind.ACTION -> actionPool
                     HandlerKind.RECOVER -> exceptionPool()
-                    else -> listOf(null)
+                    else -> listOf(Unit)
                 }
                 builderPredicates.of(kind).forEachIndexed { index, matcher ->
                     val planned = program.planned(kind)[index]
                     for (s in statePool) for (input in inputs) {
-                        val claimed = matcher!!.stateType.isInstance(s) && (input == null || matcher.inputType!!.isInstance(input))
+                        val claimed = kotlin.test.assertNotNull(matcher).stateType.isInstance(s) && matcher.inputType.isInstance(input)
                         assertEquals(planned.matches(s, input), claimed, "seed=$seed kind=$kind #$index s=$s input=$input")
                     }
                 }
@@ -123,7 +123,7 @@ class StoreHandlerRegistryPropertyTest {
                 store.close()
 
                 if (program.planned(HandlerKind.ACTION).any { it.matches(initial, action) }) dispatchedWithHandler++
-                if (action.fail != null && expected.unhandled.isEmpty() && expected.log.size >= 2) recovered++
+                if (action.effect is RoutingEffect.Fail && expected.unhandled.isEmpty() && expected.log.size >= 2) recovered++
                 if (expected.finalState::class != initial::class) transitions++
             }
         }
@@ -147,8 +147,8 @@ class StoreHandlerRegistryPropertyTest {
             val log = mutableListOf<Int>()
             val store: Store<RtState, RtAction, RtEvent> = Store(RtState.A(0)) {
                 coroutineContext(StandardTestDispatcher(testScheduler))
-                val parent: RtBuilder.() -> Unit = { state<RtState> { action<RtAction> { log += 100; action.goto?.let { g -> nextState { g } } } } }
-                val child: RtBuilder.() -> Unit = { state<RtState.A> { action<RtAction.P> { log += 200; action.goto?.let { g -> nextState { g } } } } }
+                val parent: RtBuilder.() -> Unit = { state<RtState> { action<RtAction> { log += 100; action.effect.execute { g -> nextState { g } } } } }
+                val child: RtBuilder.() -> Unit = { state<RtState.A> { action<RtAction.P> { log += 200; action.effect.execute { g -> nextState { g } } } } }
                 if (parentFirst) { parent(); child() } else { child(); parent() }
             }
             val parentMatcher = HandlerMatcher(RtState::class, RtAction::class)
@@ -159,7 +159,7 @@ class StoreHandlerRegistryPropertyTest {
             )
 
             store.dispatchAndAwaitForTest(RtAction.P())
-            store.dispatchAndAwaitForTest(RtAction.P(goto = RtState.B))
+            store.dispatchAndAwaitForTest(RtAction.P(RoutingEffect.Move(RtState.B)))
             store.dispatchAndAwaitForTest(RtAction.P())
 
             assertEquals(if (parentFirst) listOf(100, 100, 100) else listOf(200, 200, 100), log)
@@ -211,14 +211,14 @@ class StoreHandlerRegistryPropertyTest {
                 listOf(
                     Block.StateBlock(
                         stateKinds[1],
-                        listOf(Inner(HandlerKind.ACTION, 99, actionKind = actionKinds[0])) +
-                            kinds.mapIndexed { i, k -> Inner(HandlerKind.RECOVER, i, recoverKind = k) },
+                        listOf(Inner(99, HandlerDeclaration.Action(actionKinds[0]))) +
+                            kinds.mapIndexed { i, k -> Inner(i, HandlerDeclaration.Recovery(k)) },
                     ),
                 ),
             )
             val store = buildRtStore(program, RtState.A(0), log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
             assertEquals(kinds.map { HandlerMatcher(RtState.A::class, it.type) }, store.registry().recover)
-            store.dispatchAndAwaitForTest(RtAction.Q(fail = CustomBoom()))
+            store.dispatchAndAwaitForTest(RtAction.Q(RoutingEffect.Fail(CustomBoom())))
             assertEquals(listOf(99, expectedWinner[case]), log, "case=$case")
             store.close()
         }

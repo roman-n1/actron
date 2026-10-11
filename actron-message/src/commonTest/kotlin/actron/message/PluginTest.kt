@@ -18,10 +18,10 @@ class MessagePluginTest {
     fun messagePlugin_shouldReceiveMessages() = runTest(testDispatcher) {
         val sendMessage = TestMessage("Hello")
 
-        var receivedMessage: TestMessage? = null
+        val messages = mutableListOf<TestMessage>()
         val plugin = receiveMessages<CounterState, Nothing, Nothing> { message ->
             if (message is TestMessage) {
-                receivedMessage = message
+                messages += message
             }
         }
 
@@ -29,7 +29,7 @@ class MessagePluginTest {
 
         store.collectState { } // start Store
 
-        assertEquals(sendMessage, receivedMessage)
+        assertEquals(listOf(sendMessage), messages)
         store.close()
     }
 }

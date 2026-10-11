@@ -63,17 +63,17 @@ class RecordingFileFailureTest {
     private val groupId = MachineGroupId("group")
     private enum class Kind { Member, Order }
 
-    private class Storage(val targetsOrder: Boolean, val partialWrites: Boolean = false, val fail: (String, Int) -> Throwable?) : SegmentStorage {
+    private class Storage(val targetsOrder: Boolean, val partialWrites: Boolean = false, val fail: (String, Int) -> Unit) : SegmentStorage {
         val memory = InMemorySegmentStorage()
         private val calls = mutableMapOf<String, Int>()
         var opened = 0
         var closed = 0
-        private fun target(name: String) = (GroupRecordingFileFormat.parseSegmentName(name) != null) == targetsOrder
+        private fun target(name: String) = GroupRecordingFileFormat.parseSegmentName(name) { _, _ -> } == targetsOrder
         private fun check(name: String, operation: String) {
             if (!target(name)) return
             val call = (calls[operation] ?: 0) + 1
             calls[operation] = call
-            fail(operation, call)?.let { throw it }
+            fail(operation, call)
         }
         override fun list() = memory.list()
         override fun read(name: String) = memory.read(name)
@@ -101,6 +101,18 @@ class RecordingFileFailureTest {
         }
     }
 
+    private sealed interface FormatWriter {
+        val observer: actron.statechart.machine.DecisionObserver<Int, Tick, Int, Ev>
+        suspend fun close()
+        class Order(val files: GroupRecordingFileSink, override val observer: actron.statechart.machine.DecisionObserver<Int, Tick, Int, Ev>) : FormatWriter {
+            override suspend fun close() = files.close()
+        }
+        class Member(val file: RecordingFileSink<Int, Tick, Int, Ev>) : FormatWriter {
+            override val observer get() = file
+            override suspend fun close() = file.close()
+        }
+    }
+
     private inner class Writer(scope: TestScope, val kind: Kind, val storage: Storage,
         config: RecordingFileConfig = RecordingFileConfig(), throwCallback: Boolean = false) {
         val job = SupervisorJob()
@@ -112,9 +124,15 @@ class RecordingFileFailureTest {
             failures += it
             if (throwCallback) throw IllegalStateException("failure callback")
         })
-        val files = if (kind == Kind.Order) GroupRecordingFileSink(group, groupId, storage, executionScope, configured) else null
-        val single = if (kind == Kind.Member) RecordingFileSink(memberId, machine, 0, codec, storage, executionScope, configured) else null
-        val observer = single ?: checkNotNull(files).member(memberId, machine, 0, codec)
+        val format: FormatWriter = when (kind) {
+            Kind.Order -> {
+                val files = GroupRecordingFileSink(group, groupId, storage, executionScope, configured)
+                FormatWriter.Order(files, files.member(memberId, machine, 0, codec))
+            }
+            Kind.Member -> FormatWriter.Member(RecordingFileSink(memberId, machine, 0, codec, storage, executionScope, configured))
+        }
+        val observer get() = format.observer
+        val files get() = (format as FormatWriter.Order).files
         var snapshot = machine.initialSnapshot(0)
         fun step() {
             val input = if (snapshot.revision == 0L) MachineInput.Start(MachineTime.Zero) else MachineInput.Dispatch(Tick, MachineTime.Zero)
@@ -123,7 +141,7 @@ class RecordingFileFailureTest {
             snapshot = decision.snapshot
         }
         suspend fun close() {
-            if (files != null) files.close() else checkNotNull(single).close()
+            format.close()
             job.cancelAndJoin()
         }
     }
@@ -137,7 +155,7 @@ class RecordingFileFailureTest {
                 "close" to 1, "flush" to 1)
             for ((operation, call) in cases.distinct()) {
                 val failure = IllegalStateException("$kind $operation $call")
-                val storage = Storage(kind == Kind.Order) { op, n -> failure.takeIf { op == operation && n == call } }
+                val storage = Storage(kind == Kind.Order) { op, n -> if (op == operation && n == call) throw failure }
                 val writer = Writer(this, kind, storage, RecordingFileConfig(flushEveryFrames = 1))
                 writer.step()
                 runCurrent()
@@ -155,9 +173,9 @@ class RecordingFileFailureTest {
             val failure = IllegalStateException("write")
             val cleanupFailure = IllegalArgumentException("close")
             val storage = Storage(kind == Kind.Order) { op, n -> when {
-                op == "write" && n == 1 -> failure
-                op == "close" -> cleanupFailure
-                else -> null
+                op == "write" && n == 1 -> throw failure
+                op == "close" -> throw cleanupFailure
+                else -> Unit
             } }
             val writer = Writer(this, kind, storage)
             writer.step()
@@ -172,7 +190,7 @@ class RecordingFileFailureTest {
     @Test
     fun cancellingTheWriterScopeReleasesTheHandleWithoutCompletingTheSegment() = runTest {
         for (kind in Kind.entries) {
-            val storage = Storage(kind == Kind.Order) { _, _ -> null }
+            val storage = Storage(kind == Kind.Order) { _, _ -> }
             val writer = Writer(this, kind, storage)
             writer.step()
             runCurrent()
@@ -186,9 +204,9 @@ class RecordingFileFailureTest {
                 val name = storage.list().single().name
                 assertTrue(!RecordingFileFormat.decodeSegment(name, storage.read(name), codec).finished,
                     "cancelled writer must not append an end frame")
-                assertNull(ReplaySession(machine, checkNotNull(contents.recording)).verify())
+                kotlin.test.assertFalse(ReplaySession(machine, checkNotNull(contents.recording)).verify() { error("Unexpected replay mismatch: $it") })
             } else {
-                val name = storage.list().single { GroupRecordingFileFormat.parseSegmentName(it.name) != null }.name
+                val name = storage.list().single { GroupRecordingFileFormat.parseSegmentName(it.name) { _, _ -> } }.name
                 assertTrue(!GroupRecordingFileFormat.decodeSegment(name, storage.read(name)).finished)
             }
         }
@@ -197,7 +215,7 @@ class RecordingFileFailureTest {
     @Test
     fun aThrowingFailureCallbackCannotLeakHandlesOrFailTheParentScope() = runTest {
         for (kind in Kind.entries) {
-            val storage = Storage(kind == Kind.Order) { op, n -> IllegalStateException("write").takeIf { op == "write" && n == 1 } }
+            val storage = Storage(kind == Kind.Order) { op, n -> if (op == "write" && n == 1) throw IllegalStateException("write") }
             val writer = Writer(this, kind, storage, throwCallback = true)
             writer.step()
             runCurrent()
@@ -213,7 +231,7 @@ class RecordingFileFailureTest {
         for (kind in Kind.entries) {
             val failure = IllegalStateException("second header")
             val secondHeader = if (kind == Kind.Member) 5 else 4
-            val storage = Storage(kind == Kind.Order) { op, n -> failure.takeIf { op == "write" && n == secondHeader } }
+            val storage = Storage(kind == Kind.Order) { op, n -> if (op == "write" && n == secondHeader) throw failure }
             val writer = Writer(this, kind, storage, RecordingFileConfig(maxSegmentBytes = 1))
             writer.step()
             runCurrent()
@@ -231,7 +249,7 @@ class RecordingFileFailureTest {
         for (kind in Kind.entries) {
             val failure = IllegalStateException("partial frame")
             val secondFrame = if (kind == Kind.Member) 4 else 3
-            val storage = Storage(kind == Kind.Order, partialWrites = true) { op, n -> failure.takeIf { op == "write" && n == secondFrame } }
+            val storage = Storage(kind == Kind.Order, partialWrites = true) { op, n -> if (op == "write" && n == secondFrame) throw failure }
             val writer = Writer(this, kind, storage)
             writer.step()
             runCurrent()
@@ -245,12 +263,12 @@ class RecordingFileFailureTest {
                 val recording = checkNotNull(contents.recording)
                 assertEquals(1, recording.length)
                 assertTrue(contents.marks.isNotEmpty())
-                assertNull(ReplaySession(machine, recording).verify())
+                kotlin.test.assertFalse(ReplaySession(machine, recording).verify() { error("Unexpected replay mismatch: $it") })
             } else {
-                val name = storage.list().single { GroupRecordingFileFormat.parseSegmentName(it.name) != null }.name
+                val name = storage.list().single { GroupRecordingFileFormat.parseSegmentName(it.name) { _, _ -> } }.name
                 val decoded = GroupRecordingFileFormat.decodeSegment(name, storage.read(name))
                 assertEquals(1, decoded.entries.size)
-                assertTrue(!decoded.finished && decoded.mark != null)
+                assertTrue(!decoded.finished && decoded.ending.withIssue {})
             }
         }
     }
@@ -259,7 +277,7 @@ class RecordingFileFailureTest {
     fun aBrokenFileWriterDoesNotStopTheLiveMachineFromCommitting() = runTest {
         for (kind in Kind.entries) {
             val failure = IllegalStateException("header")
-            val storage = Storage(kind == Kind.Order) { op, n -> failure.takeIf { op == "write" && n == 1 } }
+            val storage = Storage(kind == Kind.Order) { op, n -> if (op == "write" && n == 1) throw failure }
             val writer = Writer(this, kind, storage)
             val store = MachineStore(machine, 0, CommandHandler<Int, Tick> { _, _ -> }, backgroundScope,
                 coroutineContext = StandardTestDispatcher(testScheduler), observers = listOf(writer.observer))
@@ -280,7 +298,7 @@ class RecordingFileFailureTest {
 
     @Test
     fun duplicateFileMemberRegistrationKeepsTheOriginalSinkAndItsRecording() = runTest {
-        val storage = Storage(true) { _, _ -> null }
+        val storage = Storage(true) { _, _ -> }
         val writer = Writer(this, Kind.Order, storage)
         writer.step()
         runCurrent()
@@ -294,16 +312,16 @@ class RecordingFileFailureTest {
         writer.close()
         val recording = checkNotNull(RecordingFiles(storage).read(memberId, codec).recording)
         assertEquals(2, recording.length)
-        assertNull(ReplaySession(machine, recording).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, recording).verify() { error("Unexpected replay mismatch: $it") })
     }
 
     @Test
     fun aClosedGroupSinkRejectsNewMembersWithoutChangingItsRegistry() = runTest {
-        val storage = Storage(true) { _, _ -> null }
+        val storage = Storage(true) { _, _ -> }
         val writer = Writer(this, Kind.Order, storage)
         writer.close()
         assertFailsWith<IllegalStateException> { checkNotNull(writer.files).member(StoreInstanceId("late"), machine, 0, codec) }
-        assertEquals(setOf(memberId), writer.files!!.members.keys)
+        assertEquals(setOf(memberId), kotlin.test.assertNotNull(writer.files).members.keys)
     }
 
     @Test

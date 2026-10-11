@@ -4,7 +4,7 @@ import actron.core.ExperimentalActronApi
 
 /** One step of [ParallelReference]: the transitions taken, nodes exited and entered, and the configuration after it. */
 @OptIn(ExperimentalActronApi::class)
-internal class ParallelFired(val transitions: List<Transition>, val exited: List<StateId>, val entered: List<StateId>, val after: HistoryConfiguration)
+internal class ParallelDecision(val transitions: List<Transition>, val exited: List<StateId>, val entered: List<StateId>, val after: HistoryConfiguration)
 
 /**
  * A naive re-statement of the design note's semantics with parallel states, independent of the
@@ -25,10 +25,13 @@ internal class ParallelReference(val chart: StateChartDefinition) {
     private val index = nodes.keys.withIndex().associate { (i, id) -> id to i }
     private val histories = nodes.values.filterIsInstance<HistoryState>()
 
-    fun parent(id: StateId): StateId? = (nodes[id]?.parent as? StateId)?.takeIf { it in nodes }
+    fun parent(id: StateId): StateParent = if (id in nodes) nodes.getValue(id).parent.let { if (it is StateId && it in nodes) it else StateParent.Root } else StateParent.Root
 
     /** [id], its parent, ..., up to the top. */
-    fun chain(id: StateId): List<StateId> = generateSequence(id) { parent(it) }.toList()
+    fun chain(id: StateId): List<StateId> = buildList {
+        var current: StateParent = id
+        while (current is StateId && current !in this) { add(current); current = parent(current) }
+    }
 
     fun inside(id: StateId, ancestor: StateId) = ancestor in chain(id).drop(1)
 
@@ -47,7 +50,7 @@ internal class ParallelReference(val chart: StateChartDefinition) {
         while (changed) {
             changed = false
             for (id in result.toList()) {
-                val missing = when (val node = nodes[id]) {
+                val missing = when (val node = nodes.getValue(id)) {
                     is CompoundState -> if (result.none { parent(it) == id }) listOf(node.initial) else emptyList()
                     is ParallelState -> regions(id).filter { r -> r !in result }
                     else -> emptyList()
@@ -60,9 +63,9 @@ internal class ParallelReference(val chart: StateChartDefinition) {
 
     fun initialConfiguration() = HistoryConfiguration(complete(chain(chart.initial).toSet()))
 
-    fun domain(t: Transition): StateId? = chain(t.source).drop(1).firstOrNull { nodes[it] is CompoundState && inside(t.target, it) }
+    fun domain(t: Transition): StateParent = chain(t.source).drop(1).firstOrNull { nodes[it] is CompoundState && inside(t.target, it) } ?: StateParent.Root
 
-    fun exitSet(active: Set<StateId>, t: Transition): Set<StateId> = domain(t).let { d -> active.filter { d == null || inside(it, d) }.toSet() }
+    fun exitSet(active: Set<StateId>, t: Transition): Set<StateId> = domain(t).let { d -> active.filter { d is StateParent.Root || inside(it, d as StateId) }.toSet() }
 
     fun record(history: HistoryState, active: Set<StateId>): Set<StateId> = if (history.deep) {
         active.filter { inside(it, history.parent) && active.none { c -> parent(c) == it } }.toSet()
@@ -71,7 +74,7 @@ internal class ParallelReference(val chart: StateChartDefinition) {
     }
 
     /** Takes [transitions] (non-conflicting) together. */
-    fun fire(configuration: HistoryConfiguration, transitions: List<Transition>): ParallelFired {
+    fun fire(configuration: HistoryConfiguration, transitions: List<Transition>): ParallelDecision {
         val exit = transitions.flatMap { exitSet(configuration.active, it) }.toSet()
         val history = configuration.history.toMutableMap()
         for (x in exit) for (h in histories) if (h.parent == x) {
@@ -81,7 +84,7 @@ internal class ParallelReference(val chart: StateChartDefinition) {
         val must = mutableSetOf<StateId>()
         for (t in transitions) {
             val d = domain(t)
-            val target = nodes[t.target]
+            val target = nodes.getValue(t.target)
             if (target is HistoryState) {
                 must += chain(t.target).drop(1).takeWhile { it != d }
                 val restore = history[target.id] ?: (target.default as? StateId)?.let(::setOf) ?: when (val p = nodes.getValue(target.parent)) {
@@ -97,23 +100,17 @@ internal class ParallelReference(val chart: StateChartDefinition) {
         val after = complete(kept + must)
         val entered = (after - kept).sortedWith(compareBy<StateId> { depth(it) }.thenBy { order(it) })
         val exited = exit.sortedWith(compareByDescending<StateId> { depth(it) }.thenByDescending { order(it) })
-        return ParallelFired(transitions, exited, entered, HistoryConfiguration(after, history))
+        return ParallelDecision(transitions, exited, entered, HistoryConfiguration(after, history))
     }
 
     /** SCXML selection with [enabled] deciding which transitions may fire. */
     fun select(active: Set<StateId>, enabled: (Transition) -> Boolean): List<Transition> {
         val filtered = mutableListOf<Transition>()
         for (leaf in leaves(active)) {
-            var pick: Transition? = null
-            loop@ for (node in chain(leaf)) {
-                for (t in chart.transitions) {
-                    if (t.source == node && enabled(t)) {
-                        pick = t
-                        break@loop
-                    }
-                }
-            }
-            val t1 = pick ?: continue
+            val candidates = chain(leaf).flatMap { node -> chart.transitions.filter { it.source == node } }
+            val selectedIndex = candidates.indexOfFirst(enabled)
+            if (selectedIndex < 0) continue
+            val t1 = candidates[selectedIndex]
             var preempted = false
             val remove = mutableListOf<Transition>()
             for (t2 in filtered) {
@@ -134,23 +131,23 @@ internal class ParallelReference(val chart: StateChartDefinition) {
         return filtered
     }
 
-    fun step(configuration: HistoryConfiguration, action: RandomAction, guard: (String, RandomAction) -> Boolean): ParallelFired? {
-        val taken = select(configuration.active) { t -> HierarchyReference.matches((t.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action) && ((t.guard as? actron.statechart.GuardKey)?.name == null || guard((t.guard as actron.statechart.GuardKey).name, action)) }
-        return if (taken.isEmpty()) null else fire(configuration, taken)
+    fun step(configuration: HistoryConfiguration, action: RandomAction, guard: (String, RandomAction) -> Boolean): ParallelDecision {
+        val taken = select(configuration.active) { t -> HierarchyReference.matches(t.trigger, action) && (t.guard is GuardCondition.Unconditional || guard((t.guard as actron.statechart.GuardKey).name, action)) }
+        return if (taken.isEmpty()) ParallelDecision(emptyList(), emptyList(), emptyList(), configuration) else fire(configuration, taken)
     }
 
     /** The timers of [states], state by state in the order given, each state's in declaration order. */
     fun timersOf(states: List<StateId>): List<Transition> = states.flatMap { id -> chart.transitions.filter { it.source == id && it.trigger is Trigger.After } }
 
     /** A timer firing: nothing when its source is inactive or [guard] rejects its label; otherwise the timer alone. */
-    fun fireTimer(configuration: HistoryConfiguration, timer: Transition, guard: (String) -> Boolean): ParallelFired? {
-        if (timer.source !in configuration.active) return null
-        if ((timer.guard as? actron.statechart.GuardKey)?.name != null && !guard((timer.guard as actron.statechart.GuardKey).name)) return null
+    fun fireTimer(configuration: HistoryConfiguration, timer: Transition, guard: (String) -> Boolean): ParallelDecision {
+        if (timer.source !in configuration.active) return ParallelDecision(emptyList(), emptyList(), emptyList(), configuration)
+        if (timer.guard is GuardKey && !guard((timer.guard as actron.statechart.GuardKey).name)) return ParallelDecision(emptyList(), emptyList(), emptyList(), configuration)
         return fire(configuration, listOf(timer))
     }
 
     /** The configuration graph's step for [trigger]: equal matchers fire elsewhere, nothing may conflict with [trigger]; a timer fires alone. */
-    fun graphStep(configuration: HistoryConfiguration, trigger: Transition): ParallelFired {
+    fun graphStep(configuration: HistoryConfiguration, trigger: Transition): ParallelDecision {
         if (trigger.trigger is Trigger.After) return fire(configuration, listOf(trigger))
         val triggerExit = exitSet(configuration.active, trigger)
         val taken = select(configuration.active) { t -> t == trigger || ((t.trigger as? actron.statechart.Trigger.OnAction)?.matcher == (trigger.trigger as? actron.statechart.Trigger.OnAction)?.matcher && exitSet(configuration.active, t).none { it in triggerExit }) }

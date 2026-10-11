@@ -260,14 +260,14 @@ class StateChartTimerTest {
 
     @Test
     fun transitionKeepsItsActionShapeAndTellsTimersApart() {
-        assertEquals(Transition(offline, online, Trigger.OnAction((connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher!!)), connect)
+        assertEquals(Transition(offline, online, Trigger.OnAction(kotlin.test.assertNotNull((connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher))), connect)
         assertEquals(on<MessengerAction.Connect>("Connect"), (connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher)
         assertNull((connect.trigger as? Trigger.After)?.delay)
         assertEquals(false, connect.isTimer)
         assertNull((giveUp.trigger as? actron.statechart.Trigger.OnAction)?.matcher)
         assertEquals(5.seconds, (giveUp.trigger as Trigger.After).delay)
         assertEquals(true, giveUp.isTimer)
-        assertEquals(Transition(offline, online, (connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher!!, actron.statechart.GuardKey("g"), actron.statechart.EffectKey("e")), Transition(offline, online, Trigger.OnAction((connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher!!), actron.statechart.GuardKey("g"), actron.statechart.EffectKey("e")))
+        assertEquals(Transition(offline, online, kotlin.test.assertNotNull((connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher), actron.statechart.GuardKey("g"), actron.statechart.EffectKey("e")), Transition(offline, online, Trigger.OnAction(kotlin.test.assertNotNull((connect.trigger as? actron.statechart.Trigger.OnAction)?.matcher)), actron.statechart.GuardKey("g"), actron.statechart.EffectKey("e")))
         // The flat shortcut result starts and cancels nothing.
         assertEquals(StepResult.Transitioned(listOf(connect), listOf(offline), listOf(online), StateConfiguration(setOf(online))), StepResult.Transitioned(connect))
     }
@@ -351,7 +351,7 @@ class StateChartTimerTest {
 
     @Test
     fun pathStepsIncludeTimersAndReplayWithFire() {
-        val path = chart.shortestPathTo(reconnecting)!!
+        val path = kotlin.test.assertNotNull(chart.shortestPathTo(reconnecting))
         assertEquals(listOf(connect, drop), path.transitions)
         // A splash screen that moves on by itself: the path to Details starts with the timer.
         val splash = StateId("Splash")
@@ -360,9 +360,9 @@ class StateChartTimerTest {
         val showHome = Transition(splash, home, Trigger.After(2.seconds))
         val open = Transition(home, details, on<MessengerAction.Send>("Open"))
         val app = StateChartDefinition(splash, listOf(AtomicState(splash), AtomicState(home), AtomicState(details)), listOf(showHome, open))
-        val toDetails = app.shortestPathTo(details)!!
+        val toDetails = kotlin.test.assertNotNull(app.shortestPathTo(details))
         assertEquals(StateChartPath(splash, listOf(showHome, open)), toDetails)
-        assertEquals(listOf(Trigger.After(2.seconds), Trigger.OnAction((open.trigger as? actron.statechart.Trigger.OnAction)?.matcher!!)), toDetails.triggers)
+        assertEquals(listOf(Trigger.After(2.seconds), Trigger.OnAction(kotlin.test.assertNotNull((open.trigger as? actron.statechart.Trigger.OnAction)?.matcher))), toDetails.triggers)
         assertEquals(listOf((open.trigger as? actron.statechart.Trigger.OnAction)?.matcher), toDetails.actions)
         assertEquals(listOf(toDetails), app.transitionCoveragePaths())
         // Replayed on the runtime: fire for the timer step, step for the action step.

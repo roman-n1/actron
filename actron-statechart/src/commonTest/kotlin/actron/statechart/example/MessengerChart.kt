@@ -77,11 +77,26 @@ data class RetryPolicy(val quickReconnects: Int = 3, val resends: Int = 2)
  * The data that goes with the chart. Where the chart is lives in [ChartState.configuration]; this
  * is only what the states do not say.
  */
+sealed interface MessengerAccount {
+    data object Anonymous : MessengerAccount
+    data class Authenticated(val user: String) : MessengerAccount
+}
+
+sealed interface Conversation {
+    data object BrowsingChats : Conversation
+    data class Opened(val id: String) : Conversation
+}
+
+sealed interface OutgoingMessage {
+    data object Composing : OutgoingMessage
+    data class Queued(val text: String) : OutgoingMessage
+}
+
 data class MessengerContext(
-    val user: String? = null,
-    val chatId: String? = null,
+    val account: MessengerAccount = MessengerAccount.Anonymous,
+    val conversation: Conversation = Conversation.BrowsingChats,
     val connectAttempts: Int = 0,
-    val outgoing: String? = null,
+    val outgoing: OutgoingMessage = OutgoingMessage.Composing,
     val sendFailures: Int = 0,
     val delivered: List<String> = emptyList(),
     val policy: RetryPolicy = RetryPolicy(),
@@ -298,38 +313,46 @@ fun MessengerStore(
     guard("resendsExhausted") { state, _ -> state.context.sendFailures > state.context.policy.resends }
 
     // Effects: pure context updates, run between the exit and the enter hooks of a step.
-    effect("rememberUser") { c, action -> c.copy(user = (action as MessengerAction.SignInSucceeded).user) }
+    effect("rememberUser") { c, action -> c.copy(account = MessengerAccount.Authenticated((action as MessengerAction.SignInSucceeded).user)) }
     effect("forgetUser") { c, _ -> MessengerContext(policy = c.policy) }
     effect("resetAttempts") { c, _ -> c.copy(connectAttempts = 0) }
     effect("countAttempt") { c, _ -> c.copy(connectAttempts = c.connectAttempts + 1) }
-    effect("rememberChat") { c, action -> c.copy(chatId = (action as MessengerAction.OpenChat).chatId) }
-    effect("queueMessage") { c, action -> c.copy(outgoing = (action as MessengerAction.SendMessage).text, sendFailures = 0) }
-    effect("markDelivered") { c, _ -> c.copy(delivered = c.delivered + listOfNotNull(c.outgoing), outgoing = null) }
+    effect("rememberChat") { c, action -> c.copy(conversation = Conversation.Opened((action as MessengerAction.OpenChat).chatId)) }
+    effect("queueMessage") { c, action -> c.copy(outgoing = OutgoingMessage.Queued((action as MessengerAction.SendMessage).text), sendFailures = 0) }
+    effect("markDelivered") { c, _ -> c.copy(delivered = when (val message = c.outgoing) {
+        OutgoingMessage.Composing -> c.delivered
+        is OutgoingMessage.Queued -> c.delivered + message.text
+    }, outgoing = OutgoingMessage.Composing) }
     effect("countSendFailure") { c, _ -> c.copy(sendFailures = c.sendFailures + 1) }
     effect("resetSendFailures") { c, _ -> c.copy(sendFailures = 0) }
-    effect("dropMessage") { c, _ -> c.copy(outgoing = null, sendFailures = 0) }
+    effect("dropMessage") { c, _ -> c.copy(outgoing = OutgoingMessage.Composing, sendFailures = 0) }
 
     // Work that needs the action that entered the state: onEnter + launch.
     onEnter(MessengerChart.signingIn) {
-        val submit = action as? MessengerAction.SubmitCredentials ?: return@onEnter
+        val submit = action
+        if (submit !is MessengerAction.SubmitCredentials) return@onEnter
         launch {
             val result = attempt { services.signIn(submit.login, submit.password) }
             dispatch(result.fold({ MessengerAction.SignInSucceeded(it) }, { MessengerAction.SignInFailed(it.message ?: "unknown") }))
         }
     }
     onEnter(MessengerChart.signedOut) {
-        (action as? MessengerAction.SignInFailed)?.let { event(MessengerEvent.SignInError(it.reason)) }
+        val failed = action
+        if (failed is MessengerAction.SignInFailed) event(MessengerEvent.SignInError(failed.reason))
     }
     onEnter(MessengerChart.sending) {
-        val chatId = context.chatId ?: return@onEnter
-        val text = context.outgoing ?: return@onEnter
+        val conversation = context.conversation
+        if (conversation !is Conversation.Opened) return@onEnter
+        val message = context.outgoing
+        if (message !is OutgoingMessage.Queued) return@onEnter
         launch {
-            val sent = attempt { services.send(chatId, text) }.isSuccess
+            val sent = attempt { services.send(conversation.id, message.text) }.isSuccess
             dispatch(if (sent) MessengerAction.MessageDelivered else MessengerAction.SendFailed)
         }
     }
     onEnter(MessengerChart.failed) {
-        context.outgoing?.let { event(MessengerEvent.MessageNotSent(it)) }
+        val message = context.outgoing
+        if (message is OutgoingMessage.Queued) event(MessengerEvent.MessageNotSent(message.text))
     }
 
     // Work that only needs to know it is in the state, and must restart after a restore: activity.
@@ -348,7 +371,7 @@ fun MessengerStore(
  * started the call is exited, the call must stop, not report a failure. (`runCatching` would catch
  * the cancellation too.)
  */
-private suspend fun <T> attempt(call: suspend () -> T): Result<T> = try {
+private suspend fun <T : Any> attempt(call: suspend () -> T): Result<T> = try {
     Result.success(call())
 } catch (e: CancellationException) {
     throw e

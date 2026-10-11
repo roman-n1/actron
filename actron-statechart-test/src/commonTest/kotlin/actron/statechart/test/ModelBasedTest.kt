@@ -45,7 +45,7 @@ class ModelBasedTest {
         assertFalse(shrink.truncated)
         assertEquals(4, shrink.failure.inputs.size)
         for (position in shrink.failure.inputs.indices) {
-            assertNull(machine.replaySequence(machine.initialSnapshot(0), shrink.failure.inputs.filterIndexed { index, _ -> index != position }))
+            assertFalse(machine.replaySequence(machine.initialSnapshot(0), shrink.failure.inputs.filterIndexed { index, _ -> index != position }) { error("Unexpected failure after shrinking: $it") })
         }
         assertTrue(machine.shrink(machine.initialSnapshot(0), inputs, maxAttempts = 1).truncated)
     }

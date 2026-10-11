@@ -25,15 +25,24 @@ internal sealed interface RtState : State {
     }
 }
 
-internal sealed interface RtAction : Action {
-    val fail: Exception?
-    val goto: RtState?
+internal sealed interface RoutingEffect {
+    fun execute(move: (RtState) -> Unit)
+    data object Stay : RoutingEffect { override fun execute(move: (RtState) -> Unit) = Unit }
+    data class Move(val target: RtState) : RoutingEffect {
+        override fun execute(move: (RtState) -> Unit) = move(target)
+    }
+    data class Fail(val error: Exception) : RoutingEffect {
+        override fun execute(move: (RtState) -> Unit): Unit = throw error
+    }
+}
 
-    data class P(override val fail: Exception? = null, override val goto: RtState? = null) : RtAction
-    data class Q(override val fail: Exception? = null, override val goto: RtState? = null) : RtAction
+internal sealed interface RtAction : Action {
+    val effect: RoutingEffect
+    data class P(override val effect: RoutingEffect = RoutingEffect.Stay) : RtAction
+    data class Q(override val effect: RoutingEffect = RoutingEffect.Stay) : RtAction
     sealed interface G : RtAction {
-        data class R(override val fail: Exception? = null, override val goto: RtState? = null) : G
-        data class T(override val fail: Exception? = null, override val goto: RtState? = null) : G
+        data class R(override val effect: RoutingEffect = RoutingEffect.Stay) : G
+        data class T(override val effect: RoutingEffect = RoutingEffect.Stay) : G
     }
 }
 
@@ -55,11 +64,11 @@ internal fun exceptionPool(): List<Exception> = listOf(
     UnsupportedOperationException("uoe"), Exception("plain"),
 )
 
-internal fun actionOf(type: Int, fail: Exception? = null, goto: RtState? = null): RtAction = when (type) {
-    0 -> RtAction.P(fail, goto)
-    1 -> RtAction.Q(fail, goto)
-    2 -> RtAction.G.R(fail, goto)
-    else -> RtAction.G.T(fail, goto)
+internal fun actionOf(type: Int, effect: RoutingEffect = RoutingEffect.Stay): RtAction = when (type) {
+    0 -> RtAction.P(effect)
+    1 -> RtAction.Q(effect)
+    2 -> RtAction.G.R(effect)
+    else -> RtAction.G.T(effect)
 }
 
 internal val actionPool: List<RtAction> = (0..3).map { actionOf(it) }
@@ -71,10 +80,10 @@ internal interface StateKind {
 
 /** Lets non-generic code register handlers inside a `state<S2> {}` block whose S2 is unknown. */
 internal interface RtConfigSink {
-    fun <R> with(body: ConfigBody<R>): R
+    fun <R : Any> with(body: ConfigBody<R>): R
 }
 
-internal interface ConfigBody<R> {
+internal interface ConfigBody<R : Any> {
     fun <S2 : RtState> run(cfg: RtConfig<S2>): R
 }
 
@@ -85,7 +94,7 @@ internal inline fun <reified S2 : RtState> stateKind(): StateKind = object : Sta
             val cfg = this
             block(
                 object : RtConfigSink {
-                    override fun <R> with(body: ConfigBody<R>): R = body.run(cfg)
+                    override fun <R : Any> with(body: ConfigBody<R>): R = body.run(cfg)
                 },
             )
         }
@@ -102,8 +111,7 @@ internal inline fun <reified A2 : RtAction> actionKind(): ActionKind = object : 
     override fun <S2 : RtState> add(cfg: RtConfig<S2>, dispatcher: CoroutineContext, id: Int, log: MutableList<Int>) {
         cfg.action<A2>(dispatcher) {
             log += id
-            action.fail?.let { throw it }
-            action.goto?.let { target -> nextState { target } }
+            action.effect.execute { target -> nextState { target } }
         }
     }
 }
@@ -160,7 +168,7 @@ internal class PlannedHandler(
     val id: Int,
     val kind: HandlerKind,
     val expectedMatcher: HandlerMatcher,
-    val matches: (RtState, Any?) -> Boolean,
+    val matches: (RtState, Any) -> Boolean,
 )
 
 internal sealed interface Block {
@@ -171,15 +179,40 @@ internal sealed interface Block {
     class LegacyTop(val kind: HandlerKind, val id: Int, val predicate: LegacyPredicate) : Block
 }
 
+internal sealed interface HandlerDeclaration {
+    val kind: HandlerKind
+    val inputType: KClass<*>
+    fun matches(input: Any): Boolean
+    data class Lifecycle(override val kind: HandlerKind) : HandlerDeclaration {
+        init { require(kind == HandlerKind.ENTER || kind == HandlerKind.EXIT) }
+        override val inputType: KClass<*> = Unit::class
+        override fun matches(input: Any): Boolean = input == Unit
+    }
+    data class Action(val action: ActionKind) : HandlerDeclaration {
+        override val kind = HandlerKind.ACTION
+        override val inputType get() = action.type
+        override fun matches(input: Any) = inputType.isInstance(input)
+    }
+    data class Recovery(val recovery: RecoverKind) : HandlerDeclaration {
+        override val kind = HandlerKind.RECOVER
+        override val inputType get() = recovery.type
+        override fun matches(input: Any) = inputType.isInstance(input)
+    }
+    data class Predicate(override val kind: HandlerKind, val predicate: LegacyPredicate) : HandlerDeclaration {
+        init { require(kind == HandlerKind.ACTION || kind == HandlerKind.RECOVER) }
+        override val inputType: KClass<*> get() = if (kind == HandlerKind.ACTION) RtAction::class else Exception::class
+        override fun matches(input: Any) = predicate.onInput(input)
+    }
+}
+
 internal class Inner(
-    val kind: HandlerKind,
     val id: Int,
-    val actionKind: ActionKind? = null,
-    val recoverKind: RecoverKind? = null,
-    val legacyPredicate: LegacyPredicate? = null,
+    val declaration: HandlerDeclaration,
     val deprecatedAlias: Boolean = false,
     val dispatcher: CoroutineContext = EmptyCoroutineContext,
-)
+) {
+    val kind get() = declaration.kind
+}
 
 internal class RoutingProgram(val blocks: List<Block>) {
 
@@ -193,7 +226,7 @@ internal class RoutingProgram(val blocks: List<Block>) {
                         HandlerKind.RECOVER -> Exception::class
                         else -> Unit::class
                     })) { s, input ->
-                        block.predicate.onState(s) && (input == null || block.predicate.onInput(input))
+                        block.predicate.onState(s) && (kind == HandlerKind.ENTER || kind == HandlerKind.EXIT || block.predicate.onInput(input))
                     },
                 )
             } else {
@@ -204,11 +237,7 @@ internal class RoutingProgram(val blocks: List<Block>) {
                 val stateType = block.stateKind.type
                 val inputType = inner.effectiveInputType()
                 PlannedHandler(inner.id, kind, HandlerMatcher(stateType, inputType)) { s, input ->
-                    stateType.isInstance(s) && when {
-                        input == null -> true
-                        inner.legacyPredicate != null -> inner.legacyPredicate.onInput(input)
-                        else -> inputType!!.isInstance(input)
-                    }
+                    stateType.isInstance(s) && inner.declaration.matches(input)
                 }
             }
         }
@@ -228,39 +257,35 @@ internal class RoutingProgram(val blocks: List<Block>) {
     private class InnerBody(val inner: Inner, val log: MutableList<Int>) : ConfigBody<Unit> {
         override fun <S2 : RtState> run(cfg: RtConfig<S2>) {
             val id = inner.id
-            when (inner.kind) {
-                HandlerKind.ENTER -> cfg.enter(inner.dispatcher) { log += id }
-                HandlerKind.EXIT -> cfg.exit(inner.dispatcher) { log += id }
-                HandlerKind.ACTION -> if (inner.legacyPredicate != null) {
-                    val predicate = inner.legacyPredicate
-                    cfg.stateActionHandlers.add(
+            when (val declaration = inner.declaration) {
+                is HandlerDeclaration.Lifecycle -> when (declaration.kind) {
+                    HandlerKind.ENTER -> cfg.enter(inner.dispatcher) { log += id }
+                    HandlerKind.EXIT -> cfg.exit(inner.dispatcher) { log += id }
+                    else -> error("Invalid lifecycle handler")
+                }
+                is HandlerDeclaration.Action -> declaration.action.add(cfg, inner.dispatcher, id, log)
+                is HandlerDeclaration.Recovery -> declaration.recovery.add(cfg, inner.deprecatedAlias, id, log)
+                is HandlerDeclaration.Predicate -> when (declaration.kind) {
+                    HandlerKind.ACTION -> cfg.stateActionHandlers.add(
                         StoreBuilder.StateHandlerConfig.ThreadedHandler(
                             dispatcher = inner.dispatcher,
-                            predicate = { action: RtAction -> predicate.onInput(action) },
+                            predicate = { action: RtAction -> declaration.predicate.onInput(action) },
                             inputType = RtAction::class,
                             handler = {
                                 log += id
-                                action.fail?.let { throw it }
-                                action.goto?.let { target -> nextState { target } }
+                                action.effect.execute { target -> nextState { target } }
                             },
                         ),
                     )
-                } else {
-                    inner.actionKind!!.add(cfg, inner.dispatcher, id, log)
-                }
-
-                HandlerKind.RECOVER -> if (inner.legacyPredicate != null) {
-                    val predicate = inner.legacyPredicate
-                    cfg.stateErrorHandlers.add(
+                    HandlerKind.RECOVER -> cfg.stateErrorHandlers.add(
                         StoreBuilder.StateHandlerConfig.ThreadedHandler(
                             dispatcher = inner.dispatcher,
-                            predicate = { error: Exception -> predicate.onInput(error) },
+                            predicate = { error: Exception -> declaration.predicate.onInput(error) },
                             inputType = Exception::class,
                             handler = { log += id },
                         ),
                     )
-                } else {
-                    inner.recoverKind!!.add(cfg, inner.deprecatedAlias, id, log)
+                    else -> error("Invalid predicate handler")
                 }
             }
         }
@@ -278,8 +303,7 @@ internal class RoutingProgram(val blocks: List<Block>) {
                     matcher = HandlerMatcher(RtState::class, RtAction::class),
                     handler = {
                         log += id
-                        action.fail?.let { throw it }
-                        action.goto?.let { target -> nextState { target } }
+                        action.effect.execute { target -> nextState { target } }
                     },
                 ),
             )
@@ -301,23 +325,23 @@ internal class RoutingProgram(val blocks: List<Block>) {
                         val kind = HandlerKind.entries.random(random)
                         val dispatcher = if (random.nextInt(4) == 0) Dispatchers.Unconfined else EmptyCoroutineContext
                         val isLegacy = legacy && random.nextInt(8) == 0
-                        when (kind) {
-                            HandlerKind.ACTION -> Inner(
-                                kind, nextId++,
-                                actionKind = actionKinds.random(random),
-                                legacyPredicate = if (isLegacy) legacyPredicates.random(random) else null,
-                                dispatcher = dispatcher,
-                            )
-
-                            HandlerKind.RECOVER -> Inner(
-                                kind, nextId++,
-                                recoverKind = recoverKinds.random(random),
-                                legacyPredicate = if (isLegacy) legacyPredicates.random(random) else null,
-                                deprecatedAlias = random.nextBoolean(),
-                            )
-
-                            else -> Inner(kind, nextId++, dispatcher = dispatcher)
+                        val declaration = when (kind) {
+                            HandlerKind.ACTION -> {
+                                val action = actionKinds.random(random)
+                                if (isLegacy) HandlerDeclaration.Predicate(kind, legacyPredicates.random(random))
+                                else HandlerDeclaration.Action(action)
+                            }
+                            HandlerKind.RECOVER -> {
+                                val recovery = recoverKinds.random(random)
+                                if (isLegacy) HandlerDeclaration.Predicate(kind, legacyPredicates.random(random))
+                                else HandlerDeclaration.Recovery(recovery)
+                            }
+                            else -> HandlerDeclaration.Lifecycle(kind)
                         }
+                        Inner(nextId++, declaration,
+                            deprecatedAlias = kind == HandlerKind.RECOVER && random.nextBoolean(),
+                            dispatcher = if (kind == HandlerKind.RECOVER) EmptyCoroutineContext else dispatcher)
+
                     }
                     Block.StateBlock(stateKinds.random(random), inner)
                 }
@@ -327,19 +351,13 @@ internal class RoutingProgram(val blocks: List<Block>) {
     }
 }
 
-/** A legacy inner handler has a state type but no input type, since the old constructor did not take one. */
-internal fun Inner.effectiveInputType(): KClass<*> = if (legacyPredicate != null) {
-    when (kind) {
-        HandlerKind.ACTION -> RtAction::class
-        HandlerKind.RECOVER -> Exception::class
-        else -> Unit::class
-    }
-} else actionKind?.type ?: recoverKind?.type ?: Unit::class
+internal fun Inner.effectiveInputType(): KClass<*> = declaration.inputType
 
 internal fun randomAction(random: Random): RtAction {
-    val fail = if (random.nextInt(3) == 0) exceptionPool().random(random) else null
-    val goto = if (fail == null && random.nextBoolean()) statePool.random(random) else null
-    return actionOf(random.nextInt(4), fail, goto)
+    val effect = if (random.nextInt(3) == 0) RoutingEffect.Fail(exceptionPool().random(random))
+        else if (random.nextBoolean()) RoutingEffect.Move(statePool.random(random))
+        else RoutingEffect.Stay
+    return actionOf(random.nextInt(4), effect)
 }
 
 internal fun buildRtStore(
@@ -356,24 +374,25 @@ internal fun buildRtStore(
 internal class Expectation(val log: List<Int>, val finalState: RtState, val unhandled: List<Exception>)
 
 internal fun RoutingProgram.expect(initial: RtState, action: RtAction): Expectation {
-    fun first(kind: HandlerKind, s: RtState, input: Any?) = planned(kind).firstOrNull { it.matches(s, input) }?.id
+    fun visitFirst(kind: HandlerKind, state: RtState, input: Any, accept: (Int) -> Unit): Boolean {
+        for (handler in planned(kind)) if (handler.matches(state, input)) { accept(handler.id); return true }
+        return false
+    }
     val log = mutableListOf<Int>()
     val unhandled = mutableListOf<Exception>()
     var state = initial
-    first(HandlerKind.ENTER, initial, null)?.let(log::add)
-    val selected = first(HandlerKind.ACTION, initial, action)
-    if (selected != null) {
-        log += selected
-        val fail = action.fail
-        val goto = action.goto
-        if (fail != null) {
-            first(HandlerKind.RECOVER, initial, fail)?.let(log::add) ?: unhandled.add(fail)
-        } else if (goto != null && goto != initial) {
-            if (goto::class != initial::class) {
-                first(HandlerKind.EXIT, initial, null)?.let(log::add)
-                first(HandlerKind.ENTER, goto, null)?.let(log::add)
+    visitFirst(HandlerKind.ENTER, initial, Unit, log::add)
+    if (visitFirst(HandlerKind.ACTION, initial, action, log::add)) {
+        when (val effect = action.effect) {
+            RoutingEffect.Stay -> Unit
+            is RoutingEffect.Fail -> if (!visitFirst(HandlerKind.RECOVER, initial, effect.error, log::add)) unhandled += effect.error
+            is RoutingEffect.Move -> if (effect.target != initial) {
+                if (effect.target::class != initial::class) {
+                    visitFirst(HandlerKind.EXIT, initial, Unit, log::add)
+                    visitFirst(HandlerKind.ENTER, effect.target, Unit, log::add)
+                }
+                state = effect.target
             }
-            state = goto
         }
     }
     return Expectation(log, state, unhandled)

@@ -57,6 +57,10 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Duration
@@ -106,7 +110,7 @@ private class Latencies {
         Triple(total, sorted[(sorted.size * 0.95).toInt().coerceAtMost(sorted.lastIndex)] / 1000,
             sorted[(sorted.size * 0.99).toInt().coerceAtMost(sorted.lastIndex)] / 1000)
     }
-    private inline fun <T> locked(block: () -> T): T {
+    private inline fun <T : Any> locked(block: () -> T): T {
         while (!lock.tryLock()) { }
         try { return block() } finally { lock.unlock() }
     }
@@ -147,8 +151,8 @@ data class Sample(val startedMillis: Long, val elapsedMillis: Long, val result: 
 
 @Serializable
 data class BudgetReport(val metadata: Map<String, String>, val budgets: Map<String, Long>, val samples: List<Sample>,
-    val warmupSamples: List<Sample>, val plateauEvaluated: Boolean, val memoryGrowthByMode: Map<String, MemoryGrowth>?,
-    val heapGrowthBytes: Long?, val nativeGrowthBytes: Long?, val residentGrowthBytes: Long?, val threadGrowth: Long?, val failures: List<String>)
+    val warmupSamples: List<Sample>, val plateauEvaluated: Boolean, val memoryGrowthByMode: JsonElement,
+    val heapGrowthBytes: JsonElement, val nativeGrowthBytes: JsonElement, val residentGrowthBytes: JsonElement, val threadGrowth: JsonElement, val failures: List<String>)
 
 private val budgets = mapOf("storeCount" to STORES.toLong(), "admissionPending" to ADMISSION.toLong(),
     "mailboxRetained" to MAILBOX.toLong(), "journalRetained" to RETAINED_RECORDS.toLong(), "writerQueueConfigured" to WRITER_QUEUE.toLong(),
@@ -192,22 +196,32 @@ suspend fun runResourceSoak() {
         failures += failure.toString()
         throw failure
     } finally {
-        val growthByMode = if (assessPerformance) memoryGrowthByMode(samples) else null
-        val heapGrowth = growthByMode?.values?.maxOf { it.heapBytes }
-        val nativeGrowth = growthByMode?.values?.maxOf { it.nativeBytes }
-        val residentGrowth = growthByMode?.values?.maxOf { it.residentBytes }
-        val threadGrowth = growthByMode?.values?.maxOf { it.threads }
+        val growthByMode = mutableMapOf<String, MemoryGrowth>()
+        val metrics = mutableMapOf<String, Long>()
+        val plateauEvaluated = assessPerformance && memoryGrowthByMode(samples) { growth ->
+            growthByMode.putAll(growth)
+            metrics["heap"] = growth.values.maxOf { it.heapBytes }
+            metrics["native"] = growth.values.maxOf { it.nativeBytes }
+            metrics["resident"] = growth.values.maxOf { it.residentBytes }
+            metrics["threads"] = growth.values.maxOf { it.threads }
+        }
         if (samples.size < minimumSamples) failures += "Insufficient measurement samples"
-        if (assessPerformance && growthByMode == null) failures += "Insufficient comparable post-warmup samples: need at least $MINIMUM_PLATEAU_SAMPLES_PER_MODE per recording mode"
-        if (heapGrowth != null && heapGrowth > budgets.getValue("heapPlateauGrowthBytes")) failures += "Managed heap did not plateau: +$heapGrowth bytes"
-        if (nativeGrowth != null && nativeGrowth > budgets.getValue("nativePlateauGrowthBytes")) failures += "Native heap did not plateau: +$nativeGrowth bytes"
-        if (residentGrowth != null && residentGrowth > budgets.getValue("residentPlateauGrowthBytes")) failures += "Resident memory did not plateau: +$residentGrowth bytes"
-        if (threadGrowth != null && threadGrowth > 16) failures += "OS thread count did not plateau: +$threadGrowth threads"
+        if (assessPerformance && !plateauEvaluated) failures += "Insufficient comparable post-warmup samples: need at least $MINIMUM_PLATEAU_SAMPLES_PER_MODE per recording mode"
+        if (plateauEvaluated) {
+            for ((metric, budget, label) in listOf(
+                Triple("heap", budgets.getValue("heapPlateauGrowthBytes"), "Managed heap"),
+                Triple("native", budgets.getValue("nativePlateauGrowthBytes"), "Native heap"),
+                Triple("resident", budgets.getValue("residentPlateauGrowthBytes"), "Resident memory"),
+                Triple("threads", 16L, "OS thread count"),
+            )) if (metrics.getValue(metric) > budget) failures += "$label did not plateau: +${metrics.getValue(metric)}"
+        }
+        // JSON null remains a wire-format fact for an unmeasured metric, never a Kotlin value.
+        fun metric(name: String): JsonElement = if (name in metrics) JsonPrimitive(metrics.getValue(name)) else JsonNull
         val report = BudgetReport(SoakPlatform.metadata() + mapOf("durationSeconds" to SOAK_SECONDS.toString(), "warmupSeconds" to warmupSeconds.toString(),
             "dispatcher" to "owned fixed pool: stores=4, writer=1; terminated before GC", "storeWorkers" to "4", "writerWorkers" to "1", "slowWriteMillis" to "2", "latency" to "accepted offer to committed decision; bounded rolling tail per batch",
             "assessment" to if (assessPerformance) "steady-soak" else "harness-smoke",
             "memorySampling" to "after teardown and two requested GCs; same-recording-mode first/last-third medians; worst mode growth", "sourceCount" to "0"),
-            budgets + ("threadPlateauGrowth" to 16L), samples, warmupSamples, growthByMode != null, growthByMode, heapGrowth, nativeGrowth, residentGrowth, threadGrowth, failures)
+            budgets + ("threadPlateauGrowth" to 16L), samples, warmupSamples, plateauEvaluated, if (plateauEvaluated) Json.encodeToJsonElement(growthByMode) else JsonNull, metric("heap"), metric("native"), metric("resident"), metric("threads"), failures)
         val json = Json { prettyPrint = true }.encodeToString(report)
         SoakPlatform.writeReport("report.json", json)
         val csv = "phase,started_ms,elapsed_ms,batch,recording,accepted,rejected,p95_us,p99_us,inflight_sampled_highwater,core_pending_sampled_highwater,mailbox_sampled_highwater,retained_highwater,sink_busy_highwater,dropped,bytes_written,heap_bytes,native_bytes,resident_bytes,threads,jobs_after_close,outputs_after_close,pending_inputs_after_close,commands_after_close,mailbox_after_close,owned_workers_after_close\n" +
@@ -221,10 +235,41 @@ suspend fun runResourceSoak() {
     }
 }
 
+private sealed interface BatchJournal {
+    val retained: Int
+    val droppedForSinks: Long
+    fun install(builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>, index: Int)
+    suspend fun close()
+    fun verify(bytesWritten: Long)
+    data object Unrecorded : BatchJournal {
+        override val retained = 0
+        override val droppedForSinks = 0L
+        override fun install(builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>, index: Int) = Unit
+        override suspend fun close() = Unit
+        override fun verify(bytesWritten: Long) { check(bytesWritten == 0L) }
+    }
+    class Recorded(val session: RecordingSession) : BatchJournal {
+        override val retained get() = session.stats.retained
+        override val droppedForSinks get() = session.stats.droppedForSinks
+        override fun install(builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>, index: Int) {
+            builder.recordTo(session, StoreInstanceId("store-$index"), PayloadPolicy(
+                state = { s: MachineSnapshot<History> -> Payload.Projected("history", mapOf("latest" to s.context.messages.lastOrNull().orEmpty())) },
+                action = { a: MachineInput<Message> -> if (a is MachineInput.Dispatch) Payload.Projected("message", mapOf("body" to a.action.body)) else Payload.Omitted },
+                event = { e: Render -> Payload.Projected("render", mapOf("body" to e.body)) },
+            ))
+        }
+        override suspend fun close() = session.close()
+        override fun verify(bytesWritten: Long) {
+            check(session.stats.sinkFailures == 0L && session.stats.policyFailures == 0L)
+            check(bytesWritten > 0 && droppedForSinks > 0) { "Slow disk pressure was not exercised" }
+        }
+    }
+}
+
 internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    writerDispatcher: CoroutineDispatcher = Dispatchers.Default, witnesses: MutableList<NamedWitness>? = null,
+    writerDispatcher: CoroutineDispatcher = Dispatchers.Default, witnesses: MutableList<NamedWitness> = mutableListOf(),
     activeMillis: Long = if (SOAK_SECONDS < 30) 300 else 2000): BatchResult {
-    fun observe(label: String, value: Any) { witnesses?.add(NamedWitness("batch-$batch:$label", weakWitness(value))) }
+    fun observe(label: String, value: Any) { witnesses.add(NamedWitness("batch-$batch:$label", weakWitness(value))) }
     val owner = SupervisorJob()
     val scope = CoroutineScope(storeDispatcher + owner)
     val writerOwner = SupervisorJob()
@@ -236,15 +281,15 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
     val sinkHigh = MutableStateFlow(0)
     val errors = MutableStateFlow<List<String>>(emptyList())
     val recording = batch % 2 == 0
-    val session = if (recording) RecordingSession(writerScope,
+    val journal: BatchJournal = if (recording) BatchJournal.Recorded(RecordingSession(writerScope,
         config = JournalConfig(RETAINED_RECORDS, WRITER_QUEUE, onFailure = { errors.update { e -> (e + it.toString()).takeLast(20) } }),
         sinks = listOf(JournalSink { record: JournalRecord<*, *, *> ->
             sinkBusy.update { it + 1 }; sinkHigh.update { maxOf(it, sinkBusy.value) }
             try { sink.write(record) } finally { sinkBusy.update { it - 1 } }
-        })) else null
+        }))) else BatchJournal.Unrecorded
     observe("owner", owner)
     observe("writerOwner", writerOwner)
-    session?.let { observe("recording", it) }
+    if (journal is BatchJournal.Recorded) observe("recording", journal.session)
     val latencies = Latencies()
     val commands = MutableStateFlow(0)
     val stores = mutableListOf<MachineStore<History, Message, Poll, Render>>()
@@ -276,11 +321,7 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
             }, scope, coroutineContext = scope.coroutineContext, admission = AdmissionPolicy.Bounded(ADMISSION), observers = listOf(observer),
                 mailbox = MailboxConfig(policy = { EffectPolicy.Retained() }, maxRetained = MAILBOX)) {
                 exceptionHandler(ExceptionHandler { error -> errors.update { (it + error.toString()).takeLast(20) } })
-                session?.let { recordTo(it, StoreInstanceId("store-$index"), PayloadPolicy(
-                    state = { s: MachineSnapshot<History> -> Payload.Projected("history", mapOf("latest" to s.context.messages.lastOrNull().orEmpty())) },
-                    action = { a: MachineInput<Message> -> if (a is MachineInput.Dispatch) Payload.Projected("message", mapOf("body" to a.action.body)) else Payload.Omitted },
-                    event = { e: Render -> Payload.Projected("render", mapOf("body" to e.body)) },
-                )) }
+                journal.install(this, index)
             }
             observe("store-$index", store)
             stores += store
@@ -303,7 +344,7 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
                 mailboxHigh = maxOf(mailboxHigh, store.mailbox.pending.size)
                 corePendingHigh = maxOf(corePendingHigh, (store as StoreInternalApi<MachineSnapshot<History>, Message, Render>).awaitIdle(Duration.ZERO).inputs)
             }
-            retainedHigh = maxOf(retainedHigh, session?.stats?.retained ?: 0)
+            retainedHigh = maxOf(retainedHigh, journal.retained)
             if (++ticks % 4 == 0) {
                 // Leave and reenter one screen. Unacknowledged retained effects can be retried.
                 val index = ticks % STORES
@@ -321,7 +362,7 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
                 try {
                     withTimeout(10_000) { owner.cancelAndJoin() }
                 } finally {
-                    closeRecordingResources(session, sink, writerOwner)
+                    closeRecordingResources(journal::close, sink, writerOwner)
                 }
             }
         }
@@ -343,13 +384,11 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
     check(inFlightHigh <= ADMISSION + 1) { "Accepted in-flight exceeded admission bound: $inFlightHigh" }
     check(corePendingHigh <= ADMISSION + 8) { "Core pending input budget exceeded: $corePendingHigh" }
     check(mailboxHigh <= MAILBOX && retainedHigh <= RETAINED_RECORDS && sinkHigh.value <= 1)
-    val stats = session?.stats
-    check(stats == null || stats.sinkFailures == 0L && stats.policyFailures == 0L)
-    if (recording) check(storage.bytes.value > 0 && stats!!.droppedForSinks > 0) { "Slow disk pressure was not exercised" }
+    journal.verify(storage.bytes.value)
     check(sink.segments.size <= 2)
     check(storage.list().all { it.size <= 128 * 1024 + 8 }) { "Segment byte budget exceeded" }
     val result = BatchResult(batch, recording, count, rejected, p95, p99, inFlightHigh, corePendingHigh, mailboxHigh, retainedHigh, sinkHigh.value,
-        stats?.droppedForSinks ?: 0, storage.bytes.value, owner.children.count() + writerOwner.children.count(), storage.outputs.value,
+        journal.droppedForSinks, storage.bytes.value, owner.children.count() + writerOwner.children.count(), storage.outputs.value,
         pendingAfterClose, commands.value, mailboxAfterClose, 0)
     SoakPlatform.removeDirectory(directory)
     return result

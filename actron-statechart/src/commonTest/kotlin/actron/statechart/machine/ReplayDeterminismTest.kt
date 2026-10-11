@@ -87,7 +87,11 @@ class ReplayDeterminismTest {
         onAction(root, ActionMatcher.of<Act.Tick>("Tick")) { context = context.copy(ticks = context.ticks + 1) }
     }
 
-    private class Recorded(val input: MachineInput<Act>, val snapshot: MachineSnapshot<Ctx>?)
+    private sealed interface Recorded {
+        val input: MachineInput<Act>
+        data class Committed(override val input: MachineInput<Act>, val snapshot: MachineSnapshot<Ctx>) : Recorded
+        data class Ignored(override val input: MachineInput<Act>, val reason: IgnoreReason) : Recorded
+    }
 
     @Test
     fun aRecordedRun_decidesAgainToTheSameSnapshots() = runTest {
@@ -102,11 +106,11 @@ class ReplayDeterminismTest {
         }
         val recorder = object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
             override fun onCommitted(input: InputAttribution, machineInput: MachineInput<Act>, decision: Decision<Ctx, Fetch, Nothing>) {
-                recorded.trySend(Recorded(machineInput, decision.snapshot))
+                recorded.trySend(Recorded.Committed(machineInput, decision.snapshot))
             }
 
             override fun onIgnored(input: InputAttribution, machineInput: MachineInput<Act>, reason: IgnoreReason) {
-                recorded.trySend(Recorded(machineInput, null))
+                recorded.trySend(Recorded.Ignored(machineInput, reason))
             }
         }
         val store = MachineStore(machine, Ctx(), handler, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(recorder)) {
@@ -130,14 +134,14 @@ class ReplayDeterminismTest {
         val final = store.currentState
         store.close()
         executionScope.cancel()
-        val run = generateSequence { recorded.tryReceive().getOrNull() }.toList()
+        val run = buildList { while (true) { val received = recorded.tryReceive(); if (received.isFailure) break; add(received.getOrThrow()) } }
 
         // Replay: the same inputs, in processing order, from the initial snapshot, by the pure machine.
         var snapshot = machine.initialSnapshot(Ctx())
         var replayed = 0
         run.forEachIndexed { index, step ->
             val decision = machine.decide(snapshot, step.input)
-            if (step.snapshot != null) {
+            if (step is Recorded.Committed) {
                 assertEquals(DecisionOutcome.Handled, decision.outcome, "step $index: ${step.input} was handled live")
                 assertEquals(step.snapshot, decision.snapshot, "step $index: ${step.input} decided differently on replay")
                 snapshot = decision.snapshot
@@ -148,10 +152,10 @@ class ReplayDeterminismTest {
         }
         assertEquals(final, snapshot, "the replay ends where the live run ended")
         assertEquals(final.revision, replayed.toLong())
-        assertEquals(null, handled.tryReceive().getOrNull(), "nothing was reported")
+        assertTrue(handled.tryReceive().isFailure, "nothing was reported")
         // How rich the storm was depends on the platform's threads and timers; it is reported, not required.
-        val timers = run.count { it.input is MachineInput.TimerFired && it.snapshot != null }
-        val stale = run.count { it.input is MachineInput.CommandResult<*> && it.snapshot == null }
+        val timers = run.count { it.input is MachineInput.TimerFired && it is Recorded.Committed }
+        val stale = run.count { it.input is MachineInput.CommandResult<*> && it is Recorded.Ignored }
         println("[Replay] ${run.size} steps replayed: ${final.revision} commits, $timers timers fired, $stale stale results ignored")
     }
 }

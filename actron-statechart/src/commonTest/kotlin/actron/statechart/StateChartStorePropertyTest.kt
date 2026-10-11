@@ -65,7 +65,7 @@ class StateChartStorePropertyTest {
 
     /** Adds random effect labels to some action transitions; timers already have some. */
     private fun withEffects(random: Random, chart: StateChartDefinition) = chart.copy(
-        transitions = chart.transitions.map { if ((it.effect as? actron.statechart.EffectKey)?.name == null && random.nextInt(3) == 0) it.copy(effect = (effectLabels.random(random))?.let { actron.statechart.EffectKey(it) } ?: actron.statechart.TransitionEffect.NoEffect) else it },
+        transitions = chart.transitions.map { if (it.effect is TransitionEffect.NoEffect && random.nextInt(3) == 0) it.copy(effect = (effectLabels.random(random))?.let { actron.statechart.EffectKey(it) } ?: actron.statechart.TransitionEffect.NoEffect) else it },
     )
 
     private class RunningTimer(val index: Int, val deadline: Duration, val sequence: Long)
@@ -101,7 +101,7 @@ class StateChartStorePropertyTest {
 
         private fun take(result: StepResult.Transitioned) {
             result.exited.forEach { log += "exit $it" }
-            result.transitions.mapNotNull { (it.effect as? actron.statechart.EffectKey)?.name }.forEach { log += it; effects++ }
+            result.transitions.map { it.effect }.filterIsInstance<actron.statechart.EffectKey>().map { it.name }.forEach { log += it; effects++ }
             result.entered.forEach { log += "enter $it" }
             val cancelled = result.exited.flatMap { timersBySource[it].orEmpty() }.toSet()
             assertEquals(result.timersToCancel, result.exited.flatMap { timersBySource[it].orEmpty() }.map { chart.transitions[it] })
@@ -136,7 +136,7 @@ class StateChartStorePropertyTest {
         effectLabels: List<String>,
         cancelTimers: Boolean,
         scope: TestScope,
-        saver: StateSaver<ChartState<Int>>? = null,
+        saver: StateSaver<ChartState<Int>> = StateSaver.Noop(),
     ) {
         val log = mutableListOf<String>()
         val liveActivities = mutableSetOf<StateId>()
@@ -158,7 +158,7 @@ class StateChartStorePropertyTest {
                         }
                     }
                 }
-                if (saver != null) store { stateSaver(saver) }
+                store { stateSaver(saver) }
             },
             coroutineContext = scope.backgroundScope.coroutineContext,
             cancelTimers = cancelTimers,
@@ -167,13 +167,16 @@ class StateChartStorePropertyTest {
     }
 
     private class MemorySaver : StateSaver<ChartState<Int>> {
-        var saved: ChartState<Int>? = null
+        val states = mutableListOf<ChartState<Int>>()
+        var saved: ChartState<Int>
+            get() = states.last()
+            set(value) { states += value }
 
         override fun save(state: ChartState<Int>) {
             saved = state
         }
 
-        override fun restore(initialState: ChartState<Int>): ChartState<Int> = saved ?: initialState
+        override fun restore(initialState: ChartState<Int>): ChartState<Int> = if (states.isEmpty()) initialState else saved
     }
 
     private val advances = listOf(300.milliseconds, 500.milliseconds, 1.seconds, 2.seconds, 3.seconds, 5.seconds, 10.seconds)
@@ -264,7 +267,7 @@ class StateChartStorePropertyTest {
             runCurrent()
 
             // Without any commit nothing was saved, and the second Store starts fresh.
-            val fresh = saver.saved == null
+            val fresh = saver.states.isEmpty()
             val second = Harness(chart, guards, effectLabels, cancelTimers = true, scope = this, saver = saver)
             second.store.startAndAwait()
             runCurrent()

@@ -209,7 +209,7 @@ class ExecutorCheckpointTest {
 
         assertEquals(6.seconds, later.remaining(timer))
         assertEquals(MachineTime(4.seconds), later.now)
-        assertEquals(null, later.remaining(TimerId(99)))
+        kotlin.test.assertFalse(later.remaining(TimerId(99)) { error("Unknown timer: $it") })
         store.close()
     }
 

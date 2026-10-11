@@ -34,9 +34,9 @@ class MailboxEffectTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private inner class Fixture(scope: TestScope, maxAttempts: Int? = null, maxRetained: Int = 64) {
+    private inner class Fixture(scope: TestScope, budget: actron.statechart.machine.RetryBudget = actron.statechart.machine.RetryBudget.Unlimited, maxRetained: Int = 64) {
         val executionScope = CoroutineScope(testDispatcher + SupervisorJob())
-        val store = MailboxFixture.store(executionScope, testDispatcher, maxRetained = maxRetained, maxAttempts = maxAttempts)
+        val store = MailboxFixture.store(executionScope, testDispatcher, maxRetained = maxRetained, budget = budget)
 
         init {
             scope.testScheduler.runCurrent()
@@ -112,7 +112,7 @@ class MailboxEffectTest {
 
     @Test
     fun theBudgetOfThePolicy_endsTheRedeliveries() = runTest(testDispatcher) {
-        val f = Fixture(this, maxAttempts = 2)
+        val f = Fixture(this, budget = actron.statechart.machine.RetryBudget.Limited(2))
         val taken = mutableListOf<Delivery<Ev>>()
 
         withComposeHarness {

@@ -16,25 +16,25 @@ class PublishConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.alias(libs.plugin("vanniktech-mavenPublish"))
-            val consumerRepository = findProperty("actron.consumer.repository")?.toString()
+            val consumerRepository = providers.gradleProperty("actron.consumer.repository")
 
             mavenPublishing {
                 publishToMavenCentral()
 
-                if (consumerRepository == null && System.getenv("ORG_GRADLE_PROJECT_mavenCentralUsername") != null) {
+                if (!consumerRepository.isPresent && providers.environmentVariable("ORG_GRADLE_PROJECT_mavenCentralUsername").isPresent) {
                     signAllPublications()
                 }
 
-                pom(forkUrl = findProperty("actron.fork.url")?.toString())
+                pom(repoUrl = providers.gradleProperty("actron.fork.url").getOrElse("https://github.com/roman-n1/actron/"), fork = providers.gradleProperty("actron.fork.url").isPresent)
             }
 
             // An isolated repository for external-consumer verification. Only explicitly named
             // Consumer publication tasks write here; no MavenLocal/Central uploads are involved.
-            if (consumerRepository != null) {
+            if (consumerRepository.isPresent) {
                 extensions.configure<PublishingExtension> {
                     repositories.maven {
                         name = "Consumer"
-                        url = uri(consumerRepository)
+                        url = uri(consumerRepository.get())
                     }
                 }
             }

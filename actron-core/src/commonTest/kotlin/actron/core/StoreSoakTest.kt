@@ -46,12 +46,12 @@ class StoreSoakTest {
 
     data object Ev : Event
 
-    private fun soakStore(handled: MutableList<Throwable>, policy: PendingActionPolicy, processed: MutableStateFlow<Int>? = null, closed: CompletableDeferred<Unit>? = null): Store<S, A, Ev> = Store(S.Idle()) {
+    private fun soakStore(handled: MutableList<Throwable>, policy: PendingActionPolicy, processed: MutableStateFlow<Int> = MutableStateFlow(0), closed: CompletableDeferred<Unit> = CompletableDeferred()): Store<S, A, Ev> = Store(S.Idle()) {
         coroutineContext(Dispatchers.Default)
-        if (closed != null) probe(StoreProbe { if (it === StoreTrace.StoreClosed) closed.complete(Unit) })
+        probe(StoreProbe { if (it === StoreTrace.StoreClosed) closed.complete(Unit) })
         pendingActionPolicy(policy)
         exceptionHandler(ExceptionHandler { handled += it })
-        plugin(Plugin(onAction = { _, _ -> processed?.update { it + 1 } }, onState = { _, _ -> }, onEvent = { _, _ -> }))
+        plugin(Plugin(onAction = { _, _ -> processed.update { it + 1 } }, onState = { _, _ -> }, onEvent = { _, _ -> }))
         state<S.Idle> {
             action<A.Go> { nextState { S.Busy(state.count) } }
             action<A.Fail> { throw IllegalStateException("fail") }

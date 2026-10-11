@@ -33,7 +33,7 @@ class RecordInputsTest {
         assertEquals("InvariantViolationException", (recording.steps.last() as RecordedStep.Failed).failure.typeLabel)
         assertEquals(1, recording.snapshotAt(recording.length).context)
         assertEquals("never-execute-io", recording.checkpointAt(recording.length).registrations.values.single().command)
-        assertNull(ReplaySession(machine, recording).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, recording).verify() { error("Unexpected replay mismatch: $it") })
         assertEquals(6, guards, "Verification is a separate explicit replay, not a second decision during recording")
     }
 
@@ -47,6 +47,6 @@ class RecordInputsTest {
         assertFailsWith<IllegalArgumentException> { machine.recordInputs(checkpoint, listOf(MachineInput.Dispatch(Noise, MachineTime.Zero + (-1).seconds))) }
         val resumed = machine.recordInputs(checkpoint, listOf(MachineInput.Dispatch(Noise, MachineTime.Zero)))
         assertEquals(checkpoint.registrations, resumed.checkpointAt(resumed.length).registrations)
-        assertNull(ReplaySession(machine, resumed).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, resumed).verify() { error("Unexpected replay mismatch: $it") })
     }
 }

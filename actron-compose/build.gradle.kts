@@ -95,5 +95,5 @@ configurations.configureEach {
 }
 
 publishConvention {
-    artifactId = "actron-compose"
+    artifactId.set("actron-compose")
 }

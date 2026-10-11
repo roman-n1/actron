@@ -6,13 +6,13 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.runBlocking
 
 fun main(args: Array<String>) = runBlocking {
-    val directory = Path.of(args.firstOrNull() ?: "build/durable-effects")
+    val directory = checkNotNull(Path.of(args.firstOrNull() ?: "build/durable-effects"))
     Files.createDirectories(directory)
     val intent = CreditIntent("order-2026-0001", 25)
     CreditSession(directory).use { session ->
         session.start()
         session.request(intent)
-        if (session.saver.durable.value.pending != null) {
+        if (session.saver.durable.value.hasPending) {
             session.store.mailbox.subscribe().take(1).collect { session.handle(it) }
         }
         println("balance=${session.ledger.read().balance}, receipts=${session.ledger.read().receipts}")

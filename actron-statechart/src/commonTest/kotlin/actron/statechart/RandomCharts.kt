@@ -87,7 +87,7 @@ internal object RandomCharts {
                     source = endpoint(),
                     target = endpoint(),
                     on = matchers.random(random),
-                    guard = (if (random.nextInt(3) == 0) guards.random(random) else null)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional,
+                    guard = if (random.nextInt(3) == 0) GuardKey(guards.random(random)) else GuardCondition.Unconditional,
                 )
             }
             transitions += next
@@ -97,7 +97,7 @@ internal object RandomCharts {
         // most charts have deep, branching reachable parts and not only unreachable noise.
         repeat(random.nextInt(0, maxTransitions / 2 + 1)) {
             val source = reachableFrom(initial, transitions).random(random)
-            val grown = Transition(source, endpoint(), matchers.random(random), (if (random.nextInt(4) == 0) guards.random(random) else null)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional)
+            val grown = Transition(source, endpoint(), matchers.random(random), if (random.nextInt(4) == 0) GuardKey(guards.random(random)) else GuardCondition.Unconditional)
             transitions.add(random.nextInt(transitions.size + 1), grown)
         }
         return StateChartDefinition(initial, ids.map(::AtomicState), transitions)
@@ -129,7 +129,7 @@ internal object RandomCharts {
      */
     fun hierarchicalChart(random: Random, maxStates: Int = 12, maxDepth: Int = 4, maxTransitions: Int = 20): StateChartDefinition {
         val ids = allIds.shuffled(random).take(random.nextInt(1, maxStates + 1))
-        val parents = arrayOfNulls<StateId>(ids.size)
+        val parents = Array<StateParent>(ids.size) { StateParent.Root }
         val depths = IntArray(ids.size)
         val compound = BooleanArray(ids.size)
         for (i in ids.indices) {
@@ -144,9 +144,9 @@ internal object RandomCharts {
         val nodes = ids.indices.map { i ->
             val children = ids.indices.filter { parents[it] == ids[i] }
             if (compound[i] && children.isNotEmpty()) {
-                CompoundState(ids[i], initial = ids[children.random(random)], parent = parents[i] ?: StateParent.Root)
+                CompoundState(ids[i], initial = ids[children.random(random)], parent = parents[i])
             } else {
-                AtomicState(ids[i], parent = parents[i] ?: StateParent.Root)
+                AtomicState(ids[i], parent = parents[i])
             }
         }.shuffled(random)
 
@@ -160,7 +160,7 @@ internal object RandomCharts {
                     source = ids.random(random),
                     target = ids.random(random),
                     on = matchers.random(random),
-                    guard = (if (random.nextInt(3) == 0) guards.random(random) else null)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional,
+                    guard = if (random.nextInt(3) == 0) GuardKey(guards.random(random)) else GuardCondition.Unconditional,
                 )
             }
         }
@@ -194,7 +194,17 @@ internal object RandomCharts {
                 1 -> states.filterIsInstance<AtomicState>().randomOrNull(random)?.let { replace(index, withParent(node, it.id)) }
                 2 -> {
                     // Make a node the parent of one of its ancestors, or of itself.
-                    val chain = generateSequence(node) { n -> (n.parent as? StateId)?.let { p -> states.firstOrNull { it.id == p } } }.take(states.size).toList()
+                    val chain = buildList {
+                        var current = node
+                        repeat(states.size) {
+                            add(current)
+                            val parent = current.parent
+                            if (parent !is StateId) return@buildList
+                            val index = states.indexOfFirst { it.id == parent }
+                            if (index < 0) return@buildList
+                            current = states[index]
+                        }
+                    }
                     val top = chain.random(random)
                     replace(states.indexOf(top), withParent(top, node.id))
                 }
@@ -226,8 +236,8 @@ internal object RandomCharts {
                 val id = pool.removeFirstOrNull() ?: return@repeat
                 val deep = random.nextBoolean()
                 val options = chart.states.filter { if (deep) chart.isDescendant(it.id, compound.id) else it.parent == compound.id }
-                val default = if (random.nextInt(3) == 0) null else options.random(random).id
-                histories += HistoryState(id, parent = compound.id, deep = deep, default = default ?: HistoryFallback.InitialConfiguration)
+                val default: HistoryFallback = if (random.nextInt(3) == 0) HistoryFallback.InitialConfiguration else options.random(random).id
+                histories += HistoryState(id, parent = compound.id, deep = deep, default = default)
             }
         }
         if (histories.isEmpty()) return chart
@@ -323,18 +333,22 @@ internal object RandomCharts {
             transitions += when {
                 roll == 0 && transitions.isNotEmpty() -> transitions.random(random)
                 roll == 1 -> ids.random(random).let { Transition(it, it, matchers.random(random)) }
-                else -> Transition(ids.random(random), ids.random(random), matchers.random(random), (if (random.nextInt(3) == 0) guards.random(random) else null)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional)
+                else -> Transition(ids.random(random), ids.random(random), matchers.random(random), if (random.nextInt(3) == 0) GuardKey(guards.random(random)) else GuardCondition.Unconditional)
             }
         }
         val parallels = shuffled.filterIsInstance<ParallelState>()
-        fun inside(id: StateId): List<StateId> = shuffled.filter { n -> generateSequence(n.parent as? StateId) { p -> shuffled.first { it.id == p }.parent as? StateId }.any { it == id } }.map { it.id }
+        fun inside(id: StateId): List<StateId> = shuffled.filter { node ->
+            var parent = node.parent
+            while (parent is StateId && parent != id) parent = shuffled.first { it.id == parent }.parent
+            parent == id
+        }.map { it.id }
         repeat(if (parallels.isEmpty()) 0 else random.nextInt(1, 5)) {
             val parallel = parallels.random(random)
             val matcher = matchers.random(random)
             for (region in shuffled.filter { it.parent == parallel.id }.shuffled(random).take(random.nextInt(2, 4))) {
                 val within = inside(region.id)
                 if (within.isEmpty()) continue
-                val transition = Transition(within.random(random), within.random(random), matcher, (if (random.nextInt(4) == 0) guards.random(random) else null)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional)
+                val transition = Transition(within.random(random), within.random(random), matcher, if (random.nextInt(4) == 0) GuardKey(guards.random(random)) else GuardCondition.Unconditional)
                 transitions.add(random.nextInt(transitions.size + 1), transition)
             }
         }
@@ -393,9 +407,9 @@ internal object RandomCharts {
         repeat(random.nextInt(1, 9)) {
             val source = sources.random(random)
             val target = if (random.nextInt(5) == 0) source else targets.random(random)
-            val guard = if (random.nextInt(3) == 0) guards.random(random) else null
-            val effect = if (random.nextInt(4) == 0) "effect ${random.nextInt(3)}" else null
-            val timer = Transition(source, target, Trigger.After(delays.random(random)), (guard)?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional, (effect)?.let { actron.statechart.EffectKey(it) } ?: actron.statechart.TransitionEffect.NoEffect)
+            val guard: GuardCondition = if (random.nextInt(3) == 0) GuardKey(guards.random(random)) else GuardCondition.Unconditional
+            val effect: TransitionEffect = if (random.nextInt(4) == 0) EffectKey("effect ${random.nextInt(3)}") else TransitionEffect.NoEffect
+            val timer = Transition(source, target, Trigger.After(delays.random(random)), guard, effect)
             transitions.add(random.nextInt(transitions.size + 1), timer)
             if (random.nextInt(8) == 0) {
                 val twin = Transition(source, targets.random(random), timer.trigger)

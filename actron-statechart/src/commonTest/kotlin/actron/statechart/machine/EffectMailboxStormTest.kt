@@ -115,7 +115,7 @@ class EffectMailboxStormTest {
         session.close()
         executionScope.cancel()
 
-        val ids = generateSequence { acknowledged.tryReceive().getOrNull() }.toList()
+        val ids = buildList { while (true) { val received = acknowledged.tryReceive(); if (received.isFailure) break; add(received.getOrThrow()) } }
         assertEquals(total, ids.size)
         assertEquals(total, ids.toSet().size, "each effect acknowledged once")
         assertTrue(pending.isEmpty(), "nothing left: $pending")
@@ -129,7 +129,7 @@ class EffectMailboxStormTest {
         assertTrue(entries.none { it is JournalEntry.EffectDiscarded }, "nothing was discarded")
         val attempts = entries.filterIsInstance<JournalEntry.EffectHandlingStarted>().groupBy({ it.effect }, { it.attempt })
         assertTrue(attempts.values.all { it == (1..it.size).toList() }, "attempts count up per effect")
-        assertEquals(null, reported.tryReceive().getOrNull(), "nothing was reported")
+        assertTrue(reported.tryReceive().isFailure, "nothing was reported")
         println("deliveries ${deliveries.value} for $total effects; effects redelivered: ${attempts.values.count { it.size > 1 }}")
     }
 }

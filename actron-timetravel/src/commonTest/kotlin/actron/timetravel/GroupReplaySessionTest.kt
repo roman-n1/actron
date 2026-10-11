@@ -75,7 +75,7 @@ class GroupReplaySessionTest {
         assertEquals(2, recording.routes.size)
         var matched = 0
         while (true) {
-            val step = session.observedStepForward() ?: break
+            val step = session.stepForward().takeUnless { it is GroupReplayStep.Finished } ?: break
             assertIs<GroupReplayStep.Matched>(step)
             matched++
         }

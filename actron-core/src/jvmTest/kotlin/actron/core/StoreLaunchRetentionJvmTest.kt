@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class StoreLaunchRetentionJvmTest {
     private data object Active : State
-    private data class Work(val lane: LaunchLane, val wait: CompletableDeferred<Unit>? = null) : Action
+    private data class Work(val lane: LaunchLane, val wait: CompletableDeferred<Unit> = CompletableDeferred()) : Action
 
     @Test
     fun completedWorkDoesNotRetainPerRequestLanesInALongLivedState() = runTest {
@@ -60,8 +60,8 @@ class StoreLaunchRetentionJvmTest {
 
     @Suppress("UNCHECKED_CAST")
     private fun trackedJobs(store: Store<*, *, *>): Map<Any, Job> {
-        val runtimes = store.javaClass.superclass.getDeclaredField("stateRuntimes").apply { isAccessible = true }.get(store) as Map<*, *>
-        val runtime = runtimes.values.single()!!
-        return runtime.javaClass.getDeclaredField("actionLaunchJobs").apply { isAccessible = true }.get(runtime) as Map<Any, Job>
+        val runtimes = checkNotNull(checkNotNull(store.javaClass.superclass.getDeclaredField("stateRuntimes")).apply { isAccessible = true }.get(store) as Map<Any, Any>)
+        val runtime = kotlin.test.assertNotNull(runtimes.values.single())
+        return checkNotNull(runtime.javaClass.getDeclaredField("actionLaunchJobs")).apply { isAccessible = true }.get(runtime) as Map<Any, Job>
     }
 }

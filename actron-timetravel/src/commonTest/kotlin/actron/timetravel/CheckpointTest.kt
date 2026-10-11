@@ -186,7 +186,7 @@ class CheckpointTest {
         assertTrue(since.length in 1 until whole.length)
         assertEquals(whole.steps.takeLast(since.length), since.steps)
         val session = ReplaySession(machine, since)
-        assertNull(session.verify(), "the run after the checkpoint replays from it")
+        kotlin.test.assertFalse(session.verify() { error("Unexpected replay mismatch: $it") }, "the run after the checkpoint replays from it")
         assertEquals(checkpoint, session.checkpoint)
         val branch = session.branch()
         assertEquals(checkpoint.lanes.running.values.map { it.command }.toSet(), branch.awaiting.map { it.command }.toSet())
@@ -252,14 +252,14 @@ class CheckpointTest {
         store.close()
         executionScope.cancel()
 
-        assertNull(recorder.problem)
+        kotlin.test.assertIs<actron.timetravel.RecordingOrigin.InitialSnapshot>(recorder.origin)
         assertEquals(200, checkpoints.size)
         for ((index, checkpoint) in checkpoints.withIndex()) {
             val since = recording.since(checkpoint)
-            assertNull(ReplaySession(machine, since).verify(), "checkpoint $index at revision ${checkpoint.snapshot.revision}")
+            kotlin.test.assertFalse(ReplaySession(machine, since).verify() { error("Unexpected replay mismatch: $it") }, "checkpoint $index at revision ${checkpoint.snapshot.revision}")
         }
         // How much the storm exercised depends on the platform's threads; informational.
         println("checkpoints with a full lane: ${checkpoints.count { it.lanes.queued.isNotEmpty() }}, with a command ending: ${checkpoints.count { it.ending.isNotEmpty() }} of ${checkpoints.size}")
-        assertEquals(null, handled.tryReceive().getOrNull(), "nothing was reported")
+        assertTrue(handled.tryReceive().isFailure, "nothing was reported")
     }
 }

@@ -65,5 +65,5 @@ kotlin {
 }
 
 publishConvention {
-    artifactId = "actron-statechart"
+    artifactId.set("actron-statechart")
 }

@@ -108,7 +108,7 @@ class CloseRaceTest {
             withContext(Dispatchers.Default) { delay(Random.nextLong(1, 15).milliseconds) }
             store.close()
             storm.cancelAndJoin()
-            executionScope.coroutineContext[Job]!!.let { it.cancel(); it.join() }
+            kotlin.test.assertNotNull(executionScope.coroutineContext[Job]).let { it.cancel(); it.join() }
             // StoreClosed comes once every coroutine of the inner store has ended.
             val all = mutableListOf<StoreTrace<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>>()
             withContext(Dispatchers.Default) {
@@ -120,13 +120,17 @@ class CloseRaceTest {
                     }
                 }
             }
-            generateSequence { traces.tryReceive().getOrNull() }.forEach { all += it }
+            while (true) {
+                            val received = traces.tryReceive()
+                            if (received.isFailure) break
+                            all += received.getOrThrow()
+                        }
 
             // A handler that passed the cancellation check a moment before close() may still
             // commit while close() returns: the guarantee is about StoreClosed, checked below, and
             // the final snapshot is the last one the traces committed.
-            val lastCommitted = all.filterIsInstance<StoreTrace.StateCommitted<MachineSnapshot<Ctx>>>().lastOrNull()?.state
-            assertEquals(lastCommitted ?: machine.initialSnapshot(Ctx()), store.currentState, "iteration $iteration: the snapshot is not the last committed one")
+            val lastCommitted = all.filterIsInstance<StoreTrace.StateCommitted<MachineSnapshot<Ctx>>>().lastOrNull()?.state ?: machine.initialSnapshot(Ctx())
+            assertEquals(lastCommitted, store.currentState, "iteration $iteration: the snapshot is not the last committed one")
             assertEquals(started.value, ended.value, "iteration $iteration: a command that started never ended")
             val startedProcessing = all.filterIsInstance<StoreTrace.ProcessingStarted>().map { it.input to it.ordinal }.toSet()
             val finished = all.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input to it.ordinal }.toSet()
@@ -134,7 +138,7 @@ class CloseRaceTest {
             val closedAt = all.indexOfFirst { it === StoreTrace.StoreClosed }
             assertTrue(closedAt >= 0, "iteration $iteration: no StoreClosed trace")
             assertTrue(all.drop(closedAt + 1).none { it is StoreTrace.StateCommitted<*> || it is StoreTrace.ProcessingStarted }, "iteration $iteration: work after StoreClosed")
-            assertEquals(null, handled.tryReceive().getOrNull(), "iteration $iteration: something was reported")
+            assertTrue(handled.tryReceive().isFailure, "iteration $iteration: something was reported")
         }
     }
 }

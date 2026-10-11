@@ -468,7 +468,7 @@ class StateChartHierarchyTest {
         assertEquals(StateChartPath(idle, listOf(open), listOf(reading)), chart.shortestPathTo(chat))
         assertEquals(StateChartPath(idle, emptyList(), emptyList()), chart.shortestPathTo(online))
         assertEquals(reading, chart.shortestPathTo(chat)?.end)
-        assertNull(chart.shortestPathTo(StateId("Nowhere")))
+        kotlin.test.assertFalse(chart.shortestPathTo(StateId("Nowhere")) { error("Unexpected path: $it") })
     }
 
     @Test

@@ -46,13 +46,13 @@ class MachinePropertyTest {
         }
     }
 
-    private fun machineOf(seed: Int, random: Random, chart: StateChartDefinition): Machine<Ctx, RandomAction, String, Tick>? {
+    private fun machineOf(seed: Int, random: Random, chart: StateChartDefinition): Result<Machine<Ctx, RandomAction, String, Tick>> {
         val table = GuardTable(random)
         val withRules = chart.states.filter { random.nextInt(3) == 0 }.map { it.id }
         return try {
-            Machine(DefinitionId("random-$seed"), DefinitionVersion("1"), chart) {
+            Result.success(Machine(DefinitionId("random-$seed"), DefinitionVersion("1"), chart) {
                 table.implementations().forEach { (label, guard) -> guard(label, guard) }
-                chart.transitions.mapNotNull { (it.effect as? actron.statechart.EffectKey)?.name }.distinct().forEach { label -> effect(label) { context, _ -> context.copy(steps = context.steps + 1) } }
+                chart.transitions.map { it.effect }.filterIsInstance<actron.statechart.EffectKey>().map { it.name }.distinct().forEach { label -> effect(label) { context, _ -> context.copy(steps = context.steps + 1) } }
                 withRules.forEach { id ->
                     onEnter(id) {
                         command("load $id", LaneId("lane-${id.value.hashCode() and 1}"), ConcurrencyPolicy.Latest)
@@ -60,16 +60,16 @@ class MachinePropertyTest {
                     }
                     onExit(id) { context = context.copy(steps = context.steps + 1) }
                 }
-            }
+            })
         } catch (e: IllegalArgumentException) {
             // Charts the Store would refuse too (undeclared endpoints, instant timer loops).
-            null
+            Result.failure(e)
         }
     }
 
     @Test
     fun randomWalks_areDeterministic_andKeepTheSnapshotInvariants() = RandomCharts.forEachTimerChart(count = 150) { seed, random, chart ->
-        val machine = machineOf(seed, random, chart) ?: return@forEachTimerChart
+        val machine = machineOf(seed, random, chart).getOrElse { return@forEachTimerChart }
         var snapshot = machine.initialSnapshot(Ctx())
         var now = MachineTime.Zero
         var maxActivation = 0L

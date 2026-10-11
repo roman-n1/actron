@@ -31,8 +31,8 @@ class StoreCancelLaunchTest {
 
     private fun createStore(
         testDispatcher: TestDispatcher,
-        onStart: ((Int) -> Unit)? = null,
-        onCancel: ((Int) -> Unit)? = null,
+        onStart: (Int) -> Unit = {},
+        onCancel: (Int) -> Unit = {},
     ): Store<AppState, AppAction, Nothing> {
         return Store(AppState.Active) {
             coroutineContext(testDispatcher)
@@ -40,11 +40,11 @@ class StoreCancelLaunchTest {
             state<AppState.Active> {
                 enter {
                     launch(testDispatcher) {
-                        onStart?.invoke(-1)
+                        onStart(-1)
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onCancel?.invoke(-1)
+                            onCancel(-1)
                         }
                     }
                 }
@@ -54,11 +54,11 @@ class StoreCancelLaunchTest {
                         dispatcher = testDispatcher,
                         control = LaunchControl.DropIfRunning(sharedLane),
                     ) {
-                        onStart?.invoke(action.marker)
+                        onStart(action.marker)
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onCancel?.invoke(action.marker)
+                            onCancel(action.marker)
                         }
                     }
                 }
@@ -68,11 +68,11 @@ class StoreCancelLaunchTest {
                         dispatcher = testDispatcher,
                         control = LaunchControl.DropIfRunning(otherLane),
                     ) {
-                        onStart?.invoke(action.marker)
+                        onStart(action.marker)
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onCancel?.invoke(action.marker)
+                            onCancel(action.marker)
                         }
                     }
                 }
@@ -82,11 +82,11 @@ class StoreCancelLaunchTest {
                         dispatcher = testDispatcher,
                         control = LaunchControl.CancelPrevious(sharedLane),
                     ) {
-                        onStart?.invoke(action.marker)
+                        onStart(action.marker)
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onCancel?.invoke(action.marker)
+                            onCancel(action.marker)
                         }
                     }
                 }
@@ -96,11 +96,11 @@ class StoreCancelLaunchTest {
                         dispatcher = testDispatcher,
                         control = LaunchControl.Untracked,
                     ) {
-                        onStart?.invoke(action.marker)
+                        onStart(action.marker)
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onCancel?.invoke(action.marker)
+                            onCancel(action.marker)
                         }
                     }
                 }

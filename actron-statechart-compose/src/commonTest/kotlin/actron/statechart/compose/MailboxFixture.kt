@@ -55,10 +55,10 @@ internal object MailboxFixture {
         scope: CoroutineScope,
         coroutineContext: CoroutineContext,
         maxRetained: Int = 64,
-        maxAttempts: Int? = null,
+        budget: actron.statechart.machine.RetryBudget = actron.statechart.machine.RetryBudget.Unlimited,
         report: (Throwable) -> Unit = { throw it },
     ): MachineStore<Unit, Act, Nothing, Ev> = MachineStore(
         machine, Unit, CommandHandler<Nothing, Act> { _, _ -> }, scope, coroutineContext = coroutineContext,
-        mailbox = MailboxConfig(policy = { EffectPolicy.Retained(maxAttempts?.let(actron.statechart.machine.RetryBudget::Limited) ?: actron.statechart.machine.RetryBudget.Unlimited) }, maxRetained = maxRetained),
+        mailbox = MailboxConfig(policy = { EffectPolicy.Retained(budget) }, maxRetained = maxRetained),
     ) { exceptionHandler(ExceptionHandler { report(it) }) }.also { it.start() }
 }

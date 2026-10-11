@@ -49,7 +49,7 @@ import kotlin.time.TestTimeSource
  */
 object GroupFixture {
 
-    data class PickerCtx(val last: String? = null, val acks: List<Int> = emptyList(), val fetched: List<String> = emptyList())
+    data class PickerCtx(val picks: List<String> = emptyList(), val acks: List<Int> = emptyList(), val fetched: List<String> = emptyList())
 
     sealed interface PickerAct : Action {
         data class Pick(val name: String) : PickerAct
@@ -81,9 +81,10 @@ object GroupFixture {
     private fun chart(matcher: ActionMatcher) = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, matcher, effect = actron.statechart.EffectKey("remember"))))
 
     val picker: Machine<PickerCtx, PickerAct, Fetch, PickerEv> = Machine(DefinitionId("picker"), DefinitionVersion("1"), chart(ActionMatcher.of<PickerAct.Pick>("Pick"))) {
-        effect("remember") { c, a -> c.copy(last = (a as PickerAct.Pick).name) }
+        effect("remember") { c, a -> c.copy(picks = c.picks + (a as PickerAct.Pick).name) }
         onEnter(idle) {
-            context.last?.let { last ->
+            if (context.picks.isNotEmpty()) {
+                val last = context.picks.last()
                 event(PickerEv.Picked(last))
                 command(Fetch(last))
             }
@@ -100,27 +101,27 @@ object GroupFixture {
     val machines: Map<StoreInstanceId, Machine<*, *, *, *>> = mapOf(pickerId to picker, rootId to rootMachine)
 
     /** The routes of the group, for a live [MachineGroup] and for a [GroupBranch]. */
-    fun pickerToRoot(event: PickerEv): RootAct? = (event as? PickerEv.Picked)?.let { RootAct.Apply(it.name) }
+    fun pickerToRoot(event: PickerEv, carry: (RootAct) -> Unit) { if (event is PickerEv.Picked) carry(RootAct.Apply(event.name)) }
 
-    fun rootToPicker(event: RootEv): PickerAct? = (event as? RootEv.Applied)?.let { PickerAct.Ack(it.count) }
+    fun rootToPicker(event: RootEv, carry: (PickerAct) -> Unit) { if (event is RootEv.Applied) carry(PickerAct.Ack(event.count)) }
 
     fun MachineGroup.routeBoth() {
-        route<PickerEv, RootAct>(pickerId, rootId) { event, carry -> pickerToRoot(event)?.let(carry) }
-        route<RootEv, PickerAct>(rootId, pickerId) { event, carry -> rootToPicker(event)?.let(carry) }
+        route<PickerEv, RootAct>(pickerId, rootId) { event, carry -> pickerToRoot(event, carry) }
+        route<RootEv, PickerAct>(rootId, pickerId) { event, carry -> rootToPicker(event, carry) }
     }
 
     /** The same two routes as a request/reply pair named `apply`. */
     fun MachineGroup.routeAsPair(picker: MachineGroup.Member<PickerCtx, PickerAct, Fetch, PickerEv>, root: MachineGroup.Member<RootCtx, RootAct, Nothing, RootEv>) {
-        requestReply(picker, root, "apply", { event, carry -> pickerToRoot(event)?.let(carry) }, { event, carry -> rootToPicker(event)?.let(carry) })
+        requestReply(picker, root, "apply", { event, carry -> pickerToRoot(event, carry) }, { event, carry -> rootToPicker(event, carry) })
     }
 
     val branchRoutes: List<GroupBranch.Route> = listOf(
-        GroupBranch.Route(pickerId, rootId) { event, carry -> (event as? PickerEv)?.let(::pickerToRoot)?.let(carry) },
-        GroupBranch.Route(rootId, pickerId) { event, carry -> (event as? RootEv)?.let(::rootToPicker)?.let(carry) },
+        GroupBranch.Route(pickerId, rootId) { event, carry -> if (event is PickerEv) pickerToRoot(event, carry) },
+        GroupBranch.Route(rootId, pickerId) { event, carry -> if (event is RootEv) rootToPicker(event, carry) },
     )
 
     /** A live, journaled, recorded group on a test dispatcher; [paired] routes as a request/reply pair. */
-    class Live(scope: TestScope, paired: Boolean = false, rootContext: kotlin.coroutines.CoroutineContext? = null) {
+    class Live(scope: TestScope, paired: Boolean = false, rootContext: kotlin.coroutines.CoroutineContext = StandardTestDispatcher(scope.testScheduler)) {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val session = RecordingSession(scope.backgroundScope, id = RuntimeSessionId("g"), group = MachineGroupId("picker"), timeSource = TestTimeSource())
@@ -136,7 +137,7 @@ object GroupFixture {
             executionScope, VirtualMachineClock(scope.testScheduler), dispatcher, observers = listOf(pickerMember, recorder.member(pickerId, picker, PickerCtx())),
         ) { exceptionHandler(ExceptionHandler.Ignore) }
         val rootStore: MachineStore<RootCtx, RootAct, Nothing, RootEv> = MachineStore(
-            rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, VirtualMachineClock(scope.testScheduler), rootContext ?: dispatcher,
+            rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, VirtualMachineClock(scope.testScheduler), rootContext,
             observers = listOf(rootMember, recorder.member(rootId, rootMachine, RootCtx())),
         ) { exceptionHandler(ExceptionHandler.Ignore) }
 

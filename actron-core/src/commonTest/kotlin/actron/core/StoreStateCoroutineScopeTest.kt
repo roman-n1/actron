@@ -60,8 +60,8 @@ class StoreStateCoroutineScopeTest {
     // Store factory for basic functionality test
     private fun createTestStore(
         withCancellation: Boolean = false,
-        onBackgroundTaskStart: (() -> Unit)? = null,
-        onBackgroundTaskCancel: (() -> Unit)? = null,
+        onBackgroundTaskStart: () -> Unit = {},
+        onBackgroundTaskCancel: () -> Unit = {},
     ): Store<AppState, AppAction, AppEvent> {
         return Store(AppState.Initial) {
             // Configure to use Unconfined dispatcher
@@ -81,7 +81,7 @@ class StoreStateCoroutineScopeTest {
                     launch {
                         if (withCancellation) {
                             try {
-                                onBackgroundTaskStart?.invoke()
+                                onBackgroundTaskStart()
 
                                 // Long-running task that should be cancelled
                                 delay(10000)
@@ -89,7 +89,7 @@ class StoreStateCoroutineScopeTest {
                                 // We shouldn't reach this
                                 throw IllegalStateException("Background task wasn't cancelled")
                             } catch (e: Exception) {
-                                onBackgroundTaskCancel?.invoke()
+                                onBackgroundTaskCancel()
                             }
                         } else {
                             transaction {
@@ -175,10 +175,10 @@ class StoreStateCoroutineScopeTest {
 
     @Test
     fun enterLaunch_transactionFatalError_isForwardedToExceptionHandler() = runTest(testDispatcher) {
-        var handledThrowable: Throwable? = null
+        val handledThrowableObservations = mutableListOf<Throwable>()
         val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Initial) {
             coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handledThrowable = it })
+            exceptionHandler(ExceptionHandler { handledThrowableObservations.add(it) })
 
             state<AppState.Initial> {
                 action<AppAction.Start> {
@@ -206,8 +206,8 @@ class StoreStateCoroutineScopeTest {
         store.dispatch(AppAction.Start)
         repeat(3) { kotlinx.coroutines.yield() }
 
-        assertNotNull(handledThrowable)
-        val error = handledThrowable
+        assertNotNull(handledThrowableObservations.single())
+        val error = handledThrowableObservations.single()
         assertIs<AssertionError>(error)
         assertEquals("fatal enter transaction", error.message)
         assertEquals(AppState.Running(), store.currentState)

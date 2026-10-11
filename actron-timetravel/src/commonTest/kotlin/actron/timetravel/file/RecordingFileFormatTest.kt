@@ -99,11 +99,11 @@ class RecordingFileFormatTest {
         assertEquals(RecordingSegmentHeader(RECORDING_FILE_FORMAT_VERSION, RECORDING_FORMAT_VERSION, machine.id, machine.version, store, 0, 0), decoded.header)
         assertEquals(machine.initialSnapshot(Ctx()), decoded.start?.snapshot)
         assertEquals(steps, decoded.steps)
-        assertNull(decoded.mark)
+        kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
         assertTrue(decoded.finished)
         assertEquals("counter-1-000007.recording", RecordingFileFormat.segmentName(store, 7))
         assertEquals(store to 7, RecordingFileFormat.parseSegmentName("counter-1-000007.recording"))
-        assertNull(RecordingFileFormat.parseSegmentName("counter-1-000007.journal"))
+        kotlin.test.assertFalse(RecordingFileFormat.parseSegmentName("counter-1-000007.journal") { _, _ -> error("Unexpected parsed segment") })
     }
 
     @Test
@@ -119,7 +119,7 @@ class RecordingFileFormatTest {
         val newer = RecordingFileFormat.header(machine.id, machine.version, store, 0, 0, RECORDING_FILE_FORMAT_VERSION + 1, RECORDING_FORMAT_VERSION) + Framing.END
         val decoded = RecordingFileFormat.decodeSegment("newer", newer, codec)
         assertEquals(SegmentMark.UnsupportedFormat("newer", RECORDING_FILE_FORMAT_VERSION + 1, RECORDING_FORMAT_VERSION), decoded.mark)
-        assertTrue(decoded.steps.isEmpty() && decoded.header != null)
+        assertTrue(decoded.steps.isEmpty() && decoded !is DecodedRecordingSegment.Unreadable)
         val newerSteps = RecordingFileFormat.header(machine.id, machine.version, store, 0, 0, RECORDING_FILE_FORMAT_VERSION, RECORDING_FORMAT_VERSION + 1) + Framing.END
         assertIs<SegmentMark.UnsupportedFormat>(RecordingFileFormat.decodeSegment("x", newerSteps, codec).mark)
     }
@@ -137,10 +137,10 @@ class RecordingFileFormatTest {
                 is SegmentMark.Unfinished -> unfinished++
                 is SegmentMark.TruncatedTail -> assertEquals(decoded.steps.size, mark.recordsRead, "cut at $length")
                 is SegmentMark.NotASegment -> assertTrue(length < RecordingFileFormat.MAGIC.size, "cut at $length")
-                is SegmentMark.Corrupt -> assertTrue(decoded.steps.isEmpty() && decoded.start == null, "cut at $length: $mark")
+                is SegmentMark.Corrupt -> assertTrue(decoded.steps.isEmpty() && decoded !is DecodedRecordingSegment.Readable, "cut at $length: $mark")
                 else -> throw AssertionError("cut at $length: $mark")
             }
-            if (decoded.steps.isNotEmpty()) assertTrue(decoded.start != null && decoded.header != null, "cut at $length")
+            if (decoded.steps.isNotEmpty()) assertTrue(decoded is DecodedRecordingSegment.Readable, "cut at $length")
         }
         assertEquals(steps.size + 1, unfinished, "one cut per frame boundary after the checkpoint")
     }
@@ -154,7 +154,7 @@ class RecordingFileFormatTest {
             damaged[offset] = (damaged[offset].toInt() xor (1 shl (offset % 8))).toByte()
             val decoded = RecordingFileFormat.decodeSegment("bit", damaged, codec)
             assertEquals(steps.take(decoded.steps.size), decoded.steps, "flip at $offset")
-            assertTrue(decoded.mark != null || decoded.steps.size == steps.size, "flip at $offset went unnoticed")
+            assertTrue(decoded.ending.withIssue {} || decoded.steps.size == steps.size, "flip at $offset went unnoticed")
         }
     }
 

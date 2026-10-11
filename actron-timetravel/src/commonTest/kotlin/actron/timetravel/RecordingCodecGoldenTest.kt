@@ -193,7 +193,7 @@ class RecordingCodecGoldenTest {
         assertEquals(recording.start, decoded.recording.start)
         assertEquals(recording.steps, decoded.recording.steps)
         assertEquals(GOLDEN, codec.encode(decoded.recording), "encode(decode(golden)) is the golden again")
-        assertNull(ReplaySession(machine, decoded.recording).verify(), "the decoded recording replays")
+        kotlin.test.assertFalse(ReplaySession(machine, decoded.recording).verify() { error("Unexpected replay mismatch: $it") }, "the decoded recording replays")
     }
 
     @Test
@@ -207,7 +207,7 @@ class RecordingCodecGoldenTest {
         assertEquals(recording.start, decoded.recording.start)
         assertEquals(recording.steps, decoded.recording.steps)
         val session = ReplaySession(machine, decoded.recording)
-        assertNull(session.verify())
+        kotlin.test.assertFalse(session.verify() { error("Unexpected replay mismatch: $it") })
         // The executor's state carries forward: the completion ends the audit command, the new
         // Load exits the activation and takes its running and queued commands with it.
         assertEquals(setOf(CommandId(2), CommandId(3)), decoded.recording.checkpointAt(1).lanes.running.keys)
@@ -271,7 +271,7 @@ class RecordingCodecGoldenTest {
         assertTrue("\"type\":\"bridgeReceived\"" in encoded && "\"message\":{\"from\":\"root-1\",\"effect\":3}" in encoded, encoded)
         val decoded = assertIs<DecodedRecording.Decoded<Ctx, Act, Fetch, Ev>>(codec.decode(encoded))
         assertEquals(bridged.steps, decoded.recording.steps)
-        assertNull(ReplaySession(machine, decoded.recording).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, decoded.recording).verify() { error("Unexpected replay mismatch: $it") })
     }
 
     @Test

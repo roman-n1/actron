@@ -92,11 +92,14 @@ class CausalTraceTest {
     }
 
     private class Storage : DurableMachineStorage<Int, String> {
-        var checkpoint: DurableCheckpoint<Int, String>? = null
+        val commits = mutableListOf<DurableCheckpoint<Int, String>>()
+        var checkpoint: DurableCheckpoint<Int, String>
+            get() = commits.last()
+            set(value) { commits += value }
         var reject = false
-        override suspend fun read(accept: (DurableCheckpoint<Int, String>) -> Unit): Boolean { checkpoint?.let(accept); return checkpoint != null }
+        override suspend fun read(accept: (DurableCheckpoint<Int, String>) -> Unit): Boolean { if (commits.isEmpty()) return false; accept(checkpoint); return true }
         override suspend fun commit(expectedGeneration: actron.statechart.machine.DurableGeneration, checkpoint: DurableCheckpoint<Int, String>): Boolean {
-            if (reject || expectedGeneration != (this.checkpoint?.generation?.let { actron.statechart.machine.DurableGeneration.Existing(it) } ?: actron.statechart.machine.DurableGeneration.Fresh)) return false
+            if (reject || expectedGeneration != (if (commits.isEmpty()) actron.statechart.machine.DurableGeneration.Fresh else actron.statechart.machine.DurableGeneration.Existing(this.checkpoint.generation))) return false
             this.checkpoint = checkpoint
             return true
         }
@@ -114,7 +117,7 @@ class CausalTraceTest {
         val next = hub.recordPersisted(machine, store, InputId(2), completed, registration)
         assertEquals(first.origin, next.parent)
         assertEquals(first.trace, next.trace)
-        assertNull(next.selection)
+        next.assessment.withSelection { error("Unexpected selection: $it") }
         assertFalse(next.incomplete)
         assertEquals("persisted", next.outcome)
     }
@@ -134,16 +137,16 @@ class CausalTraceTest {
 
 private suspend fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DurableMachine<C, A, CMD, E>.executeObserved(
     handler: DurableCommandHandler<CMD, A>, now: () -> MachineTime,
-): DurableCommit<C, CMD, E>? {
-    var observed: DurableCommit<C, CMD, E>? = null
-    val executed = executeNext(handler, { check(observed == null); observed = it }, now)
-    kotlin.test.assertEquals(observed != null, executed)
-    return observed
+): DurableCommit<C, CMD, E> {
+    val observedObservations = mutableListOf<DurableCommit<C, CMD, E>>()
+    val executed = executeNext(handler, { check(observedObservations.isEmpty()); observedObservations.add(it) }, now)
+    kotlin.test.assertEquals(observedObservations.isNotEmpty(), executed)
+    return observedObservations.single()
 }
 
-private suspend fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DurableMachine<C, A, CMD, E>.restoreObserved(): DurableCheckpoint<C, CMD>? {
-    var observed: DurableCheckpoint<C, CMD>? = null
-    val found = restore { check(observed == null); observed = it }
-    kotlin.test.assertEquals(observed != null, found)
-    return observed
+private suspend fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DurableMachine<C, A, CMD, E>.restoreObserved(): DurableCheckpoint<C, CMD> {
+    val observedObservations = mutableListOf<DurableCheckpoint<C, CMD>>()
+    val found = restore { check(observedObservations.isEmpty()); observedObservations.add(it) }
+    kotlin.test.assertEquals(observedObservations.isNotEmpty(), found)
+    return observedObservations.single()
 }

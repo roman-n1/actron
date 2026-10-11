@@ -65,9 +65,23 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 object AddressBookSearchMachine {
 
-    data class Contact(val id: String, val displayName: String, val email: String? = null, val isEnabled: Boolean = true)
+    data class Contact(val id: String, val displayName: String, val emails: List<String> = emptyList(), val isEnabled: Boolean = true)
 
-    data class Group(val id: String?, val title: String)
+    sealed interface GroupFilter {
+        data object All : GroupFilter
+        data class Selected(val id: String) : GroupFilter
+    }
+
+    sealed interface SearchStatus {
+        data object AwaitingQuery : SearchStatus
+        data object Completed : SearchStatus
+        data class Failed(val message: String) : SearchStatus
+        fun clearFailure(): SearchStatus = if (this is Failed) Completed else this
+    }
+
+    data class Group(val filter: GroupFilter, val title: String) {
+        constructor(id: String, title: String) : this(GroupFilter.Selected(id), title)
+    }
 
     enum class Role { Participant, Speaker }
 
@@ -82,7 +96,9 @@ object AddressBookSearchMachine {
 
     sealed interface SearchAction : Action {
         data class QueryChanged(val query: String) : SearchAction
-        data class GroupChanged(val groupId: String?) : SearchAction
+        data class GroupChanged(val filter: GroupFilter) : SearchAction {
+            constructor(id: String) : this(GroupFilter.Selected(id))
+        }
         data class ToggleSelect(val contactId: String) : SearchAction
         data class RoleSelected(val contactId: String, val role: Role) : SearchAction
         data class ToggleGuest(val guest: Guest) : SearchAction
@@ -103,18 +119,19 @@ object AddressBookSearchMachine {
     }
 
     sealed interface SearchCommand {
-        data class Search(val query: String, val groupId: String?) : SearchCommand
+        data class Search(val query: String, val filter: GroupFilter) : SearchCommand {
+            constructor(query: String, id: String) : this(query, GroupFilter.Selected(id))
+        }
         data object LoadGroups : SearchCommand
     }
 
     /** The business data; everything the UI shows derives from it and the configuration. */
     data class SearchContext(
         val query: String = "",
-        val groupId: String? = null,
+        val groupFilter: GroupFilter = GroupFilter.All,
         val groups: List<Group> = emptyList(),
         val contacts: List<Contact> = emptyList(),
-        val isSearchDone: Boolean = false,
-        val error: String? = null,
+        val status: SearchStatus = SearchStatus.AwaitingQuery,
         val selectedIds: List<String> = emptyList(),
         val selectedById: Map<String, Contact> = emptyMap(),
         val roles: Map<String, Role> = emptyMap(),
@@ -124,6 +141,7 @@ object AddressBookSearchMachine {
         val minQueryLength: Int = 2,
         val allowGuests: Boolean = true,
     ) {
+        val isSearchDone: Boolean get() = status != SearchStatus.AwaitingQuery
         val trimmedQuery: String get() = query.trim()
         val isQueryLongEnough: Boolean get() = trimmedQuery.length >= minQueryLength
     }
@@ -199,18 +217,17 @@ object AddressBookSearchMachine {
             guard("longEnough") { snapshot, action -> (action as SearchAction.QueryChanged).query.trim().length >= snapshot.context.minQueryLength }
             guard("tooShort") { snapshot, action -> (action as SearchAction.QueryChanged).query.trim().length < snapshot.context.minQueryLength }
 
-            effect("rememberQuery") { context, action -> context.copy(query = (action as SearchAction.QueryChanged).query, error = null, canAddGuestEmail = false, canAddGuestPhone = false) }
+            effect("rememberQuery") { context, action -> context.copy(query = (action as SearchAction.QueryChanged).query, status = context.status.clearFailure(), canAddGuestEmail = false, canAddGuestPhone = false) }
             effect("forgetResults") { context, action ->
-                context.copy(query = (action as SearchAction.QueryChanged).query, contacts = emptyList(), isSearchDone = false, error = null, canAddGuestEmail = false, canAddGuestPhone = false)
+                context.copy(query = (action as SearchAction.QueryChanged).query, contacts = emptyList(), status = SearchStatus.AwaitingQuery, canAddGuestEmail = false, canAddGuestPhone = false)
             }
-            effect("rememberGroup") { context, action -> context.copy(groupId = (action as SearchAction.GroupChanged).groupId) }
+            effect("rememberGroup") { context, action -> context.copy(groupFilter = (action as SearchAction.GroupChanged).filter) }
             effect("storeContacts") { context, action ->
                 val found = (action as SearchAction.ContactsFound).contacts
                 val query = context.trimmedQuery
                 context.copy(
                     contacts = found,
-                    isSearchDone = true,
-                    error = null,
+                    status = SearchStatus.Completed,
                     // The app suggests a guest only when nothing was found and the query is an address.
                     canAddGuestEmail = context.allowGuests && found.isEmpty() && looksLikeEmail(query),
                     canAddGuestPhone = context.allowGuests && found.isEmpty() && looksLikePhone(query),
@@ -218,17 +235,21 @@ object AddressBookSearchMachine {
                     selectedById = context.selectedById + found.filter { it.id in context.selectedIds }.associateBy { it.id },
                 )
             }
-            effect("storeError") { context, action -> context.copy(contacts = emptyList(), isSearchDone = true, error = (action as SearchAction.SearchFailed).message) }
-            effect("storeGroups") { context, action -> context.copy(groups = listOf(Group(null, "")) + (action as SearchAction.GroupsLoaded).groups) }
-            effect("toggleGuest") { context, action -> context.toggleGuest((action as SearchAction.ToggleGuest).guest).copy(query = "", contacts = emptyList(), isSearchDone = false, canAddGuestEmail = false, canAddGuestPhone = false) }
+            effect("storeError") { context, action -> context.copy(contacts = emptyList(), status = SearchStatus.Failed((action as SearchAction.SearchFailed).message)) }
+            effect("storeGroups") { context, action -> context.copy(groups = listOf(Group(GroupFilter.All, "")) + (action as SearchAction.GroupsLoaded).groups) }
+            effect("toggleGuest") { context, action -> context.toggleGuest((action as SearchAction.ToggleGuest).guest).copy(query = "", contacts = emptyList(), status = SearchStatus.AwaitingQuery, canAddGuestEmail = false, canAddGuestPhone = false) }
 
-            onEnter(searching) { command(SearchCommand.Search(context.trimmedQuery, context.groupId), searchLane, ConcurrencyPolicy.Latest) }
-            onEnter(failed) { event(SearchEvent.ShowError(context.error ?: "search failed")) }
+            onEnter(searching) { command(SearchCommand.Search(context.trimmedQuery, context.groupFilter), searchLane, ConcurrencyPolicy.Latest) }
+            onEnter(failed) {
+                val status = context.status
+                check(status is SearchStatus.Failed)
+                event(SearchEvent.ShowError(status.message))
+            }
             onEnter(loadingGroups) { command(SearchCommand.LoadGroups) }
 
             // Context-only updates: no node is left, no search is cancelled, no timer restarts.
             onAction(search, queryChanged) { context = context.copy(query = (action as SearchAction.QueryChanged).query) }
-            onAction(search, groupChanged) { context = context.copy(groupId = (action as SearchAction.GroupChanged).groupId) }
+            onAction(search, groupChanged) { context = context.copy(groupFilter = (action as SearchAction.GroupChanged).filter) }
             onAction(search, ActionMatcher.of<SearchAction.ToggleSelect>("ToggleSelect")) { context = context.toggleSelect((action as SearchAction.ToggleSelect).contactId) }
             onAction(search, ActionMatcher.of<SearchAction.RoleSelected>("RoleSelected")) {
                 val selected = action as SearchAction.RoleSelected
@@ -258,7 +279,7 @@ object AddressBookSearchMachine {
     }
 
     private fun SearchContext.result(): PickerResult = PickerResult(
-        contacts = selectedIds.mapNotNull { selectedById[it] },
+        contacts = selectedIds.filter { it in selectedById }.map { selectedById.getValue(it) },
         roles = roles.filterKeys { it in selectedIds },
         guests = guests,
     )
@@ -269,7 +290,7 @@ object AddressBookSearchMachine {
     data class SearchUiModel(
         val query: String,
         val groups: List<Group>,
-        val selectedGroupId: String?,
+        val selectedGroup: GroupFilter,
         val contacts: List<Contact>,
         val selectedContactIds: Set<String>,
         val selectedRoles: Map<String, Role>,
@@ -278,7 +299,7 @@ object AddressBookSearchMachine {
         val canAddGuestPhone: Boolean,
         val isLoading: Boolean,
         val isSearchDone: Boolean,
-        val errorMessage: String?,
+        val status: SearchStatus,
     ) {
         val isDoneEnabled: Boolean = selectedContactIds.isNotEmpty() || guests.isNotEmpty()
     }
@@ -290,7 +311,7 @@ object AddressBookSearchMachine {
     fun MachineSnapshot<SearchContext>.toUiModel(): SearchUiModel = SearchUiModel(
         query = context.query,
         groups = context.groups,
-        selectedGroupId = context.groupId,
+        selectedGroup = context.groupFilter,
         contacts = context.contacts,
         selectedContactIds = context.selectedIds.toSet(),
         selectedRoles = context.roles,
@@ -299,6 +320,6 @@ object AddressBookSearchMachine {
         canAddGuestPhone = context.canAddGuestPhone,
         isLoading = isActive(debouncing) || isActive(searching),
         isSearchDone = context.isSearchDone,
-        errorMessage = context.error,
+        status = context.status,
     )
 }

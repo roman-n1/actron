@@ -200,7 +200,12 @@ class StateChartHierarchyConformanceTest {
     private fun guardHolds(label: String, action: RandomAction) = guards.getValue(label)(RandomState(StateId("any")), action)
 
     /** A Store that follows [chart] with the leaf-only [StateChartRuntime.step], except at [wrongAt]. */
-    private fun storeFor(chart: StateChartDefinition, start: StateId, wrongAt: Int?, wrongLeaf: StateId?, scope: TestScope) =
+    private sealed interface WalkPlan {
+        data object Declared : WalkPlan
+        data class Mutation(val index: Int, val from: StateId, val target: StateId) : WalkPlan
+    }
+
+    private fun storeFor(chart: StateChartDefinition, start: StateId, plan: WalkPlan, scope: TestScope) =
         StateChartRuntime(chart, { s: RandomState -> s.id }, guards).let { runtime ->
             var index = 0
             Store<RandomState, RandomAction, NoEvent>(RandomState(start)) {
@@ -208,8 +213,8 @@ class StateChartHierarchyConformanceTest {
                 pendingActionPolicy(PendingActionPolicy.Keep)
                 state<RandomState> {
                     action<RandomAction> {
-                        val leaf = if (index++ == wrongAt) {
-                            wrongLeaf!!
+                        val leaf = if (plan is WalkPlan.Mutation && index++ == plan.index) {
+                            plan.target
                         } else {
                             when (val result = runtime.step(state, action)) {
                                 is StepResult.Transitioned -> result.entered.last()
@@ -230,15 +235,19 @@ class StateChartHierarchyConformanceTest {
         val covered = mutableListOf<Transition>()
         for ((from, to, action) in changes) {
             if (from == to) {
-                val first = reference.priority(from).firstOrNull { HierarchyReference.matches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action) }
-                if (first != null && reference.leaf(reference.fire(reference.configurationOf(from), first).after) == from && first !in covered) covered += first
+                val firstIndex = reference.priority(from).indexOfFirst { HierarchyReference.matches(it.trigger, action) }
+                val priority = reference.priority(from)
+                if (firstIndex >= 0) {
+                    val first = priority[firstIndex]
+                    if (reference.leaf(reference.fire(reference.configurationOf(from), first).after) == from && first !in covered) covered += first
+                }
                 continue
             }
             if (reference.chart.states.none { it.id == to }) violations += ConformanceViolation.UndeclaredState(to)
             val candidates = reference.priority(from).filter { to in reference.fire(reference.configurationOf(from), it).entered }
-            val taken = candidates.firstOrNull { HierarchyReference.matches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, action) }
+            val takenIndex = candidates.indexOfFirst { HierarchyReference.matches(it.trigger, action) }
             when {
-                taken != null -> if (taken !in covered) covered += taken
+                takenIndex >= 0 -> if (candidates[takenIndex] !in covered) covered += candidates[takenIndex]
                 candidates.isEmpty() -> violations += ConformanceViolation.UndeclaredTransition(from, to, action)
                 else -> violations += ConformanceViolation.UnexpectedTrigger(from, to, action)
             }
@@ -247,11 +256,11 @@ class StateChartHierarchyConformanceTest {
     }
 
     /** Replays [actions] with the reference, moving to [wrongLeaf] instead at dispatch [wrongAt]. */
-    private fun referenceWalk(reference: HierarchyReference, start: StateId, actions: List<RandomAction>, wrongAt: Int? = null, wrongLeaf: StateId? = null): List<Change> {
+    private fun referenceWalk(reference: HierarchyReference, start: StateId, actions: List<RandomAction>, plan: WalkPlan = WalkPlan.Declared): List<Change> {
         var leaf = start
         return actions.mapIndexed { index, action ->
-            val next = if (index == wrongAt) {
-                wrongLeaf!!
+            val next = if (plan is WalkPlan.Mutation && index == plan.index) {
+                plan.target
             } else {
                 reference.step(reference.configurationOf(leaf), action, ::guardHolds)?.let { reference.leaf(it.after) } ?: leaf
             }
@@ -281,33 +290,34 @@ class StateChartHierarchyConformanceTest {
             val walk = referenceWalk(reference, start, actions)
             for (change in walk) {
                 val fired = reference.step(reference.configurationOf(change.from), change.action, ::guardHolds)
-                if (fired != null && fired.transition.source != change.from) ancestorMoves++
+                if (fired.transitions.isNotEmpty() && fired.transition.source != change.from) ancestorMoves++
             }
 
             // One wrong leaf, one that no transition from the current leaf enters.
-            val wrongAt = if (actions.isEmpty()) null else random.nextInt(actions.size)
-            val wrongFrom = wrongAt?.let { walk[it].from }
-            val wrongLeaf = wrongFrom?.let { from ->
-                chart.states.filterIsInstance<AtomicState>().map { it.id }
+            val plans = mutableListOf<WalkPlan>(WalkPlan.Declared)
+            if (actions.isNotEmpty()) {
+                val index = random.nextInt(actions.size)
+                val from = walk[index].from
+                val targets = chart.states.filterIsInstance<AtomicState>().map { it.id }
                     .filter { l -> l != from && reference.priority(from).none { l in reference.fire(reference.configurationOf(from), it).entered } }
-                    .randomOrNull(random)
+                if (targets.isNotEmpty()) plans += WalkPlan.Mutation(index, from, targets.random(random))
             }
 
-            for (mutated in listOf(false, true)) {
-                if (mutated && wrongLeaf == null) continue
+            for (plan in plans) {
+                val mutated = plan is WalkPlan.Mutation
                 val conformance = StateChartConformance<RandomState, RandomAction, NoEvent>(chart) { it.id }
-                val store = storeFor(chart, start, wrongAt.takeIf { mutated }, wrongLeaf, this).patch { plugin(conformance) }
+                val store = storeFor(chart, start, plan, this).patch { plugin(conformance) }
                 store.startAndAwait()
                 for (action in actions) store.dispatchAndAwait(action)
 
-                val changes = if (mutated) referenceWalk(reference, start, actions, wrongAt, wrongLeaf) else walk
+                val changes = if (mutated) referenceWalk(reference, start, actions, plan) else walk
                 val (violations, covered) = expectedReport(reference, changes)
                 assertEquals(violations, conformance.violations, "seed $seed")
                 assertEquals(covered, conformance.coveredTransitions.toList(), "seed $seed")
                 assertEquals(changes.lastOrNull()?.to ?: start, store.currentState.id, "seed $seed")
                 if (mutated) {
                     mutants++
-                    assertEquals(ConformanceViolation.UndeclaredTransition(wrongFrom!!, wrongLeaf!!, actions[wrongAt!!]), violations.firstOrNull(), "seed $seed")
+                    assertEquals(ConformanceViolation.UndeclaredTransition((plan as WalkPlan.Mutation).from, plan.target, actions[(plan as WalkPlan.Mutation).index]), violations.firstOrNull(), "seed $seed")
                 } else {
                     assertEquals(emptyList(), violations, "seed $seed: the reference itself must conform")
                     moves += walk.count { it.from != it.to }

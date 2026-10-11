@@ -15,45 +15,76 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
 
+private sealed interface ExportSelection {
+    data object AwaitingExport : ExportSelection
+    data class Opened(val file: JsonFile) : ExportSelection
+}
+
 class ActronToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val container = JPanel(BorderLayout())
         val status = JLabel("Open a model.actron.json export, then Refresh.")
         val diagram = DiagramPanel()
         val rows = DefaultListModel<String>()
-        val list = JList(rows)
-        var file: JsonFile? = null
+        val list: JList<String> = JList(rows)
+        var selection: ExportSelection = ExportSelection.AwaitingExport
         var keys = emptyList<String>()
         fun navigate(key: String) {
             ReadAction.run<RuntimeException> {
-                file?.let { model ->
-                    val descriptor = ActronModel.source(project, model, key)
-                    if (descriptor != null) descriptor.navigate(true) else ActronModel.declaration(model, key)?.let { OpenFileDescriptor(project, it.containingFile.virtualFile, it.textOffset).navigate(true) }
+                val opened = selection as? ExportSelection.Opened ?: return@run
+                if (!ActronModel.source(project, opened.file, key) { it.navigate(true) }) {
+                    for (declaration in ActronModel.declarations(opened.file, key)) {
+                        OpenFileDescriptor(project, declaration.containingFile.virtualFile, declaration.textOffset).navigate(true)
+                        break
+                    }
                 }
             }
         }
-        val refresh = JButton("Refresh").apply { addActionListener {
+        val refresh = JButton("Refresh").apply { addActionListener { _: java.awt.event.ActionEvent ->
             ReadAction.run<RuntimeException> {
-                val virtual = FileEditorManager.getInstance(project).selectedFiles.firstOrNull { it.name.endsWith(".actron.json") }
-                file = virtual?.let { PsiManager.getInstance(project).findFile(it) as? JsonFile }
-                val model = file?.let(ActronModel::model)
-                if (model == null) { status.text = "Select a format-1 .actron.json export."; return@run }
-                val nodes = ActronModel.objects(model, "states").mapNotNull { ActronModel.text(it, "id") }
-                val edges = ActronModel.objects(model, "transitions").mapNotNull { entry ->
-                    val id = ActronModel.text(entry, "id") ?: return@mapNotNull null
-                    val source = ActronModel.text(entry, "source") ?: return@mapNotNull null
-                    val target = ActronModel.text(entry, "target") ?: return@mapNotNull null
-                    DiagramEdge(id, source, target, ActronModel.text(entry, "trigger") ?: "")
+                selection = ExportSelection.AwaitingExport
+                status.text = "Select a format-1 .actron.json export."
+                diagram.load(emptyList(), emptyList(), emptySet(), ::navigate)
+                rows.clear(); keys = emptyList()
+                val virtual = FileEditorManager.getInstance(project).selectedFiles.filterNotNull().firstOrNull { it.name.endsWith(".actron.json") } ?: return@run
+                val file = PsiManager.getInstance(project).findFile(virtual) as? JsonFile ?: return@run
+                ActronModel.withModel(file) { model ->
+                selection = ExportSelection.Opened(file)
+                val nodes = buildList<String> {
+                    for (entry in ActronModel.objects(model, "states")) ActronModel.text(entry, "id") { add(it) }
                 }
-                val active = ((file?.let(ActronModel::root)?.findProperty("active")?.value as? JsonArray)?.valueList.orEmpty()).filterIsInstance<JsonStringLiteral>().map { it.value }.toSet()
+                val edges = buildList<DiagramEdge> {
+                    for (entry in ActronModel.objects(model, "transitions")) {
+                        ActronModel.text(entry, "id") { id ->
+                            ActronModel.text(entry, "source") { source ->
+                                ActronModel.text(entry, "target") { target ->
+                                    var label = ""
+                                    ActronModel.text(entry, "trigger") { label = it }
+                                    add(DiagramEdge(id, source, target, label))
+                                }
+                            }
+                        }
+                    }
+                }
+                val active = buildSet<String> {
+                    ActronModel.withRoot(file) { root ->
+                        val array = root.findProperty("active")?.value as? JsonArray ?: return@withRoot
+                        addAll(array.valueList.filterIsInstance<JsonStringLiteral>().map { it.value })
+                    }
+                }
                 diagram.load(nodes, edges, active, ::navigate)
                 rows.clear(); edges.forEach { rows.addElement("${it.id}: ${it.source} —${it.label}→ ${it.target}") }; keys = edges.map { it.id }
                 status.text = "${nodes.size} states, ${edges.size} transitions; double-click to navigate."
+                }
             }
         } }
-        val usages = JButton("Find usages").apply { addActionListener {
+        val usages = JButton("Find usages").apply { addActionListener { _: java.awt.event.ActionEvent ->
             val key = keys.getOrNull(list.selectedIndex) ?: return@addActionListener
-            file?.let { ActronModel.declaration(it, key) }?.let { FindManager.getInstance(project).findUsages(it) }
+            val opened = selection as? ExportSelection.Opened ?: return@addActionListener
+            for (declaration in ActronModel.declarations(opened.file, key)) {
+                FindManager.getInstance(project).findUsages(declaration)
+                break
+            }
         } }
         list.addMouseListener(object : MouseAdapter() { override fun mouseClicked(e: MouseEvent) {
             if (e.clickCount == 2) keys.getOrNull(list.selectedIndex)?.let(::navigate)

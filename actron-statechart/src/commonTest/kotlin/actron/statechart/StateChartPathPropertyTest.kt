@@ -73,17 +73,17 @@ class StateChartPathPropertyTest {
     fun shortestPathLengthEqualsReferenceDistanceAndNullMeansUnreachable() = forEachChart { seed, _, chart ->
         val distances = referenceDistances(chart)
         for (id in candidateIds(chart)) {
-            val path = chart.shortestPathTo(id)
-            val distance = distances[id]
-            if (distance == null) {
-                assertNull(path, "seed $seed: $id is unreachable")
+            if (id !in distances) {
+                kotlin.test.assertFalse(chart.shortestPathTo(id) { error("Unexpected reachable path: $it") }, "seed $seed: $id is unreachable")
             } else {
+                val path = chart.shortestPathTo(id)
+                val distance = distances.getValue(id)
                 assertNotNull(path, "seed $seed: $id is reachable")
                 assertEquals(distance, path.transitions.size, "seed $seed: $id")
                 assertEquals(chart.initial, path.start, "seed $seed")
                 assertEquals(id, path.end, "seed $seed")
                 assertTrue(chart.transitions.containsAll(path.transitions), "seed $seed")
-                assertEquals(path.transitions.map { (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher }, path.actions, "seed $seed")
+                assertEquals(path.transitions.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }, path.actions, "seed $seed")
             }
         }
         assertEquals(chart.reachableStates(), distances.keys, "seed $seed")
@@ -94,18 +94,18 @@ class StateChartPathPropertyTest {
         // Dropping the last step of a shortest path gives the shortest path to its source, so all
         // paths share prefixes and never visit a state twice.
         for (id in chart.reachableStates()) {
-            val path = chart.shortestPathTo(id)!!
+            val path = kotlin.test.assertNotNull(chart.shortestPathTo(id))
             val visited = listOf(path.start) + path.transitions.map { it.target }
             assertEquals(visited.distinct(), visited, "seed $seed: $path revisits a state")
             val last = path.transitions.lastOrNull() ?: continue
-            assertEquals(chart.shortestPathTo(last.source)!!.transitions, path.transitions.dropLast(1), "seed $seed")
+            assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(last.source)).transitions, path.transitions.dropLast(1), "seed $seed")
         }
     }
 
     @Test
     fun shortestPathPrefersTheEarliestDeclaredEdgeFromTheSameParent() = forEachChart { seed, _, chart ->
         for (id in chart.reachableStates()) {
-            val last = chart.shortestPathTo(id)!!.transitions.lastOrNull() ?: continue
+            val last = kotlin.test.assertNotNull(chart.shortestPathTo(id)).transitions.lastOrNull() ?: continue
             // No earlier-declared transition from the same source reaches the same target.
             val first = chart.transitionsFrom(last.source).first { it.target == id }
             assertEquals(first, last, "seed $seed")
@@ -131,7 +131,7 @@ class StateChartPathPropertyTest {
             path.transitions.fold(chart.initial) { at, t -> assertEquals(at, t.source, "seed $seed"); t.target }
             // Every path is a shortest path to the last source, plus that last transition.
             val last = path.transitions.last()
-            assertEquals(chart.shortestPathTo(last.source)!!.transitions, path.transitions.dropLast(1), "seed $seed")
+            assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(last.source)).transitions, path.transitions.dropLast(1), "seed $seed")
         }
         for ((i, p) in paths.withIndex()) {
             for ((j, q) in paths.withIndex()) {
@@ -160,7 +160,7 @@ class StateChartPathPropertyTest {
         // extends survive. Count them independently via tree edges.
         val reachable = referenceDistances(chart).keys
         val candidates = chart.transitions.filter { it.source in reachable }.distinct()
-        val treeEdges = reachable.mapNotNull { chart.shortestPathTo(it)!!.transitions.lastOrNull() }.toSet()
+        val treeEdges = reachable.map { chart.shortestPathTo(it).transitions }.filter { it.isNotEmpty() }.map { it.last() }.toSet()
         // A candidate is extended iff it is a tree edge whose target has an outgoing transition.
         val leaves = candidates.count { t -> !(t in treeEdges && chart.transitionsFrom(t.target).isNotEmpty()) }
         assertEquals(leaves, chart.transitionCoveragePaths().size, "seed $seed")
@@ -179,7 +179,11 @@ class StateChartPathPropertyTest {
             transitions = chart.transitions.flatMap { listOf(Transition(island, it.source, it.trigger), it) },
         )
         assertEquals(paths, withIsland.transitionCoveragePaths(), "seed $seed")
-        for (id in candidateIds(chart)) assertEquals(chart.shortestPathTo(id), withIsland.shortestPathTo(id), "seed $seed")
+        for (id in candidateIds(chart)) {
+            val originalPaths = buildList<StateChartPath> { chart.shortestPathTo(id) { add(it) } }
+            val extendedPaths = buildList<StateChartPath> { withIsland.shortestPathTo(id) { add(it) } }
+            assertEquals(originalPaths, extendedPaths, "seed $seed")
+        }
     }
 
     @Test
@@ -199,10 +203,10 @@ class StateChartPathPropertyTest {
             if (connected) {
                 val path = StateChartPath(start, sequence)
                 assertEquals(sequence.lastOrNull()?.target ?: start, path.end, "seed $seed")
-                assertEquals(sequence.map { (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher }, path.actions, "seed $seed")
+                assertEquals(sequence.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }, path.actions, "seed $seed")
             } else {
                 val error = assertFailsWith<IllegalArgumentException>("seed $seed") { StateChartPath(start, sequence) }
-                assertTrue(error.message!!.startsWith("[Actron] Path is not connected"), "seed $seed")
+                assertTrue(kotlin.test.assertNotNull(error.message).startsWith("[Actron] Path is not connected"), "seed $seed")
             }
         }
     }

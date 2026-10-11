@@ -142,18 +142,39 @@ object CheckoutDemo {
 
     /** Writes a fresh directory every time; no existing recording is overwritten. */
     suspend fun record(parent: Path, calls: AtomicInteger = AtomicInteger()): Recorded =
-        record(parent, calls, beforeSummaryRecorded = null)
+        recordConfigured(parent, calls, {}, {}, { it })
 
-    // The example's test seam holds a real committed observer before the file observer runs.
+    // Callbacks are observations of real boundaries; the ordinary writer remains buffered.
     internal suspend fun record(
         parent: Path,
         calls: AtomicInteger,
-        beforeSummaryStartupRecorded: (() -> Unit)? = null,
-        onJournalFlushed: (() -> Unit)? = null,
-        beforeSummaryRecorded: (() -> Unit)? = null,
+        beforeSummaryStartupRecorded: () -> Unit = {},
+        beforeSummaryRecorded: () -> Unit = {},
+    ): Recorded = recordConfigured(parent, calls, beforeSummaryStartupRecorded, beforeSummaryRecorded, { it })
+
+    internal suspend fun record(
+        parent: Path,
+        calls: AtomicInteger,
+        beforeSummaryStartupRecorded: () -> Unit = {},
+        onJournalFlushed: () -> Unit,
+        beforeSummaryRecorded: () -> Unit = {},
+    ): Recorded = recordConfigured(parent, calls, beforeSummaryStartupRecorded, beforeSummaryRecorded) { writer ->
+        JournalSink { record ->
+            writer.write(record)
+            writer.flush()
+            onJournalFlushed()
+        }
+    }
+
+    private suspend fun recordConfigured(
+        parent: Path,
+        calls: AtomicInteger,
+        beforeSummaryStartupRecorded: () -> Unit,
+        beforeSummaryRecorded: () -> Unit,
+        journalWriter: (JournalFileSink) -> JournalSink,
     ): Recorded = withContext(Dispatchers.IO) {
         Files.createDirectories(parent)
-        val directory = Files.createTempDirectory(parent, "checkout-")
+        val directory = checkNotNull(Files.createTempDirectory(parent, "checkout-"))
         val storage = FileSegmentStorage(directory.toString())
         val engineJob = SupervisorJob()
         val writerJob = SupervisorJob()
@@ -162,11 +183,7 @@ object CheckoutDemo {
         val journalSink = JournalFileSink(storage)
         // Tests can observe a completed writer flush while a Store observer is held. Reading
         // the buffered file alone cannot establish that the independent writer has caught up.
-        val diagnosticSink = if (onJournalFlushed == null) journalSink else JournalSink { record ->
-            journalSink.write(record)
-            journalSink.flush()
-            onJournalFlushed()
-        }
+        val diagnosticSink = journalWriter(journalSink)
         val session = RecordingSession(writers, sessionId, groupId, sinks = listOf(diagnosticSink))
         val group = MachineGroup(session)
         val files = GroupRecordingFileSink(group, groupId, storage, writers)
@@ -182,12 +199,12 @@ object CheckoutDemo {
         }
         val summaryObserver = object : DecisionObserver<SummaryContext, UpdateTotal, NoCommand, NoEvent> {
             override fun onCommitted(input: InputAttribution, machineInput: MachineInput<UpdateTotal>, decision: Decision<SummaryContext, NoCommand, NoEvent>) {
-                if (decision.snapshot.context.total == 100) beforeSummaryRecorded?.invoke()
+                if (decision.snapshot.context.total == 100) beforeSummaryRecorded()
             }
         }
         val summaryStartupObserver = object : DecisionObserver<SummaryContext, UpdateTotal, NoCommand, NoEvent> {
             override fun onCommitted(input: InputAttribution, machineInput: MachineInput<UpdateTotal>, decision: Decision<SummaryContext, NoCommand, NoEvent>) {
-                if (machineInput is MachineInput.Start) beforeSummaryStartupRecorded?.invoke()
+                if (machineInput is MachineInput.Start) beforeSummaryStartupRecorded()
             }
         }
         val summaryStore = MachineStore(summaryMachine, SummaryContext(), CommandHandler<NoCommand, UpdateTotal> { _, _ ->

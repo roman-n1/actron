@@ -29,8 +29,8 @@ class StoreLaunchControlTest {
 
     private fun createStore(
         testDispatcher: TestDispatcher,
-        onCancelPreviousStart: ((Int) -> Unit)? = null,
-        onCancelPreviousCancel: ((Int) -> Unit)? = null,
+        onCancelPreviousStart: (Int) -> Unit = {},
+        onCancelPreviousCancel: (Int) -> Unit = {},
     ): Store<AppState, AppAction, Nothing> {
         val primaryLane = LaunchLane()
         val secondaryLane = LaunchLane()
@@ -43,11 +43,11 @@ class StoreLaunchControlTest {
                         dispatcher = testDispatcher,
                         control = LaunchControl.CancelPrevious(),
                     ) {
-                        onCancelPreviousStart?.invoke(action.marker)
+                        onCancelPreviousStart(action.marker)
                         try {
                             delay(Long.MAX_VALUE)
                         } finally {
-                            onCancelPreviousCancel?.invoke(action.marker)
+                            onCancelPreviousCancel(action.marker)
                         }
                     }
                 }

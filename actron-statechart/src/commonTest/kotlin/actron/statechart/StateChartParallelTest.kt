@@ -456,7 +456,7 @@ class StateChartParallelTest {
         // Replayed on the runtime, one action per transition, it ends in the same leaves.
         var configuration = runtime.initialConfiguration()
         for (action in listOf(MessengerAction.Connect, MessengerAction.Sync, MessengerAction.Drop)) configuration = walk(configuration, action).single().configuration
-        assertEquals(path!!.activeLeaves.last(), chart.activeLeaves(configuration))
+        assertEquals(kotlin.test.assertNotNull(path).activeLeaves.last(), chart.activeLeaves(configuration))
         val coverage = chart.transitionCoveragePaths()
         assertEquals(chart.transitions.toSet(), coverage.flatMap { it.transitions }.toSet())
         assertTrue(coverage.all { it.activeLeaves.size == it.transitions.size && it.leaves == it.activeLeaves.map { l -> l.first() } })
@@ -468,8 +468,8 @@ class StateChartParallelTest {
         assertEquals(listOf(offline), flat.startLeaves)
         assertEquals(listOf(listOf(online)), flat.activeLeaves)
         assertEquals(flat, StateChartPath(offline, listOf(connect), listOf(online)))
-        val error = kotlin.runCatching { StateChartPath(offline, listOf(connect), listOf(online), activeLeaves = emptyList()) }.exceptionOrNull()
-        assertEquals("[Actron] Path has 1 transitions but 0 sets of active leaves", error?.message)
+        val error = kotlin.test.assertFailsWith<IllegalArgumentException> { StateChartPath(offline, listOf(connect), listOf(online), activeLeaves = emptyList()) }
+        assertEquals("[Actron] Path has 1 transitions but 0 sets of active leaves", error.message.orEmpty())
     }
 
     // endregion

@@ -74,5 +74,5 @@ kotlin {
 }
 
 publishConvention {
-    artifactId = "actron-observability"
+    artifactId.set("actron-observability")
 }

@@ -28,8 +28,8 @@ class StorePendingActionPolicyTest {
     private fun createStore(
         testDispatcher: TestDispatcher,
         pendingActionPolicy: PendingActionPolicy = PendingActionPolicy.ClearOnStateExit,
-        onTransitionStarted: CompletableDeferred<Unit>? = null,
-        onTransitionCompleted: CompletableDeferred<Unit>? = null,
+        onTransitionStarted: CompletableDeferred<Unit> = CompletableDeferred(),
+        onTransitionCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
     ): Store<AppState, AppAction, Nothing> {
         return Store(AppState.Initial) {
             coroutineContext(testDispatcher)
@@ -37,9 +37,9 @@ class StorePendingActionPolicyTest {
 
             state<AppState.Initial> {
                 action<AppAction.EnterActiveAfterDelay>(testDispatcher) {
-                    onTransitionStarted?.complete(Unit)
+                    onTransitionStarted.complete(Unit)
                     delay(100)
-                    onTransitionCompleted?.complete(Unit)
+                    onTransitionCompleted.complete(Unit)
                     nextState { AppState.Active() }
                 }
             }

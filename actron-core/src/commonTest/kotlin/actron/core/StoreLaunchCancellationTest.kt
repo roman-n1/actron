@@ -150,7 +150,7 @@ class StoreLaunchCancellationTest {
     @Test
     fun nestedTransactionsFailBeforeEnqueuingWork() = runTest {
         for (fromEnter in listOf(false, true)) {
-            val outcome = CompletableDeferred<Throwable?>()
+            val outcome = CompletableDeferred<Throwable>()
             var nestedRan = false
             val store = Store<Active, Start, Nothing>(Active(), backgroundScope.coroutineContext) {
                 state<Active> {
@@ -158,8 +158,8 @@ class StoreLaunchCancellationTest {
                         launch {
                             val outer = this
                             transaction {
-                                outcome.complete(withTimeoutOrNull(100) {
-                                    runCatching { outer.transaction { nestedRan = true } }.exceptionOrNull()
+                                outcome.complete(kotlinx.coroutines.withTimeout(100) {
+                                    kotlin.test.assertFailsWith<IllegalStateException> { outer.transaction { nestedRan = true } }
                                 })
                             }
                         }
@@ -168,8 +168,8 @@ class StoreLaunchCancellationTest {
                         if (!fromEnter) launch {
                             val outer = this
                             transaction {
-                                outcome.complete(withTimeoutOrNull(100) {
-                                    runCatching { outer.transaction { nestedRan = true } }.exceptionOrNull()
+                                outcome.complete(kotlinx.coroutines.withTimeout(100) {
+                                    kotlin.test.assertFailsWith<IllegalStateException> { outer.transaction { nestedRan = true } }
                                 })
                             }
                         }

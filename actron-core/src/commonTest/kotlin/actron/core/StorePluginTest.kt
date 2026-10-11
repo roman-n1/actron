@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 class StorePluginTest {
 
     private class CountingStateSaver<S : State>(
-        private val restoredState: S? = null,
+        private val restoredState: S,
     ) : StateSaver<S> {
         var restoreCalls: Int = 0
 
@@ -22,7 +22,7 @@ class StorePluginTest {
 
         override fun restore(initialState: S): S {
             restoreCalls += 1
-            return restoredState ?: initialState
+            return restoredState
         }
     }
 

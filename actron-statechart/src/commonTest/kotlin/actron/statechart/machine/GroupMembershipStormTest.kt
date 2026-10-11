@@ -57,7 +57,7 @@ import kotlin.time.TestTimeSource
  */
 class GroupMembershipStormTest {
 
-    data class PickerCtx(val last: String? = null)
+    data class PickerCtx(val picks: List<String> = emptyList())
 
     sealed interface PickerAct : Action {
         data class Pick(val name: String) : PickerAct
@@ -78,8 +78,8 @@ class GroupMembershipStormTest {
     private fun chart(matcher: ActionMatcher) = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, matcher, effect = actron.statechart.EffectKey("remember"))))
 
     private val picker = Machine<PickerCtx, PickerAct, Nothing, PickerEv>(DefinitionId("picker"), DefinitionVersion("1"), chart(ActionMatcher.of<PickerAct.Pick>("Pick"))) {
-        effect("remember") { c, a -> c.copy(last = (a as PickerAct.Pick).name) }
-        onEnter(idle) { context.last?.let { event(PickerEv.Picked(it)) } }
+        effect("remember") { c, a -> c.copy(picks = c.picks + (a as PickerAct.Pick).name) }
+        onEnter(idle) { if (context.picks.isNotEmpty()) event(PickerEv.Picked(context.picks.last())) }
     }
 
     private val rootMachine = Machine<RootCtx, RootAct, Nothing, Nothing>(DefinitionId("root"), DefinitionVersion("1"), chart(ActionMatcher.of<RootAct.Apply>("Apply"))) {

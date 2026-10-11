@@ -64,5 +64,5 @@ kotlin {
 }
 
 publishConvention {
-    artifactId = "actron-diagnostics"
+    artifactId.set("actron-diagnostics")
 }

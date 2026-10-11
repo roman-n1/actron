@@ -10,7 +10,7 @@ real domain alternatives, rather than transferring the obligation to check an em
 
 ## Design rules
 
-- Do not introduce `null`, nullable types, `!!` or `lateinit` in library implementations.
+- Do not introduce `null`, nullable types, `!!` or `lateinit` in authored Kotlin implementations, examples, tests and tools.
 - Do not introduce `Optional`, `Option`, `Maybe`, `Some`/`None`, primitive optional containers,
   or a renamed general-purpose value/empty wrapper. Aliased imports do not bypass the rule.
 - Give objects behavior. `StateSaver.restore(initialState)` chooses the saved or initial state;
@@ -88,9 +88,11 @@ Run:
 ./gradlew checkNullability
 ```
 
-The command checks every `actron-*/src/*Main/**/*.kt`, including published test-tool modules,
-platform source sets and library compilation tasks. Tests, examples, build tools and generated
-compiler ABI are outside the authored-library policy.
+The source check covers every authored `.kt` and `.kts` in the repository, including examples,
+tests, verification programs, build logic and IntelliJ tooling. Generated build output and dependency
+directories are excluded. The resolved-type check runs on every Kotlin compilation in the root
+build and in the independent build-logic, IntelliJ and published Maven consumer builds;
+generated compiler ABI is excluded.
 
 1. **Source check:** Kotlin PSI from the pinned compiler parses the source and rejects nullable
    syntax, null literals, `!!`, `lateinit`, unconstrained type parameters and optional-container
@@ -102,11 +104,12 @@ compiler ABI are outside the authored-library policy.
    Assigning `map[key]` or `firstOrNull()` to an inferred nullable local therefore fails even
    without a `?` in the source. Normalize the expression before binding it.
 
-The plugin runs on all library Main compilations, including Android, iOS, JVM, JS and Wasm.
+The plugin runs on Main and Test compilations, including Android, iOS, JVM, JS and Wasm.
 CI's platform matrix compiles and tests the appropriate targets; unsupported native targets
 are covered on macOS. `checkNullability` also runs checker self-tests and real compiler regression
-fixtures that must reject forbidden types and accept normalized boundary usage. Kotlin is pinned
-to 2.3.20; changing it requires revalidating the plugin's compiler integration.
+fixtures that must reject forbidden types and accept normalized boundary usage. Library/IDE Kotlin is
+pinned to 2.3.20; Gradle build logic uses the wrapper's Kotlin 2.3.0 and runs the same compiler
+regressions before compilation. Changing either requires revalidating compiler integration.
 
 There are no file-wide suppressions or optional-container exceptions. Kotlin requires `Any?`
 on `Any.equals`; only that intrinsic parameter is exempt. Copying it into a nullable local is
@@ -124,7 +127,7 @@ The migration completed through:
 ./gradlew :nullability-guard:finishMigration
 ```
 
-It first compiles all library Main targets with compiler enforcement enabled, runs the checker
+It first compiles all authored Kotlin targets with compiler enforcement enabled, runs the checker
 regressions and requires zero source findings. Only then does it empty the baseline and create the
 strict marker. That marker now makes compiler violations errors. Passing `enforce=false` cannot
 turn the marker off.
@@ -132,7 +135,7 @@ turn the marker off.
 CI compares policy files to the pull request's base commit, or the previous commit on a push.
 New violations, a nonempty baseline, baseline growth or removal of the strict marker fail.
 `pruneBaseline` cannot add exceptions. The policy runs in the required JVM CI job; resolved-type
-checking additionally runs in each actual library platform compilation.
+checking additionally runs in each actual Kotlin platform compilation.
 
 This guarantees the enforced scope, not that foreign Java code or a dependency can never
 violate its contract at runtime. Old JSON protocols can contain an actual `JsonNull` AST node;

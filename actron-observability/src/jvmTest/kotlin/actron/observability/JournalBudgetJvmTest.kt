@@ -48,7 +48,7 @@ class JournalBudgetJvmTest {
             System.gc()
             Thread.sleep(50)
         }
-        val runtime = Runtime.getRuntime()
+        val runtime = checkNotNull(Runtime.getRuntime())
         return runtime.totalMemory() - runtime.freeMemory()
     }
 
@@ -95,15 +95,15 @@ class JournalBudgetJvmTest {
     @Test
     fun dispatch_withTheJournal_staysWithinAFewTimesOfWithout() = runBlocking {
         val n = 30_000
-        fun store(session: RecordingSession?): Store<Counter, Increment, Nothing> = Store(Counter()) {
+        fun store(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit): Store<Counter, Increment, Nothing> = Store(Counter()) {
             coroutineContext(Dispatchers.Default)
-            if (session != null) recordTo(session, StoreInstanceId("m"), PayloadPolicy.metadataOnly())
+            configure()
             state<Counter> {
                 action<Increment> { nextState { state.copy(count = state.count + 1) } }
             }
         }
-        suspend fun measure(session: RecordingSession?): Long {
-            val store = store(session)
+        suspend fun measure(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit = {}): Long {
+            val store = store(configure)
             store.dispatch(Increment) // startup
             withTimeout(30_000) { store.state.first { it.count == 1 } }
             val mark = TimeSource.Monotonic.markNow()
@@ -114,11 +114,11 @@ class JournalBudgetJvmTest {
             return elapsed.inWholeMicroseconds
         }
 
-        measure(null) // warm-up
-        val without = measure(null)
+        measure() // warm-up
+        val without = measure()
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         val session = RecordingSession(scope, config = JournalConfig(retainedRecords = 2_000, writerQueueCapacity = 4_096))
-        val with = measure(session)
+        val with = measure { recordTo(session, StoreInstanceId("m"), PayloadPolicy.metadataOnly()) }
         val ratio = with.toDouble() / without.coerceAtLeast(1)
         println("[JournalBudget] dispatch: ${without / n} us without the journal, ${with / n} us with it (metadata only), ratio %.2f; session stats ${session.stats}".format(ratio))
         assertTrue(ratio < 5.0, "the journal made dispatch $ratio times slower; expected a few times at most")

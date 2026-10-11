@@ -18,6 +18,7 @@ to make decisions you can record, verify and replay.
 **Totally null-free domain model. Enforced in CI.** Actron's own values and domain contracts
 are non-null. Absence has behavior: lifecycle phases, domain outcomes and operations replace
 nullable values. `Optional`, `Option`, `Maybe` and renamed value/empty containers are forbidden.
+The same policy covers examples, tests, verification tools and the IntelliJ plugin.
 CI checks both Kotlin source and compiler-resolved types, including inferred types and nested
 generic arguments. The nullable baseline is empty; the strict policy prevents new debt and
 cannot be removed relative to the base branch. Readers for old recordings remain supported.

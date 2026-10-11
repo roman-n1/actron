@@ -37,4 +37,4 @@ kotlin {
         }
     }
 }
-publishConvention { artifactId = "actron-diagnostics-sdk" }
+publishConvention { artifactId.set("actron-diagnostics-sdk") }

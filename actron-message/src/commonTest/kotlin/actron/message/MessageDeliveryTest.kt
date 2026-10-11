@@ -141,7 +141,7 @@ class MessageDeliveryTest {
         sender.dispatch(ChatAction.Send("good"))
 
         assertEquals(listOf("bad", "good"), seen)
-        assertEquals(listOf("bad message"), handled.map { it.message })
+        assertEquals(listOf("bad message"), handled.map { it.message.orEmpty() })
         sender.close()
         receiver.close()
     }
@@ -242,7 +242,7 @@ class MessageDeliveryTest {
         advanceUntilIdle()
 
         assertEquals(listOf("first", "second"), seen)
-        assertEquals(listOf("TimeoutCancellationException"), handled.map { it.cause!!::class.simpleName })
+        assertEquals(listOf("TimeoutCancellationException"), handled.map { checkNotNull(kotlin.test.assertNotNull(it.cause)::class.simpleName) })
         sender.close()
         receiver.close()
     }

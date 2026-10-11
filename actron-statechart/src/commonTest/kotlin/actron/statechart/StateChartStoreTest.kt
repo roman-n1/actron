@@ -343,15 +343,15 @@ class StateChartStoreTest {
 
     @Test
     fun workThatOutlivesItsNodeCannotUpdateTheContext() = runTest {
-        var updated: Boolean? = null
-        var activeAtTheEnd: Boolean? = null
+        val updatedObservations = mutableListOf<Boolean>()
+        val activeAtTheEndObservations = mutableListOf<Boolean>()
         val store = messenger {
             onEnter(reconnecting) {
                 launch {
                     withContext(NonCancellable) {
                         delay(4.seconds)
-                        activeAtTheEnd = isActive
-                        updated = updateContext { it.copy(attempts = 100) }
+                        activeAtTheEndObservations.add(isActive)
+                        updatedObservations.add(updateContext { it.copy(attempts = 100) })
                     }
                 }
             }
@@ -360,8 +360,8 @@ class StateChartStoreTest {
         advance(1.seconds)
         send(store, MessengerAction.Restore)
         advance(5.seconds)
-        assertEquals(false, updated)
-        assertEquals(false, activeAtTheEnd)
+        assertEquals(false, updatedObservations.single())
+        assertEquals(false, activeAtTheEndObservations.single())
         assertEquals(0, store.currentState.context.attempts)
         store.close()
     }
@@ -397,12 +397,17 @@ class StateChartStoreTest {
 
     // region restore
 
-    private class MemorySaver<S : actron.core.State>(var saved: S? = null) : StateSaver<S> {
+    private class MemorySaver<S : actron.core.State>() : StateSaver<S> {
+        constructor(state: S) : this() { states += state }
+        val states = mutableListOf<S>()
+        var saved: S
+            get() = states.last()
+            set(value) { states += value }
         override fun save(state: S) {
             saved = state
         }
 
-        override fun restore(initialState: S): S = saved ?: initialState
+        override fun restore(initialState: S): S = if (states.isEmpty()) initialState else saved
     }
 
     @Test
@@ -510,7 +515,7 @@ class StateChartStoreTest {
         }
         send(store, MessengerAction.Open, MessengerAction.KeyPress)
         advance(5.seconds)
-        assertEquals(listOf("keyboard broke"), errors.map { it.message })
+        assertEquals(listOf("keyboard broke"), errors.map { it.message.orEmpty() })
         assertEquals(listOf(connected, reading), store.leaves)
         assertFalse(workRan, "work launched by the failed step never starts")
         store.close()
@@ -528,7 +533,7 @@ class StateChartStoreTest {
         }
         send(store, MessengerAction.Open)
         advance(1.seconds)
-        assertEquals(listOf("sync failed"), errors.map { it.message })
+        assertEquals(listOf("sync failed"), errors.map { it.message.orEmpty() })
         // The Store keeps working, timers included.
         send(store, MessengerAction.KeyPress)
         advance(3.seconds)
@@ -549,7 +554,7 @@ class StateChartStoreTest {
         store.startAndAwait()
         runCurrent()
         starting = false
-        assertEquals(listOf("no inbox yet"), errors.map { it.message })
+        assertEquals(listOf("no inbox yet"), errors.map { it.message.orEmpty() })
         assertEquals(listOf(connected, inbox), store.leaves)
         // The nodes entered on the failed start have no work to cancel; steps and timers still run.
         send(store, MessengerAction.Drop, MessengerAction.Open)
@@ -581,7 +586,7 @@ class StateChartStoreTest {
         val effects: StateChartStoreBuilder<Messenger, MessengerAction, MessengerEvent>.() -> Unit = {
             listOf("countAttempt", "resetAttempts", "countSent").forEach { label -> effect(label) { c, _ -> c } }
         }
-        assertFailsWith<IllegalArgumentException> { build { effects() } }.also { assertTrue("canRetry" in it.message!!) }
+        assertFailsWith<IllegalArgumentException> { build { effects() } }.also { assertTrue("canRetry" in kotlin.test.assertNotNull(it.message)) }
         assertFailsWith<IllegalArgumentException> { build { guards(); effect("countSent") { c, _ -> c } } }.also {
             assertEquals("[Actron] Missing effect implementations: countAttempt, resetAttempts", it.message)
         }

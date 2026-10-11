@@ -67,18 +67,23 @@ class JournalProbeTest {
 
     private val timeSource = TestTimeSource()
 
-    private fun TestScope.session(policy: PayloadPolicy<AppState, AppAction, AppEvent>? = null, config: JournalConfig = JournalConfig()): RecordingSession =
+    private fun TestScope.session(config: JournalConfig = JournalConfig()): RecordingSession =
         RecordingSession(backgroundScope, id = RuntimeSessionId("s"), group = MachineGroupId("g"), config = config, timeSource = timeSource)
 
     private fun createStore(
-        session: RecordingSession?,
+        session: RecordingSession,
         store: StoreInstanceId,
         policy: PayloadPolicy<AppState, AppAction, AppEvent> = PayloadPolicy.metadataOnly(),
+        exceptionHandler: ExceptionHandler = ExceptionHandler.Rethrow,
+    ): Store<AppState, AppAction, AppEvent> = createStore({ recordTo(session, store, policy) }, exceptionHandler)
+
+    private fun createStore(
+        configure: actron.core.StoreBuilder<AppState, AppAction, AppEvent>.() -> Unit = {},
         exceptionHandler: ExceptionHandler = ExceptionHandler.Rethrow,
     ): Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {
         coroutineContext(UnconfinedTestDispatcher())
         exceptionHandler(exceptionHandler)
-        if (session != null) recordTo(session, store, policy)
+        configure()
         state<AppState.Loading> {
             enter { nextState { AppState.Ready() } }
         }
@@ -266,8 +271,7 @@ class JournalProbeTest {
     @Test
     fun recording_doesNotChangeWhatTheStoreDoes() = runTest {
         val scenario = listOf(AppAction.Increment, AppAction.Unknown, AppAction.Throw, AppAction.Increment, AppAction.Slow)
-        suspend fun run(session: RecordingSession?): List<AppState> {
-            val store = createStore(session, StoreInstanceId("chat-1"), PayloadPolicy.retainAll(), exceptionHandler = ExceptionHandler.Ignore)
+        suspend fun run(store: Store<AppState, AppAction, AppEvent>): List<AppState> {
             val recorder = store.createRecorder()
             store.startAndAwait()
             scenario.forEach { store.dispatchAndAwait(it) }
@@ -275,9 +279,9 @@ class JournalProbeTest {
             return recorder.states
         }
 
-        val withoutJournal = run(null)
+        val withoutJournal = run(createStore(exceptionHandler = ExceptionHandler.Ignore))
         val session = session()
-        val withJournal = run(session)
+        val withJournal = run(createStore(session, StoreInstanceId("chat-1"), PayloadPolicy.retainAll(), ExceptionHandler.Ignore))
 
         assertEquals(withoutJournal, withJournal)
         assertEquals(listOf(AppState.Loading, AppState.Ready(0), AppState.Ready(1), AppState.Failed("boom")), withoutJournal)

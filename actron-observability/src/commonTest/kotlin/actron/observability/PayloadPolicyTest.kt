@@ -11,8 +11,8 @@ class PayloadPolicyTest {
 
     /** An exception whose cause can be set after construction, to build a cycle in common code. */
     private class Cyclic(message: String) : Exception(message) {
-        var next: Throwable? = null
-        override val cause: Throwable? get() = next
+        var next: Throwable = this
+        override val cause: Throwable get() = next
     }
 
     @Test
@@ -24,9 +24,9 @@ class PayloadPolicyTest {
         val descriptor = FailureDescriptor.of(error)
 
         assertEquals("IllegalStateException", descriptor.type)
-        assertNull(descriptor.message)
-        assertEquals("IllegalArgumentException", descriptor.cause?.type)
-        assertNull(descriptor.cause?.message)
+        kotlin.test.assertFalse("message" in descriptor.details.attributes)
+        assertEquals("IllegalArgumentException", descriptor.cause.type)
+        kotlin.test.assertFalse("message" in descriptor.cause.details.attributes)
         assertEquals(listOf("ArithmeticException"), descriptor.suppressed.map { it.type })
         assertEquals("IllegalStateException <- IllegalArgumentException +1 suppressed", JournalFormat.failure(descriptor))
     }
@@ -38,7 +38,7 @@ class PayloadPolicyTest {
         val descriptor = FailureDescriptor.of(error, includeMessages = true)
 
         assertEquals("shown", descriptor.message)
-        assertEquals("also shown", descriptor.cause?.message)
+        assertEquals("also shown", descriptor.cause.message)
         assertEquals("IllegalStateException: shown <- IllegalArgumentException: also shown", JournalFormat.failure(descriptor))
     }
 
@@ -52,8 +52,8 @@ class PayloadPolicyTest {
         val descriptor = FailureDescriptor.of(first, includeMessages = true)
 
         assertEquals("first", descriptor.message)
-        assertEquals("second", descriptor.cause?.message)
-        assertNull(descriptor.cause?.cause, "the cycle back to the first error is not followed")
+        assertEquals("second", descriptor.cause.message)
+        kotlin.test.assertFalse(descriptor.cause.hasCause, "the cycle back to the first error is not followed")
     }
 
     @Test
@@ -61,12 +61,12 @@ class PayloadPolicyTest {
         var deep: Throwable = IllegalStateException("leaf")
         repeat(20) { deep = IllegalStateException("level", deep) }
 
-        var depth = 0
-        var cursor: FailureDescriptor? = FailureDescriptor.of(deep, maxDepth = 3)
-        while (cursor != null) {
-            depth++
-            cursor = cursor.cause
+        fun depthOf(error: FailureDescriptor): Int {
+            var depth = 1
+            error.withCause { depth += depthOf(it) }
+            return depth
         }
+        val depth = depthOf(FailureDescriptor.of(deep, maxDepth = 3))
 
         assertEquals(4, depth, "the error and three causes")
     }
@@ -104,11 +104,9 @@ class PayloadPolicyTest {
     }
 }
 
-// Test projections preserve the previous privacy, cycle and depth assertions verbatim.
-private val FailureDescriptor.type: String? get() = details.attributes["type"]
-private val FailureDescriptor.message: String? get() = details.attributes["message"]
-private val FailureDescriptor.cause: FailureDescriptor? get() {
-    var observed: FailureDescriptor? = null
-    withCause { check(observed == null); observed = it }
-    return observed
-}
+// These projections require the attribute/cause that the test has established.
+private val FailureDescriptor.type: String get() = details.attributes.getValue("type")
+private val FailureDescriptor.message: String get() = details.attributes.getValue("message")
+private val FailureDescriptor.cause: FailureDescriptor get() = buildList<FailureDescriptor> {
+    withCause { add(it) }
+}.single()

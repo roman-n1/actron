@@ -286,16 +286,16 @@ class ViewStoreJvmTest {
     @Test
     fun rememberViewStore_providesCurrentStateAndDispatchesAction() = runTest(testDispatcher) {
         val store = TestStore(UiState.Ready(1))
-        lateinit var viewStore: ViewStore<UiState, UiAction, UiEvent>
+        val viewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
 
         withComposition(
             content = {
-                viewStore = rememberViewStore { store }
+                viewStoreObservations.add(rememberViewStore { store })
             },
             afterSetContent = {
-                assertEquals(UiState.Ready(1), viewStore.state)
+                assertEquals(UiState.Ready(1), viewStoreObservations.last().state)
 
-                viewStore.dispatch(UiAction.Increment)
+                viewStoreObservations.last().dispatch(UiAction.Increment)
                 assertEquals(listOf<UiAction>(UiAction.Increment), store.dispatchedActions)
             },
         )
@@ -304,16 +304,16 @@ class ViewStoreJvmTest {
     @Test
     fun rememberViewStore_withStoreInstanceProvidesCurrentStateAndDispatchesAction() = runTest(testDispatcher) {
         val store = TestStore(UiState.Ready(1))
-        lateinit var viewStore: ViewStore<UiState, UiAction, UiEvent>
+        val viewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
 
         withComposition(
             content = {
-                viewStore = rememberViewStore(store)
+                viewStoreObservations.add(rememberViewStore(store))
             },
             afterSetContent = {
-                assertEquals(UiState.Ready(1), viewStore.state)
+                assertEquals(UiState.Ready(1), viewStoreObservations.last().state)
 
-                viewStore.dispatch(UiAction.Increment)
+                viewStoreObservations.last().dispatch(UiAction.Increment)
                 assertEquals(listOf<UiAction>(UiAction.Increment), store.dispatchedActions)
             },
         )
@@ -322,19 +322,19 @@ class ViewStoreJvmTest {
     @Test
     fun rememberViewStore_keepsSameInstanceWhileStateUpdates() = runTest(testDispatcher) {
         val store = TestStore(UiState.Ready(1))
-        lateinit var viewStore: ViewStore<UiState, UiAction, UiEvent>
+        val viewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
 
         withComposition(
             content = {
-                viewStore = rememberViewStore { store }
+                viewStoreObservations.add(rememberViewStore { store })
             },
             afterSetContent = {
-                val initialViewStore = viewStore
+                val initialViewStore = viewStoreObservations.last()
                 store.state.value = UiState.Ready(2)
                 testScheduler.runCurrent()
 
-                assertSame(initialViewStore, viewStore)
-                assertEquals(UiState.Ready(2), viewStore.state)
+                assertSame(initialViewStore, viewStoreObservations.last())
+                assertEquals(UiState.Ready(2), viewStoreObservations.last().state)
             },
         )
     }
@@ -345,19 +345,19 @@ class ViewStoreJvmTest {
         val recompositionTrigger = mutableStateOf(0)
         var storeCalls = 0
         var latestTriggerValue = -1
-        lateinit var initialViewStore: ViewStore<UiState, UiAction, UiEvent>
-        lateinit var latestViewStore: ViewStore<UiState, UiAction, UiEvent>
+        val initialViewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
+        val latestViewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
 
         withComposition(
             content = {
                 latestTriggerValue = recompositionTrigger.value
-                latestViewStore = rememberViewStore(key = "same") {
+                latestViewStoreObservations.add(rememberViewStore(key = "same") {
                     storeCalls++
                     store
-                }
+                })
             },
             afterSetContent = {
-                initialViewStore = latestViewStore
+                initialViewStoreObservations.add(latestViewStoreObservations.last())
                 assertEquals(1, storeCalls)
                 assertEquals(0, latestTriggerValue)
 
@@ -368,7 +368,7 @@ class ViewStoreJvmTest {
 
         assertEquals(1, latestTriggerValue)
         assertEquals(1, storeCalls)
-        assertSame(initialViewStore, latestViewStore)
+        assertSame(initialViewStoreObservations.last(), latestViewStoreObservations.last())
     }
 
     @Test
@@ -378,7 +378,7 @@ class ViewStoreJvmTest {
         val frameClock = BroadcastFrameClock()
         var frameTimeNanos = 0L
         var key = "first"
-        lateinit var latestViewStore: ViewStore<UiState, UiAction, UiEvent>
+        val latestViewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
 
         suspend fun pumpFrame() {
             testScheduler.runCurrent()
@@ -392,24 +392,24 @@ class ViewStoreJvmTest {
                 val composition = Composition(NoOpApplier(), recomposer)
                 try {
                     composition.setContent {
-                        latestViewStore = rememberViewStore(key = key) {
+                        latestViewStoreObservations.add(rememberViewStore(key = key) {
                             if (key == "first") firstStore else secondStore
-                        }
+                        })
                     }
                     repeat(2) { pumpFrame() }
-                    val initialViewStore = latestViewStore
+                    val initialViewStore = latestViewStoreObservations.last()
 
                     key = "second"
                     composition.setContent {
-                        latestViewStore = rememberViewStore(key = key) {
+                        latestViewStoreObservations.add(rememberViewStore(key = key) {
                             if (key == "first") firstStore else secondStore
-                        }
+                        })
                     }
                     repeat(2) { pumpFrame() }
 
-                    assertNotSame(initialViewStore, latestViewStore)
+                    assertNotSame(initialViewStore, latestViewStoreObservations.last())
 
-                    latestViewStore.dispatch(UiAction.Increment)
+                    latestViewStoreObservations.last().dispatch(UiAction.Increment)
 
                     assertTrue(firstStore.dispatchedActions.isEmpty())
                     assertEquals(listOf<UiAction>(UiAction.Increment), secondStore.dispatchedActions)
@@ -469,48 +469,48 @@ class ViewStoreJvmTest {
     @Test
     fun rememberViewStore_capturedCallbackReadsLatestState() = runTest(testDispatcher) {
         val store = TestStore(UiState.Loading)
-        lateinit var canHide: () -> Boolean
+        val canHideObservations = mutableListOf<() -> Boolean>()
 
         withComposition(
             content = {
                 val viewStore = rememberViewStore { store }
-                canHide = remember {
+                canHideObservations.add(remember {
                     {
                         viewStore.state !is UiState.Busy
                     }
-                }
+                })
             },
             afterSetContent = {
-                assertTrue(canHide())
+                assertTrue(canHideObservations.last()())
                 store.state.value = UiState.Busy
             },
         )
 
-        assertFalse(canHide())
+        assertFalse(canHideObservations.last()())
     }
 
     @Test
     fun stateContent_callbackRunAfterStateTypeChanged_readsLastNarrowedState() = runTest(testDispatcher) {
         val store = TestStore(UiState.Ready(1))
-        lateinit var readValue: () -> Int
+        val readValueObservations = mutableListOf<() -> Int>()
 
         withComposition(
             content = {
                 rememberViewStore { store }.stateContent<UiState.Ready> {
-                    readValue = { state.value }
+                    readValueObservations.add({ state.value })
                 }
             },
             afterSetContent = {
-                assertEquals(1, readValue())
+                assertEquals(1, readValueObservations.last()())
 
                 store.state.value = UiState.Ready(5)
                 testScheduler.runCurrent()
-                assertEquals(5, readValue())
+                assertEquals(5, readValueObservations.last()())
 
                 // A click handler of the Ready content that runs before recomposition removes it.
                 store.state.value = UiState.Loading
                 testScheduler.runCurrent()
-                assertEquals(5, readValue())
+                assertEquals(5, readValueObservations.last()())
             },
         )
     }
@@ -518,20 +518,20 @@ class ViewStoreJvmTest {
     @Test
     fun stateContent_callbackThatNeverReadStateDuringComposition_readsLastNarrowedState() = runTest(testDispatcher) {
         val store = TestStore(UiState.Ready(1))
-        lateinit var readValue: () -> Int
+        val readValueObservations = mutableListOf<() -> Int>()
 
         withComposition(
             content = {
                 rememberViewStore { store }.stateContent<UiState.Ready> {
                     // Reads state only inside the callback, as a click handler does.
-                    readValue = { state.value }
+                    readValueObservations.add({ state.value })
                 }
             },
             afterSetContent = {
                 // A click handler of the Ready content that runs before recomposition removes it.
                 store.state.value = UiState.Loading
                 testScheduler.runCurrent()
-                assertEquals(1, readValue())
+                assertEquals(1, readValueObservations.last()())
             },
         )
     }
@@ -728,14 +728,14 @@ class ViewStoreJvmTest {
             }
         }
 
-        lateinit var viewStore: ViewStore<UiState, UiAction, UiEvent>
+        val viewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
         withComposition(
             content = {
-                viewStore = rememberViewStore { store }
+                viewStoreObservations.add(rememberViewStore { store })
             },
             afterSetContent = {
-                assertEquals(UiState.Ready(0), viewStore.state)
-                viewStore.dispatch(UiAction.Increment)
+                assertEquals(UiState.Ready(0), viewStoreObservations.last().state)
+                viewStoreObservations.last().dispatch(UiAction.Increment)
             },
         )
 
@@ -784,14 +784,14 @@ class ViewStoreJvmTest {
             }
         }
 
-        lateinit var viewStore: ViewStore<UiState, UiAction, UiEvent>
+        val viewStoreObservations = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
 
         withComposition(
             content = {
-                viewStore = rememberViewStore(autoClose = true) { store }
+                viewStoreObservations.add(rememberViewStore(autoClose = true) { store })
             },
             afterSetContent = {
-                assertEquals(UiState.Loading, viewStore.state)
+                assertEquals(UiState.Loading, viewStoreObservations.last().state)
                 assertEquals(UiState.Loading, store.currentState)
                 assertTrue(enterGate.complete(Unit))
                 testScheduler.runCurrent()
@@ -927,7 +927,10 @@ private fun StateNode(state: UiState) {
 
 private class TestNode {
     val children = mutableListOf<TestNode>()
-    var state: UiState? = null
+    val renderHistory = mutableListOf<UiState>()
+    var state: UiState
+        get() = renderHistory.last()
+        set(value) { renderHistory += value }
 
     val singleChild: TestNode
         get() = children.single()

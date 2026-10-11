@@ -17,8 +17,8 @@ class LanesTest {
     private val net = LaneId("net")
     private val scope = ActivationId(1)
 
-    private fun registration(id: Long, policy: ConcurrencyPolicy? = null, lane: LaneId? = policy?.let { net }, scope: ActivationId = this.scope) =
-        CommandRegistration(CommandId(id), "cmd$id", scope, lane ?: CommandLane.Independent, policy ?: ConcurrencyPolicy.Independent)
+    private fun registration(id: Long, policy: ConcurrencyPolicy = ConcurrencyPolicy.Independent, lane: CommandLane = if (policy is ConcurrencyPolicy.Independent) CommandLane.Independent else net, scope: ActivationId = this.scope) =
+        CommandRegistration(CommandId(id), "cmd$id", scope, lane, policy)
 
     @Test
     fun aCommandWithoutALane_startsAtOnce() {

@@ -164,13 +164,13 @@ class RecordingFileSinkTest {
 
         val contents = RecordingFiles(live.storage).read(store, codec)
 
-        assertNull(live.sink.problem)
+        kotlin.test.assertIs<actron.timetravel.RecordingOrigin.InitialSnapshot>(live.sink.origin)
         assertTrue(contents.isComplete, contents.marks.toString())
         val read = checkNotNull(contents.recording)
         assertEquals(recording.steps, read.steps)
         assertEquals(recording.start, read.start)
         assertEquals(0, contents.firstStep)
-        assertNull(ReplaySession(machine, read).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
         assertEquals(listOf(store), RecordingFiles(live.storage).stores())
         assertEquals(RecordingFileStats(recording.length.toLong(), recording.length.toLong(), 0, 1), live.sink.stats)
         assertTrue(RecordingFileFormat.decodeSegment("x", live.storage.read(live.sink.segments.single()), codec).finished, "closed: the segment has its end frame")
@@ -195,10 +195,10 @@ class RecordingFileSinkTest {
         assertTrue(firstStep > 0)
         assertEquals(recording.steps.drop(firstStep), read.steps, "the range is the tail of the run")
         assertEquals(recording.checkpointAt(firstStep), read.start, "it begins with the checkpoint the segment was written with")
-        assertNull(ReplaySession(machine, read).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
         for (name in segments) {
             val decoded = RecordingFileFormat.decodeSegment(name, live.storage.read(name), codec)
-            assertTrue(decoded.start != null && decoded.finished, "$name begins with a checkpoint and was finished")
+            assertTrue(decoded is DecodedRecordingSegment.Readable && decoded.finished, "$name begins with a checkpoint and was finished")
         }
     }
 
@@ -229,7 +229,7 @@ class RecordingFileSinkTest {
         assertEquals(hole.found, firstStep, "the range begins where the hole ends")
         assertEquals(recording.steps.drop(firstStep), read.steps)
         assertEquals(recording.checkpointAt(firstStep), read.start, "the checkpoint includes the dropped steps")
-        assertNull(ReplaySession(machine, read).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
         assertTrue(contents.segments.size >= 1 && live.sink.segments.size == 2, "a new segment began after the hole: ${live.sink.segments}")
     }
 
@@ -251,7 +251,7 @@ class RecordingFileSinkTest {
         assertIs<SegmentMark.TruncatedTail>(truncated.mark)
         val read = checkNotNull(cut.recording)
         assertEquals(recording.steps.take(read.steps.size), read.steps, "a prefix of the run, one step short")
-        assertNull(ReplaySession(machine, read).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
 
         // A damaged byte in the middle of the first segment: the range starts over at the next one.
         live.storage.corrupt(segments[0], live.storage.list().first { it.name == segments[0] }.size.toInt() / 2)
@@ -261,7 +261,7 @@ class RecordingFileSinkTest {
         val firstStep = checkNotNull(damaged.firstStep)
         assertTrue(firstStep > 0, "the range does not cross the damage")
         assertEquals(recording.checkpointAt(firstStep), after.start)
-        assertNull(ReplaySession(machine, after).verify())
+        kotlin.test.assertFalse(ReplaySession(machine, after).verify() { error("Unexpected replay mismatch: $it") })
         assertEquals(segments.drop(1).dropLast(0), damaged.segments.let { it.take(segments.size - 1) }, "read from the segment after the damaged one")
     }
 }

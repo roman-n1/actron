@@ -21,4 +21,4 @@ kotlin {
         getByName("androidHostTest").dependencies { implementation("org.mockito:mockito-core:5.20.0") }
     }
 }
-publishConvention { artifactId = "actron-diagnostics-crashlytics" }
+publishConvention { artifactId.set("actron-diagnostics-crashlytics") }

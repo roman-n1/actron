@@ -4,12 +4,8 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import org.gradle.api.publish.maven.MavenPomDeveloperSpec
 import org.gradle.api.publish.maven.MavenPomLicenseSpec
 
-/**
- * @param forkUrl repository of a fork that publishes these artifacts; when set, the POM points
- *   there and lists the fork's maintainer next to koma-kt.
- */
-internal fun MavenPublishBaseExtension.pom(forkUrl: String? = null) {
-    val repoUrl = forkUrl ?: "https://github.com/roman-n1/actron/"
+/** Repository identity used by the published POM; forks additionally credit their owner. */
+internal fun MavenPublishBaseExtension.pom(repoUrl: String, fork: Boolean) {
     val repoPath = repoUrl.removePrefix("https://github.com/").removeSuffix("/")
     pom {
         name.set("Actron")
@@ -18,7 +14,7 @@ internal fun MavenPublishBaseExtension.pom(forkUrl: String? = null) {
         url.set(repoUrl)
         developers {
             upstreamKoma()
-            if (forkUrl != null) {
+            if (fork) {
                 val owner = repoPath.substringBefore("/")
                 developer {
                     id.set(owner)

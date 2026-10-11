@@ -39,9 +39,13 @@ class StateChartModelPropertyTest {
         }
     }
 
-    private fun naiveMatches(matcher: ActionMatcher?, action: Action): Boolean = if (matcher == null) false else when (val matching = matcher.matching) {
-        ActionMatching.ByName -> action::class.simpleName == matcher.name
-        is ActionMatching.ByType -> matching.type.isInstance(action)
+    private fun naiveMatches(trigger: Trigger, action: Action): Boolean {
+        if (trigger !is Trigger.OnAction) return false
+        val matcher = trigger.matcher
+        return when (val matching = matcher.matching) {
+            ActionMatching.ByName -> action::class.simpleName == matcher.name
+            is ActionMatching.ByType -> matching.type.isInstance(action)
+        }
     }
 
     private fun referenceIssues(chart: StateChartDefinition, samples: List<Action> = emptyList()): List<ValidationIssue> {
@@ -66,20 +70,20 @@ class StateChartModelPropertyTest {
         val keys = mutableListOf<Pair<StateId, ActionMatcher>>()
         for (t in chart.transitions) {
             val on = (t.trigger as? actron.statechart.Trigger.OnAction)?.matcher ?: continue
-            if ((t.guard as? actron.statechart.GuardKey)?.name == null && (t.source to on) !in keys) keys += t.source to on
+            if (t.guard is GuardCondition.Unconditional && (t.source to on) !in keys) keys += t.source to on
         }
         for ((source, on) in keys) {
-            val group = chart.transitions.filter { (it.guard as? actron.statechart.GuardKey)?.name == null && it.source == source && (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher == on }
+            val group = chart.transitions.filter { it.guard is GuardCondition.Unconditional && it.source == source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == on }
             if (group.size > 1) issues += ValidationIssue.AmbiguousTransitions(source, on, group)
         }
         val sources = mutableListOf<StateId>()
-        for (t in chart.transitions) if ((t.guard as? actron.statechart.GuardKey)?.name == null && t.source !in sources) sources += t.source
+        for (t in chart.transitions) if (t.guard is GuardCondition.Unconditional && t.source !in sources) sources += t.source
         val distinctSamples = mutableListOf<Action>()
         for (sample in samples) if (sample !in distinctSamples) distinctSamples += sample
         for (source in sources) {
             for (sample in distinctSamples) {
-                val group = chart.transitions.filter { (it.guard as? actron.statechart.GuardKey)?.name == null && it.source == source && naiveMatches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, sample) }
-                if (group.any { (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher != (group.first().trigger as? Trigger.OnAction)?.matcher }) issues += ValidationIssue.ShadowedTransitions(source, sample, group)
+                val group = chart.transitions.filter { it.guard is GuardCondition.Unconditional && it.source == source && naiveMatches(it.trigger, sample) }
+                if (group.any { (it.trigger as actron.statechart.Trigger.OnAction).matcher != (group.first().trigger as? Trigger.OnAction)?.matcher }) issues += ValidationIssue.ShadowedTransitions(source, sample, group)
             }
         }
         return issues
@@ -210,7 +214,7 @@ class StateChartModelPropertyTest {
             "seed $seed: $issues",
         )
         val sound = chart.reachableStates().containsAll(chart.states.map { it.id }) &&
-            chart.transitions.filter { (it.guard as? actron.statechart.GuardKey)?.name == null }.groupBy { it.source to (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher }.values.all { it.size == 1 }
+            chart.transitions.filter { it.guard is GuardCondition.Unconditional }.groupBy { it.source to (it.trigger as actron.statechart.Trigger.OnAction).matcher }.values.all { it.size == 1 }
         assertEquals(sound, issues.isEmpty(), "seed $seed")
     }
 
@@ -221,11 +225,11 @@ class StateChartModelPropertyTest {
             when (issue) {
                 is ValidationIssue.AmbiguousTransitions -> {
                     assertTrue(issue.transitions.size >= 2, "seed $seed")
-                    assertTrue(issue.transitions.all { it.source == issue.source && (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher == issue.on && (it.guard as? actron.statechart.GuardKey)?.name == null }, "seed $seed")
+                    assertTrue(issue.transitions.all { it.source == issue.source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == issue.on && it.guard is GuardCondition.Unconditional }, "seed $seed")
                     // The group keeps declaration order and is complete.
                     assertEquals(chart.transitions.filter { it in issue.transitions }, issue.transitions, "seed $seed")
                     assertEquals(
-                        chart.transitions.count { it.source == issue.source && (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher == issue.on && (it.guard as? actron.statechart.GuardKey)?.name == null },
+                        chart.transitions.count { it.source == issue.source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == issue.on && it.guard is GuardCondition.Unconditional },
                         issue.transitions.size,
                         "seed $seed",
                     )
@@ -276,11 +280,11 @@ class StateChartModelPropertyTest {
     fun everyShadowingIsJustified() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
         for (issue in chart.validate(RandomCharts.actions).filterIsInstance<ValidationIssue.ShadowedTransitions>()) {
             val group = issue.transitions
-            assertTrue(group.size >= 2 && group.map { (it.trigger as? actron.statechart.Trigger.OnAction)?.matcher }.distinct().size >= 2, "seed $seed: $issue")
-            assertTrue(group.all { it.source == issue.source && (it.guard as? actron.statechart.GuardKey)?.name == null && naiveMatches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, issue.sample) }, "seed $seed")
+            assertTrue(group.size >= 2 && group.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }.distinct().size >= 2, "seed $seed: $issue")
+            assertTrue(group.all { it.source == issue.source && it.guard is GuardCondition.Unconditional && naiveMatches(it.trigger, issue.sample) }, "seed $seed")
             // Complete and in declaration order: the first one is what the runtime takes.
             assertEquals(
-                chart.transitions.filter { it.source == issue.source && (it.guard as? actron.statechart.GuardKey)?.name == null && naiveMatches((it.trigger as? actron.statechart.Trigger.OnAction)?.matcher, issue.sample) },
+                chart.transitions.filter { it.source == issue.source && it.guard is GuardCondition.Unconditional && naiveMatches(it.trigger, issue.sample) },
                 group,
                 "seed $seed",
             )
@@ -336,7 +340,7 @@ class StateChartModelPropertyTest {
         assertEquals("stateDiagram-v2", lines.first(), "seed $seed")
         val declaration = Regex("^ {4}state \"([^\"]*)\" as ([A-Za-z_][A-Za-z0-9_]*)$")
         val declarations = lines.drop(1).takeWhile { declaration.matches(it) }.map {
-            val match = declaration.matchEntire(it)!!
+            val match = kotlin.test.assertNotNull(declaration.matchEntire(it))
             match.groupValues[1] to match.groupValues[2]
         }
         val initialLine = lines[1 + declarations.size]
@@ -366,7 +370,7 @@ class StateChartModelPropertyTest {
             assertEquals(refOf.getValue(chart.initial), parsed.initialRef, "seed $seed")
             assertEquals(
                 chart.transitions.map { t ->
-                    "    ${refOf.getValue(t.source)} --> ${refOf.getValue(t.target)} : ${(t.trigger as? actron.statechart.Trigger.OnAction)?.matcher!!.name}" + ((t.guard as? actron.statechart.GuardKey)?.name?.let { " [$it]" } ?: "")
+                    "    ${refOf.getValue(t.source)} --> ${refOf.getValue(t.target)} : ${kotlin.test.assertNotNull((t.trigger as? actron.statechart.Trigger.OnAction)?.matcher).name}" + ((t.guard as? actron.statechart.GuardKey)?.name?.let { " [$it]" } ?: "")
                 },
                 parsed.transitionLines,
                 "seed $seed",
@@ -492,7 +496,7 @@ class StateChartModelPropertyTest {
     fun matchesEqualsNaiveDefinition() {
         val samples: List<Action> = RandomCharts.actions + object : Action {}
         for (matcher in RandomCharts.matchers) {
-            for (action in samples) assertEquals(naiveMatches(matcher, action), matcher.matches(action), "$matcher $action")
+            for (action in samples) assertEquals(naiveMatches(Trigger.OnAction(matcher), action), matcher.matches(action), "$matcher $action")
         }
     }
 

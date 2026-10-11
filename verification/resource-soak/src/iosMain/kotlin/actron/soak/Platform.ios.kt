@@ -15,7 +15,6 @@ import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.rawValue
 import kotlinx.coroutines.delay
 import kotlin.native.runtime.GC
-import platform.Foundation.NSFileManager
 import platform.Foundation.NSProcessInfo
 import platform.darwin.MACH_TASK_BASIC_INFO
 import platform.darwin.MACH_TASK_BASIC_INFO_COUNT
@@ -62,9 +61,25 @@ actual object SoakPlatform {
         return MemorySample(heap, heap, resident, threads)
     }
     actual fun blockingDelay(milliseconds: Long) { usleep((milliseconds * 1000).convert()) }
-    private fun mkdir(path: String) { check(NSFileManager.defaultManager.createDirectoryAtPath(path, true, null, null)) }
+    private fun mkdir(path: String) {
+        var prefix = if (path.startsWith('/')) "/" else ""
+        for (part in path.split('/').filter { it.isNotEmpty() }) {
+            prefix += part + "/"
+            if (platform.posix.mkdir(prefix, platform.posix.S_IRWXU.convert()) != 0) {
+                val directory = checkNotNull(platform.posix.opendir(prefix)) { "Cannot create $prefix" }
+                check(platform.posix.closedir(directory) == 0)
+            }
+        }
+    }
     actual fun directory(batch: Int): String = "$reportDirectory/batch-$batch".also(::mkdir)
-    actual fun removeDirectory(path: String) { check(NSFileManager.defaultManager.removeItemAtPath(path, null)) }
+    actual fun removeDirectory(path: String) {
+        // A batch owns a flat segment directory, released only after every writer has closed.
+        val directory = checkNotNull(platform.posix.opendir(path)) { "Missing batch directory $path" }
+        check(platform.posix.closedir(directory) == 0)
+        val storage = actron.observability.file.FileSegmentStorage(path)
+        for (entry in storage.list()) storage.delete(entry.name)
+        check(platform.posix.rmdir(path) == 0) { "Cannot release batch directory $path" }
+    }
     actual fun writeReport(name: String, content: String) {
         mkdir(reportDirectory)
         val output = checkNotNull(fopen("$reportDirectory/$name", "wb"))
@@ -77,5 +92,5 @@ actual object SoakPlatform {
 
 internal actual fun weakWitness(value: Any): WeakWitness {
     val reference = kotlin.native.ref.WeakReference(value)
-    return object : WeakWitness { override val isAlive get() = reference.get() != null }
+    return object : WeakWitness { override val isAlive get() = reference.get() is Any }
 }

@@ -68,8 +68,8 @@ class JournalFileSinkTest {
     private val group = MachineGroupId("g")
     private val store = StoreInstanceId("s")
 
-    private fun record(seq: Long, entry: JournalEntry<*, *, *>, session: RuntimeSessionId = this.session, store: StoreInstanceId? = this.store) =
-        JournalRecord(JOURNAL_FORMAT_VERSION, session, group, store ?: actron.observability.RecordSubject.Session, ExecutionMode.Live, GroupSeq(seq), store?.let { StoreSeq(seq) } ?: actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
+    private fun record(seq: Long, entry: JournalEntry<*, *, *>, session: RuntimeSessionId = this.session, store: actron.observability.RecordSubject = this.store) =
+        JournalRecord(JOURNAL_FORMAT_VERSION, session, group, store, ExecutionMode.Live, GroupSeq(seq), if (store is StoreInstanceId) StoreSeq(seq) else actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
 
     @Test
     fun whatTheSessionPublishes_isReadBack_withRetainedPayloadsAsText() = runTest {
@@ -186,7 +186,7 @@ class JournalFileSinkTest {
         sink.write(record(1, JournalEntry.ProcessingStarted(InputId(1), 1)))
         sink.write(record(2, JournalEntry.ProcessingStarted(InputId(2), 2)))
         // Records 3 and 4 were dropped for the sinks; the gap record has the next number.
-        sink.write(record(5, JournalEntry.JournalGap(2), store = null))
+        sink.write(record(5, JournalEntry.JournalGap(2), store = actron.observability.RecordSubject.Session))
         sink.write(record(6, JournalEntry.ProcessingStarted(InputId(3), 3)))
         // Records 7 and 8 are simply not there.
         sink.write(record(9, JournalEntry.ProcessingStarted(InputId(4), 4)))

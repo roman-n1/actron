@@ -39,3 +39,15 @@ gradlePlugin {
         }
     }
 }
+
+// Audit this independent build before generated Gradle/IDE ABI is introduced.
+val actronRepository = rootProject.projectDir.parentFile
+val nullabilityPolicyJar = project(":nullability-policy").layout.buildDirectory.file("libs/nullability-policy.jar")
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    dependsOn(":nullability-policy:compilerTest")
+    inputs.files(nullabilityPolicyJar, actronRepository.resolve(".actron/nullability/strict"))
+    compilerOptions.freeCompilerArgs.addAll(
+        "-Xplugin=${nullabilityPolicyJar.get().asFile.absolutePath}",
+        "-P", "plugin:actron-nullability:root=${actronRepository.absolutePath}",
+    )
+}

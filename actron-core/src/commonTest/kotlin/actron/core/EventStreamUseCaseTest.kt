@@ -66,15 +66,15 @@ class EventStreamUseCaseTest {
 
     // Mock implementation for testing
     class MockEventProvider : EventProvider {
-        private var onEvent: ((DataEvent) -> Unit)? = null
-        private var onError: ((Throwable) -> Unit)? = null
+        private var onEvent: (DataEvent) -> Unit = {}
+        private var onError: (Throwable) -> Unit = {}
         private var isRegistered = false
 
         private val registrationHandle = object : EventProvider.RegistrationHandle {
             override fun unregister() {
                 isRegistered = false
-                onEvent = null
-                onError = null
+                onEvent = {}
+                onError = {}
             }
         }
 
@@ -90,13 +90,13 @@ class EventStreamUseCaseTest {
 
         fun emitEvent(event: DataEvent) {
             if (isRegistered) {
-                onEvent?.invoke(event)
+                onEvent(event)
             }
         }
 
         fun emitError(error: Throwable) {
             if (isRegistered) {
-                onError?.invoke(error)
+                onError(error)
             }
         }
     }
@@ -122,7 +122,7 @@ class EventStreamUseCaseTest {
     // Actron State definitions
     sealed interface AppState : State {
         data object Idle : AppState
-        data class Active(val lastProcessedData: String? = null) : AppState
+        data class Active(val processedData: List<String> = emptyList()) : AppState
         data class Error(val error: Throwable) : AppState
     }
 
@@ -155,7 +155,7 @@ class EventStreamUseCaseTest {
                                 onSuccess = { event ->
                                     transaction {
                                         // Update state with new data while staying in Active state
-                                        nextState { AppState.Active(lastProcessedData = event.data) }
+                                        nextState { AppState.Active(processedData = state.processedData + event.data) }
                                     }
                                 },
                                 onFailure = { error ->
@@ -210,7 +210,7 @@ class EventStreamUseCaseTest {
         // State should update with the processed data
         val stateAfterFirstEvent = store.currentState
         assertIs<AppState.Active>(stateAfterFirstEvent)
-        assertEquals(firstEvent.data, stateAfterFirstEvent.lastProcessedData)
+        assertEquals(firstEvent.data, stateAfterFirstEvent.processedData.last())
 
         // Simulate receiving second event - should continue to process in Active state
         val secondEvent = DataEvent("second-data", 1234567891L) // Fixed timestamp for test
@@ -219,7 +219,7 @@ class EventStreamUseCaseTest {
         // State should update again with the new data
         val stateAfterSecondEvent = store.currentState
         assertIs<AppState.Active>(stateAfterSecondEvent)
-        assertEquals(secondEvent.data, stateAfterSecondEvent.lastProcessedData)
+        assertEquals(secondEvent.data, stateAfterSecondEvent.processedData.last())
 
         // Unsubscribe
         store.dispatch(AppAction.Unsubscribe)
