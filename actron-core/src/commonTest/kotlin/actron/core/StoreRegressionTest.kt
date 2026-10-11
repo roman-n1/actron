@@ -21,8 +21,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -605,7 +603,7 @@ class StoreRegressionTest {
             store.dispatch(EmitFromLaunch)
             assertEquals("rejected", withTimeout(10_000) { outcome.await() })
             // The Store is not stuck.
-            withTimeoutOrNull(5_000) { store.dispatchAndAwaitForTest(Poke) }
+            withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
         }
         store.close()
     }
@@ -631,7 +629,7 @@ class StoreRegressionTest {
         withContext(Dispatchers.Default) {
             // Awaiting Linger itself would wait for its child; the next dispatch must not.
             store.dispatch(Linger)
-            withTimeoutOrNull(5_000) { store.dispatchAndAwaitForTest(Poke) }
+            withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
         }
 
         assertEquals(1, pokes)
