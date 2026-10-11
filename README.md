@@ -71,6 +71,7 @@ engine that gives them structure.
 | Connect a Store to Compose | [actron-compose](actron-compose/README.md) |
 | Reproduce a bug from a saved run | [The runnable Time Travel example](examples/time-travel/README.md) |
 | Explore MVI, a live API and an embeddable debug panel | [The Multiplatform weather demo](examples/weather/README.md) |
+| Reproduce cancellation, failure and recovery for a Time Travel walkthrough | [The scripted article scenario](examples/weather/README.md#a-repeatable-story-for-an-article) |
 | Handle retained effects across process death | [The durable outbox example](examples/durable-effects/README.md) |
 | Look up the full original Store DSL | [Store API guide](doc/guides/store-api.md) |
 

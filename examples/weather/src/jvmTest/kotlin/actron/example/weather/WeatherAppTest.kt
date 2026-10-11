@@ -24,6 +24,29 @@ import kotlin.test.Test
 
 class WeatherAppTest {
     @Test
+    fun articleWorkflow_opensHistory_andNamedCheckpointsChangeTheScreenWithoutLoads() = runComposeUiTest {
+        val api = ArticleWeatherApi()
+        setContent { MaterialTheme { WeatherApp(api, "Article scenario · fixed responses · no network", Modifier.width(1180.dp).height(900.dp)) } }
+        waitUntil(timeoutMillis = 15_000) { onAllNodesWithTag("time-travel-panel").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("weather-network-count").performScrollTo().assertTextContains("Load calls: 5", substring = true)
+        onNodeWithTag("article-seek-Connection failed").assertIsDisplayed().performClick()
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("Article fixture: connection unavailable").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("article-seek-Before failure").assertIsDisplayed().performClick()
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("Loading weather…").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("article-seek-Recovered · wind").assertIsDisplayed().performClick()
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("Strong wind: keep your walk short").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("weather-network-count").performScrollTo().assertTextContains("Load calls: 5", substring = true)
+        onNodeWithTag("weather-placement").performClick()
+        onNodeWithTag("weather-placement-Right").performClick()
+        onNodeWithTag("weather-preview").performScrollTo()
+        val bitmap = onRoot().captureToImage().asSkiaBitmap()
+        org.jetbrains.skia.Image.makeFromBitmap(bitmap).use { image ->
+            val directory = java.io.File("build/previews").also { it.mkdirs() }
+            java.io.File(directory, "weather-article.png").writeBytes(checkNotNull(image.encodeToData()).bytes)
+        }
+    }
+
+    @Test
     fun desktopWorkflow_keepsWeatherVisible_inEveryDockPlacement() = runComposeUiTest {
         setContent { MaterialTheme { WeatherApp(SampleWeatherApi, "Offline sample", Modifier.width(1180.dp).height(900.dp)) } }
         waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Choose a city, then capture its history").fetchSemanticsNodes().isNotEmpty() }

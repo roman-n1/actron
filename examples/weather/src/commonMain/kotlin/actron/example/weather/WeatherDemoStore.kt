@@ -11,14 +11,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 enum class WeatherPage { Cities, Weather }
 enum class DemoStartup { Starting, Ready, Failed }
 enum class CaptureStatus { Available, Capturing }
+enum class ArticleStatus { Disabled, Running, Completed, Failed }
 
 sealed interface DemoPlayback {
     data object Live : DemoPlayback
@@ -45,6 +48,10 @@ data class WeatherDemoState(
     val page: WeatherPage = WeatherPage.Cities,
     val placement: PanelPlacement = PanelPlacement.Bottom,
     val status: String = "Starting three machines…",
+    val article: ArticleStatus = ArticleStatus.Disabled,
+    val articleStage: ArticleStage = ArticleStage.FirstCity,
+    val articleRequests: List<ArticleRequest> = emptyList(),
+    val articleCheckpoints: List<ArticleCheckpoint> = emptyList(),
 ) : State
 
 sealed interface DemoIntent : Action {
@@ -60,6 +67,10 @@ sealed interface DemoIntent : Action {
     data class Captured(val history: WeatherRuntime.History) : DemoIntent
     data class LiveUpdated(val view: WeatherView) : DemoIntent
     data class PreviewUpdated(val history: WeatherRuntime.History, val view: WeatherView) : DemoIntent
+    data object RunArticle : DemoIntent
+    data class ArticleProgress(val stage: ArticleStage) : DemoIntent
+    data class ArticleRequests(val requests: List<ArticleRequest>) : DemoIntent
+    data class ArticleSeek(val checkpoint: ArticleCheckpoint) : DemoIntent
 }
 
 /** A real Actron MVI Store: serialized intents, pure reducer, lifecycle-owned effects. */
@@ -67,16 +78,23 @@ class WeatherDemoStore(api: WeatherApi, parentScope: CoroutineScope) {
     private val scope = CoroutineScope(parentScope.coroutineContext + SupervisorJob(parentScope.coroutineContext[Job]))
     val runtime = WeatherRuntime(api, scope)
     private val previewJobs = mutableListOf<Job>()
-    val store: Store<WeatherDemoState, DemoIntent, NoEvent> = Store(WeatherDemoState(), context = scope.coroutineContext) {
+    val store: Store<WeatherDemoState, DemoIntent, NoEvent> = Store(WeatherDemoState(article = if (api is ArticleWeatherApi) ArticleStatus.Running else ArticleStatus.Disabled), context = scope.coroutineContext) {
         state<WeatherDemoState> {
             enter {
+                if (api is ArticleWeatherApi) subscribe {
+                    api.requests.collect { store.dispatch(DemoIntent.ArticleRequests(it)) }
+                }
                 subscribe {
                     combine(runtime.location.state, runtime.weather.state, runtime.advice.state, runtime.networkCalls) { location, weather, advice, calls ->
                         weatherView(location, weather, advice, calls, "Live")
                     }.collect { store.dispatch(DemoIntent.LiveUpdated(it)) }
                 }
                 launch {
-                    try { runtime.start(); store.dispatch(DemoIntent.Started) }
+                    try {
+                        runtime.start()
+                        store.dispatch(DemoIntent.Started)
+                        if (api is ArticleWeatherApi) store.dispatch(DemoIntent.RunArticle)
+                    }
                     catch (cancelled: CancellationException) { throw cancelled }
                     catch (error: Exception) { store.dispatch(DemoIntent.Failed(error.message ?: "Could not start weather machines")) }
                 }
@@ -86,20 +104,37 @@ class WeatherDemoStore(api: WeatherApi, parentScope: CoroutineScope) {
                 val intent = action
                 nextState { reduceWeatherDemo(previous, intent) }
                 when (intent) {
-                    is DemoIntent.Choose -> if (previous.playback is DemoPlayback.Live && previous.startup == DemoStartup.Ready) runtime.choose(intent.city)
-                    DemoIntent.Refresh -> if (previous.playback is DemoPlayback.Live && previous.startup == DemoStartup.Ready) runtime.refresh()
-                    DemoIntent.Capture -> if (previous.startup == DemoStartup.Ready && previous.capture == CaptureStatus.Available) launch {
+                    is DemoIntent.Choose -> if (interactive(previous)) runtime.choose(intent.city)
+                    DemoIntent.Refresh -> if (interactive(previous)) runtime.refresh()
+                    DemoIntent.Capture -> if (previous.article != ArticleStatus.Running && previous.startup == DemoStartup.Ready && previous.capture == CaptureStatus.Available) launch {
                         try { store.dispatch(DemoIntent.Captured(runtime.freeze())) }
                         catch (cancelled: CancellationException) { throw cancelled }
                         catch (error: Exception) { store.dispatch(DemoIntent.Failed(error.message ?: "Could not capture history")) }
                     }
                     is DemoIntent.Captured -> if (previous.capture == CaptureStatus.Capturing) { cancelPreview(); observePreview(intent.history) }
                     DemoIntent.ReturnLive -> {
-                        cancelPreview()
-                        store.dispatch(DemoIntent.LiveUpdated(weatherView(runtime.location.currentState, runtime.weather.currentState, runtime.advice.currentState, runtime.networkCalls.value, "Live")))
+                        if (previous.article != ArticleStatus.Running) {
+                            cancelPreview()
+                            store.dispatch(DemoIntent.LiveUpdated(weatherView(runtime.location.currentState, runtime.weather.currentState, runtime.advice.currentState, runtime.networkCalls.value, "Live")))
+                        }
                     }
-                    DemoIntent.RunChaos -> if (previous.playback is DemoPlayback.Live && previous.startup == DemoStartup.Ready) launch {
+                    DemoIntent.RunChaos -> if (interactive(previous)) launch {
                         for (city in demoCities.take(3)) { runtime.choose(city); delay(75) }
+                    }
+                    DemoIntent.RunArticle -> if (api is ArticleWeatherApi && previous.article == ArticleStatus.Running && previous.startup == DemoStartup.Ready && previous.capture == CaptureStatus.Available) launch {
+                        try {
+                            val history = withTimeout(20_000) { runArticleScenario(api, runtime) { store.dispatch(DemoIntent.ArticleProgress(it)) } }
+                            store.dispatch(DemoIntent.Captured(history))
+                        } catch (timeout: TimeoutCancellationException) { store.dispatch(DemoIntent.Failed("Article scenario timed out; start a fresh session"))
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (error: Exception) { store.dispatch(DemoIntent.Failed(error.message ?: "Article scenario failed")) }
+                    }
+                    is DemoIntent.ArticleSeek -> {
+                        val playback = previous.playback
+                        if (previous.article == ArticleStatus.Completed && playback is DemoPlayback.History && intent.checkpoint in previous.articleCheckpoints) {
+                            playback.recording.controls.returnToReplay()
+                            playback.recording.controls.replay.seek(intent.checkpoint.position)
+                        }
                     }
                     else -> Unit
                 }
@@ -124,19 +159,28 @@ class WeatherDemoStore(api: WeatherApi, parentScope: CoroutineScope) {
 
 /** Reducer has no IO, delays, mutable state or clock reads. Stale preview results are ignored. */
 fun reduceWeatherDemo(state: WeatherDemoState, intent: DemoIntent): WeatherDemoState = when (intent) {
-    is DemoIntent.Choose -> if (state.playback is DemoPlayback.Live && state.startup == DemoStartup.Ready) state.copy(page = WeatherPage.Weather) else state
+    is DemoIntent.Choose -> if (interactive(state)) state.copy(page = WeatherPage.Weather) else state
     DemoIntent.Refresh -> state
-    DemoIntent.Capture -> if (state.startup == DemoStartup.Ready && state.capture == CaptureStatus.Available) state.copy(capture = CaptureStatus.Capturing) else state
-    DemoIntent.ReturnLive -> state.copy(playback = DemoPlayback.Live, capture = CaptureStatus.Available, status = "Back to live weather")
-    DemoIntent.ShowCities -> state.copy(page = WeatherPage.Cities)
-    DemoIntent.RunChaos -> if (state.playback is DemoPlayback.Live && state.startup == DemoStartup.Ready) state.copy(page = WeatherPage.Weather, status = "Rapid city changes: previous loads cancel; the last choice wins") else state
+    DemoIntent.Capture -> if (state.article != ArticleStatus.Running && state.startup == DemoStartup.Ready && state.capture == CaptureStatus.Available) state.copy(capture = CaptureStatus.Capturing) else state
+    DemoIntent.ReturnLive -> if (state.article == ArticleStatus.Running) state else state.copy(playback = DemoPlayback.Live, capture = CaptureStatus.Available, status = "Back to live weather")
+    DemoIntent.ShowCities -> if (state.article == ArticleStatus.Disabled) state.copy(page = WeatherPage.Cities) else state
+    DemoIntent.RunChaos -> if (interactive(state)) state.copy(page = WeatherPage.Weather, status = "Rapid city changes: previous loads cancel; the last choice wins") else state
     is DemoIntent.PlacePanel -> state.copy(placement = intent.placement)
     DemoIntent.Started -> state.copy(startup = DemoStartup.Ready, status = "Choose a city, then capture its history")
-    is DemoIntent.Failed -> state.copy(startup = if (state.startup == DemoStartup.Starting) DemoStartup.Failed else state.startup, capture = CaptureStatus.Available, status = intent.message)
-    is DemoIntent.Captured -> if (state.capture == CaptureStatus.Capturing) state.copy(playback = DemoPlayback.History(intent.history), capture = CaptureStatus.Available, page = WeatherPage.Weather, status = "History captured: replay is offline") else state
+    is DemoIntent.Failed -> state.copy(startup = if (state.startup == DemoStartup.Starting) DemoStartup.Failed else state.startup, capture = CaptureStatus.Available, status = intent.message, article = if (state.article == ArticleStatus.Running) ArticleStatus.Failed else state.article)
+    is DemoIntent.Captured -> if (state.capture == CaptureStatus.Capturing) state.copy(playback = DemoPlayback.History(intent.history), capture = CaptureStatus.Available, page = WeatherPage.Weather,
+        article = if (state.article == ArticleStatus.Running) ArticleStatus.Completed else state.article,
+        articleCheckpoints = if (state.article == ArticleStatus.Running) articleCheckpoints(intent.history) else state.articleCheckpoints,
+        status = if (state.article == ArticleStatus.Running) "Article history ready: five loads, two cancellations, one failure. Replay makes no new requests." else "History captured: replay is offline") else state
     is DemoIntent.LiveUpdated -> if (state.playback is DemoPlayback.Live) state.copy(view = intent.view) else state
     is DemoIntent.PreviewUpdated -> if (state.playback == DemoPlayback.History(intent.history)) state.copy(view = intent.view) else state
+    DemoIntent.RunArticle -> if (state.article == ArticleStatus.Running && state.startup == DemoStartup.Ready && state.capture == CaptureStatus.Available) state.copy(page = WeatherPage.Weather, capture = CaptureStatus.Capturing, status = state.articleStage.description) else state
+    is DemoIntent.ArticleProgress -> if (state.article == ArticleStatus.Running) state.copy(articleStage = intent.stage, status = intent.stage.description) else state
+    is DemoIntent.ArticleRequests -> if (state.article != ArticleStatus.Disabled) state.copy(articleRequests = intent.requests) else state
+    is DemoIntent.ArticleSeek -> state
 }
+
+private fun interactive(state: WeatherDemoState) = state.article == ArticleStatus.Disabled && state.playback is DemoPlayback.Live && state.startup == DemoStartup.Ready
 
 private fun weatherView(location: actron.statechart.machine.MachineSnapshot<*>, weather: actron.statechart.machine.MachineSnapshot<*>, advice: actron.statechart.machine.MachineSnapshot<*>, calls: Int, mode: String): WeatherView {
     val city = (location.context as LocationContext).city

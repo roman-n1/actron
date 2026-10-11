@@ -11,6 +11,11 @@ UI in a browser.
 # Explicit sample data, useful without a network connection
 ./gradlew :weather-example:run --args='--offline'
 
+# Fixed article story: cancellation, failure, recovery and automatic capture
+./gradlew :weather-example:run --args='--article'
+# Check the same story, including replay, without opening a window
+./gradlew :weather-example:run --args='--check-article'
+
 # Verify recorded responses, replay and branching without a window
 ./gradlew :weather-example:run --args='--check'
 # The same check against the real API (requires network)
@@ -28,6 +33,45 @@ the application does not silently replace live results with sample data.
 The explicit offline scenario adds 1.2 seconds of synthetic latency, so rapid selections
 exercise cancellation even without an internet connection. Replay retains the resulting
 inputs and never repeats that delay or runs the sample loader.
+
+## A repeatable story for an article
+
+Launch with `--article`. The scenario starts automatically, takes about five seconds and
+uses **scripted data with no HTTP requests**. In the browser, add `?scenario=article` to
+the development server URL. Open a fresh desktop session or reload that browser URL to repeat
+the story with a new journal and reset request counter.
+
+| Request | Controlled behaviour | Visible result |
+| --- | --- | --- |
+| 1 · Novosibirsk | Hold the response; choose Lisbon after 700 ms | The old loading activation is cancelled |
+| 2 · Lisbon | Hold the response; choose Tokyo after 700 ms | The second loading activation is cancelled |
+| 3 · Tokyo | Release the response; delay 600 ms | Ready, 24°C, wind 12 km/h; comfortable advice |
+| 4 · Tokyo refresh | Delay 800 ms; throw a scripted connection failure | Failed with the recorded error message |
+| 5 · Tokyo retry | Delay 800 ms; return wind 55 km/h | Ready; Advice transitions to Windy |
+
+There is a 600 ms viewing pause before the refresh and retry. The driver waits for each
+request to start, the old requests to cancel and the bridged advice to settle. Response gates
+hold the first two loads, so cancellation does not depend on two delays racing. Machine
+definitions and handlers are the same as in interactive mode. Manual city changes and refreshes
+are disabled in this finite scenario; experiments remain available after capture.
+
+At the end, a consistent group history is captured automatically. The **Original run** card
+lists the five request outcomes and stays fixed while the historical app preview changes.
+Named checkpoints above the app and panel provide a short walkthrough:
+
+1. **Calm weather** shows the first successful Tokyo answer. Step forward to see Advice consume
+   the bridge effect and become Comfortable.
+2. **Before failure** shows Loading with an awaiting command. Choose **Experiment here** and
+   answer it with a recorded response or different weather; the live loader does not run.
+3. **Connection failed** shows the original error. Step backward to inspect the input that
+   caused it, then forward through the retry.
+4. **Recovered · wind** shows the final weather and Windy recommendation. **Verify** re-decides
+   the original recording. **Load calls: 5** stays unchanged during replay and experiments.
+
+A named checkpoint returns from an experiment to the original recording before seeking.
+The repeatable contract is the requests, data and per-machine decision sequence. Actual
+wall-clock timestamps and the interleaving of independent machines may differ between fresh
+runs; the captured run retains its own ordering and machine times for exact replay.
 
 ## Try the workflow
 
@@ -80,7 +124,9 @@ exit, see the separate [disk-to-inspector checkout demo](../time-travel/README.m
 
 Tests use controlled responses and virtual time, not the public service. They cover request
 cancellation, response parsing, replay/branch without further API calls, virtual timeout,
-MVI navigation, historical preview isolation and all three dock placements. The demo is
+MVI navigation, historical preview isolation and all three dock placements. Article tests also
+check all five outcomes, two cancellations, error/recovery decisions, repeated fresh sessions,
+blocked interactive intents and the named checkpoint UI. The demo is
 unpublished, excluded from library API dumps and classified as a debug consumer by
 `checkDebugGraph`. Shared code currently targets Desktop/JVM and JS browsers; Android/iOS
 hosts are not included in this example.
