@@ -18,23 +18,43 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.seconds
 
-/** Run `:weather-example:run`; `--offline` selects explicit sample data. */
+/** `--offline` selects sample data; `--article` runs the fixed five-request story. */
 fun main(args: Array<String>) {
     val client = weatherHttpClient()
     val check = "--check" in args || "--check-live" in args
     val offline = "--offline" in args || "--check" in args
-    val api = if (offline) SampleWeatherApi else OpenMeteoApi(client)
+    val article = "--article" in args || "--check-article" in args
+    val api = if (article) ArticleWeatherApi() else if (offline) SampleWeatherApi else OpenMeteoApi(client)
     try {
+        if ("--check-article" in args) {
+            runBlocking { checkArticle(api as ArticleWeatherApi) }
+            return
+        }
         if (check) {
             runBlocking { checkWeather(api) }
             return
         }
         application {
             Window(onCloseRequest = ::exitApplication, title = "Actron · Weather Time Travel", state = rememberWindowState(size = DpSize(1180.dp, 900.dp))) {
-                MaterialTheme { WeatherApp(api, if (offline) "Offline sample · no network" else "Open-Meteo · live public API") }
+                MaterialTheme { WeatherApp(api, if (article) "Article scenario · fixed responses · no network" else if (offline) "Offline sample · no network" else "Open-Meteo · live public API") }
             }
         }
     } finally { client.close() }
+}
+
+@OptIn(actron.core.ExperimentalActronApi::class)
+private suspend fun checkArticle(api: ArticleWeatherApi) {
+    val scope = CoroutineScope(kotlin.coroutines.coroutineContext + SupervisorJob())
+    val demo = WeatherDemoStore(api, scope)
+    try {
+        val state = withTimeout(20.seconds) { demo.state.first { it.article == ArticleStatus.Completed || it.article == ArticleStatus.Failed } }
+        check(state.article == ArticleStatus.Completed) { state.status }
+        val history = (state.playback as DemoPlayback.History).recording
+        check(history.controls.replay.session.verify().isEmpty())
+        for (position in 0..history.controls.replay.length) history.controls.replay.seek(position)
+        check(demo.runtime.networkCalls.value == 5)
+        println("Article scenario: ${api.requests.value.map { it.status }}; five loads; replay verified without further API calls.")
+    } finally { demo.close(); scope.cancel() }
 }
 
 @OptIn(actron.core.ExperimentalActronApi::class)

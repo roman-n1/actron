@@ -61,7 +61,7 @@ fun WeatherDemoScreen(state: WeatherDemoState, sourceLabel: String, dispatch: (D
     var panelHeight by remember { mutableStateOf(300.dp) }
     var panelWidth by remember { mutableStateOf(340.dp) }
     val live = state.playback is DemoPlayback.Live
-    val available = live && state.startup == DemoStartup.Ready
+    val available = live && state.startup == DemoStartup.Ready && state.article == ArticleStatus.Disabled
     val app: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Weather, step by step", style = MaterialTheme.typography.headlineMedium)
@@ -74,7 +74,7 @@ fun WeatherDemoScreen(state: WeatherDemoState, sourceLabel: String, dispatch: (D
                 }
             } else {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { dispatch(DemoIntent.ShowCities) }) { Text("Choose another city") }
+                    TextButton(onClick = { dispatch(DemoIntent.ShowCities) }, enabled = state.article == ArticleStatus.Disabled) { Text("Choose another city") }
                     OutlinedButton(onClick = { dispatch(DemoIntent.Refresh) }, enabled = available, modifier = Modifier.testTag("weather-refresh")) { Text("Refresh") }
                 }
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth().testTag("weather-preview")) {
@@ -91,6 +91,7 @@ fun WeatherDemoScreen(state: WeatherDemoState, sourceLabel: String, dispatch: (D
             Text(state.view.revisions, style = MaterialTheme.typography.labelMedium)
             Text("Load calls: ${state.view.calls} · ${state.view.mode}", modifier = Modifier.testTag("weather-network-count"), style = MaterialTheme.typography.bodySmall)
             Text(state.status, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("weather-status"))
+            if (state.article != ArticleStatus.Disabled) ArticleStory(state)
             Text("Live weather: Open-Meteo · CC BY 4.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -112,11 +113,14 @@ fun WeatherDemoScreen(state: WeatherDemoState, sourceLabel: String, dispatch: (D
             val dockHeight = minOf(panelHeight, (maxHeight - 200.dp).coerceAtLeast(160.dp))
             Column {
                 FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(enabled = state.startup == DemoStartup.Ready && state.capture == CaptureStatus.Available, modifier = Modifier.testTag("weather-capture"), onClick = { dispatch(DemoIntent.Capture) }) { Text(if (state.capture == CaptureStatus.Capturing) "Capturing…" else "Capture history") }
+                    TextButton(enabled = state.article != ArticleStatus.Running && state.startup == DemoStartup.Ready && state.capture == CaptureStatus.Available, modifier = Modifier.testTag("weather-capture"), onClick = { dispatch(DemoIntent.Capture) }) { Text(if (state.article == ArticleStatus.Running) "Scenario running…" else if (state.capture == CaptureStatus.Capturing) "Capturing…" else "Capture history") }
                     TextButton(onClick = { dispatch(DemoIntent.ReturnLive) }, enabled = !live, modifier = Modifier.testTag("weather-live")) { Text("Return to live") }
                     TextButton(onClick = { dispatch(DemoIntent.RunChaos) }, enabled = available, modifier = Modifier.testTag("weather-chaos")) { Text("Rapid city changes") }
                     PlacementPicker(state.placement) { dispatch(DemoIntent.PlacePanel(it)) }
                     Text(state.view.mode, modifier = Modifier.padding(vertical = 14.dp), style = MaterialTheme.typography.labelMedium)
+                }
+                if (state.article == ArticleStatus.Completed && state.playback is DemoPlayback.History) FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (checkpoint in state.articleCheckpoints) TextButton(onClick = { dispatch(DemoIntent.ArticleSeek(checkpoint)) }, modifier = Modifier.testTag("article-seek-${checkpoint.label}")) { Text(checkpoint.label) }
                 }
                 HorizontalDivider()
                 if (placement == PanelPlacement.Bottom) {
@@ -135,6 +139,22 @@ fun WeatherDemoScreen(state: WeatherDemoState, sourceLabel: String, dispatch: (D
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ArticleStory(state: WeatherDemoState) {
+    Card(Modifier.fillMaxWidth().testTag("article-story")) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Article scenario · scripted data", style = MaterialTheme.typography.titleMedium)
+            Text("Original run · five requests. This summary stays fixed while you inspect historical states.", style = MaterialTheme.typography.bodySmall)
+            for ((index, request) in state.articleRequests.withIndex()) {
+                val timing = if (index < 2) "response held" else "${request.delayMillis} ms"
+                Text("${index + 1}. ${request.city.name} · ${request.status} · $timing · ${request.outcome}", style = MaterialTheme.typography.bodySmall)
+            }
+            if (state.article == ArticleStatus.Completed) Text("Back / Next: watch Loading → Ready → Failed → Ready and the recommendation change. Verify: replay the recorded answers. Experiment here: replace an answer or advance virtual time. Load calls stays at 5.", style = MaterialTheme.typography.bodySmall)
+            if (state.article == ArticleStatus.Failed) Text("Start a fresh article session to try again.", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
