@@ -33,6 +33,8 @@ include(":resource-soak")
 project(":resource-soak").projectDir = file("verification/resource-soak")
 include(":time-travel-example")
 project(":time-travel-example").projectDir = file("examples/time-travel")
+include(":weather-example")
+project(":weather-example").projectDir = file("examples/weather")
 include(":durable-effects-example")
 project(":durable-effects-example").projectDir = file("examples/durable-effects")
 

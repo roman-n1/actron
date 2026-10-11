@@ -21,6 +21,7 @@ apiValidation {
     ignoredProjects += "behaviour-review" // internal CI artifact exporter
     ignoredProjects += "resource-soak" // device verification harness, not a published API
     ignoredProjects += "time-travel-example" // runnable debug application, not a published API
+    ignoredProjects += "weather-example" // embeddable inspector demo, not a published API
     ignoredProjects += "durable-effects-example" // application-owned persistence example
     ignoredProjects += "nullability-guard" // internal Kotlin syntax policy checker
     klib {
@@ -62,7 +63,7 @@ gradle.projectsEvaluated {
 // The time-travel modules are debug tooling (handoff §11, §12): no production module may depend
 // on them, so an app that keeps them in a debug source set keeps them out of its release graph.
 // `checkDebugGraph` fails on a dependency in the wrong direction; CI runs it next to `apiCheck`.
-val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":time-travel-example")
+val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":time-travel-example", ":weather-example")
 // Collected once every project is evaluated, at configuration time, so the task's action holds
 // plain strings and the configuration cache can keep it.
 val debugGraphOffenders = mutableListOf<String>()

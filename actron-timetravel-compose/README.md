@@ -6,6 +6,40 @@ replay → experiment → return workflow, `GroupReplayControls` for replay only
 `ReplayControls` for one Store. Add this to a debug dependency graph; setup follows the
 [installation guide](../README.md#installation).
 
+## Embeddable panel
+
+`TimeTravelPanel` is a compact alternative to the full inspector. It has one machine picker,
+back/next/verify controls, a history and expandable details, with no tabs or app navigation.
+The host owns its placement and size. Wide bottom docks use horizontal history; tall, narrow
+sidebars use vertical history. Navigation stays visible while details scroll. It follows the
+host's `MaterialTheme`, including dark mode.
+
+```kotlin
+// Bottom dock: keep the application visible above it.
+Column(Modifier.fillMaxSize()) {
+    AppPreview(Modifier.weight(1f))
+    TimeTravelPanel(inspector, timeTravel = controls, modifier = Modifier.height(300.dp))
+}
+
+// The same panel to the right (swap the children to put it on the left).
+Row(Modifier.fillMaxSize()) {
+    AppPreview(Modifier.weight(1f))
+    TimeTravelPanel(inspector, timeTravel = controls, modifier = Modifier.width(320.dp).fillMaxHeight())
+}
+```
+
+Overloads accept an `InspectorState` alone for live/recorded inspection, a `ReplayControls`
+for one machine, a `GroupReplayControls` for group replay, or a `GroupTimeTravelControls`
+for replay and isolated experiments. Filtering changes displayed history, never the group
+cursor. In an experiment the panel exposes application-supplied actions and command answers,
+completion/failure and virtual clock controls. Replay navigation returns with its original
+position and verification result intact.
+
+The panel does not open a window, start a recorder, replace the application's state or call
+command handlers. Install recording before the bug happens. Drive an explicit, IO-free app
+preview from the selected replay/branch snapshots; the [MVI weather demo](../examples/weather/README.md)
+shows that integration and lets you switch between bottom, left and right docks.
+
 For a complete runnable recording → disk → replay → experiment workflow, see the
 [Time Travel desktop example](../examples/time-travel/README.md).
 
