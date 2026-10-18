@@ -1,29 +1,29 @@
 package actron.statechart.machine
 
 import actron.core.Action
+import actron.core.ActronStoreDsl
 import actron.core.Event
 import actron.core.ExperimentalActronApi
-import actron.core.ActronStoreDsl
 import actron.observability.FailureDescriptor
-import actron.statechart.GuardCheck
-import actron.statechart.ChartInitialization
-import actron.statechart.AutomaticTransition
-import actron.statechart.MicrostepLimitException
-import actron.statechart.Trigger
-import actron.statechart.isComplete
 import actron.statechart.ActionMatcher
+import actron.statechart.AutomaticTransition
+import actron.statechart.ChartInitialization
+import actron.statechart.GuardCheck
 import actron.statechart.HistoryState
+import actron.statechart.MicrostepLimitException
 import actron.statechart.StateChartDefinition
 import actron.statechart.StateChartRuntime
 import actron.statechart.StateConfiguration
 import actron.statechart.StateId
 import actron.statechart.StepResult
 import actron.statechart.TimerFired
+import actron.statechart.Trigger
 import actron.statechart.activeLeaves
 import actron.statechart.endpointIssues
 import actron.statechart.inEntryOrder
 import actron.statechart.initialConfiguration
 import actron.statechart.instantTimerCycles
+import actron.statechart.isComplete
 
 /**
  * What an enter hook of a [Machine] sees and may do. It runs inside [Machine.decide], so it is a
@@ -62,7 +62,11 @@ interface MachineEnterScope<C : Any, out A : Action, in CMD : Any, in E : Event>
     /**
      * Registers a command in [lane] under [policy], cancelled when this activation exits.
      */
-    fun command(command: CMD, lane: LaneId, policy: ConcurrencyPolicy): CommandId
+    fun command(
+        command: CMD,
+        lane: LaneId,
+        policy: ConcurrencyPolicy,
+    ): CommandId
 
     /**
      * Asks the executor to deliver [event] after the snapshot is committed.
@@ -128,7 +132,11 @@ interface MachineActionScope<C : Any, out A : Action, in CMD : Any, in E : Event
     fun command(command: CMD): CommandId
 
     /** Registers a command in [lane] under [policy], cancelled when [activation] exits. */
-    fun command(command: CMD, lane: LaneId, policy: ConcurrencyPolicy): CommandId
+    fun command(
+        command: CMD,
+        lane: LaneId,
+        policy: ConcurrencyPolicy,
+    ): CommandId
 
     /** Asks the executor to deliver [event] after the snapshot is committed. */
     fun event(event: E): EffectId
@@ -151,7 +159,10 @@ class MachineBuilder<C : Any, A : Action, CMD : Any, E : Event> internal constru
     }
 
     /** Adds a named, pure predicate checked on stable snapshots by tests, replay and inspectors. */
-    fun invariant(name: String, predicate: (MachineSnapshot<C>) -> Boolean) {
+    fun invariant(
+        name: String,
+        predicate: (MachineSnapshot<C>) -> Boolean,
+    ) {
         require(name !in invariants) { "[Actron] Invariant '$name' is declared twice" }
         invariants[name] = MachineInvariant(name, predicate)
     }
@@ -168,7 +179,10 @@ class MachineBuilder<C : Any, A : Action, CMD : Any, E : Event> internal constru
     internal val exits = mutableMapOf<StateId, MutableList<MachineExitScope<C, A, E>.() -> Unit>>()
     internal val handlers = mutableMapOf<StateId, MutableList<ActionHandler<C, A, CMD, E>>>()
 
-    internal class ActionHandler<C : Any, A : Action, CMD : Any, E : Event>(val matcher: ActionMatcher, val rule: MachineActionScope<C, A, CMD, E>.() -> Unit)
+    internal class ActionHandler<C : Any, A : Action, CMD : Any, E : Event>(
+        val matcher: ActionMatcher,
+        val rule: MachineActionScope<C, A, CMD, E>.() -> Unit,
+    )
 
     /**
      * Implements the guard [label]: a pure predicate over the snapshot before the step and the
@@ -176,13 +190,20 @@ class MachineBuilder<C : Any, A : Action, CMD : Any, E : Event> internal constru
      *
      * @throws IllegalArgumentException if [label] already has an implementation
      */
-    fun guard(label: String, guard: (snapshot: MachineSnapshot<C>, action: Action) -> Boolean) {
+    fun guard(
+        label: String,
+        guard: (snapshot: MachineSnapshot<C>, action: Action) -> Boolean,
+    ) {
         require(label !in guards) { "[Actron] Guard '$label' is implemented twice" }
         guards[label] = guard
     }
 
     /** Implements a guard with an application-supplied explanation for its false branch. */
-    fun guard(label: String, rejectionReason: String, guard: (MachineSnapshot<C>, Action) -> Boolean) {
+    fun guard(
+        label: String,
+        rejectionReason: String,
+        guard: (MachineSnapshot<C>, Action) -> Boolean,
+    ) {
         require(rejectionReason.isNotBlank()) { "[Actron] Guard rejection reason must not be blank" }
         guard(label, guard)
         guardRejections[label] = rejectionReason
@@ -194,23 +215,41 @@ class MachineBuilder<C : Any, A : Action, CMD : Any, E : Event> internal constru
      *
      * @throws IllegalArgumentException if [label] already has an implementation
      */
-    fun effect(label: String, effect: (context: C, action: Action) -> C) {
+    fun effect(
+        label: String,
+        effect: (context: C, action: Action) -> C,
+    ) {
         require(label !in effects) { "[Actron] Effect '$label' is implemented twice" }
         effects[label] = effect
     }
 
     /** Typed implementation key, shared with the model-building DSL. */
-    fun guard(key: actron.statechart.GuardKey, guard: (MachineSnapshot<C>, Action) -> Boolean) = guard(key.name, guard)
+    fun guard(
+        key: actron.statechart.GuardKey,
+        guard: (MachineSnapshot<C>, Action) -> Boolean,
+    ) = guard(key.name, guard)
+
     /** Typed guard key with an application-supplied explanation for its false branch. */
-    fun guard(key: actron.statechart.GuardKey, rejectionReason: String, guard: (MachineSnapshot<C>, Action) -> Boolean) = guard(key.name, rejectionReason, guard)
+    fun guard(
+        key: actron.statechart.GuardKey,
+        rejectionReason: String,
+        guard: (MachineSnapshot<C>, Action) -> Boolean,
+    ) = guard(key.name, rejectionReason, guard)
+
     /** Typed reducer key, shared with the model-building DSL. */
-    fun effect(key: actron.statechart.EffectKey, effect: (C, Action) -> C) = effect(key.name, effect)
+    fun effect(
+        key: actron.statechart.EffectKey,
+        effect: (C, Action) -> C,
+    ) = effect(key.name, effect)
 
     /**
      * Adds a rule run whenever [id] is entered, outermost nodes first; rules of one node run in the
      * order added.
      */
-    fun onEnter(id: StateId, rule: MachineEnterScope<C, A, CMD, E>.() -> Unit) {
+    fun onEnter(
+        id: StateId,
+        rule: MachineEnterScope<C, A, CMD, E>.() -> Unit,
+    ) {
         entries.getOrPut(id) { mutableListOf() } += rule
     }
 
@@ -218,7 +257,10 @@ class MachineBuilder<C : Any, A : Action, CMD : Any, E : Event> internal constru
      * Adds a rule run whenever [id] is exited, innermost nodes first; rules of one node run in the
      * order added.
      */
-    fun onExit(id: StateId, rule: MachineExitScope<C, A, E>.() -> Unit) {
+    fun onExit(
+        id: StateId,
+        rule: MachineExitScope<C, A, E>.() -> Unit,
+    ) {
         exits.getOrPut(id) { mutableListOf() } += rule
     }
 
@@ -230,7 +272,11 @@ class MachineBuilder<C : Any, A : Action, CMD : Any, E : Event> internal constru
      * active node with a matching handler wins, and within a node the first added; one handler
      * runs per input.
      */
-    fun onAction(id: StateId, matcher: ActionMatcher, rule: MachineActionScope<C, A, CMD, E>.() -> Unit) {
+    fun onAction(
+        id: StateId,
+        matcher: ActionMatcher,
+        rule: MachineActionScope<C, A, CMD, E>.() -> Unit,
+    ) {
         handlers.getOrPut(id) { mutableListOf() } += ActionHandler(matcher, rule)
     }
 }
@@ -287,8 +333,9 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
     private val hasAutomaticTransitions = chart.transitions.any { it.trigger == Trigger.Eventless || it.trigger == Trigger.Completion }
 
     /** Whether a started workflow's active top-level state has completed. */
-    fun isComplete(snapshot: MachineSnapshot<C>): Boolean = snapshot.isStarted &&
-        chart.childrenOf().any { chart.isComplete(snapshot.configuration, it.id) }
+    fun isComplete(snapshot: MachineSnapshot<C>): Boolean =
+        snapshot.isStarted &&
+            chart.childrenOf().any { chart.isComplete(snapshot.configuration, it.id) }
 
     /** Checks any stable snapshot, including a restored one; never executes commands. */
     fun checkInvariants(snapshot: MachineSnapshot<C>): List<InvariantViolation> {
@@ -320,24 +367,35 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
                 actions.getOrPut(matcher) { mutableListOf() } += ActionDeclaration.Transition(transition.source, TransitionId(index))
             }
         }
-        for (node in chart.inEntryOrder(snapshot.configuration.active)) for (handler in handlers[node].orEmpty()) {
-            actions.getOrPut(handler.matcher) { mutableListOf() } += ActionDeclaration.Handler(node)
+        for (node in chart.inEntryOrder(snapshot.configuration.active)) {
+            for (handler in handlers[node].orEmpty()) {
+                actions.getOrPut(handler.matcher) { mutableListOf() } += ActionDeclaration.Handler(node)
+            }
         }
         return actions.map { (matcher, declarations) -> DeclaredAction(matcher, declarations.toList()) }
     }
 
     /** Selection-only query shared with action availability. No reducers, hooks or handlers run. */
-    internal fun selectAction(snapshot: MachineSnapshot<C>, action: A): ActionSelection {
+    internal fun selectAction(
+        snapshot: MachineSnapshot<C>,
+        action: A,
+    ): ActionSelection {
         require(snapshot.definition == id && snapshot.version == version) { "[Actron] Snapshot belongs to another machine or version" }
         val trace = SelectionTrace()
         if (!snapshot.isStarted) return ActionSelection.NotStarted(trace.explanation(snapshot.configuration.active, emptyList()))
-        trace.candidates += chart.transitions.withIndex().filter {
-            it.value.source in snapshot.configuration.active && it.value.matchesAction(action)
-        }.map { TransitionId(it.index) }
+        trace.candidates +=
+            chart.transitions
+                .withIndex()
+                .filter {
+                    it.value.source in snapshot.configuration.active && it.value.matchesAction(action)
+                }.map { TransitionId(it.index) }
         return try {
             val result = runtime.stepObserved(snapshot.configuration, snapshot, action, observer(trace))
-            if (result is StepResult.Transitioned) trace.selected = result.transitions.map { TransitionId(chart.transitions.indexOf(it)) }
-            else routeHandler(snapshot, action, { node, _ -> trace.handled(node) }, {})
+            if (result is StepResult.Transitioned) {
+                trace.selected = result.transitions.map { TransitionId(chart.transitions.indexOf(it)) }
+            } else {
+                routeHandler(snapshot, action, { node, _ -> trace.handled(node) }, {})
+            }
             ActionSelection.Evaluated(trace.explanation(snapshot.configuration.active, trace.selected))
         } catch (error: Exception) {
             ActionSelection.Failed(trace.explanation(snapshot.configuration.active, trace.selected), FailureDescriptor.of(error))
@@ -347,7 +405,11 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
     init {
         val missing = buildList { chart.transitions.forEach { it.effect.withLabel { add(it) } } }.distinct().filter { it !in effects }
         require(missing.isEmpty()) { "[Actron] Missing effect implementations: ${missing.joinToString()}" }
-        val declared = chart.states.filter { it !is HistoryState }.map { it.id }.toSet()
+        val declared =
+            chart.states
+                .filter { it !is HistoryState }
+                .map { it.id }
+                .toSet()
         val undeclared = (entries.keys + exits.keys + handlers.keys).filter { it !in declared }
         require(undeclared.isEmpty()) { "[Actron] Rules for undeclared states: ${undeclared.joinToString()}" }
         val undeclaredStates = chart.endpointIssues()
@@ -360,25 +422,33 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
     }
 
     /** Timers by source, as positions in the chart's transition list, in declaration order. */
-    private data class TimerRule(val transition: TransitionId, val delay: kotlin.time.Duration)
-    private val timersBySource: Map<StateId, List<TimerRule>> = buildMap<StateId, MutableList<TimerRule>> {
-        for ((index, transition) in chart.transitions.withIndex()) {
-            val trigger = transition.trigger
-            if (trigger is Trigger.After) getOrPut(transition.source) { mutableListOf() }
-                .add(TimerRule(TransitionId(index), trigger.delay))
+    private data class TimerRule(
+        val transition: TransitionId,
+        val delay: kotlin.time.Duration,
+    )
+
+    private val timersBySource: Map<StateId, List<TimerRule>> =
+        buildMap<StateId, MutableList<TimerRule>> {
+            for ((index, transition) in chart.transitions.withIndex()) {
+                val trigger = transition.trigger
+                if (trigger is Trigger.After) {
+                    getOrPut(transition.source) { mutableListOf() }
+                        .add(TimerRule(TransitionId(index), trigger.delay))
+                }
+            }
         }
-    }
 
     /**
      * The snapshot before the first input: revision 0, nothing active, [context] as given.
      */
-    fun initialSnapshot(context: C): MachineSnapshot<C> = MachineSnapshot(
-        definition = id,
-        version = version,
-        revision = 0,
-        configuration = StateConfiguration(active = emptySet()),
-        context = context,
-    )
+    fun initialSnapshot(context: C): MachineSnapshot<C> =
+        MachineSnapshot(
+            definition = id,
+            version = version,
+            revision = 0,
+            configuration = StateConfiguration(active = emptySet()),
+            context = context,
+        )
 
     /**
      * Decides [input] on [snapshot]. Never throws for a failing guard, reducer or rule: that is a
@@ -386,60 +456,96 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
      *
      * @throws IllegalArgumentException if [snapshot] belongs to another machine or version
      */
-    fun decide(snapshot: MachineSnapshot<C>, input: MachineInput<A>): Decision<C, CMD, E> =
-        decideObserved(snapshot, input, SelectionObservation.Unobserved)
+    fun decide(
+        snapshot: MachineSnapshot<C>,
+        input: MachineInput<A>,
+    ): Decision<C, CMD, E> = decideObserved(snapshot, input, SelectionObservation.Unobserved)
 
     /** Decides once and captures actual guard results and candidate priority, without extra guard calls. */
-    fun decideExplained(snapshot: MachineSnapshot<C>, input: MachineInput<A>): ExplainedDecision<C, CMD, E> {
+    fun decideExplained(
+        snapshot: MachineSnapshot<C>,
+        input: MachineInput<A>,
+    ): ExplainedDecision<C, CMD, E> {
         val trace = SelectionTrace()
         val decision = decideObserved(snapshot, input, trace)
         return ExplainedDecision(decision, trace.explanation(snapshot.configuration.active, trace.selected))
     }
 
-    private fun decideObserved(snapshot: MachineSnapshot<C>, input: MachineInput<A>, trace: SelectionObservation): Decision<C, CMD, E> {
+    private fun decideObserved(
+        snapshot: MachineSnapshot<C>,
+        input: MachineInput<A>,
+        trace: SelectionObservation,
+    ): Decision<C, CMD, E> {
         require(snapshot.definition == id && snapshot.version == version) {
             "[Actron] Snapshot of ${snapshot.definition} ${snapshot.version} given to machine $id $version"
         }
         return try {
-            val first = when (input) {
-                is MachineInput.Start -> if (snapshot.isStarted) ignored(snapshot, IgnoreReason.AlreadyStarted) else start(snapshot, input)
-                is MachineInput.Dispatch -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    else -> step(snapshot, input, input.action, changed = false, trace = trace)
+            val first =
+                when (input) {
+                    is MachineInput.Start -> {
+                        if (snapshot.isStarted) ignored(snapshot, IgnoreReason.AlreadyStarted) else start(snapshot, input)
+                    }
+
+                    is MachineInput.Dispatch -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            else -> step(snapshot, input, input.action, changed = false, trace = trace)
+                        }
+                    }
+
+                    is MachineInput.BridgeReceived -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            else -> step(snapshot, input, input.action, changed = false, trace = trace)
+                        }
+                    }
+
+                    is MachineInput.External -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            else -> step(snapshot, input, input.action, changed = false, trace = trace)
+                        }
+                    }
+
+                    is MachineInput.TimerFired -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            else -> fire(snapshot, input, trace)
+                        }
+                    }
+
+                    is MachineInput.CommandResult -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
+                            else -> step(snapshot, input, input.action, changed = false, trace = trace)
+                        }
+                    }
+
+                    is MachineInput.CommandCompleted -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
+                            else -> Decision(DecisionOutcome.Handled, snapshot.copy(revision = snapshot.revision + 1, commands = snapshot.commands - input.command))
+                        }
+                    }
+
+                    is MachineInput.CommandFailed -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
+                            else -> step(snapshot.copy(commands = snapshot.commands - input.command), input, CommandFailure(input.command, input.failure), changed = true, trace = trace)
+                        }
+                    }
+
+                    is MachineInput.CommandAbandoned -> {
+                        when {
+                            !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
+                            input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
+                            else -> Decision(DecisionOutcome.Handled, snapshot.copy(revision = snapshot.revision + 1, commands = snapshot.commands - input.command))
+                        }
+                    }
                 }
-                is MachineInput.BridgeReceived -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    else -> step(snapshot, input, input.action, changed = false, trace = trace)
-                }
-                is MachineInput.External -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    else -> step(snapshot, input, input.action, changed = false, trace = trace)
-                }
-                is MachineInput.TimerFired -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    else -> fire(snapshot, input, trace)
-                }
-                is MachineInput.CommandResult -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
-                    else -> step(snapshot, input, input.action, changed = false, trace = trace)
-                }
-                is MachineInput.CommandCompleted -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
-                    else -> Decision(DecisionOutcome.Handled, snapshot.copy(revision = snapshot.revision + 1, commands = snapshot.commands - input.command))
-                }
-                is MachineInput.CommandFailed -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
-                    else -> step(snapshot.copy(commands = snapshot.commands - input.command), input, CommandFailure(input.command, input.failure), changed = true, trace = trace)
-                }
-                is MachineInput.CommandAbandoned -> when {
-                    !snapshot.isStarted -> ignored(snapshot, IgnoreReason.NotStarted)
-                    input.command !in snapshot.commands -> ignored(snapshot, IgnoreReason.StaleCommand)
-                    else -> Decision(DecisionOutcome.Handled, snapshot.copy(revision = snapshot.revision + 1, commands = snapshot.commands - input.command))
-                }
-            }
             val decision = if (first.isHandled && hasAutomaticTransitions) stabilize(snapshot, input, first, trace) else first
             if (enforceInvariants && decision.snapshot.isStarted) {
                 val violations = checkInvariants(decision.snapshot)
@@ -451,15 +557,21 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
         }
     }
 
-    private fun ignored(snapshot: MachineSnapshot<C>, reason: IgnoreReason): Decision<C, CMD, E> =
-        Decision(DecisionOutcome.Ignored(reason), snapshot)
+    private fun ignored(
+        snapshot: MachineSnapshot<C>,
+        reason: IgnoreReason,
+    ): Decision<C, CMD, E> = Decision(DecisionOutcome.Ignored(reason), snapshot)
 
-    private fun start(snapshot: MachineSnapshot<C>, input: MachineInput.Start): Decision<C, CMD, E> {
+    private fun start(
+        snapshot: MachineSnapshot<C>,
+        input: MachineInput.Start,
+    ): Decision<C, CMD, E> {
         val configuration = chart.initialConfiguration()
         val entered = chart.inEntryOrder(configuration.active)
-        return Step(snapshot, input, action = ChartInitialization).apply {
-            enter(entered)
-        }.decision(configuration, transitions = emptyList())
+        return Step(snapshot, input, action = ChartInitialization)
+            .apply {
+                enter(entered)
+            }.decision(configuration, transitions = emptyList())
     }
 
     /**
@@ -467,14 +579,29 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
      * the input was decided on (a deregistered command), so an action no transition takes is
      * still a handled decision.
      */
-    private fun step(base: MachineSnapshot<C>, input: MachineInput<A>, action: Action, changed: Boolean, trace: SelectionObservation): Decision<C, CMD, E> {
-        if (trace.observing) trace.candidates(chart.transitions.withIndex().filter {
-            it.value.source in base.configuration.active && it.value.matchesAction(action)
-        }.map { TransitionId(it.index) })
+    private fun step(
+        base: MachineSnapshot<C>,
+        input: MachineInput<A>,
+        action: Action,
+        changed: Boolean,
+        trace: SelectionObservation,
+    ): Decision<C, CMD, E> {
+        if (trace.observing) {
+            trace.candidates(
+                chart.transitions
+                    .withIndex()
+                    .filter {
+                        it.value.source in base.configuration.active && it.value.matchesAction(action)
+                    }.map { TransitionId(it.index) },
+            )
+        }
         return when (val result = runtime.stepObserved(base.configuration, base, action, observer(trace))) {
-            StepResult.Ignored -> handle(base, input, action, trace) {
-                if (changed) Decision(DecisionOutcome.Handled, base.copy(revision = base.revision + 1)) else ignored(base, IgnoreReason.NoTransition)
+            StepResult.Ignored -> {
+                handle(base, input, action, trace) {
+                    if (changed) Decision(DecisionOutcome.Handled, base.copy(revision = base.revision + 1)) else ignored(base, IgnoreReason.NoTransition)
+                }
             }
+
             is StepResult.Transitioned -> {
                 if (trace.observing) trace.selected(result.transitions.map { TransitionId(chart.transitions.indexOf(it)) })
                 take(base, input, action, result)
@@ -486,7 +613,13 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
      * Runs the first action handler of the innermost active node that matches [action], if any:
      * the configuration and the activations stay as they are.
      */
-    private fun handle(base: MachineSnapshot<C>, input: MachineInput<A>, action: Action, trace: SelectionObservation, unhandled: () -> Decision<C, CMD, E>): Decision<C, CMD, E> =
+    private fun handle(
+        base: MachineSnapshot<C>,
+        input: MachineInput<A>,
+        action: Action,
+        trace: SelectionObservation,
+        unhandled: () -> Decision<C, CMD, E>,
+    ): Decision<C, CMD, E> =
         routeHandler(base, action, { node, handler ->
             trace.handled(node)
             val step = Step(base, input, action)
@@ -495,7 +628,8 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
         }, unhandled)
 
     private inline fun <R : Any> routeHandler(
-        base: MachineSnapshot<C>, action: Action,
+        base: MachineSnapshot<C>,
+        action: Action,
         handle: (StateId, MachineBuilder.ActionHandler<C, A, CMD, E>) -> R,
         unhandled: () -> R,
     ): R {
@@ -506,14 +640,21 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
         return unhandled()
     }
 
-    private fun fire(snapshot: MachineSnapshot<C>, input: MachineInput.TimerFired, trace: SelectionObservation): Decision<C, CMD, E> {
+    private fun fire(
+        snapshot: MachineSnapshot<C>,
+        input: MachineInput.TimerFired,
+        trace: SelectionObservation,
+    ): Decision<C, CMD, E> {
         val record = snapshot.timers[input.timer] ?: return ignored(snapshot, IgnoreReason.UnknownTimer)
         val timer = chart.transitions[record.transition.index]
         trace.candidate(record.transition)
         // The timer is spent whether or not its guard holds: it fires once per scheduling.
         val spent = snapshot.copy(timers = snapshot.timers - input.timer)
         return when (val result = runtime.fireObserved(snapshot.configuration, snapshot, timer, observer(trace))) {
-            StepResult.Ignored -> Decision(DecisionOutcome.Handled, spent.copy(revision = spent.revision + 1), timersCancelled = listOf(input.timer))
+            StepResult.Ignored -> {
+                Decision(DecisionOutcome.Handled, spent.copy(revision = spent.revision + 1), timersCancelled = listOf(input.timer))
+            }
+
             is StepResult.Transitioned -> {
                 if (trace.observing) trace.selected(listOf(record.transition))
                 take(spent, input, TimerFired(timer), result, alreadyCancelled = listOf(input.timer))
@@ -521,15 +662,26 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
         }
     }
 
-    private fun stabilize(base: MachineSnapshot<C>, input: MachineInput<A>, first: Decision<C, CMD, E>, trace: SelectionObservation): Decision<C, CMD, E> {
+    private fun stabilize(
+        base: MachineSnapshot<C>,
+        input: MachineInput<A>,
+        first: Decision<C, CMD, E>,
+        trace: SelectionObservation,
+    ): Decision<C, CMD, E> {
         val steps = mutableListOf(first)
         val automatic = mutableListOf<actron.statechart.Transition>()
         var current = first.snapshot
         while (true) {
-            if (trace.observing) trace.candidates(chart.transitions.withIndex().filter {
-                it.value.source in current.configuration.active &&
-                    (it.value.trigger == Trigger.Eventless || (it.value.trigger == Trigger.Completion && chart.isComplete(current.configuration, it.value.source)))
-            }.map { TransitionId(it.index) })
+            if (trace.observing) {
+                trace.candidates(
+                    chart.transitions
+                        .withIndex()
+                        .filter {
+                            it.value.source in current.configuration.active &&
+                                (it.value.trigger == Trigger.Eventless || (it.value.trigger == Trigger.Completion && chart.isComplete(current.configuration, it.value.source)))
+                        }.map { TransitionId(it.index) },
+                )
+            }
             val result = runtime.automaticObserved(current.configuration, current, observer(trace))
             if (result !is StepResult.Transitioned) break
             if (steps.size - 1 >= maxMicrosteps) throw MicrostepLimitException(maxMicrosteps, automatic + result.transitions)
@@ -542,9 +694,11 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
         }
         if (steps.size == 1) return first
         return Decision(
-            DecisionOutcome.Handled, current.copy(revision = base.revision + 1),
+            DecisionOutcome.Handled,
+            current.copy(revision = base.revision + 1),
             transitions = steps.flatMap { it.transitions },
-            exited = steps.flatMap { it.exited }, entered = steps.flatMap { it.entered },
+            exited = steps.flatMap { it.exited },
+            entered = steps.flatMap { it.entered },
             commands = steps.flatMap { it.commands }.filter { it.id in current.commands },
             cancelledScopes = steps.flatMap { it.cancelledScopes },
             timersScheduled = steps.flatMap { it.timersScheduled }.filter { it.id in current.timers },
@@ -587,7 +741,11 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
     /**
      * The mutable working set of one decision. Nothing escapes it but the [Decision] it builds.
      */
-    private inner class Step(val base: MachineSnapshot<C>, val input: MachineInput<A>, val action: Action) {
+    private inner class Step(
+        val base: MachineSnapshot<C>,
+        val input: MachineInput<A>,
+        val action: Action,
+    ) {
         var context: C = base.context
         var counters: MachineCounters = base.counters
         val exited = mutableListOf<Activation>()
@@ -626,20 +784,25 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
             }
         }
 
-        fun decision(configuration: StateConfiguration, transitions: List<TransitionId>, alreadyCancelled: List<TimerId> = emptyList()): Decision<C, CMD, E> {
+        fun decision(
+            configuration: StateConfiguration,
+            transitions: List<TransitionId>,
+            alreadyCancelled: List<TimerId> = emptyList(),
+        ): Decision<C, CMD, E> {
             val exitedIds = exited.map { it.id }.toSet()
             val exitedNodes = exited.map { it.node }.toSet()
             val timersCancelled = alreadyCancelled + base.timers.filter { (_, record) -> record.activation in exitedIds }.keys
             val commandsKept = base.commands.filterValues { it.scope !in exitedIds }
-            val snapshot = base.copy(
-                revision = base.revision + 1,
-                configuration = configuration,
-                context = context,
-                activations = (base.activations - exitedNodes) + entered.associate { it.node to it.id },
-                commands = commandsKept + commands.associate { it.id to CommandRecord(it.scope, it.lane) },
-                timers = (base.timers - timersCancelled.toSet()) + timersScheduled.associate { it.id to TimerRecord(it.transition, it.activation, it.deadline) },
-                counters = counters,
-            )
+            val snapshot =
+                base.copy(
+                    revision = base.revision + 1,
+                    configuration = configuration,
+                    context = context,
+                    activations = (base.activations - exitedNodes) + entered.associate { it.node to it.id },
+                    commands = commandsKept + commands.associate { it.id to CommandRecord(it.scope, it.lane) },
+                    timers = (base.timers - timersCancelled.toSet()) + timersScheduled.associate { it.id to TimerRecord(it.transition, it.activation, it.deadline) },
+                    counters = counters,
+                )
             return Decision(
                 outcome = DecisionOutcome.Handled,
                 snapshot = snapshot,
@@ -654,14 +817,19 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
             )
         }
 
-        fun handle(node: StateId, rule: MachineActionScope<C, A, CMD, E>.() -> Unit) {
+        fun handle(
+            node: StateId,
+            rule: MachineActionScope<C, A, CMD, E>.() -> Unit,
+        ) {
             val scope = ActionScope(Activation(node, base.activations.getValue(node)))
             scope.rule()
             context = scope.context
         }
 
         /** What every scope shares: the activation it belongs to, the input, the clock, the context. */
-        abstract inner class Scope(private val owner: Activation) {
+        abstract inner class Scope(
+            private val owner: Activation,
+        ) {
             val node: StateId get() = owner.node
             val activation: ActivationId get() = owner.id
             val input: MachineInput<A> get() = this@Step.input
@@ -670,7 +838,11 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
 
             fun event(event: E): EffectId = emit(event)
 
-            protected fun register(command: CMD, lane: CommandLane, policy: ConcurrencyPolicy): CommandId {
+            protected fun register(
+                command: CMD,
+                lane: CommandLane,
+                policy: ConcurrencyPolicy,
+            ): CommandId {
                 val id = CommandId(counters.commands + 1)
                 counters = counters.copy(commands = id.value)
                 commands += CommandRegistration(id, command, owner.id, lane, policy)
@@ -678,23 +850,40 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
             }
         }
 
-        inner class EnterScope(owner: Activation) : Scope(owner), MachineEnterScope<C, A, CMD, E> {
+        inner class EnterScope(
+            owner: Activation,
+        ) : Scope(owner),
+            MachineEnterScope<C, A, CMD, E> {
             override val action: Action get() = this@Step.action
 
             override fun command(command: CMD): CommandId = register(command, CommandLane.Independent, ConcurrencyPolicy.Independent)
 
-            override fun command(command: CMD, lane: LaneId, policy: ConcurrencyPolicy): CommandId = register(command, lane, policy)
+            override fun command(
+                command: CMD,
+                lane: LaneId,
+                policy: ConcurrencyPolicy,
+            ): CommandId = register(command, lane, policy)
         }
 
-        inner class ActionScope(owner: Activation) : Scope(owner), MachineActionScope<C, A, CMD, E> {
+        inner class ActionScope(
+            owner: Activation,
+        ) : Scope(owner),
+            MachineActionScope<C, A, CMD, E> {
             override val action: Action get() = this@Step.action
 
             override fun command(command: CMD): CommandId = register(command, CommandLane.Independent, ConcurrencyPolicy.Independent)
 
-            override fun command(command: CMD, lane: LaneId, policy: ConcurrencyPolicy): CommandId = register(command, lane, policy)
+            override fun command(
+                command: CMD,
+                lane: LaneId,
+                policy: ConcurrencyPolicy,
+            ): CommandId = register(command, lane, policy)
         }
 
-        inner class ExitScope(owner: Activation) : Scope(owner), MachineExitScope<C, A, E> {
+        inner class ExitScope(
+            owner: Activation,
+        ) : Scope(owner),
+            MachineExitScope<C, A, E> {
             override val action: Action get() = this@Step.action
         }
 

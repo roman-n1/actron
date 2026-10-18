@@ -49,14 +49,20 @@ interface SegmentOutput : AutoCloseable {
  * @property modified When it was last written, in milliseconds of the platform's clock: only
  * compared between segments of one storage, to prune the oldest sessions first
  */
-data class SegmentInfo(val name: String, val size: Long, val modified: Long)
+data class SegmentInfo(
+    val name: String,
+    val size: Long,
+    val modified: Long,
+)
 
 /**
  * The file-system storage of the platform: the segments are files of [directory], created when
  * absent. JVM and Android use `java.io`, iOS the POSIX file API; JS and Wasm have no file system
  * and throw at construction.
  */
-expect class FileSegmentStorage(directory: String) : SegmentStorage {
+expect class FileSegmentStorage(
+    directory: String,
+) : SegmentStorage {
     override fun list(): List<SegmentInfo>
 
     override fun read(name: String): ByteArray
@@ -88,21 +94,25 @@ class InMemorySegmentStorage : SegmentStorage {
         }
     }
 
-    override fun append(name: String): SegmentOutput = object : SegmentOutput {
-        override fun write(bytes: ByteArray) {
-            locked {
-                segments.getOrPut(name) { ByteWriter() }.raw(bytes)
-                modified[name] = ++clock
+    override fun append(name: String): SegmentOutput =
+        object : SegmentOutput {
+            override fun write(bytes: ByteArray) {
+                locked {
+                    segments.getOrPut(name) { ByteWriter() }.raw(bytes)
+                    modified[name] = ++clock
+                }
             }
+
+            override fun flush() = Unit
+
+            override fun close() = Unit
         }
 
-        override fun flush() = Unit
-
-        override fun close() = Unit
-    }
-
     /** Cuts the segment to its first [size] bytes, as a crash in the middle of a write would. */
-    fun truncate(name: String, size: Int) {
+    fun truncate(
+        name: String,
+        size: Int,
+    ) {
         locked {
             val bytes = requireNotNull(segments[name]) { "[Actron] No segment $name" }.toByteArray()
             segments[name] = ByteWriter().apply { raw(bytes.copyOf(minOf(size, bytes.size))) }
@@ -110,7 +120,10 @@ class InMemorySegmentStorage : SegmentStorage {
     }
 
     /** Flips one bit of the byte at [offset], as a bad disk would. */
-    fun corrupt(name: String, offset: Int) {
+    fun corrupt(
+        name: String,
+        offset: Int,
+    ) {
         locked {
             val bytes = requireNotNull(segments[name]) { "[Actron] No segment $name" }.toByteArray()
             bytes[offset] = (bytes[offset].toInt() xor 0x01).toByte()

@@ -14,8 +14,14 @@ version = libs.versions.actron.get()
 kotlin {
     android {
         namespace = "actron.compose"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
         androidResources.enable = true
 
         // withJava() // enable java compilation support
@@ -89,7 +95,10 @@ kotlin {
 configurations.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "org.jetbrains.compose.ui") {
-            useVersion(libs.versions.compose.multiplatform.get())
+            useVersion(
+                libs.versions.compose.multiplatform
+                    .get(),
+            )
         }
     }
 }

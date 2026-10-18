@@ -88,10 +88,16 @@ class Branch<C : Any, A : Action, CMD : Any, E : Event>(
     fun dispatch(action: A): Decision<C, CMD, E> = apply(MachineInput.Dispatch(action, now))
 
     /** Decides [action] as the bridge message [message] at [now], as a group's local bridge delivers it. */
-    fun deliver(message: MessageId, action: A): Decision<C, CMD, E> = apply(MachineInput.BridgeReceived(message, action, now))
+    fun deliver(
+        message: MessageId,
+        action: A,
+    ): Decision<C, CMD, E> = apply(MachineInput.BridgeReceived(message, action, now))
 
     /** Decides [action] as data the external source [source] fed at [now]: the scripted data a branch gets instead of the source itself. */
-    fun feed(source: SourceId, action: A): Decision<C, CMD, E> = apply(MachineInput.External(source, action, now))
+    fun feed(
+        source: SourceId,
+        action: A,
+    ): Decision<C, CMD, E> = apply(MachineInput.External(source, action, now))
 
     /**
      * Answers the awaiting [command] with [result]; the command keeps awaiting, as a live one
@@ -99,7 +105,10 @@ class Branch<C : Any, A : Action, CMD : Any, E : Event>(
      *
      * @throws IllegalArgumentException if [command] is not awaiting
      */
-    fun answer(command: CommandId, result: A): Decision<C, CMD, E> {
+    fun answer(
+        command: CommandId,
+        result: A,
+    ): Decision<C, CMD, E> {
         requireAwaiting(command)
         return apply(MachineInput.CommandResult(command, result, now))
     }
@@ -119,7 +128,10 @@ class Branch<C : Any, A : Action, CMD : Any, E : Event>(
      *
      * @throws IllegalArgumentException if [command] is not awaiting
      */
-    fun fail(command: CommandId, failure: FailureDescriptor): Decision<C, CMD, E> {
+    fun fail(
+        command: CommandId,
+        failure: FailureDescriptor,
+    ): Decision<C, CMD, E> {
         requireAwaiting(command)
         return apply(MachineInput.CommandFailed(command, failure, now))
     }
@@ -133,7 +145,10 @@ class Branch<C : Any, A : Action, CMD : Any, E : Event>(
         val target = now + duration
         val fired = mutableListOf<Decision<C, CMD, E>>()
         while (true) {
-            val due = snapshot.timers.entries.filter { it.value.deadline <= target }.minWithOrNull(compareBy({ it.value.deadline }, { it.key.value })) ?: break
+            val due =
+                snapshot.timers.entries
+                    .filter { it.value.deadline <= target }
+                    .minWithOrNull(compareBy({ it.value.deadline }, { it.key.value })) ?: break
             now = maxOf(now, due.value.deadline)
             fired += apply(MachineInput.TimerFired(due.key, due.value.deadline))
         }
@@ -149,21 +164,26 @@ class Branch<C : Any, A : Action, CMD : Any, E : Event>(
      * awaiting, and the caller supplies the answer.
      */
     fun reuseRecordedAnswers(command: CommandId): List<Decision<C, CMD, E>> {
-        val registration: CommandRegistration<CMD> = when {
-            command in lanes.running -> lanes.running.getValue(command)
-            command in ending -> ending.getValue(command)
-            else -> return emptyList()
-        }
-        for ((node, scope) in snapshot.activations) if (scope == registration.scope) {
-            return recordedAnswers(registration, node, now).map { apply(it) }
+        val registration: CommandRegistration<CMD> =
+            when {
+                command in lanes.running -> lanes.running.getValue(command)
+                command in ending -> ending.getValue(command)
+                else -> return emptyList()
+            }
+        for ((node, scope) in snapshot.activations) {
+            if (scope == registration.scope) {
+                return recordedAnswers(registration, node, now).map { apply(it) }
+            }
         }
         return emptyList()
     }
 
     private fun requireAwaiting(command: CommandId) {
         if (command in lanes.running || command in ending) return
-        for ((lane, waiting) in lanes.queued) if (waiting.any { it.id == command }) {
-            throw IllegalArgumentException("[Actron] Command $command is queued in lane $lane and has not started; it cannot be answered before the lane lets it run")
+        for ((lane, waiting) in lanes.queued) {
+            if (waiting.any { it.id == command }) {
+                throw IllegalArgumentException("[Actron] Command $command is queued in lane $lane and has not started; it cannot be answered before the lane lets it run")
+            }
         }
         throw IllegalArgumentException("[Actron] Command $command is not awaiting in this branch")
     }
@@ -201,25 +221,34 @@ class Branch<C : Any, A : Action, CMD : Any, E : Event>(
     private fun finished(id: CommandId) {
         lanes = lanes.finished(id).lanes
     }
-
 }
 
 /** Recorded command answers are genuine ordered input batches; a caller-driven branch reuses none. */
 private fun <C : Any, A : Action, CMD : Any, E : Event> Recording<C, A, CMD, E>.answersFor(
-    registration: CommandRegistration<CMD>, node: StateId, now: MachineTime,
+    registration: CommandRegistration<CMD>,
+    node: StateId,
+    now: MachineTime,
 ): List<MachineInput<A>> {
-    fun registrations(snapshot: MachineSnapshot<C>, commands: Collection<CommandRegistration<CMD>>): List<CommandRegistration<CMD>> =
-        commands.filter { candidate -> snapshot.activations[node] == candidate.scope }
-    val commands = registrations(start.snapshot, start.registrations.values) + steps.flatMap { step ->
-        if (step is RecordedStep.Committed) registrations(step.decision.snapshot, step.decision.commands) else emptyList()
-    }
-    for (recorded in commands) if (recorded.command == registration.command && recorded.lane == registration.lane) {
-        return buildList {
-            for (step in steps) when (val input = step.input) {
-                is MachineInput.CommandResult -> if (input.command == recorded.id) add(MachineInput.CommandResult(registration.id, input.action, now))
-                is MachineInput.CommandCompleted -> if (input.command == recorded.id) add(MachineInput.CommandCompleted(registration.id, now))
-                is MachineInput.CommandFailed -> if (input.command == recorded.id) add(MachineInput.CommandFailed(registration.id, input.failure, now))
-                else -> Unit
+    fun registrations(
+        snapshot: MachineSnapshot<C>,
+        commands: Collection<CommandRegistration<CMD>>,
+    ): List<CommandRegistration<CMD>> = commands.filter { candidate -> snapshot.activations[node] == candidate.scope }
+    val commands =
+        registrations(start.snapshot, start.registrations.values) +
+            steps.flatMap { step ->
+                if (step is RecordedStep.Committed) registrations(step.decision.snapshot, step.decision.commands) else emptyList()
+            }
+    for (recorded in commands) {
+        if (recorded.command == registration.command && recorded.lane == registration.lane) {
+            return buildList {
+                for (step in steps) {
+                    when (val input = step.input) {
+                        is MachineInput.CommandResult -> if (input.command == recorded.id) add(MachineInput.CommandResult(registration.id, input.action, now))
+                        is MachineInput.CommandCompleted -> if (input.command == recorded.id) add(MachineInput.CommandCompleted(registration.id, now))
+                        is MachineInput.CommandFailed -> if (input.command == recorded.id) add(MachineInput.CommandFailed(registration.id, input.failure, now))
+                        else -> Unit
+                    }
+                }
             }
         }
     }

@@ -1,16 +1,16 @@
 package actron.core
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -31,17 +31,21 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StoreRegressionTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     sealed interface AppState : State {
-        data class Active(val value: Int = 0) : AppState
+        data class Active(
+            val value: Int = 0,
+        ) : AppState
+
         data object Done : AppState
     }
 
     sealed interface AppAction : Action {
         data object Finish : AppAction
+
         data object LaunchIncrement : AppAction
+
         data object FollowUp : AppAction
     }
 
@@ -55,27 +59,29 @@ class StoreRegressionTest {
      * ```
      */
     @Test
-    fun exitException_recoveredInPlace_keepsTheStateRuntimeUsable() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store: Store<AppState, AppAction, Nothing> = Store(AppState.Active()) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<AppState.Active> {
-                action<AppAction.Finish> { nextState { AppState.Done } }
-                action<AppAction.LaunchIncrement> {
-                    launch { transaction { nextState { AppState.Active(state.value + 1) } } }
+    fun exitException_recoveredInPlace_keepsTheStateRuntimeUsable() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store: Store<AppState, AppAction, Nothing> =
+                Store(AppState.Active()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<AppState.Active> {
+                        action<AppAction.Finish> { nextState { AppState.Done } }
+                        action<AppAction.LaunchIncrement> {
+                            launch { transaction { nextState { AppState.Active(state.value + 1) } } }
+                        }
+                        exit { throw IllegalStateException("exit failed") }
+                        recover<IllegalStateException> { }
+                    }
                 }
-                exit { throw IllegalStateException("exit failed") }
-                recover<IllegalStateException> { }
-            }
+
+            store.dispatchAndAwaitForTest(AppAction.Finish)
+            store.dispatchAndAwaitForTest(AppAction.LaunchIncrement)
+
+            assertEquals(emptyList(), handled.map { it.message.orEmpty() })
+            assertEquals(AppState.Active(value = 1), store.currentState)
         }
-
-        store.dispatchAndAwaitForTest(AppAction.Finish)
-        store.dispatchAndAwaitForTest(AppAction.LaunchIncrement)
-
-        assertEquals(emptyList(), handled.map { it.message.orEmpty() })
-        assertEquals(AppState.Active(value = 1), store.currentState)
-    }
 
     /**
      * With [PendingActionPolicy.ClearOnStateExit], pending actions are cleared before the new state
@@ -87,28 +93,30 @@ class StoreRegressionTest {
      * ```
      */
     @Test
-    fun clearOnStateExit_keepsActionsDispatchedByPluginsForTheNewState() = runTest(testDispatcher) {
-        val store: Store<AppState, AppAction, Nothing> = Store(AppState.Active()) {
-            coroutineContext(Dispatchers.Unconfined)
-            plugin(
-                Plugin(
-                    onState = { prevState, state ->
-                        if (prevState is AppState.Active && state is AppState.Done) dispatch(AppAction.FollowUp)
-                    },
-                ),
-            )
-            state<AppState.Active> {
-                action<AppAction.Finish> { nextState { AppState.Done } }
-            }
-            state<AppState.Done> {
-                action<AppAction.FollowUp> { nextState { AppState.Active(value = 100) } }
-            }
+    fun clearOnStateExit_keepsActionsDispatchedByPluginsForTheNewState() =
+        runTest(testDispatcher) {
+            val store: Store<AppState, AppAction, Nothing> =
+                Store(AppState.Active()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    plugin(
+                        Plugin(
+                            onState = { prevState, state ->
+                                if (prevState is AppState.Active && state is AppState.Done) dispatch(AppAction.FollowUp)
+                            },
+                        ),
+                    )
+                    state<AppState.Active> {
+                        action<AppAction.Finish> { nextState { AppState.Done } }
+                    }
+                    state<AppState.Done> {
+                        action<AppAction.FollowUp> { nextState { AppState.Active(value = 100) } }
+                    }
+                }
+
+            store.dispatchAndAwaitForTest(AppAction.Finish)
+
+            assertEquals(AppState.Active(value = 100), store.currentState)
         }
-
-        store.dispatchAndAwaitForTest(AppAction.Finish)
-
-        assertEquals(AppState.Active(value = 100), store.currentState)
-    }
 
     /**
      * Operators that stop collecting [Store.state] early, such as `first()`, `first {}` and
@@ -117,31 +125,39 @@ class StoreRegressionTest {
      * Runs on [Dispatchers.Default] with a real timeout so a regression fails instead of hanging.
      */
     @Test
-    fun stateFirst_returnsOnceThePredicateMatches() = runTest(testDispatcher) {
-        val store: Store<AppState, AppAction, Nothing> = Store(AppState.Active()) {
-            coroutineContext(Dispatchers.Default)
-            state<AppState.Active> {
-                action<AppAction.Finish> { nextState { AppState.Done } }
-            }
+    fun stateFirst_returnsOnceThePredicateMatches() =
+        runTest(testDispatcher) {
+            val store: Store<AppState, AppAction, Nothing> =
+                Store(AppState.Active()) {
+                    coroutineContext(Dispatchers.Default)
+                    state<AppState.Active> {
+                        action<AppAction.Finish> { nextState { AppState.Done } }
+                    }
+                }
+
+            val results =
+                withContext(Dispatchers.Default) {
+                    withTimeout(2_000) {
+                        val initial = store.state.first()
+                        val taken = store.state.take(1).toList()
+                        store.dispatch(AppAction.Finish)
+                        val done = store.state.first { it is AppState.Done }
+                        listOf(initial, taken.single(), done)
+                    }
+                }
+
+            assertEquals(listOf(AppState.Active(), AppState.Active(), AppState.Done), results)
+            store.close()
         }
 
-        val results = withContext(Dispatchers.Default) {
-            withTimeout(2_000) {
-                val initial = store.state.first()
-                val taken = store.state.take(1).toList()
-                store.dispatch(AppAction.Finish)
-                val done = store.state.first { it is AppState.Done }
-                listOf(initial, taken.single(), done)
-            }
-        }
+    data class Search(
+        val query: String = "",
+        val log: List<String> = emptyList(),
+    ) : State
 
-        assertEquals(listOf(AppState.Active(), AppState.Active(), AppState.Done), results)
-        store.close()
-    }
-
-    data class Search(val query: String = "", val log: List<String> = emptyList()) : State
-
-    data class Query(val query: String) : Action
+    data class Query(
+        val query: String,
+    ) : Action
 
     /**
      * A transaction queued by a launch that [LaunchControl.CancelPrevious] then cancels must not
@@ -155,41 +171,48 @@ class StoreRegressionTest {
      * ```
      */
     @Test
-    fun cancelPrevious_skipsATransactionQueuedByTheCancelledLaunch() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val store: Store<Search, Query, Nothing> = Store(Search()) {
-            coroutineContext(dispatcher)
-            state<Search> {
-                action<Query> {
-                    // Holds the lock long enough for the previous launch's transaction to queue.
-                    delay(50)
-                    nextState { state.copy(query = action.query, log = state.log + "query:${action.query}") }
-                    launch(control = LaunchControl.CancelPrevious()) {
-                        delay(10)
-                        transaction {
-                            nextState { state.copy(log = state.log + "result:${action.query}") }
+    fun cancelPrevious_skipsATransactionQueuedByTheCancelledLaunch() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val store: Store<Search, Query, Nothing> =
+                Store(Search()) {
+                    coroutineContext(dispatcher)
+                    state<Search> {
+                        action<Query> {
+                            // Holds the lock long enough for the previous launch's transaction to queue.
+                            delay(50)
+                            nextState { state.copy(query = action.query, log = state.log + "query:${action.query}") }
+                            launch(control = LaunchControl.CancelPrevious()) {
+                                delay(10)
+                                transaction {
+                                    nextState { state.copy(log = state.log + "result:${action.query}") }
+                                }
+                            }
                         }
                     }
                 }
-            }
+
+            store.dispatch(Query("a"))
+            testScheduler.advanceTimeBy(51)
+            store.dispatch(Query("b"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("query:a", "query:b", "result:b"), store.currentState.log)
+            store.close()
         }
-
-        store.dispatch(Query("a"))
-        testScheduler.advanceTimeBy(51)
-        store.dispatch(Query("b"))
-        advanceUntilIdle()
-
-        assertEquals(listOf("query:a", "query:b", "result:b"), store.currentState.log)
-        store.close()
-    }
 
     sealed interface EnterState : State {
         data object Start : EnterState
-        data class Entered(val entered: Boolean = false, val launched: Boolean = false) : EnterState
+
+        data class Entered(
+            val entered: Boolean = false,
+            val launched: Boolean = false,
+        ) : EnterState
     }
 
     sealed interface EnterAction : Action {
         data object Go : EnterAction
+
         data object LaunchInEntered : EnterAction
     }
 
@@ -197,21 +220,22 @@ class StoreRegressionTest {
         handled: MutableList<Throwable>,
         stateSaver: StateSaver<EnterState> = StateSaver.Noop(),
         plugin: Plugin<EnterState, EnterAction, Nothing> = actron.core.Plugin(),
-    ): Store<EnterState, EnterAction, Nothing> = Store(EnterState.Start) {
-        coroutineContext(Dispatchers.Unconfined)
-        exceptionHandler(ExceptionHandler { handled += it })
-        stateSaver(stateSaver)
-        plugin(plugin)
-        state<EnterState.Start> {
-            action<EnterAction.Go> { nextState { EnterState.Entered() } }
-        }
-        state<EnterState.Entered> {
-            enter { nextState { state.copy(entered = true) } }
-            action<EnterAction.LaunchInEntered> {
-                launch { transaction { nextState { state.copy(launched = true) } } }
+    ): Store<EnterState, EnterAction, Nothing> =
+        Store(EnterState.Start) {
+            coroutineContext(Dispatchers.Unconfined)
+            exceptionHandler(ExceptionHandler { handled += it })
+            stateSaver(stateSaver)
+            plugin(plugin)
+            state<EnterState.Start> {
+                action<EnterAction.Go> { nextState { EnterState.Entered() } }
+            }
+            state<EnterState.Entered> {
+                enter { nextState { state.copy(entered = true) } }
+                action<EnterAction.LaunchInEntered> {
+                    launch { transaction { nextState { state.copy(launched = true) } } }
+                }
             }
         }
-    }
 
     /**
      * When [StateSaver.save] throws while committing a new state variant, the state is already
@@ -223,42 +247,49 @@ class StoreRegressionTest {
      * ```
      */
     @Test
-    fun stateSaverException_onVariantChange_stillEntersTheNewState() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store = enterStore(
-            handled = handled,
-            stateSaver = StateSaver(
-                save = { if (it is EnterState.Entered && !it.entered) throw IllegalStateException("disk full") },
-                restore = { it },
-            ),
-        )
+    fun stateSaverException_onVariantChange_stillEntersTheNewState() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store =
+                enterStore(
+                    handled = handled,
+                    stateSaver =
+                        StateSaver(
+                            save = { if (it is EnterState.Entered && !it.entered) throw IllegalStateException("disk full") },
+                            restore = { it },
+                        ),
+                )
 
-        store.dispatchAndAwaitForTest(EnterAction.Go)
-        store.dispatchAndAwaitForTest(EnterAction.LaunchInEntered)
+            store.dispatchAndAwaitForTest(EnterAction.Go)
+            store.dispatchAndAwaitForTest(EnterAction.LaunchInEntered)
 
-        assertEquals(EnterState.Entered(entered = true, launched = true), store.currentState)
-        assertEquals(listOf("disk full"), handled.map { it.message.orEmpty() })
-    }
+            assertEquals(EnterState.Entered(entered = true, launched = true), store.currentState)
+            assertEquals(listOf("disk full"), handled.map { it.message.orEmpty() })
+        }
 
     /**
      * Same for a plugin whose `onState` throws: reported, but the transition finishes.
      */
     @Test
-    fun pluginOnStateException_onVariantChange_stillEntersTheNewState() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store = enterStore(
-            handled = handled,
-            plugin = Plugin(onState = { _, state -> if (state == EnterState.Entered()) throw IllegalStateException("plugin failed") }),
-        )
+    fun pluginOnStateException_onVariantChange_stillEntersTheNewState() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store =
+                enterStore(
+                    handled = handled,
+                    plugin = Plugin(onState = { _, state -> if (state == EnterState.Entered()) throw IllegalStateException("plugin failed") }),
+                )
 
-        store.dispatchAndAwaitForTest(EnterAction.Go)
-        store.dispatchAndAwaitForTest(EnterAction.LaunchInEntered)
+            store.dispatchAndAwaitForTest(EnterAction.Go)
+            store.dispatchAndAwaitForTest(EnterAction.LaunchInEntered)
 
-        assertEquals(EnterState.Entered(entered = true, launched = true), store.currentState)
-        assertEquals(listOf("plugin failed"), handled.map { it.message.orEmpty() })
-    }
+            assertEquals(EnterState.Entered(entered = true, launched = true), store.currentState)
+            assertEquals(listOf("plugin failed"), handled.map { it.message.orEmpty() })
+        }
 
-    data class Emitting(val done: Boolean = false) : State
+    data class Emitting(
+        val done: Boolean = false,
+    ) : State
 
     data object EmitThenFinish : Action
 
@@ -269,27 +300,31 @@ class StoreRegressionTest {
      * completes and its next state is committed.
      */
     @Test
-    fun pluginOnEventException_doesNotAbortTheEmittingHandler() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store: Store<Emitting, EmitThenFinish, Emitted> = Store(Emitting()) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            plugin(Plugin(onEvent = { _, _ -> throw IllegalStateException("onEvent failed") }))
-            state<Emitting> {
-                action<EmitThenFinish> {
-                    event(Emitted)
-                    nextState { state.copy(done = true) }
+    fun pluginOnEventException_doesNotAbortTheEmittingHandler() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store: Store<Emitting, EmitThenFinish, Emitted> =
+                Store(Emitting()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    plugin(Plugin(onEvent = { _, _ -> throw IllegalStateException("onEvent failed") }))
+                    state<Emitting> {
+                        action<EmitThenFinish> {
+                            event(Emitted)
+                            nextState { state.copy(done = true) }
+                        }
+                    }
                 }
-            }
+
+            store.dispatchAndAwaitForTest(EmitThenFinish)
+
+            assertEquals(Emitting(done = true), store.currentState)
+            assertEquals(listOf("onEvent failed"), handled.map { it.message.orEmpty() })
         }
 
-        store.dispatchAndAwaitForTest(EmitThenFinish)
-
-        assertEquals(Emitting(done = true), store.currentState)
-        assertEquals(listOf("onEvent failed"), handled.map { it.message.orEmpty() })
-    }
-
-    data class Booting(val ready: Boolean = false) : State
+    data class Booting(
+        val ready: Boolean = false,
+    ) : State
 
     data object Poke : Action
 
@@ -300,74 +335,91 @@ class StoreRegressionTest {
      * run the failing handler again and drop its action.
      */
     @Test
-    fun failedInitialEnter_isReportedOnceAndTheStoreProcessesActions() = runTest(testDispatcher) {
-        var enterCalls = 0
-        var pluginStarts = 0
-        var pokes = 0
-        val handled = mutableListOf<Throwable>()
-        val store: Store<Booting, Poke, Nothing> = Store(Booting()) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            plugin(Plugin(onStart = { pluginStarts++ }))
-            state<Booting> {
-                enter {
-                    enterCalls++
-                    throw IllegalStateException("boot failed")
+    fun failedInitialEnter_isReportedOnceAndTheStoreProcessesActions() =
+        runTest(testDispatcher) {
+            var enterCalls = 0
+            var pluginStarts = 0
+            var pokes = 0
+            val handled = mutableListOf<Throwable>()
+            val store: Store<Booting, Poke, Nothing> =
+                Store(Booting()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    plugin(Plugin(onStart = { pluginStarts++ }))
+                    state<Booting> {
+                        enter {
+                            enterCalls++
+                            throw IllegalStateException("boot failed")
+                        }
+                        action<Poke> { pokes++ }
+                    }
                 }
-                action<Poke> { pokes++ }
-            }
+
+            store.dispatchAndAwaitForTest(Poke)
+            store.dispatchAndAwaitForTest(Poke)
+
+            assertEquals(1, enterCalls)
+            assertEquals(1, pluginStarts)
+            assertEquals(2, pokes)
+            assertEquals(listOf("boot failed"), handled.map { it.message.orEmpty() })
         }
-
-        store.dispatchAndAwaitForTest(Poke)
-        store.dispatchAndAwaitForTest(Poke)
-
-        assertEquals(1, enterCalls)
-        assertEquals(1, pluginStarts)
-        assertEquals(2, pokes)
-        assertEquals(listOf("boot failed"), handled.map { it.message.orEmpty() })
-    }
 
     sealed interface Net : State {
         data object Idle : Net
-        data class Done(val result: String) : Net
-        data class Failed(val error: String) : Net
+
+        data class Done(
+            val result: String,
+        ) : Net
+
+        data class Failed(
+            val error: String,
+        ) : Net
     }
 
     sealed interface NetAction : Action {
         data object Load : NetAction
+
         data object LoadInLaunch : NetAction
+
         data object LoadInTransaction : NetAction
+
         data object Ping : NetAction
     }
 
-    private fun netStore(handled: MutableList<Throwable>, dispatcher: TestDispatcher, plugin: Plugin<Net, NetAction, Nothing> = actron.core.Plugin(), policy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent): Store<Net, NetAction, Nothing> = Store(Net.Idle) {
-        coroutineContext(dispatcher)
-        exceptionHandler(ExceptionHandler { handled += it })
-        pluginExecutionPolicy(policy)
-        plugin(plugin)
-        state<Net.Idle> {
-            action<NetAction.Load> {
-                withTimeout(10) { delay(10_000) }
-                nextState { Net.Done("loaded") }
-            }
-            action<NetAction.LoadInLaunch> {
-                launch {
+    private fun netStore(
+        handled: MutableList<Throwable>,
+        dispatcher: TestDispatcher,
+        plugin: Plugin<Net, NetAction, Nothing> = actron.core.Plugin(),
+        policy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent,
+    ): Store<Net, NetAction, Nothing> =
+        Store(Net.Idle) {
+            coroutineContext(dispatcher)
+            exceptionHandler(ExceptionHandler { handled += it })
+            pluginExecutionPolicy(policy)
+            plugin(plugin)
+            state<Net.Idle> {
+                action<NetAction.Load> {
                     withTimeout(10) { delay(10_000) }
-                    transaction { nextState { Net.Done("loaded") } }
+                    nextState { Net.Done("loaded") }
                 }
-            }
-            action<NetAction.LoadInTransaction> {
-                launch {
-                    transaction {
+                action<NetAction.LoadInLaunch> {
+                    launch {
                         withTimeout(10) { delay(10_000) }
-                        nextState { Net.Done("loaded") }
+                        transaction { nextState { Net.Done("loaded") } }
                     }
                 }
+                action<NetAction.LoadInTransaction> {
+                    launch {
+                        transaction {
+                            withTimeout(10) { delay(10_000) }
+                            nextState { Net.Done("loaded") }
+                        }
+                    }
+                }
+                action<NetAction.Ping> { nextState { Net.Done("pong") } }
+                recover<TimeoutCancellationException> { nextState { Net.Failed("timeout") } }
             }
-            action<NetAction.Ping> { nextState { Net.Done("pong") } }
-            recover<TimeoutCancellationException> { nextState { Net.Failed("timeout") } }
         }
-    }
 
     /**
      * A `withTimeout {}` that expires inside a handler is a failure of that handler, not the
@@ -375,91 +427,103 @@ class StoreRegressionTest {
      * a launched coroutine and inside a transaction.
      */
     @Test
-    fun expiredWithTimeout_inHandlerLaunchAndTransaction_isRecovered() = runTest {
-        for (action in listOf(NetAction.Load, NetAction.LoadInLaunch, NetAction.LoadInTransaction)) {
-            val handled = mutableListOf<Throwable>()
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val store = netStore(handled, dispatcher)
-            store.dispatch(action)
-            advanceUntilIdle()
-            assertEquals(Net.Failed("timeout"), store.currentState, "$action")
-            assertEquals(emptyList(), handled, "$action")
-            store.close()
+    fun expiredWithTimeout_inHandlerLaunchAndTransaction_isRecovered() =
+        runTest {
+            for (action in listOf(NetAction.Load, NetAction.LoadInLaunch, NetAction.LoadInTransaction)) {
+                val handled = mutableListOf<Throwable>()
+                val dispatcher = StandardTestDispatcher(testScheduler)
+                val store = netStore(handled, dispatcher)
+                store.dispatch(action)
+                advanceUntilIdle()
+                assertEquals(Net.Failed("timeout"), store.currentState, "$action")
+                assertEquals(emptyList(), handled, "$action")
+                store.close()
+            }
         }
-    }
 
     /**
      * An expired `withTimeout {}` in the initial `enter {}` is recovered too, and the Store
      * starts.
      */
     @Test
-    fun expiredWithTimeout_inInitialEnter_isRecoveredAndTheStoreStarts() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val handled = mutableListOf<Throwable>()
-        var pings = 0
-        val store: Store<Net, NetAction, Nothing> = Store(Net.Idle) {
-            coroutineContext(dispatcher)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Net.Idle> {
-                enter { withTimeout(10) { delay(10_000) } }
-                action<NetAction.Ping> { pings++ }
-                recover<TimeoutCancellationException> { }
-            }
+    fun expiredWithTimeout_inInitialEnter_isRecoveredAndTheStoreStarts() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val handled = mutableListOf<Throwable>()
+            var pings = 0
+            val store: Store<Net, NetAction, Nothing> =
+                Store(Net.Idle) {
+                    coroutineContext(dispatcher)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Net.Idle> {
+                        enter { withTimeout(10) { delay(10_000) } }
+                        action<NetAction.Ping> { pings++ }
+                        recover<TimeoutCancellationException> { }
+                    }
+                }
+
+            store.dispatch(NetAction.Ping)
+            store.dispatch(NetAction.Ping)
+            advanceUntilIdle()
+
+            assertEquals(2, pings)
+            assertEquals(emptyList(), handled)
+            store.close()
         }
-
-        store.dispatch(NetAction.Ping)
-        store.dispatch(NetAction.Ping)
-        advanceUntilIdle()
-
-        assertEquals(2, pings)
-        assertEquals(emptyList(), handled)
-        store.close()
-    }
 
     /**
      * A plugin hook whose `withTimeout {}` expires fails the step under both execution policies;
      * with [PluginExecutionPolicy.Concurrent] it used to end its own coroutine silently.
      */
     @Test
-    fun pluginHookTimingOut_failsTheActionUnderBothPolicies() = runTest {
-        for (policy in PluginExecutionPolicy.entries) {
-            val handled = mutableListOf<Throwable>()
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val store = netStore(handled, dispatcher, plugin = Plugin(onAction = { _, _ -> withTimeout(10) { delay(10_000) } }), policy = policy)
-            store.dispatch(NetAction.Ping)
-            advanceUntilIdle()
-            assertEquals(Net.Idle, store.currentState, "$policy")
-            assertIs<TimeoutCancellationException>(handled.singleOrNull(), "$policy: $handled")
-            store.close()
+    fun pluginHookTimingOut_failsTheActionUnderBothPolicies() =
+        runTest {
+            for (policy in PluginExecutionPolicy.entries) {
+                val handled = mutableListOf<Throwable>()
+                val dispatcher = StandardTestDispatcher(testScheduler)
+                val store = netStore(handled, dispatcher, plugin = Plugin(onAction = { _, _ -> withTimeout(10) { delay(10_000) } }), policy = policy)
+                store.dispatch(NetAction.Ping)
+                advanceUntilIdle()
+                assertEquals(Net.Idle, store.currentState, "$policy")
+                assertIs<TimeoutCancellationException>(handled.singleOrNull(), "$policy: $handled")
+                store.close()
+            }
         }
-    }
 
     /**
      * When `recover {}` itself throws, the error it was handling is kept as a suppressed exception
      * of the reported one.
      */
     @Test
-    fun recoverThatThrows_keepsTheOriginalErrorAsSuppressed() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store: Store<Booting, Poke, Nothing> = Store(Booting()) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Booting> {
-                action<Poke> { throw IllegalStateException("original") }
-                recover<IllegalStateException> { throw IllegalArgumentException("recover failed") }
-            }
+    fun recoverThatThrows_keepsTheOriginalErrorAsSuppressed() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store: Store<Booting, Poke, Nothing> =
+                Store(Booting()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Booting> {
+                        action<Poke> { throw IllegalStateException("original") }
+                        recover<IllegalStateException> { throw IllegalArgumentException("recover failed") }
+                    }
+                }
+
+            store.dispatchAndAwaitForTest(Poke)
+
+            val reported = assertIs<IllegalArgumentException>(handled.single())
+            assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message.orEmpty() })
         }
-
-        store.dispatchAndAwaitForTest(Poke)
-
-        val reported = assertIs<IllegalArgumentException>(handled.single())
-        assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message.orEmpty() })
-    }
 
     sealed interface Loop : State {
         data object Start : Loop
-        data class Left(val hop: Int) : Loop
-        data class Right(val hop: Int) : Loop
+
+        data class Left(
+            val hop: Int,
+        ) : Loop
+
+        data class Right(
+            val hop: Int,
+        ) : Loop
     }
 
     data object Enter : Action
@@ -470,25 +534,27 @@ class StoreRegressionTest {
      * and the Store keeps working afterwards.
      */
     @Test
-    fun enterLoop_failsWithAnErrorInsteadOfOverflowingTheStack() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        var pokes = 0
-        val store: Store<Loop, Action, Nothing> = Store(Loop.Start) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Loop.Start> { action<Enter> { nextState { Loop.Left(0) } } }
-            state<Loop.Left> { enter { nextState { Loop.Right(state.hop + 1) } } }
-            state<Loop.Right> { enter { nextState { Loop.Left(state.hop + 1) } } }
-            state<Loop> { action<Poke> { pokes++ } }
+    fun enterLoop_failsWithAnErrorInsteadOfOverflowingTheStack() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            var pokes = 0
+            val store: Store<Loop, Action, Nothing> =
+                Store(Loop.Start) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Loop.Start> { action<Enter> { nextState { Loop.Left(0) } } }
+                    state<Loop.Left> { enter { nextState { Loop.Right(state.hop + 1) } } }
+                    state<Loop.Right> { enter { nextState { Loop.Left(state.hop + 1) } } }
+                    state<Loop> { action<Poke> { pokes++ } }
+                }
+
+            store.dispatchAndAwaitForTest(Enter)
+            store.dispatchAndAwaitForTest(Poke)
+
+            val error = assertIs<IllegalStateException>(handled.single())
+            assertTrue("loop" in error.message.orEmpty(), error.message)
+            assertEquals(1, pokes)
         }
-
-        store.dispatchAndAwaitForTest(Enter)
-        store.dispatchAndAwaitForTest(Poke)
-
-        val error = assertIs<IllegalStateException>(handled.single())
-        assertTrue("loop" in error.message.orEmpty(), error.message)
-        assertEquals(1, pokes)
-    }
 
     data object Nested : Action
 
@@ -498,36 +564,45 @@ class StoreRegressionTest {
      * names the problem, and the Store keeps working. From a `launch {}` it is allowed.
      */
     @Test
-    fun awaitingTheStoreFromInsideItsOwnHandler_failsFastInsteadOfDeadlocking() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val recovered = mutableListOf<String>()
-        var pokes = 0
-        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<Booting, Action, Nothing>>()
-        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-        val store: Store<Booting, Action, Nothing> = Store(Booting()) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            plugin(Plugin(onAction = { _, action -> if (action is Enter) storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }))
-            state<Booting> {
-                enter { storePublication.getCompleted().startAndAwaitForTest() }
-                action<Nested> { storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }
-                action<Poke> { pokes++ }
-                recover<IllegalStateException> { recovered += error.message.orEmpty().substringBefore(":") }
-            }
+    fun awaitingTheStoreFromInsideItsOwnHandler_failsFastInsteadOfDeadlocking() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val recovered = mutableListOf<String>()
+            var pokes = 0
+            val storePublication = kotlinx.coroutines.CompletableDeferred<Store<Booting, Action, Nothing>>()
+
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            val store: Store<Booting, Action, Nothing> =
+                Store(Booting()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    plugin(Plugin(onAction = { _, action -> if (action is Enter) storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }))
+                    state<Booting> {
+                        enter { storePublication.getCompleted().startAndAwaitForTest() }
+                        action<Nested> { storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }
+                        action<Poke> { pokes++ }
+                        recover<IllegalStateException> { recovered += error.message.orEmpty().substringBefore(":") }
+                    }
+                }
+            storePublication.complete(store)
+
+            store.dispatchAndAwaitForTest(Nested)
+            store.dispatchAndAwaitForTest(Enter)
+            store.dispatchAndAwaitForTest(Poke)
+
+            assertEquals(1, pokes)
+            assertEquals(listOf("[Actron] startAndAwait must not be called from a handler, plugin hook or transaction of the same Store", "[Actron] dispatchAndAwait must not be called from a handler, plugin hook or transaction of the same Store"), recovered)
+            // The plugin hook's failure bypasses recover {} and reaches the exception handler.
+            assertEquals(
+                listOf("dispatchAndAwait"),
+                handled.map {
+                    it.message
+                        .orEmpty()
+                        .substringAfter("[Actron] ")
+                        .substringBefore(" ")
+                },
+            )
         }
-        storePublication.complete(store)
-
-
-
-        store.dispatchAndAwaitForTest(Nested)
-        store.dispatchAndAwaitForTest(Enter)
-        store.dispatchAndAwaitForTest(Poke)
-
-        assertEquals(1, pokes)
-        assertEquals(listOf("[Actron] startAndAwait must not be called from a handler, plugin hook or transaction of the same Store", "[Actron] dispatchAndAwait must not be called from a handler, plugin hook or transaction of the same Store"), recovered)
-        // The plugin hook's failure bypasses recover {} and reaches the exception handler.
-        assertEquals(listOf("dispatchAndAwait"), handled.map { it.message.orEmpty().substringAfter("[Actron] ").substringBefore(" ") })
-    }
 
     /**
      * A plugin whose hook throws must not hide the round from the plugins after it: a recorder
@@ -535,27 +610,29 @@ class StoreRegressionTest {
      * reported, later ones as suppressed.
      */
     @Test
-    fun aFailingPluginHook_doesNotHideTheRoundFromOtherPlugins() = runTest(testDispatcher) {
-        for (policy in PluginExecutionPolicy.entries) {
-            val handled = mutableListOf<Throwable>()
-            val seen = mutableListOf<Int>()
-            val store: Store<Booting, Poke, Nothing> = Store(Booting()) {
-                coroutineContext(Dispatchers.Unconfined)
-                exceptionHandler(ExceptionHandler { handled += it })
-                pluginExecutionPolicy(policy)
-                plugin(Plugin(onState = { _, _ -> throw IllegalStateException("analytics down") }))
-                plugin(Plugin(onState = { _, state -> seen += if (state.ready) 1 else 0 }))
-                plugin(Plugin(onState = { _, _ -> throw IllegalArgumentException("second") }))
-                state<Booting> { action<Poke> { nextState { state.copy(ready = true) } } }
+    fun aFailingPluginHook_doesNotHideTheRoundFromOtherPlugins() =
+        runTest(testDispatcher) {
+            for (policy in PluginExecutionPolicy.entries) {
+                val handled = mutableListOf<Throwable>()
+                val seen = mutableListOf<Int>()
+                val store: Store<Booting, Poke, Nothing> =
+                    Store(Booting()) {
+                        coroutineContext(Dispatchers.Unconfined)
+                        exceptionHandler(ExceptionHandler { handled += it })
+                        pluginExecutionPolicy(policy)
+                        plugin(Plugin(onState = { _, _ -> throw IllegalStateException("analytics down") }))
+                        plugin(Plugin(onState = { _, state -> seen += if (state.ready) 1 else 0 }))
+                        plugin(Plugin(onState = { _, _ -> throw IllegalArgumentException("second") }))
+                        state<Booting> { action<Poke> { nextState { state.copy(ready = true) } } }
+                    }
+
+                store.dispatchAndAwaitForTest(Poke)
+
+                assertEquals(listOf(1), seen, "$policy")
+                val reported = assertIs<IllegalStateException>(handled.single(), "$policy")
+                assertEquals(listOf("second"), reported.suppressedExceptions.map { it.message.orEmpty() }, "$policy")
             }
-
-            store.dispatchAndAwaitForTest(Poke)
-
-            assertEquals(listOf(1), seen, "$policy")
-            val reported = assertIs<IllegalStateException>(handled.single(), "$policy")
-            assertEquals(listOf("second"), reported.suppressedExceptions.map { it.message.orEmpty() }, "$policy")
         }
-    }
 
     data object EmitFromLaunch : Action
 
@@ -567,46 +644,47 @@ class StoreRegressionTest {
      * (the round holds the plugin lock the dispatch needs). The round now carries the marker.
      */
     @Test
-    fun awaitingTheStoreFromAnOnEventRoundOfALaunchedEvent_failsFast() = runTest {
-        val outcome = CompletableDeferred<String>()
-        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<Booting, Action, Beep>>()
-        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-        val store: Store<Booting, Action, Beep> = Store(Booting()) {
-            coroutineContext(Dispatchers.Default)
-            exceptionHandler(ExceptionHandler.Ignore)
-            plugin(
-                Plugin(
-                    onEvent = { _, _ ->
-                        outcome.complete(
-                            withTimeoutOrNull(5_000) {
-                                try {
-                                    storePublication.getCompleted().dispatchAndAwaitForTest(Poke)
-                                    "completed"
-                                } catch (e: IllegalStateException) {
-                                    "rejected"
-                                }
-                            } ?: "hung",
-                        )
-                    },
-                ),
-            )
-            state<Booting> {
-                action<EmitFromLaunch> { launch { event(Beep) } }
-                action<Poke> { }
+    fun awaitingTheStoreFromAnOnEventRoundOfALaunchedEvent_failsFast() =
+        runTest {
+            val outcome = CompletableDeferred<String>()
+            val storePublication = kotlinx.coroutines.CompletableDeferred<Store<Booting, Action, Beep>>()
+
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            val store: Store<Booting, Action, Beep> =
+                Store(Booting()) {
+                    coroutineContext(Dispatchers.Default)
+                    exceptionHandler(ExceptionHandler.Ignore)
+                    plugin(
+                        Plugin(
+                            onEvent = { _, _ ->
+                                outcome.complete(
+                                    withTimeoutOrNull(5_000) {
+                                        try {
+                                            storePublication.getCompleted().dispatchAndAwaitForTest(Poke)
+                                            "completed"
+                                        } catch (e: IllegalStateException) {
+                                            "rejected"
+                                        }
+                                    } ?: "hung",
+                                )
+                            },
+                        ),
+                    )
+                    state<Booting> {
+                        action<EmitFromLaunch> { launch { event(Beep) } }
+                        action<Poke> { }
+                    }
+                }
+            storePublication.complete(store)
+
+            withContext(Dispatchers.Default) {
+                store.dispatch(EmitFromLaunch)
+                assertEquals("rejected", withTimeout(10_000) { outcome.await() })
+                // The Store is not stuck.
+                withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
             }
+            store.close()
         }
-        storePublication.complete(store)
-
-
-
-        withContext(Dispatchers.Default) {
-            store.dispatch(EmitFromLaunch)
-            assertEquals("rejected", withTimeout(10_000) { outcome.await() })
-            // The Store is not stuck.
-            withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
-        }
-        store.close()
-    }
 
     data object Linger : Action
 
@@ -616,45 +694,49 @@ class StoreRegressionTest {
      * the predecessor's work under the lock only.
      */
     @Test
-    fun aHandlerLeavingAChildCoroutineBehind_doesNotStallLaterDispatches() = runTest {
-        var pokes = 0
-        val store: Store<Booting, Action, Nothing> = Store(Booting()) {
-            coroutineContext(Dispatchers.Default)
-            state<Booting> {
-                action<Linger> { CoroutineScope(currentCoroutineContext()).launch { delay(60_000) } }
-                action<Poke> { pokes++ }
+    fun aHandlerLeavingAChildCoroutineBehind_doesNotStallLaterDispatches() =
+        runTest {
+            var pokes = 0
+            val store: Store<Booting, Action, Nothing> =
+                Store(Booting()) {
+                    coroutineContext(Dispatchers.Default)
+                    state<Booting> {
+                        action<Linger> { CoroutineScope(currentCoroutineContext()).launch { delay(60_000) } }
+                        action<Poke> { pokes++ }
+                    }
+                }
+
+            withContext(Dispatchers.Default) {
+                // Awaiting Linger itself would wait for its child; the next dispatch must not.
+                store.dispatch(Linger)
+                withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
             }
-        }
 
-        withContext(Dispatchers.Default) {
-            // Awaiting Linger itself would wait for its child; the next dispatch must not.
-            store.dispatch(Linger)
-            withTimeout(5_000) { store.dispatchAndAwaitForTest(Poke) }
+            assertEquals(1, pokes)
+            store.close()
         }
-
-        assertEquals(1, pokes)
-        store.close()
-    }
 
     /**
      * A fatal error from any plugin of a round stays fatal, wherever the plugin is registered.
      */
     @Test
-    fun aFatalErrorFromASecondPlugin_staysFatal() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store: Store<Booting, Poke, Nothing> = Store(Booting()) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            plugin(Plugin(onState = { _, _ -> throw IllegalStateException("first") }))
-            plugin(Plugin(onState = { _, _ -> throw AssertionError("fatal") }))
-            state<Booting> { action<Poke> { nextState { state.copy(ready = true) } } }
+    fun aFatalErrorFromASecondPlugin_staysFatal() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store: Store<Booting, Poke, Nothing> =
+                Store(Booting()) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    plugin(Plugin(onState = { _, _ -> throw IllegalStateException("first") }))
+                    plugin(Plugin(onState = { _, _ -> throw AssertionError("fatal") }))
+                    state<Booting> { action<Poke> { nextState { state.copy(ready = true) } } }
+                }
+
+            store.dispatchAndAwaitForTest(Poke)
+
+            val reported = assertIs<AssertionError>(handled.single())
+            assertEquals(listOf("first"), reported.suppressedExceptions.map { it.message.orEmpty() })
         }
-
-        store.dispatchAndAwaitForTest(Poke)
-
-        val reported = assertIs<AssertionError>(handled.single())
-        assertEquals(listOf("first"), reported.suppressedExceptions.map { it.message.orEmpty() })
-    }
 
     data object LaunchInLoopState : Action
 
@@ -664,50 +746,54 @@ class StoreRegressionTest {
      * instead, so the state the Store stays in is fully entered.
      */
     @Test
-    fun enterLoopGuard_leavesTheStoreInAUsableState() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        var launched = 0
-        val store: Store<Loop, Action, Nothing> = Store(Loop.Start) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Loop.Start> { action<Enter> { nextState { Loop.Left(0) } } }
-            state<Loop.Left> { enter { nextState { Loop.Right(state.hop + 1) } } }
-            state<Loop.Right> { enter { nextState { Loop.Left(state.hop + 1) } } }
-            state<Loop> {
-                action<LaunchInLoopState> { launch { transaction { launched++ } } }
-                recover<IllegalStateException> { }
-            }
+    fun enterLoopGuard_leavesTheStoreInAUsableState() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            var launched = 0
+            val store: Store<Loop, Action, Nothing> =
+                Store(Loop.Start) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Loop.Start> { action<Enter> { nextState { Loop.Left(0) } } }
+                    state<Loop.Left> { enter { nextState { Loop.Right(state.hop + 1) } } }
+                    state<Loop.Right> { enter { nextState { Loop.Left(state.hop + 1) } } }
+                    state<Loop> {
+                        action<LaunchInLoopState> { launch { transaction { launched++ } } }
+                        recover<IllegalStateException> { }
+                    }
+                }
+
+            store.dispatchAndAwaitForTest(Enter)
+            store.dispatchAndAwaitForTest(LaunchInLoopState)
+
+            assertEquals(emptyList(), handled.map { it.message.orEmpty() })
+            assertEquals(1, launched)
         }
-
-        store.dispatchAndAwaitForTest(Enter)
-        store.dispatchAndAwaitForTest(LaunchInLoopState)
-
-        assertEquals(emptyList(), handled.map { it.message.orEmpty() })
-        assertEquals(1, launched)
-    }
 
     /**
      * When `recover {}` moves to a state whose `enter {}` fails, the error that was being handled
      * is kept as a suppressed exception of the reported one.
      */
     @Test
-    fun aFailingEnterOfTheRecoveredToState_keepsTheOriginalErrorAsSuppressed() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val store: Store<Net, NetAction, Nothing> = Store(Net.Idle) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Net.Idle> {
-                action<NetAction.Ping> { throw IllegalStateException("original") }
-                recover<IllegalStateException> { nextState { Net.Failed("moved") } }
-            }
-            state<Net.Failed> { enter { throw IllegalArgumentException("enter failed") } }
+    fun aFailingEnterOfTheRecoveredToState_keepsTheOriginalErrorAsSuppressed() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val store: Store<Net, NetAction, Nothing> =
+                Store(Net.Idle) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Net.Idle> {
+                        action<NetAction.Ping> { throw IllegalStateException("original") }
+                        recover<IllegalStateException> { nextState { Net.Failed("moved") } }
+                    }
+                    state<Net.Failed> { enter { throw IllegalArgumentException("enter failed") } }
+                }
+
+            store.dispatchAndAwaitForTest(NetAction.Ping)
+
+            val reported = assertIs<IllegalArgumentException>(handled.single())
+            assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message.orEmpty() })
         }
-
-        store.dispatchAndAwaitForTest(NetAction.Ping)
-
-        val reported = assertIs<IllegalArgumentException>(handled.single())
-        assertEquals(listOf("original"), reported.suppressedExceptions.map { it.message.orEmpty() })
-    }
 
     /**
      * A launched coroutine that fails while its state is exiting (here the exit handler is
@@ -719,74 +805,78 @@ class StoreRegressionTest {
      * ```
      */
     @Test
-    fun aLaunchFailingWhileItsStateExits_reachesTheExceptionHandler() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val handled = mutableListOf<Throwable>()
-        val gate = CompletableDeferred<Unit>()
-        var recovered = 0
-        val store: Store<Net, NetAction, Nothing> = Store(Net.Idle) {
-            coroutineContext(dispatcher)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Net.Idle> {
-                action<NetAction.Load> {
-                    launch {
-                        gate.await()
-                        throw IllegalStateException("launch failed")
+    fun aLaunchFailingWhileItsStateExits_reachesTheExceptionHandler() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val handled = mutableListOf<Throwable>()
+            val gate = CompletableDeferred<Unit>()
+            var recovered = 0
+            val store: Store<Net, NetAction, Nothing> =
+                Store(Net.Idle) {
+                    coroutineContext(dispatcher)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Net.Idle> {
+                        action<NetAction.Load> {
+                            launch {
+                                gate.await()
+                                throw IllegalStateException("launch failed")
+                            }
+                        }
+                        action<NetAction.Ping> { nextState { Net.Done("pong") } }
+                        exit { delay(1_000) }
+                        recover<Exception> { recovered++ }
                     }
                 }
-                action<NetAction.Ping> { nextState { Net.Done("pong") } }
-                exit { delay(1_000) }
-                recover<Exception> { recovered++ }
-            }
+
+            store.startAndAwaitForTest()
+            store.dispatch(NetAction.Load)
+            runCurrent()
+            store.dispatch(NetAction.Ping)
+            runCurrent()
+            gate.complete(Unit)
+            runCurrent()
+            advanceTimeBy(2_000)
+            runCurrent()
+
+            assertEquals(Net.Done("pong"), store.currentState)
+            assertEquals(0, recovered)
+            assertEquals(listOf("launch failed"), handled.map { it.message.orEmpty() })
         }
-
-        store.startAndAwaitForTest()
-        store.dispatch(NetAction.Load)
-        runCurrent()
-        store.dispatch(NetAction.Ping)
-        runCurrent()
-        gate.complete(Unit)
-        runCurrent()
-        advanceTimeBy(2_000)
-        runCurrent()
-
-        assertEquals(Net.Done("pong"), store.currentState)
-        assertEquals(0, recovered)
-        assertEquals(listOf("launch failed"), handled.map { it.message.orEmpty() })
-    }
 
     /**
      * An `exit {}` that fails after the Store was closed (its cleanup ran in `NonCancellable`)
      * does not run `recover {}`: nothing runs in a closed Store, and the state stays as it was.
      */
     @Test
-    fun anExitFailingAfterClose_doesNotRunRecover() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val handled = mutableListOf<Throwable>()
-        val release = CompletableDeferred<Unit>()
-        var recovered = 0
-        val store: Store<Net, NetAction, Nothing> = Store(Net.Idle) {
-            coroutineContext(dispatcher)
-            exceptionHandler(ExceptionHandler { handled += it })
-            state<Net.Idle> {
-                action<NetAction.Ping> { nextState { Net.Done("pong") } }
-                exit {
-                    withContext(kotlinx.coroutines.NonCancellable) { release.await() }
-                    throw IllegalStateException("exit failed")
+    fun anExitFailingAfterClose_doesNotRunRecover() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val handled = mutableListOf<Throwable>()
+            val release = CompletableDeferred<Unit>()
+            var recovered = 0
+            val store: Store<Net, NetAction, Nothing> =
+                Store(Net.Idle) {
+                    coroutineContext(dispatcher)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<Net.Idle> {
+                        action<NetAction.Ping> { nextState { Net.Done("pong") } }
+                        exit {
+                            withContext(kotlinx.coroutines.NonCancellable) { release.await() }
+                            throw IllegalStateException("exit failed")
+                        }
+                        recover<Exception> { recovered++ }
+                    }
                 }
-                recover<Exception> { recovered++ }
-            }
+
+            store.startAndAwaitForTest()
+            store.dispatch(NetAction.Ping)
+            runCurrent()
+            store.close()
+            release.complete(Unit)
+            runCurrent()
+
+            assertEquals(Net.Idle, store.currentState)
+            assertEquals(0, recovered)
+            assertEquals(emptyList(), handled.map { it.message.orEmpty() })
         }
-
-        store.startAndAwaitForTest()
-        store.dispatch(NetAction.Ping)
-        runCurrent()
-        store.close()
-        release.complete(Unit)
-        runCurrent()
-
-        assertEquals(Net.Idle, store.currentState)
-        assertEquals(0, recovered)
-        assertEquals(emptyList(), handled.map { it.message.orEmpty() })
-    }
 }

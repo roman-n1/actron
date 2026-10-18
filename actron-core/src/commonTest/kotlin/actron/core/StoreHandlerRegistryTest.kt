@@ -18,22 +18,26 @@ import kotlin.test.assertTrue
  * ```
  */
 class StoreHandlerRegistryTest {
-
     sealed interface AppState : State {
         data object Loading : AppState
-        data class Main(val count: Int) : AppState
+
+        data class Main(
+            val count: Int,
+        ) : AppState
+
         data object Error : AppState
     }
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
+
         data object Fail : AppAction
     }
 
     sealed interface AppEvent : Event
 
-    private fun createStore(): Store<AppState, AppAction, AppEvent> {
-        return Store(AppState.Loading) {
+    private fun createStore(): Store<AppState, AppAction, AppEvent> =
+        Store(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
@@ -58,11 +62,8 @@ class StoreHandlerRegistryTest {
                 action<AppAction> { }
             }
         }
-    }
 
-    private fun Store<AppState, AppAction, AppEvent>.registry(): HandlerRegistry<AppState, AppAction> {
-        return (this as StoreImpl<AppState, AppAction, AppEvent>).handlerRegistry
-    }
+    private fun Store<AppState, AppAction, AppEvent>.registry(): HandlerRegistry<AppState, AppAction> = (this as StoreImpl<AppState, AppAction, AppEvent>).handlerRegistry
 
     @Test
     fun enterAndExitMatchersRecordStateType() {
@@ -109,17 +110,19 @@ class StoreHandlerRegistryTest {
 
     @Test
     fun predicateHandlersKeepExplicitTypeMetadata() {
-        val stateHandler = StoreBuilder.StateHandler<(AppState) -> Boolean, EnterScope<AppState, AppEvent, AppState>>(
-            predicate = { true },
-            handler = { },
-            matcher = HandlerMatcher(AppState::class),
-        )
-        val threadedHandler = StoreBuilder.StateHandlerConfig.ThreadedHandler<(AppAction) -> Boolean, ActionScope<AppState, AppAction, AppEvent, AppState>>(
-            dispatcher = kotlin.coroutines.EmptyCoroutineContext,
-            predicate = { true },
-            handler = { },
-            inputType = AppAction::class,
-        )
+        val stateHandler =
+            StoreBuilder.StateHandler<(AppState) -> Boolean, EnterScope<AppState, AppEvent, AppState>>(
+                predicate = { true },
+                handler = { },
+                matcher = HandlerMatcher(AppState::class),
+            )
+        val threadedHandler =
+            StoreBuilder.StateHandlerConfig.ThreadedHandler<(AppAction) -> Boolean, ActionScope<AppState, AppAction, AppEvent, AppState>>(
+                dispatcher = kotlin.coroutines.EmptyCoroutineContext,
+                predicate = { true },
+                handler = { },
+                inputType = AppAction::class,
+            )
 
         assertEquals(HandlerMatcher(AppState::class), stateHandler.matcher)
         assertEquals(AppAction::class, threadedHandler.inputType)

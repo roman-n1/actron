@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/**
+/*
  * This test case was generated with assistance from Anthropic's Claude AI.
  */
 
@@ -34,39 +34,63 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CounterUseCaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     // State definitions
     sealed interface AppState : State {
         data object Initial : AppState
-        data class Active(val count: Int) : AppState
-        data class Paused(val count: Int) : AppState
-        data class Error(val message: String) : AppState
+
+        data class Active(
+            val count: Int,
+        ) : AppState
+
+        data class Paused(
+            val count: Int,
+        ) : AppState
+
+        data class Error(
+            val message: String,
+        ) : AppState
     }
 
     // Action definitions
     sealed interface AppAction : Action {
         data object Start : AppAction
+
         data object Increment : AppAction
+
         data object Decrement : AppAction
+
         data object Reset : AppAction
+
         data object Pause : AppAction
+
         data object Resume : AppAction
-        data class ForceError(val message: String) : AppAction
+
+        data class ForceError(
+            val message: String,
+        ) : AppAction
     }
 
     // Event definitions
     sealed interface AppEvent : Event {
-        data class CountChanged(val newCount: Int) : AppEvent
-        data class ThresholdReached(val threshold: Int) : AppEvent
-        data class ErrorOccurred(val message: String) : AppEvent
+        data class CountChanged(
+            val newCount: Int,
+        ) : AppEvent
+
+        data class ThresholdReached(
+            val threshold: Int,
+        ) : AppEvent
+
+        data class ErrorOccurred(
+            val message: String,
+        ) : AppEvent
     }
 
     private fun createTestStore(
         initialState: AppState = AppState.Initial,
-    ): Store<AppState, AppAction, AppEvent> {
-        return Store(initialState) {
+    ): Store<AppState, AppAction, AppEvent> =
+        Store(initialState) {
             // Configure coroutine context for tests
             coroutineContext(Dispatchers.Unconfined)
 
@@ -130,112 +154,121 @@ class CounterUseCaseTest {
                 }
             }
         }
-    }
 
     @Test
-    fun counter_initialState() = runTest(testDispatcher) {
-        val store = createTestStore()
-        assertEquals(AppState.Initial, store.currentState)
-    }
-
-    @Test
-    fun counter_startShouldTransitionToActive() = runTest(testDispatcher) {
-        val store = createTestStore()
-
-        store.dispatch(AppAction.Start)
-
-        assertTrue(store.currentState is AppState.Active)
-        assertEquals(0, (store.currentState as AppState.Active).count)
-    }
-
-    @Test
-    fun counter_incrementAction() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(0))
-
-        store.dispatch(AppAction.Increment)
-
-        assertEquals(AppState.Active(1), store.currentState)
-    }
-
-    @Test
-    fun counter_decrementAction() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(5))
-
-        store.dispatch(AppAction.Decrement)
-
-        assertEquals(AppState.Active(4), store.currentState)
-    }
-
-    @Test
-    fun counter_resetAction() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(10))
-
-        store.dispatch(AppAction.Reset)
-
-        assertEquals(AppState.Active(0), store.currentState)
-    }
-
-    @Test
-    fun counter_pauseAction() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(3))
-
-        store.dispatch(AppAction.Pause)
-
-        assertTrue(store.currentState is AppState.Paused)
-        assertEquals(3, (store.currentState as AppState.Paused).count)
-    }
-
-    @Test
-    fun counter_resumeAction() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Paused(7))
-
-        store.dispatch(AppAction.Resume)
-
-        assertTrue(store.currentState is AppState.Active)
-        assertEquals(7, (store.currentState as AppState.Active).count)
-    }
-
-    @Test
-    fun counter_errorHandling() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(0))
-
-        // Force an error by dispatching a special action
-        store.dispatch(AppAction.ForceError("Test error"))
-
-        assertTrue(store.currentState is AppState.Error)
-        assertEquals("Test error", (store.currentState as AppState.Error).message)
-    }
-
-    @Test
-    fun counter_eventEmission() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(5))
-
-        val capturedEventObservations = mutableListOf<AppEvent>()
-        store.collectEvent { event ->
-            capturedEventObservations.add(event)
+    fun counter_initialState() =
+        runTest(testDispatcher) {
+            val store = createTestStore()
+            assertEquals(AppState.Initial, store.currentState)
         }
 
-        store.dispatch(AppAction.Increment)
+    @Test
+    fun counter_startShouldTransitionToActive() =
+        runTest(testDispatcher) {
+            val store = createTestStore()
 
-        assertNotNull(capturedEventObservations.last())
-        assertTrue(capturedEventObservations.last() is AppEvent.CountChanged)
-        assertEquals(6, (capturedEventObservations.last() as AppEvent.CountChanged).newCount)
-    }
+            store.dispatch(AppAction.Start)
+
+            assertTrue(store.currentState is AppState.Active)
+            assertEquals(0, (store.currentState as AppState.Active).count)
+        }
 
     @Test
-    fun counter_thresholdReached() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Active(9))
+    fun counter_incrementAction() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(0))
 
-        val thresholdEventObservations = mutableListOf<AppEvent.ThresholdReached>()
-        store.collectEvent { event ->
-            if (event is AppEvent.ThresholdReached) {
-                thresholdEventObservations.add(event)
+            store.dispatch(AppAction.Increment)
+
+            assertEquals(AppState.Active(1), store.currentState)
+        }
+
+    @Test
+    fun counter_decrementAction() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(5))
+
+            store.dispatch(AppAction.Decrement)
+
+            assertEquals(AppState.Active(4), store.currentState)
+        }
+
+    @Test
+    fun counter_resetAction() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(10))
+
+            store.dispatch(AppAction.Reset)
+
+            assertEquals(AppState.Active(0), store.currentState)
+        }
+
+    @Test
+    fun counter_pauseAction() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(3))
+
+            store.dispatch(AppAction.Pause)
+
+            assertTrue(store.currentState is AppState.Paused)
+            assertEquals(3, (store.currentState as AppState.Paused).count)
+        }
+
+    @Test
+    fun counter_resumeAction() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Paused(7))
+
+            store.dispatch(AppAction.Resume)
+
+            assertTrue(store.currentState is AppState.Active)
+            assertEquals(7, (store.currentState as AppState.Active).count)
+        }
+
+    @Test
+    fun counter_errorHandling() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(0))
+
+            // Force an error by dispatching a special action
+            store.dispatch(AppAction.ForceError("Test error"))
+
+            assertTrue(store.currentState is AppState.Error)
+            assertEquals("Test error", (store.currentState as AppState.Error).message)
+        }
+
+    @Test
+    fun counter_eventEmission() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(5))
+
+            val capturedEventObservations = mutableListOf<AppEvent>()
+            store.collectEvent { event ->
+                capturedEventObservations.add(event)
             }
+
+            store.dispatch(AppAction.Increment)
+
+            assertNotNull(capturedEventObservations.last())
+            assertTrue(capturedEventObservations.last() is AppEvent.CountChanged)
+            assertEquals(6, (capturedEventObservations.last() as AppEvent.CountChanged).newCount)
         }
 
-        store.dispatch(AppAction.Increment) // This should reach 10
+    @Test
+    fun counter_thresholdReached() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Active(9))
 
-        assertNotNull(thresholdEventObservations.single())
-        assertEquals(10, thresholdEventObservations.single()?.threshold)
-    }
+            val thresholdEventObservations = mutableListOf<AppEvent.ThresholdReached>()
+            store.collectEvent { event ->
+                if (event is AppEvent.ThresholdReached) {
+                    thresholdEventObservations.add(event)
+                }
+            }
+
+            store.dispatch(AppAction.Increment) // This should reach 10
+
+            assertNotNull(thresholdEventObservations.single())
+            assertEquals(10, thresholdEventObservations.single()?.threshold)
+        }
 }

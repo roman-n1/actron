@@ -5,8 +5,8 @@ package actron.soak
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.InputId
 import actron.core.InputAttribution
+import actron.core.InputId
 import actron.core.StoreInternalApi
 import actron.observability.JournalConfig
 import actron.observability.JournalRecord
@@ -26,7 +26,6 @@ import actron.statechart.StateChartDefinition
 import actron.statechart.StateId
 import actron.statechart.Transition
 import actron.statechart.Trigger
-import actron.statechart.recordTo
 import actron.statechart.machine.Admission
 import actron.statechart.machine.AdmissionPolicy
 import actron.statechart.machine.CommandHandler
@@ -40,12 +39,13 @@ import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MachineStore
 import actron.statechart.machine.MailboxConfig
+import actron.statechart.recordTo
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,9 +61,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Duration
 import kotlin.time.TimeSource
 
 private const val STORES = 16
@@ -74,92 +74,177 @@ private const val WRITER_QUEUE = 256
 private const val PAYLOAD_BYTES = 4096
 private const val CONTEXT_MESSAGES = 64
 private val clock = TimeSource.Monotonic.markNow()
+
 private fun nowNanos() = clock.elapsedNow().inWholeNanoseconds
 
-private data class Message(val sequence: Long, val sentNanos: Long, val body: String) : Action
-private data class History(val messages: List<String> = emptyList())
-private data class Render(val body: String) : Event
+private data class Message(
+    val sequence: Long,
+    val sentNanos: Long,
+    val body: String,
+) : Action
+
+private data class History(
+    val messages: List<String> = emptyList(),
+)
+
+private data class Render(
+    val body: String,
+) : Event
+
 private data object Poll
 
-private val machine = run {
-    val active = StateId("Active")
-    Machine<History, Message, Poll, Render>(DefinitionId("resource-soak"), DefinitionVersion("1"),
-        StateChartDefinition(active, listOf(AtomicState(active)), listOf(Transition(active, active, Trigger.After(100.milliseconds))))) {
-        onEnter(active) { command(Poll); event(Render(context.messages.lastOrNull().orEmpty())) }
-        onAction(active, ActionMatcher.of<Message>("Message")) {
-            val message = action as Message
-            context = History((context.messages + message.body).takeLast(CONTEXT_MESSAGES))
-            event(Render(message.body))
+private val machine =
+    run {
+        val active = StateId("Active")
+        Machine<History, Message, Poll, Render>(
+            DefinitionId("resource-soak"),
+            DefinitionVersion("1"),
+            StateChartDefinition(active, listOf(AtomicState(active)), listOf(Transition(active, active, Trigger.After(100.milliseconds)))),
+        ) {
+            onEnter(active) {
+                command(Poll)
+                event(Render(context.messages.lastOrNull().orEmpty()))
+            }
+            onAction(active, ActionMatcher.of<Message>("Message")) {
+                val message = action as Message
+                context = History((context.messages + message.body).takeLast(CONTEXT_MESSAGES))
+                event(Render(message.body))
+            }
         }
     }
-}
 
 /** Bounded measurement state: never retains a Store, Message or journal payload. */
 private class Latencies {
     private val lock = Mutex()
     private val values = ArrayDeque<Long>()
     private var total = 0L
-    fun add(nanos: Long) = locked {
-        total++
-        values.addLast(nanos)
-        if (values.size > 4096) values.removeFirst()
-    }
-    fun summary(): Triple<Long, Long, Long> = locked {
-        val sorted = values.sorted()
-        check(sorted.size >= 100) { "Insufficient latency samples: ${sorted.size}" }
-        Triple(total, sorted[(sorted.size * 0.95).toInt().coerceAtMost(sorted.lastIndex)] / 1000,
-            sorted[(sorted.size * 0.99).toInt().coerceAtMost(sorted.lastIndex)] / 1000)
-    }
+
+    fun add(nanos: Long) =
+        locked {
+            total++
+            values.addLast(nanos)
+            if (values.size > 4096) values.removeFirst()
+        }
+
+    fun summary(): Triple<Long, Long, Long> =
+        locked {
+            val sorted = values.sorted()
+            check(sorted.size >= 100) { "Insufficient latency samples: ${sorted.size}" }
+            Triple(
+                total,
+                sorted[(sorted.size * 0.95).toInt().coerceAtMost(sorted.lastIndex)] / 1000,
+                sorted[(sorted.size * 0.99).toInt().coerceAtMost(sorted.lastIndex)] / 1000,
+            )
+        }
+
     private inline fun <T : Any> locked(block: () -> T): T {
         while (!lock.tryLock()) { }
-        try { return block() } finally { lock.unlock() }
+        try {
+            return block()
+        } finally {
+            lock.unlock()
+        }
     }
 }
 
-private class SlowStorage(private val delegate: SegmentStorage) : SegmentStorage by delegate {
+private class SlowStorage(
+    private val delegate: SegmentStorage,
+) : SegmentStorage by delegate {
     val outputs = MutableStateFlow(0)
     val bytes = MutableStateFlow(0L)
+
     override fun append(name: String): SegmentOutput {
         val output = delegate.append(name)
         outputs.update { it + 1 }
         return object : SegmentOutput {
             private var closed = false
+
             override fun write(bytes: ByteArray) {
                 SoakPlatform.blockingDelay(2)
                 output.write(bytes)
                 this@SlowStorage.bytes.update { it + bytes.size }
             }
+
             override fun flush() = output.flush()
+
             override fun close() {
                 if (closed) return
                 closed = true
-                try { output.close() } finally { outputs.update { it - 1 } }
+                try {
+                    output.close()
+                } finally {
+                    outputs.update { it - 1 }
+                }
             }
         }
     }
 }
 
 @Serializable
-data class BatchResult(val batch: Int, val recording: Boolean, val accepted: Long, val rejected: Long,
-    val p95Micros: Long, val p99Micros: Long, val sampledInFlightHighWater: Int,
-    val sampledCorePendingHighWater: Int, val sampledMailboxHighWater: Int, val retainedHighWater: Int, val sinkBusyHighWater: Int,
-    val droppedForSinks: Long, val bytesWritten: Long, val jobsAfterClose: Int, val outputsAfterClose: Int,
-    val pendingInputsAfterClose: Int, val commandsAfterClose: Int, val mailboxAfterClose: Int, val ownedWorkersAfterClose: Int)
+data class BatchResult(
+    val batch: Int,
+    val recording: Boolean,
+    val accepted: Long,
+    val rejected: Long,
+    val p95Micros: Long,
+    val p99Micros: Long,
+    val sampledInFlightHighWater: Int,
+    val sampledCorePendingHighWater: Int,
+    val sampledMailboxHighWater: Int,
+    val retainedHighWater: Int,
+    val sinkBusyHighWater: Int,
+    val droppedForSinks: Long,
+    val bytesWritten: Long,
+    val jobsAfterClose: Int,
+    val outputsAfterClose: Int,
+    val pendingInputsAfterClose: Int,
+    val commandsAfterClose: Int,
+    val mailboxAfterClose: Int,
+    val ownedWorkersAfterClose: Int,
+)
 
 @Serializable
-data class Sample(val startedMillis: Long, val elapsedMillis: Long, val result: BatchResult, val memory: MemorySample)
+data class Sample(
+    val startedMillis: Long,
+    val elapsedMillis: Long,
+    val result: BatchResult,
+    val memory: MemorySample,
+)
 
 @Serializable
-data class BudgetReport(val metadata: Map<String, String>, val budgets: Map<String, Long>, val samples: List<Sample>,
-    val warmupSamples: List<Sample>, val plateauEvaluated: Boolean, val memoryGrowthByMode: JsonElement,
-    val heapGrowthBytes: JsonElement, val nativeGrowthBytes: JsonElement, val residentGrowthBytes: JsonElement, val threadGrowth: JsonElement, val failures: List<String>)
+data class BudgetReport(
+    val metadata: Map<String, String>,
+    val budgets: Map<String, Long>,
+    val samples: List<Sample>,
+    val warmupSamples: List<Sample>,
+    val plateauEvaluated: Boolean,
+    val memoryGrowthByMode: JsonElement,
+    val heapGrowthBytes: JsonElement,
+    val nativeGrowthBytes: JsonElement,
+    val residentGrowthBytes: JsonElement,
+    val threadGrowth: JsonElement,
+    val failures: List<String>,
+)
 
-private val budgets = mapOf("storeCount" to STORES.toLong(), "admissionPending" to ADMISSION.toLong(),
-    "mailboxRetained" to MAILBOX.toLong(), "journalRetained" to RETAINED_RECORDS.toLong(), "writerQueueConfigured" to WRITER_QUEUE.toLong(),
-    "contextMessages" to CONTEXT_MESSAGES.toLong(), "messageBytes" to PAYLOAD_BYTES.toLong(), "latencyRingSamples" to 4096L,
-    "corePendingInputsSampled" to (ADMISSION + 8).toLong(), "segmentBytes" to 128L * 1024, "segments" to 2L,
-    "p95Micros" to 500_000L, "p99Micros" to 1_000_000L, "heapPlateauGrowthBytes" to 8L * 1024 * 1024,
-    "nativePlateauGrowthBytes" to 8L * 1024 * 1024, "residentPlateauGrowthBytes" to 64L * 1024 * 1024)
+private val budgets =
+    mapOf(
+        "storeCount" to STORES.toLong(),
+        "admissionPending" to ADMISSION.toLong(),
+        "mailboxRetained" to MAILBOX.toLong(),
+        "journalRetained" to RETAINED_RECORDS.toLong(),
+        "writerQueueConfigured" to WRITER_QUEUE.toLong(),
+        "contextMessages" to CONTEXT_MESSAGES.toLong(),
+        "messageBytes" to PAYLOAD_BYTES.toLong(),
+        "latencyRingSamples" to 4096L,
+        "corePendingInputsSampled" to (ADMISSION + 8).toLong(),
+        "segmentBytes" to 128L * 1024,
+        "segments" to 2L,
+        "p95Micros" to 500_000L,
+        "p99Micros" to 1_000_000L,
+        "heapPlateauGrowthBytes" to 8L * 1024 * 1024,
+        "nativePlateauGrowthBytes" to 8L * 1024 * 1024,
+        "residentPlateauGrowthBytes" to 64L * 1024 * 1024,
+    )
 
 /** Always called from a test/host owner, never from one of the measured Stores' jobs. */
 suspend fun runResourceSoak() {
@@ -173,9 +258,12 @@ suspend fun runResourceSoak() {
     val minimumSamples = if (SOAK_SECONDS < 30) 2 else MINIMUM_PLATEAU_SAMPLES_PER_MODE * 2
     SoakPlatform.afterGc()
     var batch = 0
-    fun hasModeCoverage() = !assessPerformance || listOf(false, true).all { mode ->
-        samples.count { it.result.recording == mode } >= MINIMUM_PLATEAU_SAMPLES_PER_MODE
-    }
+
+    fun hasModeCoverage() =
+        !assessPerformance ||
+            listOf(false, true).all { mode ->
+                samples.count { it.result.recording == mode } >= MINIMUM_PLATEAU_SAMPLES_PER_MODE
+            }
     try {
         while (started.elapsedNow() < SOAK_SECONDS.seconds || batch < minimumBatches || samples.size < minimumSamples || !hasModeCoverage()) {
             val batchStarted = started.elapsedNow()
@@ -189,7 +277,9 @@ suspend fun runResourceSoak() {
                         "Steady latency budget exceeded in batch $batch: p95=${result.p95Micros} us, p99=${result.p99Micros} us"
                     }
                 }
-            } else warmupSamples += sample
+            } else {
+                warmupSamples += sample
+            }
             batch++
         }
     } catch (failure: Throwable) {
@@ -198,13 +288,15 @@ suspend fun runResourceSoak() {
     } finally {
         val growthByMode = mutableMapOf<String, MemoryGrowth>()
         val metrics = mutableMapOf<String, Long>()
-        val plateauEvaluated = assessPerformance && memoryGrowthByMode(samples) { growth ->
-            growthByMode.putAll(growth)
-            metrics["heap"] = growth.values.maxOf { it.heapBytes }
-            metrics["native"] = growth.values.maxOf { it.nativeBytes }
-            metrics["resident"] = growth.values.maxOf { it.residentBytes }
-            metrics["threads"] = growth.values.maxOf { it.threads }
-        }
+        val plateauEvaluated =
+            assessPerformance &&
+                memoryGrowthByMode(samples) { growth ->
+                    growthByMode.putAll(growth)
+                    metrics["heap"] = growth.values.maxOf { it.heapBytes }
+                    metrics["native"] = growth.values.maxOf { it.nativeBytes }
+                    metrics["resident"] = growth.values.maxOf { it.residentBytes }
+                    metrics["threads"] = growth.values.maxOf { it.threads }
+                }
         if (samples.size < minimumSamples) failures += "Insufficient measurement samples"
         if (assessPerformance && !plateauEvaluated) failures += "Insufficient comparable post-warmup samples: need at least $MINIMUM_PLATEAU_SAMPLES_PER_MODE per recording mode"
         if (plateauEvaluated) {
@@ -213,22 +305,56 @@ suspend fun runResourceSoak() {
                 Triple("native", budgets.getValue("nativePlateauGrowthBytes"), "Native heap"),
                 Triple("resident", budgets.getValue("residentPlateauGrowthBytes"), "Resident memory"),
                 Triple("threads", 16L, "OS thread count"),
-            )) if (metrics.getValue(metric) > budget) failures += "$label did not plateau: +${metrics.getValue(metric)}"
+            )) {
+                if (metrics.getValue(metric) > budget) failures += "$label did not plateau: +${metrics.getValue(metric)}"
+            }
         }
+
         // JSON null remains a wire-format fact for an unmeasured metric, never a Kotlin value.
         fun metric(name: String): JsonElement = if (name in metrics) JsonPrimitive(metrics.getValue(name)) else JsonNull
-        val report = BudgetReport(SoakPlatform.metadata() + mapOf("durationSeconds" to SOAK_SECONDS.toString(), "warmupSeconds" to warmupSeconds.toString(),
-            "dispatcher" to "owned fixed pool: stores=4, writer=1; terminated before GC", "storeWorkers" to "4", "writerWorkers" to "1", "slowWriteMillis" to "2", "latency" to "accepted offer to committed decision; bounded rolling tail per batch",
-            "assessment" to if (assessPerformance) "steady-soak" else "harness-smoke",
-            "memorySampling" to "after teardown and two requested GCs; same-recording-mode first/last-third medians; worst mode growth", "sourceCount" to "0"),
-            budgets + ("threadPlateauGrowth" to 16L), samples, warmupSamples, plateauEvaluated, if (plateauEvaluated) Json.encodeToJsonElement(growthByMode) else JsonNull, metric("heap"), metric("native"), metric("resident"), metric("threads"), failures)
+        val report =
+            BudgetReport(
+                SoakPlatform.metadata() +
+                    mapOf(
+                        "durationSeconds" to SOAK_SECONDS.toString(),
+                        "warmupSeconds" to warmupSeconds.toString(),
+                        "dispatcher" to "owned fixed pool: stores=4, writer=1; terminated before GC",
+                        "storeWorkers" to "4",
+                        "writerWorkers" to "1",
+                        "slowWriteMillis" to "2",
+                        "latency" to "accepted offer to committed decision; bounded rolling tail per batch",
+                        "assessment" to if (assessPerformance) "steady-soak" else "harness-smoke",
+                        "memorySampling" to "after teardown and two requested GCs; same-recording-mode first/last-third medians; worst mode growth",
+                        "sourceCount" to "0",
+                    ),
+                budgets + ("threadPlateauGrowth" to 16L),
+                samples,
+                warmupSamples,
+                plateauEvaluated,
+                if (plateauEvaluated) Json.encodeToJsonElement(growthByMode) else JsonNull,
+                metric("heap"),
+                metric("native"),
+                metric("resident"),
+                metric("threads"),
+                failures,
+            )
         val json = Json { prettyPrint = true }.encodeToString(report)
         SoakPlatform.writeReport("report.json", json)
-        val csv = "phase,started_ms,elapsed_ms,batch,recording,accepted,rejected,p95_us,p99_us,inflight_sampled_highwater,core_pending_sampled_highwater,mailbox_sampled_highwater,retained_highwater,sink_busy_highwater,dropped,bytes_written,heap_bytes,native_bytes,resident_bytes,threads,jobs_after_close,outputs_after_close,pending_inputs_after_close,commands_after_close,mailbox_after_close,owned_workers_after_close\n" +
-            (warmupSamples + samples).sortedBy { it.result.batch }.joinToString("\n") { s -> s.result.run {
-                val phase = if (s in warmupSamples) "warmup" else if (assessPerformance) "steady" else "smoke"
-                "$phase,${s.startedMillis},${s.elapsedMillis},${this.batch},$recording,$accepted,$rejected,$p95Micros,$p99Micros,$sampledInFlightHighWater,$sampledCorePendingHighWater,$sampledMailboxHighWater,$retainedHighWater,$sinkBusyHighWater,$droppedForSinks,$bytesWritten,${s.memory.heapBytes},${s.memory.nativeBytes},${s.memory.residentBytes},${s.memory.threads},$jobsAfterClose,$outputsAfterClose,$pendingInputsAfterClose,$commandsAfterClose,$mailboxAfterClose,$ownedWorkersAfterClose"
-            } }
+        val csv =
+            "phase,started_ms,elapsed_ms,batch,recording,accepted,rejected,p95_us,p99_us,inflight_sampled_highwater,core_pending_sampled_highwater,mailbox_sampled_highwater,retained_highwater,sink_busy_highwater,dropped,bytes_written,heap_bytes,native_bytes,resident_bytes,threads,jobs_after_close,outputs_after_close,pending_inputs_after_close,commands_after_close,mailbox_after_close,owned_workers_after_close\n" +
+                (warmupSamples + samples).sortedBy { it.result.batch }.joinToString("\n") { s ->
+                    s.result.run {
+                        val phase =
+                            if (s in warmupSamples) {
+                                "warmup"
+                            } else if (assessPerformance) {
+                                "steady"
+                            } else {
+                                "smoke"
+                            }
+                        "$phase,${s.startedMillis},${s.elapsedMillis},${this.batch},$recording,$accepted,$rejected,$p95Micros,$p99Micros,$sampledInFlightHighWater,$sampledCorePendingHighWater,$sampledMailboxHighWater,$retainedHighWater,$sinkBusyHighWater,$droppedForSinks,$bytesWritten,${s.memory.heapBytes},${s.memory.nativeBytes},${s.memory.residentBytes},${s.memory.threads},$jobsAfterClose,$outputsAfterClose,$pendingInputsAfterClose,$commandsAfterClose,$mailboxAfterClose,$ownedWorkersAfterClose"
+                    }
+                }
         SoakPlatform.writeReport("samples.csv", csv)
         println("SOAK_REPORT ${SoakPlatform.reportDirectory}/report.json (${samples.size} ${if (assessPerformance) "steady" else "smoke"} samples, ${warmupSamples.size} warmup)")
         check(failures.isEmpty()) { failures.joinToString("; ") }
@@ -238,27 +364,65 @@ suspend fun runResourceSoak() {
 private sealed interface BatchJournal {
     val retained: Int
     val droppedForSinks: Long
-    fun install(builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>, index: Int)
+
+    fun install(
+        builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>,
+        index: Int,
+    )
+
     suspend fun close()
+
     fun verify(bytesWritten: Long)
+
     data object Unrecorded : BatchJournal {
         override val retained = 0
         override val droppedForSinks = 0L
-        override fun install(builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>, index: Int) = Unit
+
+        override fun install(
+            builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>,
+            index: Int,
+        ) = Unit
+
         override suspend fun close() = Unit
-        override fun verify(bytesWritten: Long) { check(bytesWritten == 0L) }
+
+        override fun verify(bytesWritten: Long) {
+            check(bytesWritten == 0L)
+        }
     }
-    class Recorded(val session: RecordingSession) : BatchJournal {
+
+    class Recorded(
+        val session: RecordingSession,
+    ) : BatchJournal {
         override val retained get() = session.stats.retained
         override val droppedForSinks get() = session.stats.droppedForSinks
-        override fun install(builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>, index: Int) {
-            builder.recordTo(session, StoreInstanceId("store-$index"), PayloadPolicy(
-                state = { s: MachineSnapshot<History> -> Payload.Projected("history", mapOf("latest" to s.context.messages.lastOrNull().orEmpty())) },
-                action = { a: MachineInput<Message> -> if (a is MachineInput.Dispatch) Payload.Projected("message", mapOf("body" to a.action.body)) else Payload.Omitted },
-                event = { e: Render -> Payload.Projected("render", mapOf("body" to e.body)) },
-            ))
+
+        override fun install(
+            builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>,
+            index: Int,
+        ) {
+            builder.recordTo(
+                session,
+                StoreInstanceId("store-$index"),
+                PayloadPolicy(
+                    state = { s: MachineSnapshot<History> ->
+                        Payload.Projected(
+                            "history",
+                            mapOf(
+                                "latest" to
+                                    s.context.messages
+                                        .lastOrNull()
+                                        .orEmpty(),
+                            ),
+                        )
+                    },
+                    action = { a: MachineInput<Message> -> if (a is MachineInput.Dispatch) Payload.Projected("message", mapOf("body" to a.action.body)) else Payload.Omitted },
+                    event = { e: Render -> Payload.Projected("render", mapOf("body" to e.body)) },
+                ),
+            )
         }
+
         override suspend fun close() = session.close()
+
         override fun verify(bytesWritten: Long) {
             check(session.stats.sinkFailures == 0L && session.stats.policyFailures == 0L)
             check(bytesWritten > 0 && droppedForSinks > 0) { "Slow disk pressure was not exercised" }
@@ -266,10 +430,19 @@ private sealed interface BatchJournal {
     }
 }
 
-internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    writerDispatcher: CoroutineDispatcher = Dispatchers.Default, witnesses: MutableList<NamedWitness> = mutableListOf(),
-    activeMillis: Long = if (SOAK_SECONDS < 30) 300 else 2000): BatchResult {
-    fun observe(label: String, value: Any) { witnesses.add(NamedWitness("batch-$batch:$label", weakWitness(value))) }
+internal suspend fun runBatch(
+    batch: Int,
+    storeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    writerDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    witnesses: MutableList<NamedWitness> = mutableListOf(),
+    activeMillis: Long = if (SOAK_SECONDS < 30) 300 else 2000,
+): BatchResult {
+    fun observe(
+        label: String,
+        value: Any,
+    ) {
+        witnesses.add(NamedWitness("batch-$batch:$label", weakWitness(value)))
+    }
     val owner = SupervisorJob()
     val scope = CoroutineScope(storeDispatcher + owner)
     val writerOwner = SupervisorJob()
@@ -281,12 +454,29 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
     val sinkHigh = MutableStateFlow(0)
     val errors = MutableStateFlow<List<String>>(emptyList())
     val recording = batch % 2 == 0
-    val journal: BatchJournal = if (recording) BatchJournal.Recorded(RecordingSession(writerScope,
-        config = JournalConfig(RETAINED_RECORDS, WRITER_QUEUE, onFailure = { errors.update { e -> (e + it.toString()).takeLast(20) } }),
-        sinks = listOf(JournalSink { record: JournalRecord<*, *, *> ->
-            sinkBusy.update { it + 1 }; sinkHigh.update { maxOf(it, sinkBusy.value) }
-            try { sink.write(record) } finally { sinkBusy.update { it - 1 } }
-        }))) else BatchJournal.Unrecorded
+    val journal: BatchJournal =
+        if (recording) {
+            BatchJournal.Recorded(
+                RecordingSession(
+                    writerScope,
+                    config = JournalConfig(RETAINED_RECORDS, WRITER_QUEUE, onFailure = { errors.update { e -> (e + it.toString()).takeLast(20) } }),
+                    sinks =
+                        listOf(
+                            JournalSink { record: JournalRecord<*, *, *> ->
+                                sinkBusy.update { it + 1 }
+                                sinkHigh.update { maxOf(it, sinkBusy.value) }
+                                try {
+                                    sink.write(record)
+                                } finally {
+                                    sinkBusy.update { it - 1 }
+                                }
+                            },
+                        ),
+                ),
+            )
+        } else {
+            BatchJournal.Unrecorded
+        }
     observe("owner", owner)
     observe("writerOwner", writerOwner)
     if (journal is BatchJournal.Recorded) observe("recording", journal.session)
@@ -307,27 +497,51 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
     val payload = "x".repeat(PAYLOAD_BYTES - 32)
     try {
         repeat(STORES) { index ->
-            val observer = object : DecisionObserver<History, Message, Poll, Render> {
-                override fun onCommitted(input: InputAttribution, machineInput: MachineInput<Message>, decision: Decision<History, Poll, Render>) {
-                    if (machineInput is MachineInput.Dispatch) {
-                        latencies.add(nowNanos() - machineInput.action.sentNanos)
-                        inFlight[index].update { it - 1 }
+            val observer =
+                object : DecisionObserver<History, Message, Poll, Render> {
+                    override fun onCommitted(
+                        input: InputAttribution,
+                        machineInput: MachineInput<Message>,
+                        decision: Decision<History, Poll, Render>,
+                    ) {
+                        if (machineInput is MachineInput.Dispatch) {
+                            latencies.add(nowNanos() - machineInput.action.sentNanos)
+                            inFlight[index].update { it - 1 }
+                        }
                     }
                 }
-            }
-            val store = MachineStore(machine, History(), CommandHandler<Poll, Message> { _, _ ->
-                commands.update { it + 1 }
-                try { delay(40) } finally { commands.update { it - 1 } }
-            }, scope, coroutineContext = scope.coroutineContext, admission = AdmissionPolicy.Bounded(ADMISSION), observers = listOf(observer),
-                mailbox = MailboxConfig(policy = { EffectPolicy.Retained() }, maxRetained = MAILBOX)) {
-                exceptionHandler(ExceptionHandler { error -> errors.update { (it + error.toString()).takeLast(20) } })
-                journal.install(this, index)
-            }
+            val store =
+                MachineStore(
+                    machine,
+                    History(),
+                    CommandHandler<Poll, Message> { _, _ ->
+                        commands.update { it + 1 }
+                        try {
+                            delay(40)
+                        } finally {
+                            commands.update { it - 1 }
+                        }
+                    },
+                    scope,
+                    coroutineContext = scope.coroutineContext,
+                    admission = AdmissionPolicy.Bounded(ADMISSION),
+                    observers = listOf(observer),
+                    mailbox = MailboxConfig(policy = { EffectPolicy.Retained() }, maxRetained = MAILBOX),
+                ) {
+                    exceptionHandler(ExceptionHandler { error -> errors.update { (it + error.toString()).takeLast(20) } })
+                    journal.install(this, index)
+                }
             observe("store-$index", store)
             stores += store
             (store as StoreInternalApi<MachineSnapshot<History>, Message, Render>).startAndAwait()
             subscriberJobs += scope.launch { store.state.collect { check(it.context.messages.size <= CONTEXT_MESSAGES) } }
-            subscriberJobs += scope.launch { store.mailbox.subscribe().collect { delay(2); it.acknowledge() } }
+            subscriberJobs +=
+                scope.launch {
+                    store.mailbox.subscribe().collect {
+                        delay(2)
+                        it.acknowledge()
+                    }
+                }
         }
         val active = TimeSource.Monotonic.markNow()
         var ticks = 0
@@ -339,7 +553,10 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
                     if (store.admit(action) == Admission.Accepted) {
                         accepted++
                         inFlightHigh = maxOf(inFlightHigh, inFlight[index].value)
-                    } else { rejected++; inFlight[index].update { it - 1 } }
+                    } else {
+                        rejected++
+                        inFlight[index].update { it - 1 }
+                    }
                 }
                 mailboxHigh = maxOf(mailboxHigh, store.mailbox.pending.size)
                 corePendingHigh = maxOf(corePendingHigh, (store as StoreInternalApi<MachineSnapshot<History>, Message, Render>).awaitIdle(Duration.ZERO).inputs)
@@ -349,7 +566,13 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
                 // Leave and reenter one screen. Unacknowledged retained effects can be retried.
                 val index = ticks % STORES
                 subscriberJobs[index * 2 + 1].cancelAndJoin()
-                subscriberJobs[index * 2 + 1] = scope.launch { stores[index].mailbox.subscribe().collect { delay(2); it.acknowledge() } }
+                subscriberJobs[index * 2 + 1] =
+                    scope.launch {
+                        stores[index].mailbox.subscribe().collect {
+                            delay(2)
+                            it.acknowledge()
+                        }
+                    }
             }
             delay(40)
         }
@@ -370,7 +593,9 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
     // Assertions follow all release attempts, so a regression never skips writer/file cleanup.
     stores.forEachIndexed { index, store ->
         observe("context-$index", store.currentState.context)
-        store.currentState.context.messages.lastOrNull()?.let { observe("payload-$index", it) }
+        store.currentState.context.messages
+            .lastOrNull()
+            ?.let { observe("payload-$index", it) }
         val pending = (store as StoreInternalApi<MachineSnapshot<History>, Message, Render>).awaitIdle(1.seconds)
         pendingAfterClose += pending.inputs
         mailboxAfterClose += store.mailbox.pending.size
@@ -387,9 +612,28 @@ internal suspend fun runBatch(batch: Int, storeDispatcher: CoroutineDispatcher =
     journal.verify(storage.bytes.value)
     check(sink.segments.size <= 2)
     check(storage.list().all { it.size <= 128 * 1024 + 8 }) { "Segment byte budget exceeded" }
-    val result = BatchResult(batch, recording, count, rejected, p95, p99, inFlightHigh, corePendingHigh, mailboxHigh, retainedHigh, sinkHigh.value,
-        journal.droppedForSinks, storage.bytes.value, owner.children.count() + writerOwner.children.count(), storage.outputs.value,
-        pendingAfterClose, commands.value, mailboxAfterClose, 0)
+    val result =
+        BatchResult(
+            batch,
+            recording,
+            count,
+            rejected,
+            p95,
+            p99,
+            inFlightHigh,
+            corePendingHigh,
+            mailboxHigh,
+            retainedHigh,
+            sinkHigh.value,
+            journal.droppedForSinks,
+            storage.bytes.value,
+            owner.children.count() + writerOwner.children.count(),
+            storage.outputs.value,
+            pendingAfterClose,
+            commands.value,
+            mailboxAfterClose,
+            0,
+        )
     SoakPlatform.removeDirectory(directory)
     return result
 }

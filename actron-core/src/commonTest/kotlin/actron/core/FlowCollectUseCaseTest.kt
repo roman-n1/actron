@@ -12,7 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/**
+/*
  * This test case was generated with assistance from Anthropic's Claude AI.
  */
 
@@ -30,27 +30,31 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FlowCollectUseCaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     // State definitions
     sealed interface AppState : State {
         data object Initial : AppState
-        data class Active(val value: Int) : AppState
+
+        data class Active(
+            val value: Int,
+        ) : AppState
+
         data object Completed : AppState
     }
 
     // Action definitions
     sealed interface AppAction : Action {
         data object StartCollecting : AppAction
+
         data object Complete : AppAction
     }
 
     private fun createTestStore(
         dataFlow: Flow<Int>,
         initialState: AppState = AppState.Initial,
-    ): Store<AppState, AppAction, Nothing> {
-        return Store(initialState) {
+    ): Store<AppState, AppAction, Nothing> =
+        Store(initialState) {
             // Configure coroutine context for tests
             coroutineContext(Dispatchers.Unconfined)
 
@@ -84,69 +88,71 @@ class FlowCollectUseCaseTest {
                 // No additional behavior needed
             }
         }
-    }
 
     @Test
-    fun flowCollect_collectsItemsAndDispatchesActions() = runTest(testDispatcher) {
-        // Create a simple flow that emits integers immediately
-        val testFlow = flowOf(1, 2, 3, 4, 5)
+    fun flowCollect_collectsItemsAndDispatchesActions() =
+        runTest(testDispatcher) {
+            // Create a simple flow that emits integers immediately
+            val testFlow = flowOf(1, 2, 3, 4, 5)
 
-        // Create store with the test flow
-        val store = createTestStore(testFlow)
+            // Create store with the test flow
+            val store = createTestStore(testFlow)
 
-        // Start state check
-        assertEquals(AppState.Initial, store.currentState)
+            // Start state check
+            assertEquals(AppState.Initial, store.currentState)
 
-        // Start collecting from flow
-        store.dispatch(AppAction.StartCollecting)
+            // Start collecting from flow
+            store.dispatch(AppAction.StartCollecting)
 
-        // With UnconfinedTestDispatcher, the flow should be collected immediately
-        assertTrue(
-            store.currentState is AppState.Active,
-            "State should be Active, but was ${store.currentState}",
-        )
+            // With UnconfinedTestDispatcher, the flow should be collected immediately
+            assertTrue(
+                store.currentState is AppState.Active,
+                "State should be Active, but was ${store.currentState}",
+            )
 
-        // Should have the last value
-        assertEquals(5, (store.currentState as AppState.Active).value)
+            // Should have the last value
+            assertEquals(5, (store.currentState as AppState.Active).value)
 
-        // Complete the collection
-        store.dispatch(AppAction.Complete)
-        assertEquals(AppState.Completed, store.currentState)
-    }
-
-    @Test
-    fun flowCollect_cancellingStateStopsCollection() = runTest(testDispatcher) {
-        // Create a flow that we can observe collection status
-        var collectionCancelled = false
-        val testFlow = flow {
-            try {
-                emit(42)
-                // Just hang here until cancelled
-                delay(Long.MAX_VALUE)
-            } finally {
-                collectionCancelled = true
-            }
+            // Complete the collection
+            store.dispatch(AppAction.Complete)
+            assertEquals(AppState.Completed, store.currentState)
         }
 
-        // Create store with the flow
-        val store = createTestStore(testFlow)
+    @Test
+    fun flowCollect_cancellingStateStopsCollection() =
+        runTest(testDispatcher) {
+            // Create a flow that we can observe collection status
+            var collectionCancelled = false
+            val testFlow =
+                flow {
+                    try {
+                        emit(42)
+                        // Just hang here until cancelled
+                        delay(Long.MAX_VALUE)
+                    } finally {
+                        collectionCancelled = true
+                    }
+                }
 
-        // Start collecting
-        store.dispatch(AppAction.StartCollecting)
+            // Create store with the flow
+            val store = createTestStore(testFlow)
 
-        // Should have received first value
-        assertTrue(store.currentState is AppState.Active)
-        assertEquals(42, (store.currentState as AppState.Active).value)
+            // Start collecting
+            store.dispatch(AppAction.StartCollecting)
 
-        // Stop collecting by transitioning away from the state
-        store.dispatch(AppAction.Complete)
+            // Should have received first value
+            assertTrue(store.currentState is AppState.Active)
+            assertEquals(42, (store.currentState as AppState.Active).value)
 
-        // Collection should have stopped
-        assertEquals(AppState.Completed, store.currentState)
+            // Stop collecting by transitioning away from the state
+            store.dispatch(AppAction.Complete)
 
-        // Verify collection was cancelled
-        assertTrue(collectionCancelled, "Flow collection should have been cancelled")
+            // Collection should have stopped
+            assertEquals(AppState.Completed, store.currentState)
 
-        // This flow will be cancelled automatically when the test completes
-    }
+            // Verify collection was cancelled
+            assertTrue(collectionCancelled, "Flow collection should have been cancelled")
+
+            // This flow will be cancelled automatically when the test completes
+        }
 }

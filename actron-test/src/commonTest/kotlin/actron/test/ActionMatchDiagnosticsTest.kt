@@ -21,22 +21,26 @@ import kotlin.test.assertTrue
  * ```
  */
 class ActionMatchDiagnosticsTest {
-
     sealed interface AppState : State {
         data object Loading : AppState
-        data class Main(val count: Int) : AppState
+
+        data class Main(
+            val count: Int,
+        ) : AppState
+
         data object Error : AppState
     }
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
+
         data object Reset : AppAction
     }
 
     sealed interface AppEvent : Event
 
-    private fun createStore(): Store<AppState, AppAction, AppEvent> {
-        return Store(AppState.Loading) {
+    private fun createStore(): Store<AppState, AppAction, AppEvent> =
+        Store(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
@@ -57,7 +61,6 @@ class ActionMatchDiagnosticsTest {
                 }
             }
         }
-    }
 
     @Test
     fun listsAllActionHandlersInFirstMatchOrder() {
@@ -125,12 +128,13 @@ class ActionMatchDiagnosticsTest {
     }
 
     @Test
-    fun suspendingOverloadUsesStateAfterStartup() = runTest {
-        val store = createStore()
+    fun suspendingOverloadUsesStateAfterStartup() =
+        runTest {
+            val store = createStore()
 
-        val diagnostics = store.diagnoseActionMatches(AppAction.Increment)
+            val diagnostics = store.diagnoseActionMatches(AppAction.Increment)
 
-        assertEquals(AppState.Main(0), diagnostics.state)
-        assertEquals(0, diagnostics.observedSelectedIndex())
-    }
+            assertEquals(AppState.Main(0), diagnostics.state)
+            assertEquals(0, diagnostics.observedSelectedIndex())
+        }
 }

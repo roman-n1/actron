@@ -27,7 +27,6 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartModelPropertyTest {
-
     // region references
 
     private fun fixedPointReachable(chart: StateChartDefinition): Set<StateId> {
@@ -39,7 +38,10 @@ class StateChartModelPropertyTest {
         }
     }
 
-    private fun naiveMatches(trigger: Trigger, action: Action): Boolean {
+    private fun naiveMatches(
+        trigger: Trigger,
+        action: Action,
+    ): Boolean {
         if (trigger !is Trigger.OnAction) return false
         val matcher = trigger.matcher
         return when (val matching = matcher.matching) {
@@ -48,7 +50,10 @@ class StateChartModelPropertyTest {
         }
     }
 
-    private fun referenceIssues(chart: StateChartDefinition, samples: List<Action> = emptyList()): List<ValidationIssue> {
+    private fun referenceIssues(
+        chart: StateChartDefinition,
+        samples: List<Action> = emptyList(),
+    ): List<ValidationIssue> {
         val issues = mutableListOf<ValidationIssue>()
         val ids = chart.states.map { it.id }
         val distinctIds = mutableListOf<StateId>()
@@ -90,49 +95,134 @@ class StateChartModelPropertyTest {
     }
 
     private val identifier = Regex("[A-Za-z_][A-Za-z0-9_]*")
-    private val keywords = setOf(
-        "state", "note", "direction", "class", "classdef", "style", "scale", "hide", "end", "click",
-        "acctitle", "accdescr",
-    )
+    private val keywords =
+        setOf(
+            "state",
+            "note",
+            "direction",
+            "class",
+            "classdef",
+            "style",
+            "scale",
+            "hide",
+            "end",
+            "click",
+            "acctitle",
+            "accdescr",
+        )
 
     private fun needsAlias(id: StateId) = !identifier.matches(id.value) || id.value.lowercase() in keywords
 
-    private fun idsInFirstUseOrder(chart: StateChartDefinition): List<StateId> =
-        (chart.states.map { it.id } + chart.initial + chart.transitions.flatMap { listOf(it.source, it.target) }).distinct()
+    private fun idsInFirstUseOrder(chart: StateChartDefinition): List<StateId> = (chart.states.map { it.id } + chart.initial + chart.transitions.flatMap { listOf(it.source, it.target) }).distinct()
 
-    private fun rename(chart: StateChartDefinition, f: (StateId) -> StateId) = StateChartDefinition(
+    private fun rename(
+        chart: StateChartDefinition,
+        f: (StateId) -> StateId,
+    ) = StateChartDefinition(
         initial = f(chart.initial),
         states = chart.states.map { AtomicState(f(it.id)) },
         transitions = chart.transitions.map { it.copy(source = f(it.source), target = f(it.target)) },
     )
 
-    private fun renameIssue(issue: ValidationIssue, f: (StateId) -> StateId): ValidationIssue {
+    private fun renameIssue(
+        issue: ValidationIssue,
+        f: (StateId) -> StateId,
+    ): ValidationIssue {
         fun Transition.r() = copy(source = f(source), target = f(target))
         return when (issue) {
-            is ValidationIssue.TransitionFromFinal -> ValidationIssue.TransitionFromFinal(issue.transition.r())
-            is ValidationIssue.InvalidCompletionSource -> ValidationIssue.InvalidCompletionSource(issue.transition.r())
-            is ValidationIssue.AmbiguousAutomaticTransitions -> ValidationIssue.AmbiguousAutomaticTransitions(f(issue.source), issue.trigger, issue.transitions.map { it.r() })
-            is ValidationIssue.DuplicateStateId -> ValidationIssue.DuplicateStateId(f(issue.id))
-            is ValidationIssue.UnknownInitialState -> ValidationIssue.UnknownInitialState(f(issue.id))
-            is ValidationIssue.UnknownTransitionSource -> ValidationIssue.UnknownTransitionSource(issue.transition.r())
-            is ValidationIssue.UnknownTransitionTarget -> ValidationIssue.UnknownTransitionTarget(issue.transition.r())
-            is ValidationIssue.UnreachableState -> ValidationIssue.UnreachableState(f(issue.id))
-            is ValidationIssue.AmbiguousTransitions ->
+            is ValidationIssue.TransitionFromFinal -> {
+                ValidationIssue.TransitionFromFinal(issue.transition.r())
+            }
+
+            is ValidationIssue.InvalidCompletionSource -> {
+                ValidationIssue.InvalidCompletionSource(issue.transition.r())
+            }
+
+            is ValidationIssue.AmbiguousAutomaticTransitions -> {
+                ValidationIssue.AmbiguousAutomaticTransitions(f(issue.source), issue.trigger, issue.transitions.map { it.r() })
+            }
+
+            is ValidationIssue.DuplicateStateId -> {
+                ValidationIssue.DuplicateStateId(f(issue.id))
+            }
+
+            is ValidationIssue.UnknownInitialState -> {
+                ValidationIssue.UnknownInitialState(f(issue.id))
+            }
+
+            is ValidationIssue.UnknownTransitionSource -> {
+                ValidationIssue.UnknownTransitionSource(issue.transition.r())
+            }
+
+            is ValidationIssue.UnknownTransitionTarget -> {
+                ValidationIssue.UnknownTransitionTarget(issue.transition.r())
+            }
+
+            is ValidationIssue.UnreachableState -> {
+                ValidationIssue.UnreachableState(f(issue.id))
+            }
+
+            is ValidationIssue.AmbiguousTransitions -> {
                 ValidationIssue.AmbiguousTransitions(f(issue.source), issue.on, issue.transitions.map { it.r() })
-            is ValidationIssue.ShadowedTransitions ->
+            }
+
+            is ValidationIssue.ShadowedTransitions -> {
                 ValidationIssue.ShadowedTransitions(f(issue.source), issue.sample, issue.transitions.map { it.r() })
-            is ValidationIssue.UnknownParent -> ValidationIssue.UnknownParent(f(issue.id), f(issue.parent))
-            is ValidationIssue.AtomicParent -> ValidationIssue.AtomicParent(f(issue.id), f(issue.parent))
-            is ValidationIssue.ParentCycle -> ValidationIssue.ParentCycle(issue.states.map(f))
-            is ValidationIssue.InitialNotChild -> ValidationIssue.InitialNotChild(f(issue.id), f(issue.initial))
-            is ValidationIssue.EmptyCompoundState -> ValidationIssue.EmptyCompoundState(f(issue.id))
-            is ValidationIssue.HistoryParent -> ValidationIssue.HistoryParent(f(issue.id), f(issue.parent))
-            is ValidationIssue.HistoryAsInitial -> ValidationIssue.HistoryAsInitial(when (val parent = issue.id) { is StateId -> f(parent); StateParent.Root -> StateParent.Root }, f(issue.initial))
-            is ValidationIssue.InvalidHistoryDefault -> ValidationIssue.InvalidHistoryDefault(f(issue.id), f(issue.default))
-            is ValidationIssue.TransitionFromHistory -> ValidationIssue.TransitionFromHistory(issue.transition.r())
-            is ValidationIssue.TooFewRegions -> ValidationIssue.TooFewRegions(f(issue.id), issue.regions.map(f))
-            is ValidationIssue.NonPositiveDelay -> ValidationIssue.NonPositiveDelay(issue.transition.r())
-            is ValidationIssue.AmbiguousTimers -> ValidationIssue.AmbiguousTimers(f(issue.source), issue.delay, issue.transitions.map { it.r() })
+            }
+
+            is ValidationIssue.UnknownParent -> {
+                ValidationIssue.UnknownParent(f(issue.id), f(issue.parent))
+            }
+
+            is ValidationIssue.AtomicParent -> {
+                ValidationIssue.AtomicParent(f(issue.id), f(issue.parent))
+            }
+
+            is ValidationIssue.ParentCycle -> {
+                ValidationIssue.ParentCycle(issue.states.map(f))
+            }
+
+            is ValidationIssue.InitialNotChild -> {
+                ValidationIssue.InitialNotChild(f(issue.id), f(issue.initial))
+            }
+
+            is ValidationIssue.EmptyCompoundState -> {
+                ValidationIssue.EmptyCompoundState(f(issue.id))
+            }
+
+            is ValidationIssue.HistoryParent -> {
+                ValidationIssue.HistoryParent(f(issue.id), f(issue.parent))
+            }
+
+            is ValidationIssue.HistoryAsInitial -> {
+                ValidationIssue.HistoryAsInitial(
+                    when (val parent = issue.id) {
+                        is StateId -> f(parent)
+                        StateParent.Root -> StateParent.Root
+                    },
+                    f(issue.initial),
+                )
+            }
+
+            is ValidationIssue.InvalidHistoryDefault -> {
+                ValidationIssue.InvalidHistoryDefault(f(issue.id), f(issue.default))
+            }
+
+            is ValidationIssue.TransitionFromHistory -> {
+                ValidationIssue.TransitionFromHistory(issue.transition.r())
+            }
+
+            is ValidationIssue.TooFewRegions -> {
+                ValidationIssue.TooFewRegions(f(issue.id), issue.regions.map(f))
+            }
+
+            is ValidationIssue.NonPositiveDelay -> {
+                ValidationIssue.NonPositiveDelay(issue.transition.r())
+            }
+
+            is ValidationIssue.AmbiguousTimers -> {
+                ValidationIssue.AmbiguousTimers(f(issue.source), issue.delay, issue.transitions.map { it.r() })
+            }
         }
     }
 
@@ -141,11 +231,12 @@ class StateChartModelPropertyTest {
     // region reachability
 
     @Test
-    fun reachableStatesEqualsFixedPointIteration() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
-        val reachable = chart.reachableStates()
-        assertEquals(fixedPointReachable(chart), reachable, "seed $seed")
-        assertEquals(chart.initial, reachable.first(), "seed $seed: initial comes first")
-    }
+    fun reachableStatesEqualsFixedPointIteration() =
+        RandomCharts.forEachChart(valid = false) { seed, _, chart ->
+            val reachable = chart.reachableStates()
+            assertEquals(fixedPointReachable(chart), reachable, "seed $seed")
+            assertEquals(chart.initial, reachable.first(), "seed $seed: initial comes first")
+        }
 
     @Test
     fun reachableStatesAreClosedUnderTransitionsAndListedInBreadthFirstOrder() =
@@ -172,177 +263,227 @@ class StateChartModelPropertyTest {
         }
 
     @Test
-    fun reachabilityIgnoresTransitionOrderAndGuards() = RandomCharts.forEachChart(valid = false) { seed, random, chart ->
-        val shuffled = chart.copy(transitions = chart.transitions.shuffled(random).map { it.copy(guard = actron.statechart.GuardKey("g${random.nextInt(3)}")) })
-        assertEquals(chart.reachableStates(), shuffled.reachableStates().toSet(), "seed $seed")
-    }
+    fun reachabilityIgnoresTransitionOrderAndGuards() =
+        RandomCharts.forEachChart(valid = false) { seed, random, chart ->
+            val shuffled = chart.copy(transitions = chart.transitions.shuffled(random).map { it.copy(guard = actron.statechart.GuardKey("g${random.nextInt(3)}")) })
+            assertEquals(chart.reachableStates(), shuffled.reachableStates().toSet(), "seed $seed")
+        }
 
     // endregion
 
     // region validation
 
     @Test
-    fun validateEqualsNaiveReference() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
-        assertEquals(referenceIssues(chart), chart.validate(), "seed $seed\n$chart")
-    }
+    fun validateEqualsNaiveReference() =
+        RandomCharts.forEachChart(valid = false) { seed, _, chart ->
+            assertEquals(referenceIssues(chart), chart.validate(), "seed $seed\n$chart")
+        }
 
     @Test
-    fun validateWithSampleActionsEqualsNaiveReference() = RandomCharts.forEachChart(valid = false) { seed, random, chart ->
-        val samples = RandomCharts.actions.shuffled(random).take(random.nextInt(RandomCharts.actions.size + 1))
-        // Duplicated samples must not duplicate issues.
-        val withDuplicates = samples + samples.take(2)
-        assertEquals(referenceIssues(chart, samples), chart.validate(withDuplicates), "seed $seed\n$chart\n$samples")
-    }
+    fun validateWithSampleActionsEqualsNaiveReference() =
+        RandomCharts.forEachChart(valid = false) { seed, random, chart ->
+            val samples = RandomCharts.actions.shuffled(random).take(random.nextInt(RandomCharts.actions.size + 1))
+            // Duplicated samples must not duplicate issues.
+            val withDuplicates = samples + samples.take(2)
+            assertEquals(referenceIssues(chart, samples), chart.validate(withDuplicates), "seed $seed\n$chart\n$samples")
+        }
 
     @Test
-    fun samplesOnlyAddShadowingIssues() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
-        val without = chart.validate()
-        val with = chart.validate(RandomCharts.actions)
-        assertTrue(without.none { it is ValidationIssue.ShadowedTransitions }, "seed $seed")
-        assertEquals(without, with.filterNot { it is ValidationIssue.ShadowedTransitions }, "seed $seed")
-        // Guarding every transition removes every shadowing issue.
-        val guarded = chart.copy(transitions = chart.transitions.map { it.copy(guard = ((it.guard as? actron.statechart.GuardKey)?.name ?: "g")?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional) })
-        assertTrue(guarded.validate(RandomCharts.actions).none { it is ValidationIssue.ShadowedTransitions }, "seed $seed")
-    }
+    fun samplesOnlyAddShadowingIssues() =
+        RandomCharts.forEachChart(valid = false) { seed, _, chart ->
+            val without = chart.validate()
+            val with = chart.validate(RandomCharts.actions)
+            assertTrue(without.none { it is ValidationIssue.ShadowedTransitions }, "seed $seed")
+            assertEquals(without, with.filterNot { it is ValidationIssue.ShadowedTransitions }, "seed $seed")
+            // Guarding every transition removes every shadowing issue.
+            val guarded = chart.copy(transitions = chart.transitions.map { it.copy(guard = ((it.guard as? actron.statechart.GuardKey)?.name ?: "g")?.let { actron.statechart.GuardKey(it) } ?: actron.statechart.GuardCondition.Unconditional) })
+            assertTrue(guarded.validate(RandomCharts.actions).none { it is ValidationIssue.ShadowedTransitions }, "seed $seed")
+        }
 
     @Test
-    fun validateOnDeclaredChartsReportsOnlyReachabilityAndAmbiguity() = RandomCharts.forEachChart { seed, _, chart ->
-        val issues = chart.validate()
-        assertEquals(referenceIssues(chart), issues, "seed $seed")
-        assertTrue(
-            issues.all { it is ValidationIssue.UnreachableState || it is ValidationIssue.AmbiguousTransitions },
-            "seed $seed: $issues",
-        )
-        val sound = chart.reachableStates().containsAll(chart.states.map { it.id }) &&
-            chart.transitions.filter { it.guard is GuardCondition.Unconditional }.groupBy { it.source to (it.trigger as actron.statechart.Trigger.OnAction).matcher }.values.all { it.size == 1 }
-        assertEquals(sound, issues.isEmpty(), "seed $seed")
-    }
+    fun validateOnDeclaredChartsReportsOnlyReachabilityAndAmbiguity() =
+        RandomCharts.forEachChart { seed, _, chart ->
+            val issues = chart.validate()
+            assertEquals(referenceIssues(chart), issues, "seed $seed")
+            assertTrue(
+                issues.all { it is ValidationIssue.UnreachableState || it is ValidationIssue.AmbiguousTransitions },
+                "seed $seed: $issues",
+            )
+            val sound =
+                chart.reachableStates().containsAll(chart.states.map { it.id }) &&
+                    chart.transitions
+                        .filter { it.guard is GuardCondition.Unconditional }
+                        .groupBy { it.source to (it.trigger as actron.statechart.Trigger.OnAction).matcher }
+                        .values
+                        .all { it.size == 1 }
+            assertEquals(sound, issues.isEmpty(), "seed $seed")
+        }
 
     @Test
-    fun everyAmbiguityIsJustifiedAndEveryUnreachableStateHasNoPath() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
-        val reachable = fixedPointReachable(chart)
-        for (issue in chart.validate()) {
-            when (issue) {
-                is ValidationIssue.AmbiguousTransitions -> {
-                    assertTrue(issue.transitions.size >= 2, "seed $seed")
-                    assertTrue(issue.transitions.all { it.source == issue.source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == issue.on && it.guard is GuardCondition.Unconditional }, "seed $seed")
-                    // The group keeps declaration order and is complete.
-                    assertEquals(chart.transitions.filter { it in issue.transitions }, issue.transitions, "seed $seed")
-                    assertEquals(
-                        chart.transitions.count { it.source == issue.source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == issue.on && it.guard is GuardCondition.Unconditional },
-                        issue.transitions.size,
-                        "seed $seed",
-                    )
+    fun everyAmbiguityIsJustifiedAndEveryUnreachableStateHasNoPath() =
+        RandomCharts.forEachChart(valid = false) { seed, _, chart ->
+            val reachable = fixedPointReachable(chart)
+            for (issue in chart.validate()) {
+                when (issue) {
+                    is ValidationIssue.AmbiguousTransitions -> {
+                        assertTrue(issue.transitions.size >= 2, "seed $seed")
+                        assertTrue(issue.transitions.all { it.source == issue.source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == issue.on && it.guard is GuardCondition.Unconditional }, "seed $seed")
+                        // The group keeps declaration order and is complete.
+                        assertEquals(chart.transitions.filter { it in issue.transitions }, issue.transitions, "seed $seed")
+                        assertEquals(
+                            chart.transitions.count { it.source == issue.source && (it.trigger as actron.statechart.Trigger.OnAction).matcher == issue.on && it.guard is GuardCondition.Unconditional },
+                            issue.transitions.size,
+                            "seed $seed",
+                        )
+                    }
+
+                    is ValidationIssue.ShadowedTransitions -> {
+                        error("seed $seed: shadowing reported without samples")
+                    }
+
+                    is ValidationIssue.UnreachableState -> {
+                        assertTrue(issue.id !in reachable, "seed $seed")
+                    }
+
+                    is ValidationIssue.DuplicateStateId -> {
+                        assertTrue(chart.states.count { it.id == issue.id } > 1, "seed $seed")
+                    }
+
+                    is ValidationIssue.UnknownInitialState -> {
+                        assertTrue(chart.states.none { it.id == issue.id }, "seed $seed")
+                    }
+
+                    is ValidationIssue.UnknownTransitionSource -> {
+                        assertTrue(chart.states.none { it.id == issue.transition.source }, "seed $seed")
+                    }
+
+                    is ValidationIssue.UnknownTransitionTarget -> {
+                        assertTrue(chart.states.none { it.id == issue.transition.target }, "seed $seed")
+                    }
+
+                    is ValidationIssue.UnknownParent,
+                    is ValidationIssue.AtomicParent,
+                    is ValidationIssue.ParentCycle,
+                    is ValidationIssue.InitialNotChild,
+                    is ValidationIssue.EmptyCompoundState,
+                    is ValidationIssue.HistoryParent,
+                    is ValidationIssue.TooFewRegions,
+                    is ValidationIssue.HistoryAsInitial,
+                    is ValidationIssue.InvalidHistoryDefault,
+                    is ValidationIssue.TransitionFromHistory,
+                    -> {
+                        error("seed $seed: hierarchy issue in a flat chart: $issue")
+                    }
+
+                    is ValidationIssue.TransitionFromFinal,
+                    is ValidationIssue.InvalidCompletionSource,
+                    is ValidationIssue.AmbiguousAutomaticTransitions,
+                    is ValidationIssue.NonPositiveDelay,
+                    is ValidationIssue.AmbiguousTimers,
+                    -> {
+                        error("seed $seed: timer issue in a chart without timers: $issue")
+                    }
                 }
-                is ValidationIssue.ShadowedTransitions -> error("seed $seed: shadowing reported without samples")
-                is ValidationIssue.UnreachableState -> assertTrue(issue.id !in reachable, "seed $seed")
-                is ValidationIssue.DuplicateStateId -> assertTrue(chart.states.count { it.id == issue.id } > 1, "seed $seed")
-                is ValidationIssue.UnknownInitialState -> assertTrue(chart.states.none { it.id == issue.id }, "seed $seed")
-                is ValidationIssue.UnknownTransitionSource -> assertTrue(chart.states.none { it.id == issue.transition.source }, "seed $seed")
-                is ValidationIssue.UnknownTransitionTarget -> assertTrue(chart.states.none { it.id == issue.transition.target }, "seed $seed")
-                is ValidationIssue.UnknownParent,
-                is ValidationIssue.AtomicParent,
-                is ValidationIssue.ParentCycle,
-                is ValidationIssue.InitialNotChild,
-                is ValidationIssue.EmptyCompoundState,
-                is ValidationIssue.HistoryParent,
-                is ValidationIssue.TooFewRegions,
-                is ValidationIssue.HistoryAsInitial,
-                is ValidationIssue.InvalidHistoryDefault,
-                is ValidationIssue.TransitionFromHistory,
-                -> error("seed $seed: hierarchy issue in a flat chart: $issue")
-                is ValidationIssue.TransitionFromFinal,
-                is ValidationIssue.InvalidCompletionSource,
-                is ValidationIssue.AmbiguousAutomaticTransitions,
-                is ValidationIssue.NonPositiveDelay,
-                is ValidationIssue.AmbiguousTimers,
-                -> error("seed $seed: timer issue in a chart without timers: $issue")
+            }
+            // Endpoint issues are per declared transition, so a duplicated transition is reported once
+            // per copy; every other issue is reported once.
+            val issues = chart.validate()
+            val (endpoint, other) =
+                issues.partition {
+                    it is ValidationIssue.UnknownTransitionSource || it is ValidationIssue.UnknownTransitionTarget
+                }
+            assertEquals(other.distinct(), other, "seed $seed")
+            for (issue in endpoint.distinct()) {
+                val transition =
+                    when (issue) {
+                        is ValidationIssue.UnknownTransitionSource -> issue.transition
+                        is ValidationIssue.UnknownTransitionTarget -> issue.transition
+                        else -> error("unreachable")
+                    }
+                assertEquals(chart.transitions.count { it == transition }, endpoint.count { it == issue }, "seed $seed")
             }
         }
-        // Endpoint issues are per declared transition, so a duplicated transition is reported once
-        // per copy; every other issue is reported once.
-        val issues = chart.validate()
-        val (endpoint, other) = issues.partition {
-            it is ValidationIssue.UnknownTransitionSource || it is ValidationIssue.UnknownTransitionTarget
-        }
-        assertEquals(other.distinct(), other, "seed $seed")
-        for (issue in endpoint.distinct()) {
-            val transition = when (issue) {
-                is ValidationIssue.UnknownTransitionSource -> issue.transition
-                is ValidationIssue.UnknownTransitionTarget -> issue.transition
-                else -> error("unreachable")
-            }
-            assertEquals(chart.transitions.count { it == transition }, endpoint.count { it == issue }, "seed $seed")
-        }
-    }
 
     @Test
-    fun everyShadowingIsJustified() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
-        for (issue in chart.validate(RandomCharts.actions).filterIsInstance<ValidationIssue.ShadowedTransitions>()) {
-            val group = issue.transitions
-            assertTrue(group.size >= 2 && group.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }.distinct().size >= 2, "seed $seed: $issue")
-            assertTrue(group.all { it.source == issue.source && it.guard is GuardCondition.Unconditional && naiveMatches(it.trigger, issue.sample) }, "seed $seed")
-            // Complete and in declaration order: the first one is what the runtime takes.
+    fun everyShadowingIsJustified() =
+        RandomCharts.forEachChart(valid = false) { seed, _, chart ->
+            for (issue in chart.validate(RandomCharts.actions).filterIsInstance<ValidationIssue.ShadowedTransitions>()) {
+                val group = issue.transitions
+                assertTrue(group.size >= 2 && group.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }.distinct().size >= 2, "seed $seed: $issue")
+                assertTrue(group.all { it.source == issue.source && it.guard is GuardCondition.Unconditional && naiveMatches(it.trigger, issue.sample) }, "seed $seed")
+                // Complete and in declaration order: the first one is what the runtime takes.
+                assertEquals(
+                    chart.transitions.filter { it.source == issue.source && it.guard is GuardCondition.Unconditional && naiveMatches(it.trigger, issue.sample) },
+                    group,
+                    "seed $seed",
+                )
+            }
+        }
+
+    @Test
+    fun validateIsEquivariantUnderRenamingStates() =
+        RandomCharts.forEachChart(valid = false) { seed, random, chart ->
+            val ids = RandomCharts.allIds
+            val permuted = ids.zip(ids.shuffled(random)).toMap()
+            val f: (StateId) -> StateId = { permuted.getValue(it) }
+            val renamed = rename(chart, f)
+            assertEquals(chart.validate().map { renameIssue(it, f) }, renamed.validate(), "seed $seed")
             assertEquals(
-                chart.transitions.filter { it.source == issue.source && it.guard is GuardCondition.Unconditional && naiveMatches(it.trigger, issue.sample) },
-                group,
+                chart.validate(RandomCharts.actions).map { renameIssue(it, f) },
+                renamed.validate(RandomCharts.actions),
                 "seed $seed",
             )
+            assertEquals(chart.reachableStates().map(f), renamed.reachableStates().toList(), "seed $seed")
         }
-    }
 
     @Test
-    fun validateIsEquivariantUnderRenamingStates() = RandomCharts.forEachChart(valid = false) { seed, random, chart ->
-        val ids = RandomCharts.allIds
-        val permuted = ids.zip(ids.shuffled(random)).toMap()
-        val f: (StateId) -> StateId = { permuted.getValue(it) }
-        val renamed = rename(chart, f)
-        assertEquals(chart.validate().map { renameIssue(it, f) }, renamed.validate(), "seed $seed")
-        assertEquals(
-            chart.validate(RandomCharts.actions).map { renameIssue(it, f) },
-            renamed.validate(RandomCharts.actions),
-            "seed $seed",
-        )
-        assertEquals(chart.reachableStates().map(f), renamed.reachableStates().toList(), "seed $seed")
-    }
-
-    @Test
-    fun addingAnUnreachableIslandAddsExactlyItsIssues() = RandomCharts.forEachChart { seed, random, chart ->
-        val island = List(random.nextInt(1, 5)) { StateId("island $it") }
-        val islandTransitions = island.zipWithNext { a, b -> Transition(a, b, RandomCharts.matchers.random(random)) } +
-            Transition(island.last(), island.first(), RandomCharts.matchers.random(random)) +
-            // An edge from the island into the chart does not make the island reachable.
-            Transition(island.first(), chart.initial, RandomCharts.matchers.random(random), guard = actron.statechart.GuardKey("never"))
-        val withIsland = chart.copy(
-            states = chart.states + island.map(::AtomicState),
-            transitions = islandTransitions + chart.transitions,
-        )
-        val before = chart.validate()
-        // Every island state has exactly one unguarded way out, so the island adds no ambiguity.
-        assertEquals(
-            before.filter { it !is ValidationIssue.AmbiguousTransitions } +
-                island.map { ValidationIssue.UnreachableState(it) } +
-                before.filterIsInstance<ValidationIssue.AmbiguousTransitions>(),
-            withIsland.validate(),
-            "seed $seed",
-        )
-        assertEquals(chart.reachableStates(), withIsland.reachableStates(), "seed $seed")
-    }
+    fun addingAnUnreachableIslandAddsExactlyItsIssues() =
+        RandomCharts.forEachChart { seed, random, chart ->
+            val island = List(random.nextInt(1, 5)) { StateId("island $it") }
+            val islandTransitions =
+                island.zipWithNext { a, b -> Transition(a, b, RandomCharts.matchers.random(random)) } +
+                    Transition(island.last(), island.first(), RandomCharts.matchers.random(random)) +
+                    // An edge from the island into the chart does not make the island reachable.
+                    Transition(island.first(), chart.initial, RandomCharts.matchers.random(random), guard = actron.statechart.GuardKey("never"))
+            val withIsland =
+                chart.copy(
+                    states = chart.states + island.map(::AtomicState),
+                    transitions = islandTransitions + chart.transitions,
+                )
+            val before = chart.validate()
+            // Every island state has exactly one unguarded way out, so the island adds no ambiguity.
+            assertEquals(
+                before.filter { it !is ValidationIssue.AmbiguousTransitions } +
+                    island.map { ValidationIssue.UnreachableState(it) } +
+                    before.filterIsInstance<ValidationIssue.AmbiguousTransitions>(),
+                withIsland.validate(),
+                "seed $seed",
+            )
+            assertEquals(chart.reachableStates(), withIsland.reachableStates(), "seed $seed")
+        }
 
     // endregion
 
     // region mermaid
 
-    private class ParsedMermaid(val declarations: List<Pair<String, String>>, val initialRef: String, val transitionLines: List<String>)
+    private class ParsedMermaid(
+        val declarations: List<Pair<String, String>>,
+        val initialRef: String,
+        val transitionLines: List<String>,
+    )
 
-    private fun parse(seed: Int, text: String): ParsedMermaid {
+    private fun parse(
+        seed: Int,
+        text: String,
+    ): ParsedMermaid {
         val lines = text.lines()
         assertEquals("stateDiagram-v2", lines.first(), "seed $seed")
         val declaration = Regex("^ {4}state \"([^\"]*)\" as ([A-Za-z_][A-Za-z0-9_]*)$")
-        val declarations = lines.drop(1).takeWhile { declaration.matches(it) }.map {
-            val match = kotlin.test.assertNotNull(declaration.matchEntire(it))
-            match.groupValues[1] to match.groupValues[2]
-        }
+        val declarations =
+            lines.drop(1).takeWhile { declaration.matches(it) }.map {
+                val match = kotlin.test.assertNotNull(declaration.matchEntire(it))
+                match.groupValues[1] to match.groupValues[2]
+            }
         val initialLine = lines[1 + declarations.size]
         assertTrue(initialLine.startsWith("    [*] --> "), "seed $seed: $initialLine")
         return ParsedMermaid(declarations, initialLine.removePrefix("    [*] --> "), lines.drop(2 + declarations.size))
@@ -378,28 +519,30 @@ class StateChartModelPropertyTest {
         }
 
     @Test
-    fun mermaidIsDeterministicAndStableWhenTransitionsAreAppended() = RandomCharts.forEachChart { seed, random, chart ->
-        val text = chart.toMermaid()
-        assertEquals(text, chart.toMermaid(), "seed $seed")
-        assertEquals(text, chart.copy(states = chart.states.toList(), transitions = chart.transitions.toList()).toMermaid(), "seed $seed")
+    fun mermaidIsDeterministicAndStableWhenTransitionsAreAppended() =
+        RandomCharts.forEachChart { seed, random, chart ->
+            val text = chart.toMermaid()
+            assertEquals(text, chart.toMermaid(), "seed $seed")
+            assertEquals(text, chart.copy(states = chart.states.toList(), transitions = chart.transitions.toList()).toMermaid(), "seed $seed")
 
-        val ids = chart.states.map { it.id }
-        val extra = Transition(ids.random(random), ids.random(random), RandomCharts.matchers.random(random))
-        val longer = chart.copy(transitions = chart.transitions + extra).toMermaid()
-        assertTrue(longer.startsWith(text + "\n"), "seed $seed: appending a transition changed earlier lines")
-        assertEquals(1, longer.lines().size - text.lines().size, "seed $seed")
-    }
+            val ids = chart.states.map { it.id }
+            val extra = Transition(ids.random(random), ids.random(random), RandomCharts.matchers.random(random))
+            val longer = chart.copy(transitions = chart.transitions + extra).toMermaid()
+            assertTrue(longer.startsWith(text + "\n"), "seed $seed: appending a transition changed earlier lines")
+            assertEquals(1, longer.lines().size - text.lines().size, "seed $seed")
+        }
 
     @Test
-    fun mermaidAliasesOfExistingStatesSurviveAddingStates() = RandomCharts.forEachChart { seed, random, chart ->
-        fun refs(c: StateChartDefinition): Map<String, String> = parse(seed, c.toMermaid()).declarations.toMap()
-        val newId = StateId("new state ${random.nextInt(100)}")
-        val bigger = chart.copy(states = chart.states + AtomicState(newId))
-        val before = refs(chart)
-        val after = refs(bigger)
-        assertEquals(before, after - newId.value, "seed $seed")
-        assertTrue(after.getValue(newId.value) !in before.values, "seed $seed")
-    }
+    fun mermaidAliasesOfExistingStatesSurviveAddingStates() =
+        RandomCharts.forEachChart { seed, random, chart ->
+            fun refs(c: StateChartDefinition): Map<String, String> = parse(seed, c.toMermaid()).declarations.toMap()
+            val newId = StateId("new state ${random.nextInt(100)}")
+            val bigger = chart.copy(states = chart.states + AtomicState(newId))
+            val before = refs(chart)
+            val after = refs(bigger)
+            assertEquals(before, after - newId.value, "seed $seed")
+            assertTrue(after.getValue(newId.value) !in before.values, "seed $seed")
+        }
 
     // endregion
 
@@ -410,11 +553,12 @@ class StateChartModelPropertyTest {
         val plain = StateId("Plain")
         val spaced = StateId("a b")
         val lookalike = StateId("actron_state_1")
-        val chart = StateChartDefinition(
-            initial = plain,
-            states = listOf(plain, spaced, lookalike).map(::AtomicState),
-            transitions = listOf(Transition(plain, spaced, ActionMatcher("Go")), Transition(spaced, lookalike, ActionMatcher("Go"))),
-        )
+        val chart =
+            StateChartDefinition(
+                initial = plain,
+                states = listOf(plain, spaced, lookalike).map(::AtomicState),
+                transitions = listOf(Transition(plain, spaced, ActionMatcher("Go")), Transition(spaced, lookalike, ActionMatcher("Go"))),
+            )
 
         assertEquals(
             """
@@ -432,11 +576,12 @@ class StateChartModelPropertyTest {
     fun mermaidAliasesKeywordsAndUndeclaredIds() {
         val state = StateId("state")
         val ghost = StateId("not declared")
-        val chart = StateChartDefinition(
-            initial = state,
-            states = listOf(AtomicState(state), AtomicState(state)),
-            transitions = listOf(Transition(state, ghost, ActionMatcher("Go"), guard = actron.statechart.GuardKey("ok"))),
-        )
+        val chart =
+            StateChartDefinition(
+                initial = state,
+                states = listOf(AtomicState(state), AtomicState(state)),
+                transitions = listOf(Transition(state, ghost, ActionMatcher("Go"), guard = actron.statechart.GuardKey("ok"))),
+            )
 
         assertEquals(
             """
@@ -481,7 +626,10 @@ class StateChartModelPropertyTest {
         }
     }
 
-    private inline fun <reified A : Action> matcherFor(@Suppress("UNUSED_PARAMETER") action: A, name: String) = ActionMatcher.of<A>(name)
+    private inline fun <reified A : Action> matcherFor(
+        @Suppress("UNUSED_PARAMETER") action: A,
+        name: String,
+    ) = ActionMatcher.of<A>(name)
 
     @Test
     fun actionMatcherOfWorksForTypesWithoutASimpleName() {
@@ -501,13 +649,14 @@ class StateChartModelPropertyTest {
     }
 
     @Test
-    fun transitionsFromEqualsFilterInDeclarationOrder() = RandomCharts.forEachChart(valid = false) { seed, _, chart ->
-        for (id in RandomCharts.allIds) {
-            val expected = mutableListOf<Transition>()
-            for (t in chart.transitions) if (t.source == id) expected += t
-            assertEquals(expected, chart.transitionsFrom(id), "seed $seed")
+    fun transitionsFromEqualsFilterInDeclarationOrder() =
+        RandomCharts.forEachChart(valid = false) { seed, _, chart ->
+            for (id in RandomCharts.allIds) {
+                val expected = mutableListOf<Transition>()
+                for (t in chart.transitions) if (t.source == id) expected += t
+                assertEquals(expected, chart.transitionsFrom(id), "seed $seed")
+            }
         }
-    }
 
     @Test
     fun generatorCoversTheInterestingShapes() {

@@ -13,12 +13,15 @@ import kotlin.test.assertTrue
  * frees its place when a command finishes, and what an exited activation takes with it.
  */
 class LanesTest {
-
     private val net = LaneId("net")
     private val scope = ActivationId(1)
 
-    private fun registration(id: Long, policy: ConcurrencyPolicy = ConcurrencyPolicy.Independent, lane: CommandLane = if (policy is ConcurrencyPolicy.Independent) CommandLane.Independent else net, scope: ActivationId = this.scope) =
-        CommandRegistration(CommandId(id), "cmd$id", scope, lane, policy)
+    private fun registration(
+        id: Long,
+        policy: ConcurrencyPolicy = ConcurrencyPolicy.Independent,
+        lane: CommandLane = if (policy is ConcurrencyPolicy.Independent) CommandLane.Independent else net,
+        scope: ActivationId = this.scope,
+    ) = CommandRegistration(CommandId(id), "cmd$id", scope, lane, policy)
 
     @Test
     fun aCommandWithoutALane_startsAtOnce() {
@@ -78,7 +81,12 @@ class LanesTest {
 
         assertEquals(listOf(CommandId(3)), finished.started.map { it.id })
         assertEquals(setOf(CommandId(1), CommandId(3)), finished.lanes.running.keys)
-        assertEquals(listOf(CommandId(4)), finished.lanes.queued.getValue(net).map { it.id })
+        assertEquals(
+            listOf(CommandId(4)),
+            finished.lanes.queued
+                .getValue(net)
+                .map { it.id },
+        )
     }
 
     @Test
@@ -107,7 +115,13 @@ class LanesTest {
         assertEquals(listOf(CommandId(1), CommandId(4)), exited.cancelled, "running ones are cancelled, in start order")
         assertTrue(exited.abandoned.isEmpty(), "nothing is reported: the decision deregistered them")
         assertEquals(setOf(CommandId(1), CommandId(4)), exited.lanes.running.keys, "a cancelled command holds its place until it has finished")
-        assertEquals(listOf(CommandId(2)), exited.lanes.queued.getValue(net).map { it.id }, "the queued one of the exited scope is gone")
+        assertEquals(
+            listOf(CommandId(2)),
+            exited.lanes.queued
+                .getValue(net)
+                .map { it.id },
+            "the queued one of the exited scope is gone",
+        )
         // Only the finish frees the lane: then the other activation's command starts.
         val freed = exited.lanes.finished(CommandId(1))
         assertEquals(listOf(CommandId(2)), freed.started.map { it.id })

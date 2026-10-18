@@ -1,5 +1,9 @@
 package actron.compose
 
+import actron.core.Action
+import actron.core.Event
+import actron.core.State
+import actron.core.Store
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -10,10 +14,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import actron.core.Action
-import actron.core.Event
-import actron.core.State
-import actron.core.Store
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filter
@@ -95,8 +95,7 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
     }
 
     @PublishedApi
-    internal fun <S2 : S> narrow(isNarrowed: (S) -> Boolean): ViewStore<S2, A, E> =
-        ViewStore(stateRef = NarrowedState(stateRef, isNarrowed), dispatch = dispatch, eventFlow = eventFlow)
+    internal fun <S2 : S> narrow(isNarrowed: (S) -> Boolean): ViewStore<S2, A, E> = ViewStore(stateRef = NarrowedState(stateRef, isNarrowed), dispatch = dispatch, eventFlow = eventFlow)
 
     /**
      * Reads [source] (so Compose still tracks it) and returns its value while it is of type [S2],
@@ -176,12 +175,16 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
  * @return A ViewStore state holder backed by the Store
  */
 @Composable
-fun <S : State, A : Action, E : Event> rememberViewStore(store: Store<S, A, E>, autoClose: Boolean = false): ViewStore<S, A, E> {
+fun <S : State, A : Action, E : Event> rememberViewStore(
+    store: Store<S, A, E>,
+    autoClose: Boolean = false,
+): ViewStore<S, A, E> {
     val closeStoreOnDispose = remember(store) { autoClose }
 
-    val state = key(store) {
-        store.state.collectAsState()
-    }
+    val state =
+        key(store) {
+            store.state.collectAsState()
+        }
 
     DisposableEffect(store) {
         onDispose {
@@ -217,13 +220,18 @@ fun <S : State, A : Action, E : Event> rememberViewStore(store: Store<S, A, E>, 
  * @return A ViewStore state holder backed by the remembered Store
  */
 @Composable
-fun <S : State, A : Action, E : Event> rememberViewStore(key: Any = Unit, autoClose: Boolean = false, store: () -> Store<S, A, E>): ViewStore<S, A, E> {
+fun <S : State, A : Action, E : Event> rememberViewStore(
+    key: Any = Unit,
+    autoClose: Boolean = false,
+    store: () -> Store<S, A, E>,
+): ViewStore<S, A, E> {
     val rememberedStore = remember(key) { store() }
     val closeStoreOnDispose = remember(rememberedStore) { autoClose }
 
-    val state = key(rememberedStore) {
-        rememberedStore.state.collectAsState()
-    }
+    val state =
+        key(rememberedStore) {
+            rememberedStore.state.collectAsState()
+        }
 
     DisposableEffect(rememberedStore) {
         onDispose {

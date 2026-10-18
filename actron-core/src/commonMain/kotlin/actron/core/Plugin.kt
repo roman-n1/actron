@@ -24,12 +24,19 @@ interface Plugin<S : State, A : Action, E : Event> {
      * work or make its own retry idempotent. A failing initial `enter {}` does not
      * retry startup: it is reported, and the Store counts as started.
      */
-    suspend fun onStart(scope: PluginScope<S, A>, state: S) {}
+    suspend fun onStart(
+        scope: PluginScope<S, A>,
+        state: S,
+    ) {}
 
     /**
      * Called before an action handler starts processing the dispatched action.
      */
-    suspend fun onAction(scope: PluginScope<S, A>, state: S, action: A) {}
+    suspend fun onAction(
+        scope: PluginScope<S, A>,
+        state: S,
+        action: A,
+    ) {}
 
     /**
      * Called after a new state snapshot is committed, persisted, and reported to observers.
@@ -37,7 +44,11 @@ interface Plugin<S : State, A : Action, E : Event> {
      * An exception thrown here is reported to the Store's [ExceptionHandler]; the transition
      * continues, since the state is already committed.
      */
-    suspend fun onState(scope: PluginScope<S, A>, prevState: S, state: S) {}
+    suspend fun onState(
+        scope: PluginScope<S, A>,
+        prevState: S,
+        state: S,
+    ) {}
 
     /**
      * Called after an event is emitted to collectors and observers.
@@ -45,7 +56,11 @@ interface Plugin<S : State, A : Action, E : Event> {
      * An exception thrown here is reported to the Store's [ExceptionHandler]; the handler that
      * emitted the event continues.
      */
-    suspend fun onEvent(scope: PluginScope<S, A>, state: S, event: E) {}
+    suspend fun onEvent(
+        scope: PluginScope<S, A>,
+        state: S,
+        event: E,
+    ) {}
 }
 
 /**
@@ -71,19 +86,34 @@ fun <S : State, A : Action, E : Event> Plugin(
     onState: suspend PluginScope<S, A>.(prevState: S, state: S) -> Unit = { _, _ -> },
     onEvent: suspend PluginScope<S, A>.(state: S, event: E) -> Unit = { _, _ -> },
 ) = object : Plugin<S, A, E> {
-    override suspend fun onStart(scope: PluginScope<S, A>, state: S) {
+    override suspend fun onStart(
+        scope: PluginScope<S, A>,
+        state: S,
+    ) {
         scope.onStart(state)
     }
 
-    override suspend fun onAction(scope: PluginScope<S, A>, state: S, action: A) {
+    override suspend fun onAction(
+        scope: PluginScope<S, A>,
+        state: S,
+        action: A,
+    ) {
         scope.onAction(state, action)
     }
 
-    override suspend fun onState(scope: PluginScope<S, A>, prevState: S, state: S) {
+    override suspend fun onState(
+        scope: PluginScope<S, A>,
+        prevState: S,
+        state: S,
+    ) {
         scope.onState(prevState, state)
     }
 
-    override suspend fun onEvent(scope: PluginScope<S, A>, state: S, event: E) {
+    override suspend fun onEvent(
+        scope: PluginScope<S, A>,
+        state: S,
+        event: E,
+    ) {
         scope.onEvent(state, event)
     }
 }

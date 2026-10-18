@@ -59,8 +59,7 @@ internal class Microstep(
     val configuration: StateConfiguration,
 ) {
     /** The active leaves after the step in declaration order, or the last entered node when there is none. */
-    fun leaves(definition: StateChartDefinition): List<StateId> =
-        definition.activeLeaves(configuration).ifEmpty { listOf(entered.last()) }
+    fun leaves(definition: StateChartDefinition): List<StateId> = definition.activeLeaves(configuration).ifEmpty { listOf(entered.last()) }
 }
 
 internal fun StateChartDefinition.declarationOrder(id: StateId): Int = hierarchy.order[id] ?: Int.MAX_VALUE
@@ -70,22 +69,19 @@ private fun StateChartDefinition.depth(id: StateId): Int = ancestorsOf(id).size
 /**
  * The configuration after entering [StateChartDefinition.initial] from the root.
  */
-internal fun StateChartDefinition.initialConfiguration(): StateConfiguration =
-    StateConfiguration(active = inEntryOrder(entrySet(listOf(StateParent.Root to initial), history = emptyMap())).toSet())
+internal fun StateChartDefinition.initialConfiguration(): StateConfiguration = StateConfiguration(active = inEntryOrder(entrySet(listOf(StateParent.Root to initial), history = emptyMap())).toSet())
 
 /** [ids] outermost first, ties in declaration order. */
 internal fun StateChartDefinition.inEntryOrder(ids: Collection<StateId>): List<StateId> = ids.sortedWith(entryOrder())
 
 /** The timers ([Trigger.After] transitions) of [states], in the order of [states], each state's in declaration order. */
-internal fun StateChartDefinition.timersOf(states: List<StateId>): List<Transition> =
-    states.flatMap { hierarchy.timersBySource[it].orEmpty() }
+internal fun StateChartDefinition.timersOf(states: List<StateId>): List<Transition> = states.flatMap { hierarchy.timersBySource[it].orEmpty() }
 
 /**
  * Transitions that may fire from [leaf], in priority order: the leaf's own, then each ancestor's,
  * from the innermost outwards, each group in declaration order.
  */
-internal fun StateChartDefinition.candidatesFor(leaf: StateId): Sequence<Transition> =
-    (sequenceOf(leaf) + ancestorsOf(leaf).asSequence()).flatMap { transitionsFrom(it).asSequence() }
+internal fun StateChartDefinition.candidatesFor(leaf: StateId): Sequence<Transition> = (sequenceOf(leaf) + ancestorsOf(leaf).asSequence()).flatMap { transitionsFrom(it).asSequence() }
 
 /**
  * Picks the transitions to fire in [configuration], as SCXML does: for each active leaf in
@@ -105,9 +101,10 @@ internal fun StateChartDefinition.selectTransitions(
         val transition = candidatesFor(leaf).firstOrNull(enabled) ?: continue
         if (selected.any { it.first == transition }) continue
         val exitSet = exitSet(configuration, transition).toSet()
-        val conflicting = selected.filter { (other, otherExit) ->
-            otherExit.any { it in exitSet } || other.source in exitSet || transition.source in otherExit
-        }
+        val conflicting =
+            selected.filter { (other, otherExit) ->
+                otherExit.any { it in exitSet } || other.source in exitSet || transition.source in otherExit
+            }
         if (conflicting.all { (other, _) -> isDescendant(transition.source, other.source) }) {
             selected -= conflicting.toSet()
             selected += transition to exitSet
@@ -124,12 +121,16 @@ internal fun StateChartDefinition.selectTransitions(
  * that would conflict with it are left out; without parallel states this is [trigger] alone. A
  * timer fires alone, as in [StateChartRuntime.fire].
  */
-internal fun StateChartDefinition.graphStep(configuration: StateConfiguration, trigger: Transition): Microstep {
+internal fun StateChartDefinition.graphStep(
+    configuration: StateConfiguration,
+    trigger: Transition,
+): Microstep {
     if (trigger.trigger !is Trigger.OnAction) return microstep(configuration, listOf(trigger))
     val triggerExit = exitSet(configuration, trigger).toSet()
-    val taken = selectTransitions(configuration) { transition ->
-        transition == trigger || (transition.trigger == trigger.trigger && exitSet(configuration, transition).none { it in triggerExit })
-    }
+    val taken =
+        selectTransitions(configuration) { transition ->
+            transition == trigger || (transition.trigger == trigger.trigger && exitSet(configuration, transition).none { it in triggerExit })
+        }
     // Only in a malformed hierarchy can the source have no active leaf below it; take the trigger alone then.
     return microstep(configuration, if (trigger in taken) taken else listOf(trigger))
 }
@@ -145,13 +146,19 @@ internal fun StateChartDefinition.graphStep(configuration: StateConfiguration, t
 internal fun StateChartDefinition.domainOf(transition: Transition): StateParent = domainOf(transition.source, transition.target)
 
 /** The domain of a transition from [source] to [target]; see the other overload. */
-internal fun StateChartDefinition.domainOf(source: StateId, target: StateId): StateParent {
+internal fun StateChartDefinition.domainOf(
+    source: StateId,
+    target: StateId,
+): StateParent {
     val targetAncestors = ancestorsOf(target)
     val shared = ancestorsOf(source).filter { node(it) is CompoundState && it in targetAncestors }
     return if (shared.isEmpty()) StateParent.Root else shared.first()
 }
 
-internal fun StateChartDefinition.exitSet(configuration: StateConfiguration, transition: Transition): List<StateId> {
+internal fun StateChartDefinition.exitSet(
+    configuration: StateConfiguration,
+    transition: Transition,
+): List<StateId> {
     if (transition.kind == TransitionKind.Internal) return emptyList()
     val domain = domainOf(transition)
     return configuration.active.filter { isDescendant(it, domain) }
@@ -172,18 +179,32 @@ internal fun StateChartDefinition.exitSet(configuration: StateConfiguration, tra
  * Every node is entered at most once, so this ends even for a malformed hierarchy. The result is
  * in no particular order.
  */
-private fun StateChartDefinition.entrySet(targets: List<Pair<StateParent, StateId>>, history: Map<StateId, Set<StateId>>): Set<StateId> {
+private fun StateChartDefinition.entrySet(
+    targets: List<Pair<StateParent, StateId>>,
+    history: Map<StateId, Set<StateId>>,
+): Set<StateId> {
     val entered = linkedSetOf<StateId>()
+
     fun hasEnteredDescendant(id: StateId) = entered.any { isDescendant(it, id) }
-    fun enterRegions(parallel: StateId, enterDescendants: (StateId) -> Unit) {
+
+    fun enterRegions(
+        parallel: StateId,
+        enterDescendants: (StateId) -> Unit,
+    ) {
         for (region in hierarchy.regions.getValue(parallel)) if (!hasEnteredDescendant(region)) enterDescendants(region)
     }
-    fun enterAncestors(id: StateId, below: StateParent, enterDescendants: (StateId) -> Unit) {
+
+    fun enterAncestors(
+        id: StateId,
+        below: StateParent,
+        enterDescendants: (StateId) -> Unit,
+    ) {
         for (ancestor in ancestorsOf(id).takeWhile { it != below }.asReversed()) {
             entered += ancestor
             if (node(ancestor) is ParallelState) enterRegions(ancestor, enterDescendants)
         }
     }
+
     fun enterDescendants(id: StateId) {
         if (id in entered) return
         if (!hasNode(id)) {
@@ -191,33 +212,49 @@ private fun StateChartDefinition.entrySet(targets: List<Pair<StateParent, StateI
             return
         }
         val node = node(id)
-        if (node is HistoryState && restoreHistory(node, history) { restored ->
+        if (node is HistoryState &&
+            restoreHistory(node, history) { restored ->
                 restored.forEach(::enterDescendants)
                 restored.forEach { enterAncestors(it, node.parent, ::enterDescendants) }
-            }) return
+            }
+        ) {
+            return
+        }
         entered += id
         when (node) {
             is CompoundState -> {
                 if (nodeSatisfies(node.initial) { it !is HistoryState && it.parent == id } && !hasEnteredDescendant(id)) enterDescendants(node.initial)
             }
-            is ParallelState -> enterRegions(id, ::enterDescendants)
-            else -> Unit
+
+            is ParallelState -> {
+                enterRegions(id, ::enterDescendants)
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
     targets.forEach { (_, target) -> enterDescendants(target) }
     targets.forEach { (domain, target) -> enterAncestors(target, domain, ::enterDescendants) }
     return entered
 }
+
 /**
  * The nodes [history] restores: what it remembers in [remembered], else its default, else the
  * initial child of its compound parent or every region of its parallel parent. Only proper
  * descendants of the parent that are not history states count; returns false when there is nothing to
  * restore (the parent is neither compound nor parallel, or the fallback is not such a descendant).
  */
-private fun StateChartDefinition.restoreHistory(history: HistoryState, remembered: Map<StateId, Set<StateId>>, restore: (List<StateId>) -> Unit): Boolean {
+private fun StateChartDefinition.restoreHistory(
+    history: HistoryState,
+    remembered: Map<StateId, Set<StateId>>,
+    restore: (List<StateId>) -> Unit,
+): Boolean {
     if (!hasNode(history.parent)) return false
     val parent = node(history.parent)
     if (parent !is CompoundState && parent !is ParallelState) return false
+
     fun restorable(id: StateId): Boolean = nodeSatisfies(id) { it !is HistoryState } && isDescendant(id, parent.id)
     val recorded = remembered[history.id].orEmpty().filter(::restorable)
     if (recorded.isNotEmpty()) {
@@ -225,11 +262,12 @@ private fun StateChartDefinition.restoreHistory(history: HistoryState, remembere
         return true
     }
     val default = history.default
-    val fallback = when {
-        default is StateId -> listOf(default)
-        parent is CompoundState -> listOf(parent.initial)
-        else -> hierarchy.regions.getValue(parent.id)
-    }
+    val fallback =
+        when {
+            default is StateId -> listOf(default)
+            parent is CompoundState -> listOf(parent.initial)
+            else -> hierarchy.regions.getValue(parent.id)
+        }
     if (!fallback.all(::restorable)) return false
     restore(fallback)
     return true
@@ -240,15 +278,19 @@ private fun StateChartDefinition.restoreHistory(history: HistoryState, remembere
  * states remembers the node's active children (shallow) or its active atomic descendants (deep), as
  * they are in [configuration]. Other entries are kept.
  */
-internal fun StateChartDefinition.recordHistory(configuration: StateConfiguration, exited: Collection<StateId>): Map<StateId, Set<StateId>> {
+internal fun StateChartDefinition.recordHistory(
+    configuration: StateConfiguration,
+    exited: Collection<StateId>,
+): Map<StateId, Set<StateId>> {
     val history = configuration.history.toMutableMap()
     for (id in exited) {
         for (node in hierarchy.histories[id].orEmpty()) {
-            val recorded = if (node.deep) {
-                activeLeaves(configuration).filter { isDescendant(it, id) }
-            } else {
-                childrenOf(id).filter { it !is HistoryState && it.id in configuration.active }.map { it.id }
-            }
+            val recorded =
+                if (node.deep) {
+                    activeLeaves(configuration).filter { isDescendant(it, id) }
+                } else {
+                    childrenOf(id).filter { it !is HistoryState && it.id in configuration.active }.map { it.id }
+                }
             if (recorded.isNotEmpty()) history[node.id] = recorded.toSet()
         }
     }
@@ -256,12 +298,10 @@ internal fun StateChartDefinition.recordHistory(configuration: StateConfiguratio
 }
 
 /** Exit order: innermost first, ties in reverse declaration order. */
-private fun StateChartDefinition.exitOrder(): Comparator<StateId> =
-    compareByDescending<StateId> { depth(it) }.thenByDescending { declarationOrder(it) }
+private fun StateChartDefinition.exitOrder(): Comparator<StateId> = compareByDescending<StateId> { depth(it) }.thenByDescending { declarationOrder(it) }
 
 /** Entry order: outermost first, ties in declaration order. */
-private fun StateChartDefinition.entryOrder(): Comparator<StateId> =
-    compareBy<StateId> { depth(it) }.thenBy { declarationOrder(it) }
+private fun StateChartDefinition.entryOrder(): Comparator<StateId> = compareBy<StateId> { depth(it) }.thenBy { declarationOrder(it) }
 
 /**
  * Fires [transitions] (already selected, non-conflicting) in [configuration]: exits the union of
@@ -270,7 +310,10 @@ private fun StateChartDefinition.entryOrder(): Comparator<StateId> =
  * (ties in declaration order). A transition into a history state enters what the history
  * remembers after this step's recording.
  */
-internal fun StateChartDefinition.microstep(configuration: StateConfiguration, transitions: List<Transition>): Microstep {
+internal fun StateChartDefinition.microstep(
+    configuration: StateConfiguration,
+    transitions: List<Transition>,
+): Microstep {
     val exitSet = linkedSetOf<StateId>()
     for (transition in transitions) exitSet += exitSet(configuration, transition)
     val history = recordHistory(configuration, exitSet)

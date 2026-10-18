@@ -22,11 +22,17 @@ internal class ComposeHarness(
     private val frameClock: BroadcastFrameClock,
 ) {
     private var frameTimeNanos = 0L
+
     private sealed interface Phase {
         data object AwaitingContent : Phase
-        data class Showing(val composition: Composition) : Phase
+
+        data class Showing(
+            val composition: Composition,
+        ) : Phase
+
         data object Disposed : Phase
     }
+
     private var phase: Phase = Phase.AwaitingContent
 
     /** Disposes the current composition, if any, and composes [content] anew. */
@@ -37,7 +43,8 @@ internal class ComposeHarness(
 
     /** Recomposes the current composition with [content]: the same composition, new lambdas. */
     fun recompose(content: @Composable () -> Unit) {
-        check(phase is Phase.Showing) { "compose first" }; (phase as Phase.Showing).composition.setContent(content)
+        check(phase is Phase.Showing) { "compose first" }
+        (phase as Phase.Showing).composition.setContent(content)
     }
 
     fun dispose() {
@@ -70,13 +77,26 @@ internal suspend fun TestScope.withComposeHarness(block: suspend ComposeHarness.
 }
 
 private class NoOpApplier : AbstractApplier<Unit>(Unit) {
-    override fun insertTopDown(index: Int, instance: Unit) = Unit
+    override fun insertTopDown(
+        index: Int,
+        instance: Unit,
+    ) = Unit
 
-    override fun insertBottomUp(index: Int, instance: Unit) = Unit
+    override fun insertBottomUp(
+        index: Int,
+        instance: Unit,
+    ) = Unit
 
-    override fun move(from: Int, to: Int, count: Int) = Unit
+    override fun move(
+        from: Int,
+        to: Int,
+        count: Int,
+    ) = Unit
 
-    override fun remove(index: Int, count: Int) = Unit
+    override fun remove(
+        index: Int,
+        count: Int,
+    ) = Unit
 
     override fun onClear() = Unit
 }

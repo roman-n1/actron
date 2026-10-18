@@ -17,72 +17,82 @@ import kotlin.test.assertTrue
 class StateChartActivityDispatchTest {
     private sealed interface Input : Action {
         data object Move : Input
+
         data object Result : Input
     }
+
     private val a = StateId("A")
     private val b = StateId("B")
     private val done = StateId("Done")
-    private val chart = StateChartDefinition(
-        a,
-        listOf(AtomicState(a), AtomicState(b), AtomicState(done)),
-        listOf(
-            Transition(a, b, ActionMatcher.of<Input.Move>("Move")),
-            Transition(b, a, ActionMatcher.of<Input.Move>("Move")),
-            Transition(a, done, ActionMatcher.of<Input.Result>("Result")),
-            Transition(b, done, ActionMatcher.of<Input.Result>("Result")),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            a,
+            listOf(AtomicState(a), AtomicState(b), AtomicState(done)),
+            listOf(
+                Transition(a, b, ActionMatcher.of<Input.Move>("Move")),
+                Transition(b, a, ActionMatcher.of<Input.Move>("Move")),
+                Transition(a, done, ActionMatcher.of<Input.Result>("Result")),
+                Transition(b, done, ActionMatcher.of<Input.Result>("Result")),
+            ),
+        )
 
     @Test
-    fun anActivityActionQueuedDuringExitIsIgnoredAfterItsActivationEnds() = runTest {
-        val enteringB = CompletableDeferred<Unit>()
-        val finishEntry = CompletableDeferred<Unit>()
-        val oldScopeObservations = mutableListOf<ChartLaunchScope<Unit, Input, Nothing>>()
-        val seen = mutableListOf<Input>()
-        val store = StateChartStore<Unit, Input, Nothing>(chart, Unit, backgroundScope.coroutineContext) {
-            activity(a) { oldScopeObservations.add(this) }
-            onEnter(b) { enteringB.complete(Unit); finishEntry.await() }
-            store { plugin(Plugin(onAction = { _, action -> seen += action })) }
-        }
-        try {
-            store.startAndAwait()
-            runCurrent()
-            store.dispatch(Input.Move)
-            enteringB.await()
-            assertTrue(oldScopeObservations.single().isActive)
-            oldScopeObservations.single().dispatch(Input.Result)
-            finishEntry.complete(Unit)
-            runCurrent()
+    fun anActivityActionQueuedDuringExitIsIgnoredAfterItsActivationEnds() =
+        runTest {
+            val enteringB = CompletableDeferred<Unit>()
+            val finishEntry = CompletableDeferred<Unit>()
+            val oldScopeObservations = mutableListOf<ChartLaunchScope<Unit, Input, Nothing>>()
+            val seen = mutableListOf<Input>()
+            val store =
+                StateChartStore<Unit, Input, Nothing>(chart, Unit, backgroundScope.coroutineContext) {
+                    activity(a) { oldScopeObservations.add(this) }
+                    onEnter(b) {
+                        enteringB.complete(Unit)
+                        finishEntry.await()
+                    }
+                    store { plugin(Plugin(onAction = { _, action -> seen += action })) }
+                }
+            try {
+                store.startAndAwait()
+                runCurrent()
+                store.dispatch(Input.Move)
+                enteringB.await()
+                assertTrue(oldScopeObservations.single().isActive)
+                oldScopeObservations.single().dispatch(Input.Result)
+                finishEntry.complete(Unit)
+                runCurrent()
 
-            assertEquals(listOf(b), store.currentState.activeLeaves(chart))
-            assertEquals(listOf<Input>(Input.Move), seen)
-        } finally {
-            store.close()
+                assertEquals(listOf(b), store.currentState.activeLeaves(chart))
+                assertEquals(listOf<Input>(Input.Move), seen)
+            } finally {
+                store.close()
+            }
         }
-    }
 
     @Test
-    fun aPreviousActivationCannotDispatchIntoAReenteredNode() = runTest {
-        val scopes = mutableListOf<ChartLaunchScope<Unit, Input, Nothing>>()
-        val store = StateChartStore<Unit, Input, Nothing>(chart, Unit, backgroundScope.coroutineContext) {
-            activity(a) { scopes += this }
-        }
-        try {
-            store.startAndAwait()
-            runCurrent()
-            store.dispatchAndAwait(Input.Move)
-            store.dispatchAndAwait(Input.Move)
-            runCurrent()
-            assertEquals(2, scopes.size)
-            scopes.first().dispatch(Input.Result)
-            runCurrent()
-            assertEquals(listOf(a), store.currentState.activeLeaves(chart))
+    fun aPreviousActivationCannotDispatchIntoAReenteredNode() =
+        runTest {
+            val scopes = mutableListOf<ChartLaunchScope<Unit, Input, Nothing>>()
+            val store =
+                StateChartStore<Unit, Input, Nothing>(chart, Unit, backgroundScope.coroutineContext) {
+                    activity(a) { scopes += this }
+                }
+            try {
+                store.startAndAwait()
+                runCurrent()
+                store.dispatchAndAwait(Input.Move)
+                store.dispatchAndAwait(Input.Move)
+                runCurrent()
+                assertEquals(2, scopes.size)
+                scopes.first().dispatch(Input.Result)
+                runCurrent()
+                assertEquals(listOf(a), store.currentState.activeLeaves(chart))
 
-            scopes.last().dispatch(Input.Result)
-            runCurrent()
-            assertEquals(listOf(done), store.currentState.activeLeaves(chart))
-        } finally {
-            store.close()
+                scopes.last().dispatch(Input.Result)
+                runCurrent()
+                assertEquals(listOf(done), store.currentState.activeLeaves(chart))
+            } finally {
+                store.close()
+            }
         }
-    }
 }

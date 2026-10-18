@@ -6,7 +6,9 @@ package actron.core
  * Reuse the same instance when multiple launches should share cancellation or drop behavior, or
  * when the lane should be cancellable later via `cancelLaunch(...)`.
  */
-class LaunchLane private constructor(private val select: (Action, LaunchLane) -> Any) {
+class LaunchLane private constructor(
+    private val select: (Action, LaunchLane) -> Any,
+) {
     /** A dedicated lane shared by callers holding this instance. */
     constructor() : this({ _, lane -> lane })
 
@@ -27,7 +29,6 @@ class LaunchLane private constructor(private val select: (Action, LaunchLane) ->
  * coordinate across dispatches of that action type.
  */
 sealed interface LaunchControl {
-
     /**
      * Launch every invocation independently without lane tracking.
      */
@@ -36,10 +37,14 @@ sealed interface LaunchControl {
     /**
      * Cancel the previous tracked launch in the same lane before starting a new one.
      */
-    data class CancelPrevious(val lane: LaunchLane = LaunchLane.ByAction) : LaunchControl
+    data class CancelPrevious(
+        val lane: LaunchLane = LaunchLane.ByAction,
+    ) : LaunchControl
 
     /**
      * Ignore a new launch while tracked work in the same lane is still active.
      */
-    data class DropIfRunning(val lane: LaunchLane = LaunchLane.ByAction) : LaunchControl
+    data class DropIfRunning(
+        val lane: LaunchLane = LaunchLane.ByAction,
+    ) : LaunchControl
 }

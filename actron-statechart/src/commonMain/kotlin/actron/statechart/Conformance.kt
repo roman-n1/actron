@@ -10,21 +10,36 @@ import actron.core.State
 /** Action attribution inferred from Store hooks, which do not expose a causal input. */
 sealed interface ActionObservation {
     val observed: Boolean
+
     fun matches(transition: Transition): Boolean
-    fun unexpected(from: StateId, to: StateId): ConformanceViolation.UnexpectedTrigger
+
+    fun unexpected(
+        from: StateId,
+        to: StateId,
+    ): ConformanceViolation.UnexpectedTrigger
 
     data object Unobserved : ActionObservation {
         override val observed: Boolean = false
+
         override fun matches(transition: Transition): Boolean = false
-        override fun unexpected(from: StateId, to: StateId): ConformanceViolation.UnexpectedTrigger =
-            error("[Actron] An unobserved action cannot be an unexpected trigger")
+
+        override fun unexpected(
+            from: StateId,
+            to: StateId,
+        ): ConformanceViolation.UnexpectedTrigger = error("[Actron] An unobserved action cannot be an unexpected trigger")
     }
 
-    data class Observed(val action: Action) : ActionObservation {
+    data class Observed(
+        val action: Action,
+    ) : ActionObservation {
         override val observed: Boolean = true
+
         override fun matches(transition: Transition): Boolean = transition.matchesAction(action)
-        override fun unexpected(from: StateId, to: StateId): ConformanceViolation.UnexpectedTrigger =
-            ConformanceViolation.UnexpectedTrigger(from, to, action)
+
+        override fun unexpected(
+            from: StateId,
+            to: StateId,
+        ): ConformanceViolation.UnexpectedTrigger = ConformanceViolation.UnexpectedTrigger(from, to, action)
     }
 }
 
@@ -35,7 +50,9 @@ sealed interface ConformanceViolation {
     /**
      * The Store entered [id], which the chart does not declare.
      */
-    data class UndeclaredState(val id: StateId) : ConformanceViolation
+    data class UndeclaredState(
+        val id: StateId,
+    ) : ConformanceViolation
 
     /**
      * The Store moved from [from] to [to], but the chart has no transition between them.
@@ -44,7 +61,11 @@ sealed interface ConformanceViolation {
      * not proof: a change made from `launch {}` or a chained `enter {}` may come after an
      * unrelated action.
      */
-    data class UndeclaredTransition(val from: StateId, val to: StateId, val lastAction: ActionObservation) : ConformanceViolation {
+    data class UndeclaredTransition(
+        val from: StateId,
+        val to: StateId,
+        val lastAction: ActionObservation,
+    ) : ConformanceViolation {
         constructor(from: StateId, to: StateId, lastAction: Action) : this(from, to, ActionObservation.Observed(lastAction))
     }
 
@@ -58,7 +79,11 @@ sealed interface ConformanceViolation {
      *
      * @property action The most recent action, not yet used for another state change
      */
-    data class UnexpectedTrigger(val from: StateId, val to: StateId, val action: Action) : ConformanceViolation
+    data class UnexpectedTrigger(
+        val from: StateId,
+        val to: StateId,
+        val action: Action,
+    ) : ConformanceViolation
 }
 
 /**
@@ -194,11 +219,18 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
      */
     val uncoveredTransitions: List<Transition> get() = coveredTransitions.let { covered -> definition.transitions.filter { it !in covered } }
 
-    override suspend fun onStart(scope: PluginScope<S, A>, state: S) {
+    override suspend fun onStart(
+        scope: PluginScope<S, A>,
+        state: S,
+    ) {
         mapping.leavesOf(state).forEach(::checkDeclared)
     }
 
-    override suspend fun onAction(scope: PluginScope<S, A>, state: S, action: A) {
+    override suspend fun onAction(
+        scope: PluginScope<S, A>,
+        state: S,
+        action: A,
+    ) {
         recordedCovered += pendingSelfLoops
         lastAction = ActionObservation.Observed(action)
         trigger = lastAction
@@ -219,7 +251,11 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
         pendingSelfLoops = selfLoops
     }
 
-    override suspend fun onState(scope: PluginScope<S, A>, prevState: S, state: S) {
+    override suspend fun onState(
+        scope: PluginScope<S, A>,
+        prevState: S,
+        state: S,
+    ) {
         val from = mapping.leavesOf(prevState)
         val to = mapping.leavesOf(state)
         if (from == to) return
@@ -263,20 +299,25 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
         val exited = mutableSetOf<StateId>()
         // Domains of the chosen transitions and of the reports: what they explain.
         val domains = mutableListOf<StateParent>()
-        fun report(domain: StateParent, violation: ConformanceViolation) {
+
+        fun report(
+            domain: StateParent,
+            violation: ConformanceViolation,
+        ) {
             domains += domain
             exited += tracked.active.filter { definition.isDescendant(it, domain) }
             recordedViolations += violation
         }
         for (leaf in (from - to).sortedWith(byDeclaration)) {
             if (leaf in exited) continue
-            val candidates = (sequenceOf(leaf) + fromLeaves.asSequence().filter { it != leaf })
-                .flatMap { definition.candidatesFor(it) }
-                .distinct()
-                .filter { t ->
-                    val exitSet = definition.exitSet(tracked, t)
-                    leaf in exitSet && exitSet.none { it in exited } && leadsTo(tracked, t, to)
-                }.toList()
+            val candidates =
+                (sequenceOf(leaf) + fromLeaves.asSequence().filter { it != leaf })
+                    .flatMap { definition.candidatesFor(it) }
+                    .distinct()
+                    .filter { t ->
+                        val exitSet = definition.exitSet(tracked, t)
+                        leaf in exitSet && exitSet.none { it in exited } && leadsTo(tracked, t, to)
+                    }.toList()
             val eligible = if (!action.observed) candidates else candidates.filter(action::matches).ifEmpty { candidates.filter { it.isTimer } }
             if (eligible.isNotEmpty()) {
                 val taken = eligible.first()
@@ -320,12 +361,22 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
      * in [to] alone, then the other guard assignments, then a timer of an active source fired
      * alone. Without an action: the first transition that ends in [to] alone, whatever its trigger.
      */
-    private data class Explanation(val batches: List<List<Transition>>) {
+    private data class Explanation(
+        val batches: List<List<Transition>>,
+    ) {
         val transitions: List<Transition> get() = batches.flatten()
     }
 
-    private fun explain(tracked: StateConfiguration, action: ActionObservation, to: Set<StateId>, accept: (Explanation) -> Unit): Boolean {
-        fun ending(configuration: StateConfiguration, transitions: List<Transition>): Boolean {
+    private fun explain(
+        tracked: StateConfiguration,
+        action: ActionObservation,
+        to: Set<StateId>,
+        accept: (Explanation) -> Unit,
+    ): Boolean {
+        fun ending(
+            configuration: StateConfiguration,
+            transitions: List<Transition>,
+        ): Boolean {
             val first = if (transitions.isEmpty()) configuration else definition.microstep(configuration, transitions).configuration
             if (definition.transitions.none { it.trigger == Trigger.Eventless || it.trigger == Trigger.Completion }) {
                 if (transitions.isEmpty()) return false
@@ -333,18 +384,25 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
                 accept(Explanation(listOf(transitions)))
                 return true
             }
+
             // Guards/context are unknown to this observer. Enumerate potential automatic choices,
             // preserving batch order/history and requiring a potentially stable final configuration.
-            data class Path(val configuration: StateConfiguration, val batches: List<List<Transition>>)
+            data class Path(
+                val configuration: StateConfiguration,
+                val batches: List<List<Transition>>,
+            )
             val queue = ArrayDeque(listOf(Path(first, if (transitions.isEmpty()) emptyList() else listOf(transitions))))
             val seen = mutableSetOf<StateConfiguration>()
             while (queue.isNotEmpty() && seen.size < 256) {
                 val path = queue.removeFirst()
                 if (!seen.add(path.configuration)) continue
-                val automatic = definition.transitions.filter {
-                    it.source in path.configuration.active && (it.trigger == Trigger.Eventless ||
-                        (it.trigger == Trigger.Completion && definition.isComplete(path.configuration, it.source)))
-                }
+                val automatic =
+                    definition.transitions.filter {
+                        it.source in path.configuration.active && (
+                            it.trigger == Trigger.Eventless ||
+                                (it.trigger == Trigger.Completion && definition.isComplete(path.configuration, it.source))
+                        )
+                    }
                 val guarded = automatic.filter { it.guard != actron.statechart.GuardCondition.Unconditional }.take(MAX_GUARD_ENUMERATION)
                 for (mask in 0 until (1 shl guarded.size)) {
                     val enabled = automatic.filter { it.guard == actron.statechart.GuardCondition.Unconditional }.toSet() + guarded.filterIndexed { i, _ -> mask and (1 shl i) != 0 }
@@ -363,6 +421,7 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
             }
             return false
         }
+
         fun alone(transition: Transition): Boolean = ending(withInferredHistory(tracked, transition, to), listOf(transition))
         val candidates = definition.activeLeaves(tracked).flatMap { definition.candidatesFor(it) }.distinct()
         if (!action.observed) return candidates.any(::alone)
@@ -384,27 +443,37 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
      * yet, the record that would make it restore the leaves in [to] (nothing is known about what
      * was active before the plugin was attached). Otherwise [configuration] itself.
      */
-    private fun withInferredHistory(configuration: StateConfiguration, transition: Transition, to: Set<StateId>): StateConfiguration {
+    private fun withInferredHistory(
+        configuration: StateConfiguration,
+        transition: Transition,
+        to: Set<StateId>,
+    ): StateConfiguration {
         if (!definition.hasNode(transition.target)) return configuration
         val target = definition.node(transition.target)
         if (target !is HistoryState) return configuration
         if (target.id in configuration.history) return configuration
         val domain = definition.domainOf(transition)
         val reported = to.filter { definition.isDescendant(it, domain) }
-        val record = if (target.deep) {
-            reported.filter { definition.isDescendant(it, target.parent) }
-        } else {
-            definition.childrenOf(target.parent)
-                .filter { child -> child !is HistoryState && reported.any { it == child.id || definition.isDescendant(it, child.id) } }
-                .map { it.id }
-        }
+        val record =
+            if (target.deep) {
+                reported.filter { definition.isDescendant(it, target.parent) }
+            } else {
+                definition
+                    .childrenOf(target.parent)
+                    .filter { child -> child !is HistoryState && reported.any { it == child.id || definition.isDescendant(it, child.id) } }
+                    .map { it.id }
+            }
         if (record.isEmpty()) return configuration
         return configuration.copy(history = configuration.history + (target.id to record.toSet()))
     }
 
     /** The first of [candidates] (a non-empty list) that shares the innermost ancestor with [leaf]. */
-    private fun closest(leaf: StateId, candidates: List<StateId>): StateId {
+    private fun closest(
+        leaf: StateId,
+        candidates: List<StateId>,
+    ): StateId {
         val chain = listOf(leaf) + definition.ancestorsOf(leaf)
+
         fun shared(other: StateId): Int {
             val otherChain = (listOf(other) + definition.ancestorsOf(other)).toSet()
             val common = chain.indexOfFirst { it in otherChain }
@@ -418,7 +487,11 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
      * domain, and there is one; for a history target the plugin has seen record nothing, whether
      * it does so when the history remembers what [to] shows inside its parent.
      */
-    private fun leadsTo(configuration: StateConfiguration, transition: Transition, to: Set<StateId>): Boolean {
+    private fun leadsTo(
+        configuration: StateConfiguration,
+        transition: Transition,
+        to: Set<StateId>,
+    ): Boolean {
         val domain = definition.domainOf(transition)
         val reported = to.filter { definition.isDescendant(it, domain) }
         if (reported.isEmpty()) return false
@@ -427,8 +500,10 @@ class StateChartConformance<S : State, A : Action, E : Event> private constructo
         return inferred !== configuration && enteredBy(inferred, transition).containsAll(reported)
     }
 
-    private fun enteredBy(configuration: StateConfiguration, transition: Transition): List<StateId> =
-        definition.microstep(configuration, listOf(transition)).entered
+    private fun enteredBy(
+        configuration: StateConfiguration,
+        transition: Transition,
+    ): List<StateId> = definition.microstep(configuration, listOf(transition)).entered
 
     private fun checkDeclared(id: StateId) {
         if (id !in declaredStates) recordedViolations += ConformanceViolation.UndeclaredState(id)

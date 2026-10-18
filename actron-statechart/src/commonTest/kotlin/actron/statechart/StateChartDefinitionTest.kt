@@ -22,11 +22,13 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartDefinitionTest {
-
     sealed interface FormAction : Action {
         data object Submit : FormAction
+
         data object Loaded : FormAction
+
         data object Failed : FormAction
+
         data object Retry : FormAction
     }
 
@@ -40,20 +42,25 @@ class StateChartDefinitionTest {
     private val failed = ActionMatcher.of<FormAction.Failed>("Failed")
     private val retry = ActionMatcher.of<FormAction.Retry>("Retry")
 
-    private val chart = StateChartDefinition(
-        initial = idle,
-        states = listOf(AtomicState(idle), AtomicState(loading), AtomicState(ready), AtomicState(error)),
-        transitions = listOf(
-            Transition(idle, loading, submit, guard = actron.statechart.GuardKey("isValid")),
-            Transition(idle, error, submit),
-            Transition(loading, ready, loaded),
-            Transition(loading, error, failed),
-            Transition(error, loading, retry),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = idle,
+            states = listOf(AtomicState(idle), AtomicState(loading), AtomicState(ready), AtomicState(error)),
+            transitions =
+                listOf(
+                    Transition(idle, loading, submit, guard = actron.statechart.GuardKey("isValid")),
+                    Transition(idle, error, submit),
+                    Transition(loading, ready, loaded),
+                    Transition(loading, error, failed),
+                    Transition(error, loading, retry),
+                ),
+        )
 
     sealed interface ChatAction : Action {
-        data class Send(val text: String) : ChatAction
+        data class Send(
+            val text: String,
+        ) : ChatAction
+
         data object Clear : ChatAction
     }
 
@@ -111,11 +118,12 @@ class StateChartDefinitionTest {
     @Test
     fun duplicateAndUnknownIdsAreReported() {
         val missing = StateId("Missing")
-        val broken = StateChartDefinition(
-            initial = missing,
-            states = listOf(AtomicState(idle), AtomicState(idle)),
-            transitions = listOf(Transition(idle, ready, submit), Transition(missing, idle, retry)),
-        )
+        val broken =
+            StateChartDefinition(
+                initial = missing,
+                states = listOf(AtomicState(idle), AtomicState(idle)),
+                transitions = listOf(Transition(idle, ready, submit), Transition(missing, idle, retry)),
+            )
 
         assertEquals(
             listOf(
@@ -158,11 +166,12 @@ class StateChartDefinitionTest {
      * ChatIdle --Send--> Sending      (never fires: Chat is declared first)
      * ```
      */
-    private val shadowing = StateChartDefinition(
-        initial = chatIdle,
-        states = listOf(AtomicState(chatIdle), AtomicState(sending), AtomicState(cleared)),
-        transitions = listOf(Transition(chatIdle, cleared, anyChat), Transition(chatIdle, sending, send)),
-    )
+    private val shadowing =
+        StateChartDefinition(
+            initial = chatIdle,
+            states = listOf(AtomicState(chatIdle), AtomicState(sending), AtomicState(cleared)),
+            transitions = listOf(Transition(chatIdle, cleared, anyChat), Transition(chatIdle, sending, send)),
+        )
 
     @Test
     fun supertypeMatcherShadowingSubtypeIsReportedOnlyWithSamples() {
@@ -181,18 +190,20 @@ class StateChartDefinitionTest {
 
     @Test
     fun guardedOverlapIsNotShadowing() {
-        val guarded = shadowing.copy(
-            transitions = listOf(Transition(chatIdle, cleared, anyChat, guard = actron.statechart.GuardKey("isEmpty")), Transition(chatIdle, sending, send)),
-        )
+        val guarded =
+            shadowing.copy(
+                transitions = listOf(Transition(chatIdle, cleared, anyChat, guard = actron.statechart.GuardKey("isEmpty")), Transition(chatIdle, sending, send)),
+            )
 
         assertEquals(emptyList(), guarded.validate(chatSamples))
     }
 
     @Test
     fun equalMatchersAreReportedAsAmbiguityNotShadowing() {
-        val sameMatcher = shadowing.copy(
-            transitions = listOf(Transition(chatIdle, cleared, send), Transition(chatIdle, sending, send)),
-        )
+        val sameMatcher =
+            shadowing.copy(
+                transitions = listOf(Transition(chatIdle, cleared, send), Transition(chatIdle, sending, send)),
+            )
 
         assertEquals(
             listOf(ValidationIssue.AmbiguousTransitions(chatIdle, send, sameMatcher.transitions)),
@@ -237,11 +248,12 @@ class StateChartDefinitionTest {
     fun mermaidAliasesIdsThatAreNotIdentifiers() {
         val start = StateId("Not signed in")
         val done = StateId("Signed-in")
-        val chart = StateChartDefinition(
-            initial = start,
-            states = listOf(AtomicState(start), AtomicState(done)),
-            transitions = listOf(Transition(start, done, submit)),
-        )
+        val chart =
+            StateChartDefinition(
+                initial = start,
+                states = listOf(AtomicState(start), AtomicState(done)),
+                transitions = listOf(Transition(start, done, submit)),
+            )
 
         assertEquals(
             """

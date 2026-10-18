@@ -10,7 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Compose UI tests of `actron-timetravel-compose` run on the JVM desktop runtime: `./gradlew :actron-timetravel-compose:jvmTest`
 - Run specific test target: `./gradlew iosSimulatorArm64Test` (targets: jvm, iosArm64, iosSimulatorArm64, js, wasmJs, Android host)
 - Debug tests with: `./gradlew jvmTest --info`
-- Lint: `./gradlew lint`
+- Kotlin style: `./gradlew ktlintCheck`; format all Kotlin sources and scripts with `./scripts/format-kotlin.sh` (see `doc/guides/code-style.md`).
+- Android lint: `./gradlew lint`
 - Public API/ABI check (CI runs it): `./gradlew apiCheck`; after a deliberate change of the public surface, refresh the dumps under `*/api/` with `./gradlew apiDump` in the same change
 
 ## Code Style Guidelines

@@ -9,38 +9,70 @@ import kotlin.time.Duration.Companion.seconds
 
 class ModelBasedTest {
     private data object Tick : Action
+
     private data object Noise : Action
+
     private data object Go : Action
+
     private val idle = StateId("idle")
     private val done = StateId("done")
     private val tick = ActionMatcher.of<Tick>("tick")
     private val go = ActionMatcher.of<Go>("go")
 
-    private fun counter(enforce: Boolean = false) = Machine<Int, Action, String, Event>(
-        DefinitionId("counter"), DefinitionVersion("1"),
-        StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList()),
-    ) {
-        invariant("less-than-three") { it.context < 3 }
-        onAction(idle, tick) { context++; command("work"); event(object : Event {}) }
-        if (enforce) enforceInvariants()
-    }
+    private fun counter(enforce: Boolean = false) =
+        Machine<Int, Action, String, Event>(
+            DefinitionId("counter"),
+            DefinitionVersion("1"),
+            StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList()),
+        ) {
+            invariant("less-than-three") { it.context < 3 }
+            onAction(idle, tick) {
+                context++
+                command("work")
+                event(object : Event {})
+            }
+            if (enforce) enforceInvariants()
+        }
 
     @Test fun explorationDoesNotMergeIdenticalConfigurationsWithDifferentContext() {
         val machine = counter()
-        val report = machine.explore(machine.initialSnapshot(0), MachineInputGenerator { _, now ->
-            listOf(MachineInput.Dispatch(Tick, now))
-        }, maxDepth = 5)
-        assertEquals(listOf("invariant:less-than-three:false"), report.failures.single().identities.toList())
-        assertEquals(3, report.failures.single().snapshot.context)
-        assertEquals(4, report.failures.single().inputs.size, "start plus three ticks")
+        val report =
+            machine.explore(
+                machine.initialSnapshot(0),
+                MachineInputGenerator { _, now ->
+                    listOf(MachineInput.Dispatch(Tick, now))
+                },
+                maxDepth = 5,
+            )
+        assertEquals(
+            listOf("invariant:less-than-three:false"),
+            report.failures
+                .single()
+                .identities
+                .toList(),
+        )
+        assertEquals(
+            3,
+            report.failures
+                .single()
+                .snapshot.context,
+        )
+        assertEquals(
+            4,
+            report.failures
+                .single()
+                .inputs.size,
+            "start plus three ticks",
+        )
         assertEquals(100.0, report.coverage.states.percent)
         assertFailsWith<AssertionError> { report.assertSuccess() }
     }
 
     @Test fun shrinkingPreservesTheFailureAndReturnsADeletionMinimalReproducer() {
         val machine = counter()
-        val inputs = listOf<MachineInput<Action>>(MachineInput.Start(MachineTime.Zero)) +
-            listOf(Noise, Tick, Noise, Tick, Noise, Tick, Noise).map { MachineInput.Dispatch(it, MachineTime.Zero) }
+        val inputs =
+            listOf<MachineInput<Action>>(MachineInput.Start(MachineTime.Zero)) +
+                listOf(Noise, Tick, Noise, Tick, Noise, Tick, Noise).map { MachineInput.Dispatch(it, MachineTime.Zero) }
         val shrink = machine.shrink(machine.initialSnapshot(0), inputs)
         assertFalse(shrink.truncated)
         assertEquals(4, shrink.failure.inputs.size)
@@ -65,32 +97,65 @@ class ModelBasedTest {
 
     @Test fun guardCoverageAndExplanationComeFromOneDecision() {
         var calls = 0
-        val machine = Machine<Boolean, Action, Nothing, Event>(DefinitionId("guard"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(done)), listOf(
-                Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed")),
-                Transition(idle, idle, go),
-            ))) { guard("allowed") { snapshot, _ -> calls++; snapshot.context } }
+        val machine =
+            Machine<Boolean, Action, Nothing, Event>(
+                DefinitionId("guard"),
+                DefinitionVersion("1"),
+                StateChartDefinition(
+                    idle,
+                    listOf(AtomicState(idle), AtomicState(done)),
+                    listOf(
+                        Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed")),
+                        Transition(idle, idle, go),
+                    ),
+                ),
+            ) {
+                guard("allowed") { snapshot, _ ->
+                    calls++
+                    snapshot.context
+                }
+            }
         val start = machine.decide(machine.initialSnapshot(false), MachineInput.Start(MachineTime.Zero)).snapshot
         val explained = machine.decideExplained(start, MachineInput.Dispatch(Go, MachineTime.Zero))
         assertEquals(1, calls)
         assertEquals(listOf(CandidateDisposition.GuardRejected, CandidateDisposition.Selected), explained.explanation.candidates.map { it.disposition })
-        assertEquals(actron.statechart.GuardCheck.Rejected, explained.explanation.guards.single().result)
+        assertEquals(
+            actron.statechart.GuardCheck.Rejected,
+            explained.explanation.guards
+                .single()
+                .result,
+        )
         val report = machine.explore(machine.initialSnapshot(false), MachineInputGenerator { _, now -> listOf(MachineInput.Dispatch(Go, now)) }, maxDepth = 1)
         assertEquals(50.0, report.coverage.guards.percent)
         assertEquals(50.0, report.coverage.transitions.percent)
-        assertTrue(report.coverage.states.missing.contains(done))
+        assertTrue(
+            report.coverage.states.missing
+                .contains(done),
+        )
     }
 
     @Test fun innerTransitionsSkipOuterGuards_andActionHandlersAreVisible() {
         val root = StateId("root")
         var calls = 0
-        val machine = Machine<Unit, Action, Nothing, Event>(DefinitionId("hierarchy"), DefinitionVersion("1"),
-            StateChartDefinition(root, listOf(CompoundState(root, idle), AtomicState(idle, root)), listOf(
-                Transition(root, root, go, guard = actron.statechart.GuardKey("outer")), Transition(idle, idle, go),
-            ))) {
-            guard("outer") { _, _ -> calls++; true }
-            onAction(root, tick) {}
-        }
+        val machine =
+            Machine<Unit, Action, Nothing, Event>(
+                DefinitionId("hierarchy"),
+                DefinitionVersion("1"),
+                StateChartDefinition(
+                    root,
+                    listOf(CompoundState(root, idle), AtomicState(idle, root)),
+                    listOf(
+                        Transition(root, root, go, guard = actron.statechart.GuardKey("outer")),
+                        Transition(idle, idle, go),
+                    ),
+                ),
+            ) {
+                guard("outer") { _, _ ->
+                    calls++
+                    true
+                }
+                onAction(root, tick) {}
+            }
         val snapshot = machine.decide(machine.initialSnapshot(Unit), MachineInput.Start(MachineTime.Zero)).snapshot
         val explanation = machine.decideExplained(snapshot, MachineInput.Dispatch(Go, MachineTime.Zero)).explanation
         assertEquals(0, calls)
@@ -101,8 +166,12 @@ class ModelBasedTest {
     }
 
     @Test fun timerChoicesUseVirtualDeadlines_andCountTransitionCoverage() {
-        val machine = Machine<Unit, Action, Nothing, Event>(DefinitionId("timer"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(done)), listOf(Transition(idle, done, Trigger.After(5.seconds)))))
+        val machine =
+            Machine<Unit, Action, Nothing, Event>(
+                DefinitionId("timer"),
+                DefinitionVersion("1"),
+                StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(done)), listOf(Transition(idle, done, Trigger.After(5.seconds)))),
+            )
         val report = machine.explore(machine.initialSnapshot(Unit), MachineInputGenerator<Unit, Action> { _, _ -> emptyList() }.withTimers())
         report.assertSuccess()
         assertEquals(100.0, report.coverage.timers.percent)
@@ -125,25 +194,37 @@ class ModelBasedTest {
     }
 
     @Test fun predicateExceptionsAreViolations_andNamesAreUnique() {
-        val machine = Machine<Unit, Action, Nothing, Event>(DefinitionId("invariants"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList())) {
-            invariant("throws") { error("predicate failed") }
-        }
+        val machine =
+            Machine<Unit, Action, Nothing, Event>(
+                DefinitionId("invariants"),
+                DefinitionVersion("1"),
+                StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList()),
+            ) {
+                invariant("throws") { error("predicate failed") }
+            }
         assertEquals("IllegalStateException", (machine.checkInvariants(machine.initialSnapshot(Unit)).single() as actron.statechart.machine.InvariantViolation.Failed).failure.typeLabel)
         assertFailsWith<IllegalArgumentException> {
             Machine<Unit, Action, Nothing, Event>(machine.id, machine.version, machine.chart) {
-                invariant("duplicate") { true }; invariant("duplicate") { true }
+                invariant("duplicate") { true }
+                invariant("duplicate") { true }
             }
         }
     }
 
     @Test fun shrinkingDoesNotReplaceAnInvariantFailureWithAnUnrelatedException() {
-        val machine = Machine<Int, Action, Nothing, Event>(DefinitionId("identity"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList())) {
-            invariant("two") { it.context < 2 }
-            onAction(idle, tick) { context++ }
-            onAction(idle, go) { if (context == 0) error("unrelated"); context++ }
-        }
+        val machine =
+            Machine<Int, Action, Nothing, Event>(
+                DefinitionId("identity"),
+                DefinitionVersion("1"),
+                StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList()),
+            ) {
+                invariant("two") { it.context < 2 }
+                onAction(idle, tick) { context++ }
+                onAction(idle, go) {
+                    if (context == 0) error("unrelated")
+                    context++
+                }
+            }
         val result = machine.shrink(machine.initialSnapshot(0), listOf(MachineInput.Start(MachineTime.Zero), MachineInput.Dispatch(Tick, MachineTime.Zero), MachineInput.Dispatch(Go, MachineTime.Zero)))
         assertEquals(setOf("invariant:two:false"), result.failure.identities)
         assertEquals(3, result.failure.inputs.size)

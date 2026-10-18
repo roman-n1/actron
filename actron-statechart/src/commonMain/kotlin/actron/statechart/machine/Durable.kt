@@ -8,8 +8,12 @@ import kotlin.jvm.JvmInline
 
 /** A business-operation identity, stable across attempts and process restarts. */
 @JvmInline
-value class IdempotencyKey(val value: String) {
-    init { require(value.isNotBlank()) { "[Actron] Idempotency key must not be blank" } }
+value class IdempotencyKey(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "[Actron] Idempotency key must not be blank" }
+    }
 }
 
 /** Outbox delivery state; completed entries are receipts, retained for the application's retry horizon. */
@@ -41,7 +45,11 @@ data class DurableCheckpoint<C : Any, CMD : Any>(
 interface DurableMachineStorage<C : Any, CMD : Any> {
     /** Calls [accept] exactly once for an existing checkpoint, before returning true. */
     suspend fun read(accept: (DurableCheckpoint<C, CMD>) -> Unit): Boolean
-    suspend fun commit(expectedGeneration: DurableGeneration, checkpoint: DurableCheckpoint<C, CMD>): Boolean
+
+    suspend fun commit(
+        expectedGeneration: DurableGeneration,
+        checkpoint: DurableCheckpoint<C, CMD>,
+    ): Boolean
 }
 
 /** The compare-and-swap precondition for initializing or advancing durable storage. */
@@ -52,8 +60,13 @@ sealed interface DurableGeneration {
         override fun next(): Long = 0
     }
 
-    data class Existing(val value: Long) : DurableGeneration {
-        init { require(value >= 0) }
+    data class Existing(
+        val value: Long,
+    ) : DurableGeneration {
+        init {
+            require(value >= 0)
+        }
+
         override fun next(): Long {
             require(value < Long.MAX_VALUE) { "[Actron] Storage generation exhausted" }
             return value + 1
@@ -63,7 +76,12 @@ sealed interface DurableGeneration {
 
 /** External IO honours [key]; it may emit one result during this suspended call. */
 fun interface DurableCommandHandler<CMD : Any, A : Action> {
-    suspend fun execute(key: IdempotencyKey, command: CMD, attempt: Long, emit: (A) -> Unit)
+    suspend fun execute(
+        key: IdempotencyKey,
+        command: CMD,
+        attempt: Long,
+        emit: (A) -> Unit,
+    )
 }
 
 /** Nothing may execute from a commit that lost its storage compare-and-swap. */
@@ -100,7 +118,10 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
         keyOf: (CMD, (IdempotencyKey) -> Unit) -> Unit,
     ) : this(machine, storage, 100, keyOf)
 
-    init { require(maxReceiptCompletions > 0) { "[Actron] Receipt completion limit must be positive" } }
+    init {
+        require(maxReceiptCompletions > 0) { "[Actron] Receipt completion limit must be positive" }
+    }
+
     private val commits = Mutex()
     private val execution = Mutex()
     private val source = SourceId("durable:${machine.id.value}")
@@ -111,13 +132,22 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
         val issues = machine.validateSnapshot(checkpoint.snapshot)
         require(issues.isEmpty()) { "[Actron] Invalid durable snapshot: ${issues.joinToString()}" }
         require(checkpoint.ephemeral.all { (id, command) -> id == command.id && checkpoint.snapshot.commands[id] == CommandRecord(command.scope, command.lane) }) { "[Actron] Invalid ephemeral registrations" }
-        val durableIds = checkpoint.outbox.values.filter { it.status == DurableStatus.Pending }.flatMap { it.registrations }.toSet()
-        require(checkpoint.snapshot.commands.keys.all { it in checkpoint.ephemeral || it in durableIds }) { "[Actron] Command payload missing from durable checkpoint" }
-        require(checkpoint.outbox.all { (key, command) ->
-            key == command.key && command.attempts >= 0 && command.registration in command.registrations &&
-                command.registrations.all { it.value > 0 && it.value <= checkpoint.snapshot.counters.commands } &&
-                (command.status != DurableStatus.Completed || command.registrations.none { it in checkpoint.snapshot.commands })
-        }) { "[Actron] Invalid outbox" }
+        val durableIds =
+            checkpoint.outbox.values
+                .filter { it.status == DurableStatus.Pending }
+                .flatMap { it.registrations }
+                .toSet()
+        require(
+            checkpoint.snapshot.commands.keys
+                .all { it in checkpoint.ephemeral || it in durableIds },
+        ) { "[Actron] Command payload missing from durable checkpoint" }
+        require(
+            checkpoint.outbox.all { (key, command) ->
+                key == command.key && command.attempts >= 0 && command.registration in command.registrations &&
+                    command.registrations.all { it.value > 0 && it.value <= checkpoint.snapshot.counters.commands } &&
+                    (command.status != DurableStatus.Completed || command.registrations.none { it in checkpoint.snapshot.commands })
+            },
+        ) { "[Actron] Invalid outbox" }
         val aliases = checkpoint.outbox.values.flatMap { it.registrations }
         require(aliases.toSet().size == aliases.size && aliases.none { it in checkpoint.ephemeral }) { "[Actron] Command registration has multiple payload owners" }
     }
@@ -126,16 +156,17 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
     suspend fun restore(accept: (DurableCheckpoint<C, CMD>) -> Unit): Boolean {
         var reading = true
         var accepted = false
-        val found = try {
-            storage.read { checkpoint ->
-                check(reading && !accepted) { "[Actron] Storage must return one checkpoint during read" }
-                accepted = true
-                validate(checkpoint)
-                accept(checkpoint)
+        val found =
+            try {
+                storage.read { checkpoint ->
+                    check(reading && !accepted) { "[Actron] Storage must return one checkpoint during read" }
+                    accepted = true
+                    validate(checkpoint)
+                    accept(checkpoint)
+                }
+            } finally {
+                reading = false
             }
-        } finally {
-            reading = false
-        }
         check(found == accepted) { "[Actron] Storage read result disagrees with its checkpoint" }
         return found
     }
@@ -147,26 +178,35 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
     }
 
     /** Initializes exactly once; an existing checkpoint is restored rather than restarted. */
-    suspend fun initialize(context: C, now: MachineTime): DurableCommit<C, CMD, E> = commits.withLock {
-        var initialize: suspend () -> DurableCommit<C, CMD, E> = {
-            val decision = machine.decide(machine.initialSnapshot(context), MachineInput.Start(now))
-            persist(DurableGeneration.Fresh, DurableCheckpoint(0, decision.snapshot, now), listOf(decision))
+    suspend fun initialize(
+        context: C,
+        now: MachineTime,
+    ): DurableCommit<C, CMD, E> =
+        commits.withLock {
+            var initialize: suspend () -> DurableCommit<C, CMD, E> = {
+                val decision = machine.decide(machine.initialSnapshot(context), MachineInput.Start(now))
+                persist(DurableGeneration.Fresh, DurableCheckpoint(0, decision.snapshot, now), listOf(decision))
+            }
+            restore { existing ->
+                initialize = { DurableCommit(existing, emptyList(), existing.ephemeral.values.toList()) }
+            }
+            initialize()
         }
-        restore { existing ->
-            initialize = { DurableCommit(existing, emptyList(), existing.ephemeral.values.toList()) }
-        }
-        initialize()
-    }
 
     /** Persists the entire decision and its durable registrations before returning any intents. */
-    suspend fun commit(input: MachineInput<A>): DurableCommit<C, CMD, E> = commits.withLock {
-        val base = stored()
-        require(input.now >= base.now) { "[Actron] Durable logical time moved backwards" }
-        val decision = machine.decide(base.snapshot, input)
-        persist(DurableGeneration.Existing(base.generation), base.copy(snapshot = decision.snapshot, now = input.now), listOf(decision))
-    }
+    suspend fun commit(input: MachineInput<A>): DurableCommit<C, CMD, E> =
+        commits.withLock {
+            val base = stored()
+            require(input.now >= base.now) { "[Actron] Durable logical time moved backwards" }
+            val decision = machine.decide(base.snapshot, input)
+            persist(DurableGeneration.Existing(base.generation), base.copy(snapshot = decision.snapshot, now = input.now), listOf(decision))
+        }
 
-    private suspend fun persist(expected: DurableGeneration, base: DurableCheckpoint<C, CMD>, decisions: List<Decision<C, CMD, E>>): DurableCommit<C, CMD, E> {
+    private suspend fun persist(
+        expected: DurableGeneration,
+        base: DurableCheckpoint<C, CMD>,
+        decisions: List<Decision<C, CMD, E>>,
+    ): DurableCommit<C, CMD, E> {
         for (decision in decisions) {
             val outcome = decision.outcome
             if (outcome is DecisionOutcome.Failed) throw outcome.cause
@@ -179,7 +219,11 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
         // commands. Classify those too, before the single atomic storage commit.
         val pending = ArrayDeque(decisions.flatMap { it.commands })
         var receiptCompletions = 0
-        fun registerDurable(key: IdempotencyKey, registration: CommandRegistration<CMD>) {
+
+        fun registerDurable(
+            key: IdempotencyKey,
+            registration: CommandRegistration<CMD>,
+        ) {
             if (key !in outbox) {
                 outbox[key] = DurableCommand(key, registration.command, registration.id)
                 return
@@ -219,14 +263,17 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
         if (!storage.commit(expected, next)) throw DurableConflictException()
         return DurableCommit(next, accepted.toList(), ephemeral.filter { it.id in snapshot.commands })
     }
+
     /** Overdue virtual timers in deterministic deadline/id order, ready to [commit] on recovery. */
     suspend fun dueTimers(now: MachineTime): List<MachineInput.TimerFired> {
         var timers = emptyList<MachineInput.TimerFired>()
         restore { checkpoint ->
             require(now >= checkpoint.now) { "[Actron] Durable logical time moved backwards" }
-            timers = checkpoint.snapshot.timers.entries.filter { it.value.deadline <= now }
-                .sortedWith(compareBy({ it.value.deadline }, { it.key.value }))
-                .map { MachineInput.TimerFired(it.key, now) }
+            timers =
+                checkpoint.snapshot.timers.entries
+                    .filter { it.value.deadline <= now }
+                    .sortedWith(compareBy({ it.value.deadline }, { it.key.value }))
+                    .map { MachineInput.TimerFired(it.key, now) }
         }
         return timers
     }
@@ -240,25 +287,26 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
         handler: DurableCommandHandler<CMD, A>,
         onCommitted: (DurableCommit<C, CMD, E>) -> Unit = {},
         now: () -> MachineTime,
-    ): Boolean = execution.withLock {
-        var execute: suspend () -> Boolean = { false }
-        commits.withLock {
-            val base = stored()
-            for (pending in base.outbox.values) {
-                if (pending.status != DurableStatus.Pending) continue
-                require(pending.attempts < Long.MAX_VALUE) { "[Actron] Attempt counter exhausted" }
-                val attempted = pending.copy(attempts = pending.attempts + 1)
-                persist(DurableGeneration.Existing(base.generation), base.copy(outbox = base.outbox + (pending.key to attempted)), emptyList())
-                execute = {
-                    val committed = executeReserved(attempted, handler, now)
-                    onCommitted(committed)
-                    true
+    ): Boolean =
+        execution.withLock {
+            var execute: suspend () -> Boolean = { false }
+            commits.withLock {
+                val base = stored()
+                for (pending in base.outbox.values) {
+                    if (pending.status != DurableStatus.Pending) continue
+                    require(pending.attempts < Long.MAX_VALUE) { "[Actron] Attempt counter exhausted" }
+                    val attempted = pending.copy(attempts = pending.attempts + 1)
+                    persist(DurableGeneration.Existing(base.generation), base.copy(outbox = base.outbox + (pending.key to attempted)), emptyList())
+                    execute = {
+                        val committed = executeReserved(attempted, handler, now)
+                        onCommitted(committed)
+                        true
+                    }
+                    break
                 }
-                break
             }
+            execute()
         }
-        execute()
-    }
 
     private suspend fun executeReserved(
         command: DurableCommand<CMD>,
@@ -281,7 +329,7 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
         } finally {
             emitting = false
         }
-        return commits.withLock acknowledge@ {
+        return commits.withLock acknowledge@{
             val base = stored()
             require(command.key in base.outbox) { "[Actron] Pending outbox entry disappeared" }
             val current = base.outbox.getValue(command.key)
@@ -296,8 +344,15 @@ class DurableMachine<C : Any, A : Action, CMD : Any, E : Event>(
                 decisions += completed
                 snapshot = completed.snapshot
             }
-            persist(DurableGeneration.Existing(base.generation), base.copy(snapshot = snapshot, now = time,
-                outbox = base.outbox + (command.key to current.copy(status = DurableStatus.Completed))), decisions)
+            persist(
+                DurableGeneration.Existing(base.generation),
+                base.copy(
+                    snapshot = snapshot,
+                    now = time,
+                    outbox = base.outbox + (command.key to current.copy(status = DurableStatus.Completed)),
+                ),
+                decisions,
+            )
         }
     }
 }

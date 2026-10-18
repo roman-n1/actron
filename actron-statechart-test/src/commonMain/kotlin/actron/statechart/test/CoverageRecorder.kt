@@ -1,9 +1,8 @@
 package actron.statechart.test
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.statechart.HistoryState
 import actron.statechart.StateChartDefinition
@@ -16,40 +15,64 @@ import kotlinx.coroutines.sync.Mutex
  * machine only, or use the test driver's built-in recorder. No guards are evaluated by the recorder.
  * Reports are safe to read across threads; only model ids and guard outcomes are retained.
  */
-class MachineCoverageRecorder<C : Any, A : Action, CMD : Any, E : Event>(private val machine: Machine<C, A, CMD, E>) :
-    DecisionTraceObserver<C, A, CMD, E> {
+class MachineCoverageRecorder<C : Any, A : Action, CMD : Any, E : Event>(
+    private val machine: Machine<C, A, CMD, E>,
+) : DecisionTraceObserver<C, A, CMD, E> {
     private val lock = Mutex()
-    private val expectedStates = machine.chart.states.filter { it !is HistoryState }.mapTo(linkedSetOf()) { it.id }
-    private val expectedTransitions = machine.chart.transitions.indices.mapTo(linkedSetOf(), ::TransitionId)
-    private val expectedTimers = machine.chart.transitions.withIndex().filter { it.value.isTimer }.mapTo(linkedSetOf()) { TransitionId(it.index) }
-    private val expectedGuards = machine.chart.transitions.withIndex().filter { it.value.guard != actron.statechart.GuardCondition.Unconditional }.flatMap {
-        listOf(GuardOutcome(TransitionId(it.index), true), GuardOutcome(TransitionId(it.index), false))
-    }.toSet()
+    private val expectedStates =
+        machine.chart.states
+            .filter { it !is HistoryState }
+            .mapTo(linkedSetOf()) { it.id }
+    private val expectedTransitions =
+        machine.chart.transitions.indices
+            .mapTo(linkedSetOf(), ::TransitionId)
+    private val expectedTimers =
+        machine.chart.transitions
+            .withIndex()
+            .filter { it.value.isTimer }
+            .mapTo(linkedSetOf()) { TransitionId(it.index) }
+    private val expectedGuards =
+        machine.chart.transitions
+            .withIndex()
+            .filter { it.value.guard != actron.statechart.GuardCondition.Unconditional }
+            .flatMap {
+                listOf(GuardOutcome(TransitionId(it.index), true), GuardOutcome(TransitionId(it.index), false))
+            }.toSet()
     private val states = linkedSetOf<StateId>()
     private val transitions = linkedSetOf<TransitionId>()
     private val guards = linkedSetOf<GuardOutcome>()
 
-    override fun onDecided(input: InputAttribution, machineInput: MachineInput<A>, explained: ExplainedDecision<C, CMD, E>) = accept(explained)
+    override fun onDecided(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        explained: ExplainedDecision<C, CMD, E>,
+    ) = accept(explained)
 
-    override fun onCommitted(input: InputAttribution, machineInput: MachineInput<A>, decision: Decision<C, CMD, E>) = locked {
+    override fun onCommitted(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        decision: Decision<C, CMD, E>,
+    ) = locked {
         validate(decision.snapshot)
         states += decision.snapshot.configuration.active
         states += decision.entered.map { it.node }
         transitions += decision.transitions
     }
 
-    internal fun accept(explained: ExplainedDecision<C, CMD, E>) = locked {
-        validate(explained.decision.snapshot)
-        observe(explained.explanation)
-        states += explained.decision.snapshot.configuration.active
-        states += explained.decision.entered.map { it.node }
-        transitions += explained.decision.transitions
-    }
+    internal fun accept(explained: ExplainedDecision<C, CMD, E>) =
+        locked {
+            validate(explained.decision.snapshot)
+            observe(explained.explanation)
+            states += explained.decision.snapshot.configuration.active
+            states += explained.decision.entered.map { it.node }
+            transitions += explained.decision.transitions
+        }
 
-    internal fun observeInitial(snapshot: MachineSnapshot<C>) = locked {
-        validate(snapshot)
-        states += snapshot.configuration.active
-    }
+    internal fun observeInitial(snapshot: MachineSnapshot<C>) =
+        locked {
+            validate(snapshot)
+            states += snapshot.configuration.active
+        }
 
     private fun validate(snapshot: MachineSnapshot<C>) {
         require(snapshot.definition == machine.id && snapshot.version == machine.version) { "[Actron] Coverage belongs to another machine or version" }
@@ -57,32 +80,46 @@ class MachineCoverageRecorder<C : Any, A : Action, CMD : Any, E : Event>(private
 
     private fun observe(explanation: DecisionExplanation) {
         states += explanation.active
-        for (guard in explanation.guards) when (guard.result) {
-            actron.statechart.GuardCheck.Allowed -> guards += GuardOutcome(guard.transition, true)
-            actron.statechart.GuardCheck.Rejected -> guards += GuardOutcome(guard.transition, false)
-            else -> Unit
+        for (guard in explanation.guards) {
+            when (guard.result) {
+                actron.statechart.GuardCheck.Allowed -> guards += GuardOutcome(guard.transition, true)
+                actron.statechart.GuardCheck.Rejected -> guards += GuardOutcome(guard.transition, false)
+                else -> Unit
+            }
         }
     }
 
     /** Immutable snapshot; unreachable states and untested guard branches remain missing. */
-    fun snapshot(): MachineCoverage = locked {
-        MachineCoverage(
-            CoverageMetric(expectedStates.toSet(), states.toSet()), CoverageMetric(expectedTransitions.toSet(), transitions.toSet()),
-            CoverageMetric(expectedGuards, guards.toSet()), CoverageMetric(expectedTimers.toSet(), transitions intersect expectedTimers),
-            machine.id, machine.version,
-        )
-    }
+    fun snapshot(): MachineCoverage =
+        locked {
+            MachineCoverage(
+                CoverageMetric(expectedStates.toSet(), states.toSet()),
+                CoverageMetric(expectedTransitions.toSet(), transitions.toSet()),
+                CoverageMetric(expectedGuards, guards.toSet()),
+                CoverageMetric(expectedTimers.toSet(), transitions intersect expectedTimers),
+                machine.id,
+                machine.version,
+            )
+        }
 
     private inline fun <T : Any> locked(block: () -> T): T {
         while (!lock.tryLock()) { /* Only bounded metadata updates hold this lock. */ }
-        try { return block() } finally { lock.unlock() }
+        try {
+            return block()
+        } finally {
+            lock.unlock()
+        }
     }
 }
 
 /** Combines identical declared universes and identity/version metadata. Definitions must version executable rule changes. */
 fun MachineCoverage.merge(other: MachineCoverage): MachineCoverage {
     require(definition == other.definition && version == other.version) { "[Actron] Coverage machine identity/version differs" }
-    fun <T : Any> combine(first: CoverageMetric<T>, second: CoverageMetric<T>): CoverageMetric<T> {
+
+    fun <T : Any> combine(
+        first: CoverageMetric<T>,
+        second: CoverageMetric<T>,
+    ): CoverageMetric<T> {
         require(first.expected == second.expected) { "[Actron] Coverage declarations differ" }
         return CoverageMetric(first.expected, first.covered + second.covered)
     }
@@ -99,24 +136,42 @@ fun MachineCoverage.assertTransitionsCovered(required: Set<TransitionId> = trans
 /** Metadata-only counts and missing-transition rows suitable for a test report or CI artifact. */
 fun MachineCoverage.describe(): String = describeRows { _, _ -> }
 
-fun MachineCoverage.describe(chart: StateChartDefinition): String = describeRows { id, text ->
-    if (id.index in chart.transitions.indices) {
-        val transition = chart.transitions[id.index]
-        text.append(": ").append(transition.source.value).append(" -> ").append(transition.target.value)
-        transition.withActionMatcher { text.append(" on ").append(it.name) }
-        transition.guard.withLabel { text.append(" [").append(it).append(']') }
+fun MachineCoverage.describe(chart: StateChartDefinition): String =
+    describeRows { id, text ->
+        if (id.index in chart.transitions.indices) {
+            val transition = chart.transitions[id.index]
+            text
+                .append(": ")
+                .append(transition.source.value)
+                .append(" -> ")
+                .append(transition.target.value)
+            transition.withActionMatcher { text.append(" on ").append(it.name) }
+            transition.guard.withLabel { text.append(" [").append(it).append(']') }
+        }
     }
-}
 
-private fun MachineCoverage.describeRows(annotate: (TransitionId, StringBuilder) -> Unit): String = buildString {
-    fun <T : Any> metric(label: String, metric: CoverageMetric<T>) {
-        append(label).append(": ").append((metric.covered intersect metric.expected).size)
-            .append(" / ").append(metric.expected.size).append(" = ").append(metric.percent).append("%\n")
+private fun MachineCoverage.describeRows(annotate: (TransitionId, StringBuilder) -> Unit): String =
+    buildString {
+        fun <T : Any> metric(
+            label: String,
+            metric: CoverageMetric<T>,
+        ) {
+            append(label)
+                .append(": ")
+                .append((metric.covered intersect metric.expected).size)
+                .append(" / ")
+                .append(metric.expected.size)
+                .append(" = ")
+                .append(metric.percent)
+                .append("%\n")
+        }
+        metric("States", states)
+        metric("Transitions", transitions)
+        metric("Guard outcomes", guards)
+        metric("Timers", timers)
+        for (id in transitions.missing.sortedBy { it.index }) {
+            append(id).append(" NOT COVERED")
+            annotate(id, this)
+            append('\n')
+        }
     }
-    metric("States", states); metric("Transitions", transitions); metric("Guard outcomes", guards); metric("Timers", timers)
-    for (id in transitions.missing.sortedBy { it.index }) {
-        append(id).append(" NOT COVERED")
-        annotate(id, this)
-        append('\n')
-    }
-}

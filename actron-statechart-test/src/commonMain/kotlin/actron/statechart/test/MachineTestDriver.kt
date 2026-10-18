@@ -4,8 +4,8 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
-import actron.statechart.StoreConfiguration
 import actron.statechart.StateId
+import actron.statechart.StoreConfiguration
 import actron.statechart.machine.Admission
 import actron.statechart.machine.AdmissionPolicy
 import actron.statechart.machine.CommandEnvelope
@@ -75,13 +75,21 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     private val failureList = mutableListOf<Throwable>()
 
     /** The store; every action a test sends goes through its admission. */
-    val store: MachineStore<C, A, CMD, E> = MachineStore(
-        machine, context, handler, executionScope, VirtualMachineClock(scheduler), dispatcher, admission = admission, mailbox = mailbox,
-        observers = listOf(coverageRecorder),
-    ) {
-        exceptionHandler(ExceptionHandler { failureList += it })
-        builder()
-    }
+    val store: MachineStore<C, A, CMD, E> =
+        MachineStore(
+            machine,
+            context,
+            handler,
+            executionScope,
+            VirtualMachineClock(scheduler),
+            dispatcher,
+            admission = admission,
+            mailbox = mailbox,
+            observers = listOf(coverageRecorder),
+        ) {
+            exceptionHandler(ExceptionHandler { failureList += it })
+            builder()
+        }
 
     /** Every snapshot and every effect, transient and retained, in decision order; [receiveEvent] walks the effects. */
     val recorder: StoreRecorder<MachineSnapshot<C>, A, E> = store.createRecorder()
@@ -129,7 +137,10 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     val runningCommands: List<CommandEnvelope<CMD>> get() = handler.running
 
     /** Feeds [result] to the running [command] and settles. */
-    suspend fun answer(command: CommandId, result: A): ExecutorCheckpoint<C, CMD> {
+    suspend fun answer(
+        command: CommandId,
+        result: A,
+    ): ExecutorCheckpoint<C, CMD> {
         handler.answer(command, result)
         return settle()
     }
@@ -141,7 +152,10 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     }
 
     /** Fails the running [command] and settles. */
-    suspend fun fail(command: CommandId, error: Throwable = IllegalStateException("failed by the test")): ExecutorCheckpoint<C, CMD> {
+    suspend fun fail(
+        command: CommandId,
+        error: Throwable = IllegalStateException("failed by the test"),
+    ): ExecutorCheckpoint<C, CMD> {
         handler.fail(command, error)
         return settle()
     }
@@ -169,7 +183,10 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     }
 
     /** [assertActive] of the nodes [first] and [rest]. */
-    fun assertActive(first: StateId, vararg rest: String) = assertActive(setOf(first) + rest.map(::StateId))
+    fun assertActive(
+        first: StateId,
+        vararg rest: String,
+    ) = assertActive(setOf(first) + rest.map(::StateId))
 
     /**
      * Fails unless the context equals [expected].
