@@ -1,19 +1,22 @@
 package actron.timetravel.file
 
 private fun actron.observability.file.SegmentEnding.observedIssue(): actron.observability.file.SegmentMark {
-    val observations = buildList<actron.observability.file.SegmentMark> {
-        kotlin.test.assertTrue(withIssue { add(it) })
-    }
+    val observations =
+        buildList<actron.observability.file.SegmentMark> {
+            kotlin.test.assertTrue(withIssue { add(it) })
+        }
     return observations.single()
 }
+
 internal val DecodedGroupSegment.mark: actron.observability.file.SegmentMark get() = ending.observedIssue()
 internal val <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DecodedRecordingSegment<C, A, CMD, E>.mark: actron.observability.file.SegmentMark get() = ending.observedIssue()
 
-internal val <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DecodedRecordingSegment<C, A, CMD, E>.header: RecordingSegmentHeader get() = when (this) {
-    is DecodedRecordingSegment.Unreadable -> error("Expected a readable segment header")
-    is DecodedRecordingSegment.HeaderOnly -> header
-    is DecodedRecordingSegment.Readable -> header
-}
+internal val <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DecodedRecordingSegment<C, A, CMD, E>.header: RecordingSegmentHeader get() =
+    when (this) {
+        is DecodedRecordingSegment.Unreadable -> error("Expected a readable segment header")
+        is DecodedRecordingSegment.HeaderOnly -> header
+        is DecodedRecordingSegment.Readable -> header
+    }
 internal val <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> DecodedRecordingSegment<C, A, CMD, E>.start: actron.statechart.machine.ExecutorCheckpoint<C, CMD> get() = (this as DecodedRecordingSegment.Readable).start
 internal val <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> RecordingFileContents<C, A, CMD, E>.recording: actron.timetravel.Recording<C, A, CMD, E> get() = (this as RecordingFileContents.Readable).recording
 internal val <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> RecordingFileContents<C, A, CMD, E>.firstStep: Int get() = (this as RecordingFileContents.Readable).firstStep

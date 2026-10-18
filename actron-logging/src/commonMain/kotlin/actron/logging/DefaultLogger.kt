@@ -13,7 +13,11 @@ object DefaultLogger : Logger {
     /**
      * Emits a log entry unless this logger has been disabled.
      */
-    override fun log(severity: Logger.Severity, tag: String, message: () -> String) {
+    override fun log(
+        severity: Logger.Severity,
+        tag: String,
+        message: () -> String,
+    ) {
         if (isDisabled) return
         when (severity) {
             Logger.Severity.Verbose -> Kermit.v(tag = tag, message = message)
@@ -24,7 +28,12 @@ object DefaultLogger : Logger {
         }
     }
 
-    override fun log(severity: Logger.Severity, tag: String, throwable: Throwable, message: () -> String) {
+    override fun log(
+        severity: Logger.Severity,
+        tag: String,
+        throwable: Throwable,
+        message: () -> String,
+    ) {
         if (isDisabled) return
         when (severity) {
             Logger.Severity.Verbose -> Kermit.v(tag, throwable, message)

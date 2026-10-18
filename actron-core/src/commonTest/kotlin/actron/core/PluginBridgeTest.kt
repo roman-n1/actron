@@ -15,7 +15,6 @@ import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PluginBridgeTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     class MessageDataSource {
@@ -27,34 +26,39 @@ class PluginBridgeTest {
         }
     }
 
-    data class AppState(val message: String) : State
+    data class AppState(
+        val message: String,
+    ) : State
 
     sealed interface AppAction : Action {
-        data class UpdateMessage(val message: String) : AppAction
+        data class UpdateMessage(
+            val message: String,
+        ) : AppAction
     }
 
     @Test
-    fun plugin_shouldHandleDataSourceEvents() = runTest(testDispatcher) {
-        val messageDataSource = MessageDataSource()
+    fun plugin_shouldHandleDataSourceEvents() =
+        runTest(testDispatcher) {
+            val messageDataSource = MessageDataSource()
 
-        val store = createTestStore(messageDataSource)
+            val store = createTestStore(messageDataSource)
 
-        assertEquals(AppState(message = ""), store.currentState)
+            assertEquals(AppState(message = ""), store.currentState)
 
-        messageDataSource.simulateEmitMessage("hello")
-        assertEquals(AppState(message = ""), store.currentState)
+            messageDataSource.simulateEmitMessage("hello")
+            assertEquals(AppState(message = ""), store.currentState)
 
-        store.dispatch(AppAction.UpdateMessage("hello"))
-        assertEquals(AppState(message = "hello"), store.currentState)
+            store.dispatch(AppAction.UpdateMessage("hello"))
+            assertEquals(AppState(message = "hello"), store.currentState)
 
-        messageDataSource.simulateEmitMessage("good bye")
-        assertEquals(AppState(message = "good bye"), store.currentState)
-    }
+            messageDataSource.simulateEmitMessage("good bye")
+            assertEquals(AppState(message = "good bye"), store.currentState)
+        }
 
     private fun createTestStore(
         messageDataSource: MessageDataSource,
-    ): Store<AppState, AppAction, Nothing> {
-        return Store {
+    ): Store<AppState, AppAction, Nothing> =
+        Store {
             initialState(AppState(message = ""))
             coroutineContext(Dispatchers.Unconfined)
 
@@ -76,5 +80,4 @@ class PluginBridgeTest {
                 }
             }
         }
-    }
 }

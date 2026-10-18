@@ -56,13 +56,20 @@ data class MachineSnapshot<C : Any>(
  * lane it runs in. The command itself and its policy live in the [Decision] that registered it
  * and in the executor.
  */
-data class CommandRecord(val scope: ActivationId, val lane: CommandLane = CommandLane.Independent)
+data class CommandRecord(
+    val scope: ActivationId,
+    val lane: CommandLane = CommandLane.Independent,
+)
 
 /**
  * A scheduled timer: the transition it fires, the activation of the source it was scheduled for,
  * and when it is due on the machine's clock.
  */
-data class TimerRecord(val transition: TransitionId, val activation: ActivationId, val deadline: MachineTime)
+data class TimerRecord(
+    val transition: TransitionId,
+    val activation: ActivationId,
+    val deadline: MachineTime,
+)
 
 /**
  * The last ids the machine issued. Part of the snapshot so a replay issues the same ids.
@@ -77,4 +84,7 @@ data class MachineCounters(
 /**
  * A node with the activation the machine is in it with.
  */
-data class Activation(val node: StateId, val id: ActivationId)
+data class Activation(
+    val node: StateId,
+    val id: ActivationId,
+)

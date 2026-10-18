@@ -38,11 +38,16 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```
  */
 class ExternalSourceContractTest {
-    private data class Page(val index: Int) : Action
+    private data class Page(
+        val index: Int,
+    ) : Action
+
     private data object Ev : Event
 
     /** A page remains pending until admitted. Rejected pages do not advance the cursor. */
-    private class Pager(private val store: MachineStore<List<Int>, Page, Nothing, Ev>) : ExternalSource {
+    private class Pager(
+        private val store: MachineStore<List<Int>, Page, Nothing, Ev>,
+    ) : ExternalSource {
         override val id = SourceId("paging")
         override val kind = "paging"
         private val feedLock = Mutex()
@@ -53,9 +58,10 @@ class ExternalSourceContractTest {
             private set
         val paused get() = feedLock.isLocked
 
-        suspend fun loadNext(): Admission = feedLock.withLock {
-            store.feed(id, Page(next)).also { if (it == Admission.Accepted) next++ }
-        }
+        suspend fun loadNext(): Admission =
+            feedLock.withLock {
+                store.feed(id, Page(next)).also { if (it == Admission.Accepted) next++ }
+            }
 
         override suspend fun pause() {
             feedLock.lock()
@@ -70,25 +76,39 @@ class ExternalSourceContractTest {
         }
 
         override fun snapshot() = SourceSnapshot(id, kind, 1, mapOf("next" to next.toString()))
+
         override fun resume() {
             resumes++
             feedLock.unlock()
         }
     }
 
-    private class Fixture(scope: TestScope, admission: AdmissionPolicy = AdmissionPolicy.Unbounded) {
+    private class Fixture(
+        scope: TestScope,
+        admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
+    ) {
         val group = MachineGroup()
         val id = StoreInstanceId("pages")
         private val member = group.member<List<Int>, Page, Nothing, Ev>(id)
         private val root = StateId("root")
         private val ready = StateId("ready")
         private val chart = StateChartDefinition(root, listOf(CompoundState(root, initial = ready), AtomicState(ready, parent = root)), emptyList())
-        private val machine = Machine<List<Int>, Page, Nothing, Ev>(DefinitionId("paging"), DefinitionVersion("1"), chart) {
-            onAction(root, ActionMatcher.of<Page>("Page")) { context = context + (action as Page).index }
-        }
-        val store = MachineStore(machine, emptyList(), CommandHandler<Nothing, Page> { _, _ -> }, scope.backgroundScope,
-            coroutineContext = StandardTestDispatcher(scope.testScheduler), admission = admission, observers = listOf(member))
+        private val machine =
+            Machine<List<Int>, Page, Nothing, Ev>(DefinitionId("paging"), DefinitionVersion("1"), chart) {
+                onAction(root, ActionMatcher.of<Page>("Page")) { context = context + (action as Page).index }
+            }
+        val store =
+            MachineStore(
+                machine,
+                emptyList(),
+                CommandHandler<Nothing, Page> { _, _ -> },
+                scope.backgroundScope,
+                coroutineContext = StandardTestDispatcher(scope.testScheduler),
+                admission = admission,
+                observers = listOf(member),
+            )
         val pager = Pager(store)
+
         init {
             member.attach(store)
             group.source(pager)
@@ -97,116 +117,167 @@ class ExternalSourceContractTest {
     }
 
     @Test
-    fun pagingRetryCursorAndMemberRemainEqualAcrossBackpressureAndRepeatedCuts() = runTest {
-        val f = Fixture(this, AdmissionPolicy.Bounded(1))
-        try {
-            runCurrent()
-            repeat(20) { index ->
-                assertEquals(Admission.Accepted, f.pager.loadNext())
-                assertEquals(Admission.Rejected(1, 1), f.pager.loadNext())
-                assertEquals(index + 1, f.pager.next, "rejection must preserve the pending page")
+    fun pagingRetryCursorAndMemberRemainEqualAcrossBackpressureAndRepeatedCuts() =
+        runTest {
+            val f = Fixture(this, AdmissionPolicy.Bounded(1))
+            try {
+                runCurrent()
+                repeat(20) { index ->
+                    assertEquals(Admission.Accepted, f.pager.loadNext())
+                    assertEquals(Admission.Rejected(1, 1), f.pager.loadNext())
+                    assertEquals(index + 1, f.pager.next, "rejection must preserve the pending page")
+                    val cut = async { f.group.checkpoint() }
+                    runCurrent()
+                    val checkpoint = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(cut.await()).checkpoint
+                    assertEquals(
+                        (0..index).toList(),
+                        checkpoint.members
+                            .getValue(f.id)
+                            .snapshot.context,
+                    )
+                    assertEquals(
+                        (index + 1).toString(),
+                        checkpoint.sources
+                            .getValue(f.pager.id)
+                            .fields
+                            .getValue("next"),
+                    )
+                }
+                assertEquals((0 until 20).toList(), f.store.currentState.context)
+            } finally {
+                f.store.close()
+            }
+        }
+
+    @Test
+    fun cancellingPartialPauseRollsBackTheAdapterAndAllowsRetryAndAnotherCut() =
+        runTest {
+            val f = Fixture(this)
+            try {
+                runCurrent()
+                f.pager.pauseGate = CompletableDeferred()
                 val cut = async { f.group.checkpoint() }
                 runCurrent()
-                val checkpoint = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(cut.await()).checkpoint
-                assertEquals((0..index).toList(), checkpoint.members.getValue(f.id).snapshot.context)
-                assertEquals((index + 1).toString(), checkpoint.sources.getValue(f.pager.id).fields.getValue("next"))
+                assertTrue(f.pager.paused)
+                cut.cancelAndJoin()
+                assertFalse(f.pager.paused, "the source owns rollback of an unfinished pause")
+                assertEquals(0, f.pager.resumes, "the group never acquired the partial pause")
+                assertEquals(Admission.Accepted, f.pager.loadNext())
+                f.pager.pauseGate = CompletableDeferred(Unit)
+                val next = async { f.group.checkpoint() }
+                runCurrent()
+                assertEquals(
+                    listOf(0),
+                    kotlin.test
+                        .assertIs<actron.statechart.machine.GroupCut.Ready>(next.await())
+                        .checkpoint.members
+                        .getValue(f.id)
+                        .snapshot.context,
+                )
+                assertEquals(1, f.pager.resumes)
+            } finally {
+                f.store.close()
             }
-            assertEquals((0 until 20).toList(), f.store.currentState.context)
-        } finally { f.store.close() }
-    }
-
-    @Test
-    fun cancellingPartialPauseRollsBackTheAdapterAndAllowsRetryAndAnotherCut() = runTest {
-        val f = Fixture(this)
-        try {
-            runCurrent()
-            f.pager.pauseGate = CompletableDeferred()
-            val cut = async { f.group.checkpoint() }
-            runCurrent()
-            assertTrue(f.pager.paused)
-            cut.cancelAndJoin()
-            assertFalse(f.pager.paused, "the source owns rollback of an unfinished pause")
-            assertEquals(0, f.pager.resumes, "the group never acquired the partial pause")
-            assertEquals(Admission.Accepted, f.pager.loadNext())
-            f.pager.pauseGate = CompletableDeferred(Unit)
-            val next = async { f.group.checkpoint() }
-            runCurrent()
-            assertEquals(listOf(0), kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(next.await()).checkpoint.members.getValue(f.id).snapshot.context)
-            assertEquals(1, f.pager.resumes)
-        } finally { f.store.close() }
-    }
-
-    @Test
-    fun timeoutRollsBackAPartialPauseAndResumesEarlierSources() = runTest {
-        val f = Fixture(this)
-        val earlier = Fixture(this)
-        val group = MachineGroup()
-        group.source(earlier.pager)
-        // Unique source id: delegates to the same real feed-lock implementation.
-        group.source(object : ExternalSource by f.pager {
-            override val id = SourceId("second")
-            override fun snapshot() = f.pager.snapshot().copy(source = id)
-        })
-        try {
-            runCurrent()
-            f.pager.pauseGate = CompletableDeferred()
-            val cut = async { group.checkpoint(100.milliseconds) }
-            runCurrent()
-            assertTrue(earlier.pager.paused && f.pager.paused)
-            advanceTimeBy(101)
-            runCurrent()
-            kotlin.test.assertIs<actron.statechart.machine.GroupCut.TimedOut>(cut.await())
-            assertFalse(earlier.pager.paused || f.pager.paused)
-            assertEquals(1, earlier.pager.resumes)
-            assertEquals(0, f.pager.resumes)
-            assertEquals(Admission.Accepted, f.pager.loadNext())
-        } finally {
-            f.store.close()
-            earlier.store.close()
         }
-    }
 
     @Test
-    fun dataArrivingDuringPartialPauseIsAppliedOnlyAfterTheCut() = runTest {
-        val f = Fixture(this)
-        try {
-            runCurrent()
-            assertEquals(Admission.Accepted, f.pager.loadNext())
-            f.pager.pauseGate = CompletableDeferred()
-            val cut = async { f.group.checkpoint() }
-            runCurrent()
-            val pendingPage = async { f.pager.loadNext() }
-            runCurrent()
-            assertTrue(pendingPage.isActive)
-            kotlin.test.assertNotNull(f.pager.pauseGate).complete(Unit)
-            runCurrent()
-            val checkpoint = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(cut.await()).checkpoint
-            assertEquals(listOf(0), checkpoint.members.getValue(f.id).snapshot.context)
-            assertEquals("1", checkpoint.sources.getValue(f.pager.id).fields.getValue("next"))
-            assertEquals(Admission.Accepted, pendingPage.await())
-            assertEquals(listOf(0, 1), f.store.currentState.context)
-        } finally { f.store.close() }
-    }
+    fun timeoutRollsBackAPartialPauseAndResumesEarlierSources() =
+        runTest {
+            val f = Fixture(this)
+            val earlier = Fixture(this)
+            val group = MachineGroup()
+            group.source(earlier.pager)
+            // Unique source id: delegates to the same real feed-lock implementation.
+            group.source(
+                object : ExternalSource by f.pager {
+                    override val id = SourceId("second")
 
-    @Test
-    fun aSuccessfulPauseIsResumedWhenCancellationDiscardsTheTimeoutResult() = runTest {
-        val group = MachineGroup()
-        var paused = false
-        var resumes = 0
-        group.source(object : ExternalSource {
-            override val id = SourceId("cancel-on-return")
-            override val kind = "subscription"
-            override suspend fun pause() {
-                paused = true
-                // A subscriber completes its pause just as its deadline context is cancelled.
-                // The block returns normally, but withTimeoutOrNull cannot return its result.
-                currentCoroutineContext().cancel(CancellationException("cancel as pause returns"))
+                    override fun snapshot() = f.pager.snapshot().copy(source = id)
+                },
+            )
+            try {
+                runCurrent()
+                f.pager.pauseGate = CompletableDeferred()
+                val cut = async { group.checkpoint(100.milliseconds) }
+                runCurrent()
+                assertTrue(earlier.pager.paused && f.pager.paused)
+                advanceTimeBy(101)
+                runCurrent()
+                kotlin.test.assertIs<actron.statechart.machine.GroupCut.TimedOut>(cut.await())
+                assertFalse(earlier.pager.paused || f.pager.paused)
+                assertEquals(1, earlier.pager.resumes)
+                assertEquals(0, f.pager.resumes)
+                assertEquals(Admission.Accepted, f.pager.loadNext())
+            } finally {
+                f.store.close()
+                earlier.store.close()
             }
-            override fun snapshot() = SourceSnapshot(id, kind, 1, emptyMap())
-            override fun resume() { paused = false; resumes++ }
-        })
-        assertFailsWith<CancellationException> { group.checkpoint() }
-        assertFalse(paused)
-        assertEquals(1, resumes)
-    }
+        }
+
+    @Test
+    fun dataArrivingDuringPartialPauseIsAppliedOnlyAfterTheCut() =
+        runTest {
+            val f = Fixture(this)
+            try {
+                runCurrent()
+                assertEquals(Admission.Accepted, f.pager.loadNext())
+                f.pager.pauseGate = CompletableDeferred()
+                val cut = async { f.group.checkpoint() }
+                runCurrent()
+                val pendingPage = async { f.pager.loadNext() }
+                runCurrent()
+                assertTrue(pendingPage.isActive)
+                kotlin.test.assertNotNull(f.pager.pauseGate).complete(Unit)
+                runCurrent()
+                val checkpoint = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(cut.await()).checkpoint
+                assertEquals(
+                    listOf(0),
+                    checkpoint.members
+                        .getValue(f.id)
+                        .snapshot.context,
+                )
+                assertEquals(
+                    "1",
+                    checkpoint.sources
+                        .getValue(f.pager.id)
+                        .fields
+                        .getValue("next"),
+                )
+                assertEquals(Admission.Accepted, pendingPage.await())
+                assertEquals(listOf(0, 1), f.store.currentState.context)
+            } finally {
+                f.store.close()
+            }
+        }
+
+    @Test
+    fun aSuccessfulPauseIsResumedWhenCancellationDiscardsTheTimeoutResult() =
+        runTest {
+            val group = MachineGroup()
+            var paused = false
+            var resumes = 0
+            group.source(
+                object : ExternalSource {
+                    override val id = SourceId("cancel-on-return")
+                    override val kind = "subscription"
+
+                    override suspend fun pause() {
+                        paused = true
+                        // A subscriber completes its pause just as its deadline context is cancelled.
+                        // The block returns normally, but withTimeoutOrNull cannot return its result.
+                        currentCoroutineContext().cancel(CancellationException("cancel as pause returns"))
+                    }
+
+                    override fun snapshot() = SourceSnapshot(id, kind, 1, emptyMap())
+
+                    override fun resume() {
+                        paused = false
+                        resumes++
+                    }
+                },
+            )
+            assertFailsWith<CancellationException> { group.checkpoint() }
+            assertFalse(paused)
+            assertEquals(1, resumes)
+        }
 }

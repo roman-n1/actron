@@ -10,7 +10,9 @@ import kotlin.test.assertFailsWith
 @OptIn(ExperimentalCoroutinesApi::class)
 class StoreStartupExceptionJvmTest {
     private data object Active : State
+
     private data object Input : Action
+
     private data object Output : Event
 
     @Test
@@ -19,14 +21,17 @@ class StoreStartupExceptionJvmTest {
         // JVM runTest rethrows uncaught coroutine failures synchronously when it finishes.
         assertFailsWith<Throwable> {
             runTest {
-                val store = Store<Active, Input, Output>(Active, backgroundScope.coroutineContext) {
-                    exceptionHandler(ExceptionHandler {
-                        reports++
-                        if (reports == 1) throw it
-                    })
-                    plugin(Plugin(onEvent = { _, _ -> error("event plugin failed") }))
-                    state<Active> { enter { event(Output) } }
-                }
+                val store =
+                    Store<Active, Input, Output>(Active, backgroundScope.coroutineContext) {
+                        exceptionHandler(
+                            ExceptionHandler {
+                                reports++
+                                if (reports == 1) throw it
+                            },
+                        )
+                        plugin(Plugin(onEvent = { _, _ -> error("event plugin failed") }))
+                        state<Active> { enter { event(Output) } }
+                    }
                 try {
                     store.startAndAwaitForTest()
                     runCurrent()

@@ -1,5 +1,8 @@
 package actron.timetravel.compose
 
+import actron.core.ExperimentalActronApi
+import actron.observability.StoreInstanceId
+import actron.timetravel.RecordedStep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,14 +31,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import actron.core.ExperimentalActronApi
-import actron.observability.StoreInstanceId
-import actron.timetravel.RecordedStep
 
 /** Movement and validation of the whole group, independent of the timeline's Store filter. */
 @ExperimentalActronApi
 @Composable
-fun GroupReplayBar(replay: GroupReplayControls, modifier: Modifier = Modifier) {
+fun GroupReplayBar(
+    replay: GroupReplayControls,
+    modifier: Modifier = Modifier,
+) {
     var seeking by remember(replay) { mutableStateOf<SeekGesture>(SeekGesture.Idle) }
     Column(modifier = modifier.fillMaxWidth().padding(8.dp).testTag("group-replay-bar")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -47,7 +50,11 @@ fun GroupReplayBar(replay: GroupReplayControls, modifier: Modifier = Modifier) {
         Slider(
             value = if (seeking is SeekGesture.Dragging) (seeking as SeekGesture.Dragging).value else replay.position.toFloat(),
             onValueChange = { seeking = SeekGesture.Dragging(it) },
-            onValueChangeFinished = { val current = seeking; if (current is SeekGesture.Dragging) replay.seek(current.value.toInt()); seeking = SeekGesture.Idle },
+            onValueChangeFinished = {
+                val current = seeking
+                if (current is SeekGesture.Dragging) replay.seek(current.value.toInt())
+                seeking = SeekGesture.Idle
+            },
             valueRange = 0f..replay.length.toFloat().coerceAtLeast(1f),
             steps = (replay.length - 1).coerceAtLeast(0),
             enabled = replay.length > 0,
@@ -67,8 +74,15 @@ fun GroupReplayBar(replay: GroupReplayControls, modifier: Modifier = Modifier) {
 /** The recording's inputs in their global order; a click seeks after that input. */
 @ExperimentalActronApi
 @Composable
-fun GroupTimelinePanel(replay: GroupReplayControls, filter: StoreFilter = StoreFilter.All, modifier: Modifier = Modifier) {
-    val visible = replay.session.recording.order.withIndex().filter { filter.includes(it.value.store) }
+fun GroupTimelinePanel(
+    replay: GroupReplayControls,
+    filter: StoreFilter = StoreFilter.All,
+    modifier: Modifier = Modifier,
+) {
+    val visible =
+        replay.session.recording.order
+            .withIndex()
+            .filter { filter.includes(it.value.store) }
     Column(modifier = modifier.padding(8.dp)) {
         Text("Group recording (${visible.size} inputs)", style = MaterialTheme.typography.titleSmall)
         LazyColumn(modifier = Modifier.fillMaxSize().testTag("group-timeline")) {
@@ -78,9 +92,13 @@ fun GroupTimelinePanel(replay: GroupReplayControls, filter: StoreFilter = StoreF
                     "#${item.index} ${item.store.value}: ${item.recorded.input}",
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
-                        .background(if (replay.hasSelection && replay.selectedPosition().index == item.index) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                        .clickable { replay.seek(item.index + 1) }.padding(vertical = 4.dp).testTag("group-step-${item.index}"),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(if (replay.hasSelection && replay.selectedPosition().index == item.index) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                            .clickable { replay.seek(item.index + 1) }
+                            .padding(vertical = 4.dp)
+                            .testTag("group-step-${item.index}"),
                 )
             }
         }
@@ -90,7 +108,10 @@ fun GroupTimelinePanel(replay: GroupReplayControls, filter: StoreFilter = StoreF
 /** Expected transition details and every member's checkpoint at the group's current prefix. */
 @ExperimentalActronApi
 @Composable
-fun GroupPositionPanel(replay: GroupReplayControls, modifier: Modifier = Modifier) {
+fun GroupPositionPanel(
+    replay: GroupReplayControls,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
         Column(modifier = Modifier.semantics(mergeDescendants = true) {}.testTag("group-position")) {
             Text("Group state at ${replay.position}", style = MaterialTheme.typography.titleSmall)
@@ -107,15 +128,28 @@ fun GroupPositionPanel(replay: GroupReplayControls, modifier: Modifier = Modifie
                         Text("transitions ${step.decision.transitions}")
                         Text("commands ${step.decision.commands}  timers ${step.decision.timersScheduled}  effects ${step.decision.effects}")
                     }
-                    is RecordedStep.Ignored<*, *, *, *> -> Text("ignored: ${step.reason}")
-                    is RecordedStep.Failed<*, *, *, *> -> Text("failed: ${step.failure}")
+
+                    is RecordedStep.Ignored<*, *, *, *> -> {
+                        Text("ignored: ${step.reason}")
+                    }
+
+                    is RecordedStep.Failed<*, *, *, *> -> {
+                        Text("failed: ${step.failure}")
+                    }
                 }
             }
         }
         for (store in replay.members) {
             val snapshot = replay.snapshot(store)
             val checkpoint = replay.checkpoint(store)
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics(mergeDescendants = true) {}.testTag("group-member-${store.value}")) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .semantics(mergeDescendants = true) {}
+                        .testTag("group-member-${store.value}"),
+            ) {
                 Text("${store.value}  revision ${snapshot.revision}", fontWeight = FontWeight.Bold)
                 Text("active ${snapshot.configuration.active.map { it.value }.sorted()}  context ${snapshot.context}", fontFamily = FontFamily.Monospace)
                 Text("recorded clock ${checkpoint.now.sinceStart}  timers ${snapshot.timers.keys}")
@@ -130,5 +164,8 @@ fun GroupPositionPanel(replay: GroupReplayControls, modifier: Modifier = Modifie
 /** A slider follows the cursor until the viewer starts dragging it. */
 internal sealed interface SeekGesture {
     data object Idle : SeekGesture
-    data class Dragging(val value: Float) : SeekGesture
+
+    data class Dragging(
+        val value: Float,
+    ) : SeekGesture
 }

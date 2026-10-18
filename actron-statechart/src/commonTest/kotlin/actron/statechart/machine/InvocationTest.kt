@@ -10,29 +10,48 @@ class InvocationTest {
     private val InvocationSnapshot<Int, Int>.activeChild: ChildInvocation.Active<Int> get() = assertIs<ChildInvocation.Active<Int>>(child)
 
     private data object Open : Action
+
     private data object Close : Action
+
     private data object Finish : Action
+
     private data object Finished : Event
+
     private data object Ping : Action
+
     private data object Again : Event
+
     private val idle = StateId("idle")
     private val active = StateId("active")
     private val working = StateId("working")
     private val done = StateId("done")
-    private val parent = Machine<Int, Action, String, Event>(DefinitionId("parent"), DefinitionVersion("1"),
-        StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(active)), listOf(
-            Transition(idle, active, ActionMatcher.of<Open>("open")),
-            Transition(active, active, ActionMatcher.of<Open>("open")),
-            Transition(active, idle, ActionMatcher.of<Close>("close")),
-        )))
-    private val child = Machine<Int, Action, String, Event>(DefinitionId("child"), DefinitionVersion("1"),
-        StateChartDefinition(working, listOf(AtomicState(working), FinalState(done)), listOf(Transition(working, done, ActionMatcher.of<Finish>("finish"))))) {
-        onEnter(working) { command("fetch") }
-        onEnter(done) { event(Finished) }
-    }
+    private val parent =
+        Machine<Int, Action, String, Event>(
+            DefinitionId("parent"),
+            DefinitionVersion("1"),
+            StateChartDefinition(
+                idle,
+                listOf(AtomicState(idle), AtomicState(active)),
+                listOf(
+                    Transition(idle, active, ActionMatcher.of<Open>("open")),
+                    Transition(active, active, ActionMatcher.of<Open>("open")),
+                    Transition(active, idle, ActionMatcher.of<Close>("close")),
+                ),
+            ),
+        )
+    private val child =
+        Machine<Int, Action, String, Event>(
+            DefinitionId("child"),
+            DefinitionVersion("1"),
+            StateChartDefinition(working, listOf(AtomicState(working), FinalState(done)), listOf(Transition(working, done, ActionMatcher.of<Finish>("finish")))),
+        ) {
+            onEnter(working) { command("fetch") }
+            onEnter(done) { event(Finished) }
+        }
+
     private fun invocation(childMachine: Machine<Int, Action, String, Event> = child) = InvokedMachine(parent, active, childMachine, { it.context }, toParent = { event, send -> if (event == Finished) send(Close) })
-    private fun started(composition: InvokedMachine<Int, Action, String, Event, Int, Action, String, Event>) =
-        composition.decide(composition.initialSnapshot(0), InvocationInput.Parent(MachineInput.Start(MachineTime.Zero))).snapshot
+
+    private fun started(composition: InvokedMachine<Int, Action, String, Event, Int, Action, String, Event>) = composition.decide(composition.initialSnapshot(0), InvocationInput.Parent(MachineInput.Start(MachineTime.Zero))).snapshot
 
     @Test fun childLifetimesAndLateInputsAreQualifiedByParentActivation() {
         val composition = invocation()
@@ -55,9 +74,13 @@ class InvocationTest {
     }
 
     @Test fun failedChildStartRollsBackParentAndAllIntents() {
-        val broken = Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
-            onEnter(working) { command("must-not-execute"); error("child start failed") }
-        }
+        val broken =
+            Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
+                onEnter(working) {
+                    command("must-not-execute")
+                    error("child start failed")
+                }
+            }
         val composition = invocation(broken)
         val base = started(composition)
         val failed = composition.decide(base, InvocationInput.Parent(MachineInput.Dispatch(Open, MachineTime.Zero)))
@@ -68,14 +91,25 @@ class InvocationTest {
     }
 
     @Test fun temporaryParentAndChildWorkIsFilteredBeforeCompositeCommit() {
-        val owningParent = Machine<Int, Action, String, Event>(parent.id, parent.version,
-            parent.chart.copy(transitions = parent.chart.transitions + Transition(active, idle, Trigger.After(10.seconds)))) {
-            onEnter(active) { command("parent-fetch") }
-        }
-        val immediateChild = Machine<Int, Action, String, Event>(child.id, child.version,
-            child.chart.copy(transitions = child.chart.transitions + Transition(working, done, Trigger.After(5.seconds)))) {
-            onEnter(working) { command("child-fetch"); event(Finished) }
-        }
+        val owningParent =
+            Machine<Int, Action, String, Event>(
+                parent.id,
+                parent.version,
+                parent.chart.copy(transitions = parent.chart.transitions + Transition(active, idle, Trigger.After(10.seconds))),
+            ) {
+                onEnter(active) { command("parent-fetch") }
+            }
+        val immediateChild =
+            Machine<Int, Action, String, Event>(
+                child.id,
+                child.version,
+                child.chart.copy(transitions = child.chart.transitions + Transition(working, done, Trigger.After(5.seconds))),
+            ) {
+                onEnter(working) {
+                    command("child-fetch")
+                    event(Finished)
+                }
+            }
         val composition = InvokedMachine(owningParent, active, immediateChild, { it.context }, toParent = { _, send -> send(Close) })
         val base = started(composition)
         val result = composition.decide(base, InvocationInput.Parent(MachineInput.Dispatch(Open, MachineTime.Zero)))
@@ -86,16 +120,30 @@ class InvocationTest {
         assertTrue(result.parentTimers.isEmpty())
         assertTrue(result.childCommands.isEmpty())
         assertTrue(result.childTimers.isEmpty())
-        assertTrue(result.childCancellations.single().scopes.isNotEmpty())
+        assertTrue(
+            result.childCancellations
+                .single()
+                .scopes
+                .isNotEmpty(),
+        )
     }
 
     @Test fun queuedChildEventsCannotReopenTheirExpiredOwner() {
-        val emitting = Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
-            onEnter(working) { event(Finished); event(Again) }
-        }
-        val composition = InvokedMachine(parent, active, emitting, { it.context }, toParent = { event, send ->
-            when (event) { Finished -> send(Close); Again -> send(Open); else -> Unit }
-        })
+        val emitting =
+            Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
+                onEnter(working) {
+                    event(Finished)
+                    event(Again)
+                }
+            }
+        val composition =
+            InvokedMachine(parent, active, emitting, { it.context }, toParent = { event, send ->
+                when (event) {
+                    Finished -> send(Close)
+                    Again -> send(Open)
+                    else -> Unit
+                }
+            })
         val result = composition.decide(started(composition), InvocationInput.Parent(MachineInput.Dispatch(Open, MachineTime.Zero)))
         assertTrue(result.snapshot.parent.isActive(idle))
         assertEquals(ChildInvocation.Dormant, result.snapshot.child)
@@ -103,15 +151,33 @@ class InvocationTest {
     }
 
     @Test fun feedbackLimitRollsBackBothMachinesAndAllIntents() {
-        val bouncingParent = Machine<Int, Action, String, Event>(parent.id, parent.version, parent.chart) {
-            onAction(active, ActionMatcher.of<Ping>("ping")) { context++; command("parent-work"); event(Again) }
-        }
-        val bouncingChild = Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
-            onEnter(working) { event(Again) }
-            onAction(working, ActionMatcher.of<Ping>("ping")) { context++; command("child-work"); event(Again) }
-        }
-        val composition = InvokedMachine(bouncingParent, active, bouncingChild, { it.context },
-            toParent = { _, send -> send(Ping) }, toChild = { _, send -> send(Ping) }, maxDeliveries = 4)
+        val bouncingParent =
+            Machine<Int, Action, String, Event>(parent.id, parent.version, parent.chart) {
+                onAction(active, ActionMatcher.of<Ping>("ping")) {
+                    context++
+                    command("parent-work")
+                    event(Again)
+                }
+            }
+        val bouncingChild =
+            Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
+                onEnter(working) { event(Again) }
+                onAction(working, ActionMatcher.of<Ping>("ping")) {
+                    context++
+                    command("child-work")
+                    event(Again)
+                }
+            }
+        val composition =
+            InvokedMachine(
+                bouncingParent,
+                active,
+                bouncingChild,
+                { it.context },
+                toParent = { _, send -> send(Ping) },
+                toChild = { _, send -> send(Ping) },
+                maxDeliveries = 4,
+            )
         val base = started(composition)
         val result = composition.decide(base, InvocationInput.Parent(MachineInput.Dispatch(Open, MachineTime.Zero)))
         assertSame(base, result.snapshot)
@@ -124,9 +190,13 @@ class InvocationTest {
     }
 
     @Test fun throwingEventMapperRollsBackBeforeTheChildCanRun() {
-        val emitting = Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
-            onEnter(working) { command("child-work"); event(Finished) }
-        }
+        val emitting =
+            Machine<Int, Action, String, Event>(child.id, child.version, child.chart) {
+                onEnter(working) {
+                    command("child-work")
+                    event(Finished)
+                }
+            }
         val failure = IllegalStateException("mapping failed")
         val composition = InvokedMachine(parent, active, emitting, { it.context }, toParent = { _, _ -> throw failure })
         val base = started(composition)

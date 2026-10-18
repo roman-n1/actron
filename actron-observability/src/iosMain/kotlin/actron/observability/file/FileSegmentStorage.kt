@@ -18,8 +18,8 @@ import platform.posix.S_IRWXU
 import platform.posix.closedir
 import platform.posix.errno
 import platform.posix.fclose
-import platform.posix.fflush
 import platform.posix.ferror
+import platform.posix.fflush
 import platform.posix.fopen
 import platform.posix.fread
 import platform.posix.fwrite
@@ -32,7 +32,9 @@ import platform.posix.stat
 /**
  * Segments as files of [directory], created when absent, through the POSIX file API.
  */
-actual class FileSegmentStorage actual constructor(private val directory: String) : SegmentStorage {
+actual class FileSegmentStorage actual constructor(
+    private val directory: String,
+) : SegmentStorage {
     init {
         if (mkdir(directory, S_IRWXU.convert()) != 0) {
             require(errno == EEXIST) { "[Actron] Cannot create directory $directory (errno $errno)" }
@@ -90,23 +92,24 @@ actual class FileSegmentStorage actual constructor(private val directory: String
         remove(path(name))
     }
 
-    actual override fun append(name: String): SegmentOutput = object : SegmentOutput {
-        private val file = fopen(path(name), "ab") ?: throw IllegalStateException("[Actron] Cannot open ${path(name)} for appending (errno $errno)")
+    actual override fun append(name: String): SegmentOutput =
+        object : SegmentOutput {
+            private val file = fopen(path(name), "ab") ?: throw IllegalStateException("[Actron] Cannot open ${path(name)} for appending (errno $errno)")
 
-        override fun write(bytes: ByteArray) {
-            if (bytes.isEmpty()) return
-            val written = bytes.usePinned { fwrite(it.addressOf(0), 1u, bytes.size.convert(), file) }.toInt()
-            check(written == bytes.size) { "[Actron] Wrote $written of ${bytes.size} bytes to ${path(name)}" }
-        }
+            override fun write(bytes: ByteArray) {
+                if (bytes.isEmpty()) return
+                val written = bytes.usePinned { fwrite(it.addressOf(0), 1u, bytes.size.convert(), file) }.toInt()
+                check(written == bytes.size) { "[Actron] Wrote $written of ${bytes.size} bytes to ${path(name)}" }
+            }
 
-        override fun flush() {
-            check(fflush(file) == 0) { "[Actron] Cannot flush ${path(name)} (errno $errno)" }
-        }
+            override fun flush() {
+                check(fflush(file) == 0) { "[Actron] Cannot flush ${path(name)} (errno $errno)" }
+            }
 
-        override fun close() {
-            check(fclose(file) == 0) { "[Actron] Cannot close ${path(name)} (errno $errno)" }
+            override fun close() {
+                check(fclose(file) == 0) { "[Actron] Cannot close ${path(name)} (errno $errno)" }
+            }
         }
-    }
 
     private fun path(name: String): String = "$directory/$name"
 }

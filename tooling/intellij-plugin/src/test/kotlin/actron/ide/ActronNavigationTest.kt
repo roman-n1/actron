@@ -1,27 +1,32 @@
 package actron.ide
 
-import com.intellij.json.psi.*
-import com.intellij.ide.plugins.PluginManagerCore
-import com.intellij.openapi.extensions.PluginId
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.psi.PsiReferenceService
-import com.intellij.psi.PsiElement
-import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.find.findUsages.FindUsagesOptions
+import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.json.psi.*
+import com.intellij.openapi.extensions.PluginId
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiReferenceService
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.usageView.UsageInfo
-import java.awt.image.BufferedImage
-import java.awt.event.MouseEvent
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import java.awt.event.MouseEvent
+import java.awt.image.BufferedImage
 
 class ActronNavigationTest : BasePlatformTestCase() {
     private fun references(element: PsiElement) = checkNotNull(PsiReferenceService.getService().getReferences(element, PsiReferenceService.Hints.NO_HINTS)).filterNotNull()
-    private fun manifest(): JsonFile = myFixture.configureByText("model.actron.json", """
-        {"format":1,"definition":"sample","version":"1","sources":{},"model":{
-          "initial":"idle","states":[{"id":"idle"},{"id":"done"}],
-          "transitions":[{"id":"transition:0","index":0,"source":"idle","target":"done","guard":"done"}]},
-          "active":["done"],"selectedTransitions":["transition:0"]}
-    """.trimIndent()) as JsonFile
+
+    private fun manifest(): JsonFile =
+        myFixture.configureByText(
+            "model.actron.json",
+            """
+            {"format":1,"definition":"sample","version":"1","sources":{},"model":{
+              "initial":"idle","states":[{"id":"idle"},{"id":"done"}],
+              "transitions":[{"id":"transition:0","index":0,"source":"idle","target":"done","guard":"done"}]},
+              "active":["done"],"selectedTransitions":["transition:0"]}
+            """.trimIndent(),
+        ) as JsonFile
 
     fun testStateAndTransitionReferencesResolveWithinOneDefinitionAndGuardLabelsDoNot() {
         val file = manifest()
@@ -42,7 +47,10 @@ class ActronNavigationTest : BasePlatformTestCase() {
         val factory = ActronFindUsagesHandlerFactory()
         assertTrue(factory.canFindUsages(definition))
         val usages = mutableListOf<UsageInfo>()
-        factory.createFindUsagesHandler(definition, false).processElementUsages(definition, { usage: UsageInfo -> usages += usage; true }, FindUsagesOptions(project))
+        factory.createFindUsagesHandler(definition, false).processElementUsages(definition, { usage: UsageInfo ->
+            usages += usage
+            true
+        }, FindUsagesOptions(project))
         assertEquals(2, usages.size)
     }
 
@@ -53,32 +61,48 @@ class ActronNavigationTest : BasePlatformTestCase() {
     }
 
     fun testGutterResolvesActronDeclarationAndIgnoresUnrelatedSameNamedFunction() {
-        myFixture.addFileToProject("actron/statechart/Definition.kt", """
+        myFixture.addFileToProject(
+            "actron/statechart/Definition.kt",
+            """
             package actron.statechart
             class StateId(val value: String)
             fun Transition(source: StateId, target: StateId) = Unit
-        """.trimIndent())
-        myFixture.addFileToProject("other/Definition.kt", """
+            """.trimIndent(),
+        )
+        myFixture.addFileToProject(
+            "other/Definition.kt",
+            """
             package other
             fun Transition(source: actron.statechart.StateId, target: actron.statechart.StateId) = Unit
-        """.trimIndent())
-        val file = checkNotNull(myFixture.configureByText("Workflow.kt", """
-            import actron.statechart.StateId
-            import actron.statechart.Transition
-            val idle = StateId("idle")
-            val done = StateId("done")
-            fun workflow() {
-                Transition(idle, done)
-                other.Transition(idle, done)
-            }
-        """.trimIndent()))
-        val calls = checkNotNull(PsiTreeUtil.findChildrenOfType(file, KtCallExpression::class.java)).filterNotNull()
-            .filter { it.calleeExpression?.text == "Transition" }
+            """.trimIndent(),
+        )
+        val file =
+            checkNotNull(
+                myFixture.configureByText(
+                    "Workflow.kt",
+                    """
+                    import actron.statechart.StateId
+                    import actron.statechart.Transition
+                    val idle = StateId("idle")
+                    val done = StateId("done")
+                    fun workflow() {
+                        Transition(idle, done)
+                        other.Transition(idle, done)
+                    }
+                    """.trimIndent(),
+                ),
+            )
+        val calls =
+            checkNotNull(PsiTreeUtil.findChildrenOfType(file, KtCallExpression::class.java))
+                .filterNotNull()
+                .filter { it.calleeExpression?.text == "Transition" }
         assertEquals(2, calls.size)
         val provider = ActronLineMarkerProvider()
-        fun markers(call: KtCallExpression) = buildList<com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo<out PsiElement>> {
-            provider.collectNavigationMarkers(requireNotNull((call.calleeExpression as KtNameReferenceExpression).firstChild), this)
-        }
+
+        fun markers(call: KtCallExpression) =
+            buildList<com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo<out PsiElement>> {
+                provider.collectNavigationMarkers(requireNotNull((call.calleeExpression as KtNameReferenceExpression).firstChild), this)
+            }
         assertEquals(1, markers(calls.first()).size)
         assertTrue(markers(calls.last()).isEmpty())
     }

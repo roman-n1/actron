@@ -13,15 +13,19 @@ import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StorePendingActionPolicyTest {
-
     sealed interface AppState : State {
         data object Initial : AppState
-        data class Active(val value: Int = 0) : AppState
+
+        data class Active(
+            val value: Int = 0,
+        ) : AppState
     }
 
     sealed interface AppAction : Action {
         data object EnterActiveAfterDelay : AppAction
+
         data object UpdateInPlaceAfterDelay : AppAction
+
         data object Increment : AppAction
     }
 
@@ -30,8 +34,8 @@ class StorePendingActionPolicyTest {
         pendingActionPolicy: PendingActionPolicy = PendingActionPolicy.ClearOnStateExit,
         onTransitionStarted: CompletableDeferred<Unit> = CompletableDeferred(),
         onTransitionCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
-    ): Store<AppState, AppAction, Nothing> {
-        return Store(AppState.Initial) {
+    ): Store<AppState, AppAction, Nothing> =
+        Store(AppState.Initial) {
             coroutineContext(testDispatcher)
             pendingActionPolicy(pendingActionPolicy)
 
@@ -55,83 +59,88 @@ class StorePendingActionPolicyTest {
                 }
             }
         }
-    }
 
     @Test
-    fun clearOnStateExit_dropsQueuedActionsAfterStateTransition() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val transitionStarted = CompletableDeferred<Unit>()
-        val transitionCompleted = CompletableDeferred<Unit>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onTransitionStarted = transitionStarted,
-            onTransitionCompleted = transitionCompleted,
-        )
+    fun clearOnStateExit_dropsQueuedActionsAfterStateTransition() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val transitionStarted = CompletableDeferred<Unit>()
+            val transitionCompleted = CompletableDeferred<Unit>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onTransitionStarted = transitionStarted,
+                    onTransitionCompleted = transitionCompleted,
+                )
 
-        store.dispatch(AppAction.EnterActiveAfterDelay)
-        runCurrent()
-        transitionStarted.await()
+            store.dispatch(AppAction.EnterActiveAfterDelay)
+            runCurrent()
+            transitionStarted.await()
 
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
 
-        advanceUntilIdle()
+            advanceUntilIdle()
 
-        assertEquals(true, transitionCompleted.isCompleted, "The running transition should complete")
-        assertEquals(AppState.Active(value = 0), store.currentState)
-    }
-
-    @Test
-    fun keep_preservesQueuedActionsAfterStateTransition() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val transitionStarted = CompletableDeferred<Unit>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            pendingActionPolicy = PendingActionPolicy.Keep,
-            onTransitionStarted = transitionStarted,
-        )
-
-        store.dispatch(AppAction.EnterActiveAfterDelay)
-        runCurrent()
-        transitionStarted.await()
-
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Increment)
-
-        advanceUntilIdle()
-
-        assertEquals(AppState.Active(value = 2), store.currentState)
-    }
-
-    @Test
-    fun clearOnStateExit_keepsQueuedActionsForSameStateUpdates() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val inPlaceUpdateStarted = CompletableDeferred<Unit>()
-        val store = Store<AppState, AppAction, Nothing>(AppState.Active()) {
-            coroutineContext(testDispatcher)
-
-            state<AppState.Active> {
-                action<AppAction.UpdateInPlaceAfterDelay>(testDispatcher) {
-                    inPlaceUpdateStarted.complete(Unit)
-                    delay(100)
-                    nextState { state.copy(value = state.value + 100) }
-                }
-
-                action<AppAction.Increment>(testDispatcher) {
-                    nextState { state.copy(value = state.value + 1) }
-                }
-            }
+            assertEquals(true, transitionCompleted.isCompleted, "The running transition should complete")
+            assertEquals(AppState.Active(value = 0), store.currentState)
         }
 
-        store.dispatch(AppAction.UpdateInPlaceAfterDelay)
-        runCurrent()
-        inPlaceUpdateStarted.await()
+    @Test
+    fun keep_preservesQueuedActionsAfterStateTransition() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val transitionStarted = CompletableDeferred<Unit>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    pendingActionPolicy = PendingActionPolicy.Keep,
+                    onTransitionStarted = transitionStarted,
+                )
 
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.EnterActiveAfterDelay)
+            runCurrent()
+            transitionStarted.await()
 
-        advanceUntilIdle()
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
 
-        assertEquals(AppState.Active(value = 102), store.currentState)
-    }
+            advanceUntilIdle()
+
+            assertEquals(AppState.Active(value = 2), store.currentState)
+        }
+
+    @Test
+    fun clearOnStateExit_keepsQueuedActionsForSameStateUpdates() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val inPlaceUpdateStarted = CompletableDeferred<Unit>()
+            val store =
+                Store<AppState, AppAction, Nothing>(AppState.Active()) {
+                    coroutineContext(testDispatcher)
+
+                    state<AppState.Active> {
+                        action<AppAction.UpdateInPlaceAfterDelay>(testDispatcher) {
+                            inPlaceUpdateStarted.complete(Unit)
+                            delay(100)
+                            nextState { state.copy(value = state.value + 100) }
+                        }
+
+                        action<AppAction.Increment>(testDispatcher) {
+                            nextState { state.copy(value = state.value + 1) }
+                        }
+                    }
+                }
+
+            store.dispatch(AppAction.UpdateInPlaceAfterDelay)
+            runCurrent()
+            inPlaceUpdateStarted.await()
+
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
+
+            advanceUntilIdle()
+
+            assertEquals(AppState.Active(value = 102), store.currentState)
+        }
 }

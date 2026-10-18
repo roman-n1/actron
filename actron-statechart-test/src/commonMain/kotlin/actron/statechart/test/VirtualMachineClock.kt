@@ -17,7 +17,10 @@ import kotlin.time.Duration.Companion.milliseconds
  * comparable times.
  */
 @ExperimentalActronApi
-class VirtualMachineClock(private val scheduler: TestCoroutineScheduler, private val originMillis: Long = 0) : MachineClock {
+class VirtualMachineClock(
+    private val scheduler: TestCoroutineScheduler,
+    private val originMillis: Long = 0,
+) : MachineClock {
     override fun now(): MachineTime = MachineTime((scheduler.currentTime - originMillis).milliseconds)
 
     override suspend fun delayUntil(deadline: MachineTime) {

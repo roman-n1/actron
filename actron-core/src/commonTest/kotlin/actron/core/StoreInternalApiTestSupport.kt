@@ -18,7 +18,6 @@ internal suspend fun <S : State, A : Action, E : Event> Store<S, A, E>.startAndA
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun <S : State, A : Action, E : Event> Store<S, A, E>.requireStoreInternalApi(): StoreInternalApi<S, A, E> {
-    return this as? StoreInternalApi<S, A, E>
+private fun <S : State, A : Action, E : Event> Store<S, A, E>.requireStoreInternalApi(): StoreInternalApi<S, A, E> =
+    this as? StoreInternalApi<S, A, E>
         ?: error("Expected Actron Store to implement StoreInternalApi")
-}

@@ -45,11 +45,22 @@ data class Lanes<CMD : Any>(
                 val started = next.start(registration)
                 started.copy(abandoned = superseded.map { LaneChange.Abandoned(it, AbandonReason.Superseded) })
             }
-            ConcurrencyPolicy.Sequential -> if (runningIn(lane).isEmpty()) start(registration) else enqueue(registration, lane)
-            ConcurrencyPolicy.DropIfRunning ->
+
+            ConcurrencyPolicy.Sequential -> {
+                if (runningIn(lane).isEmpty()) start(registration) else enqueue(registration, lane)
+            }
+
+            ConcurrencyPolicy.DropIfRunning -> {
                 if (runningIn(lane).isEmpty()) start(registration) else LaneChange(this, abandoned = listOf(LaneChange.Abandoned(registration, AbandonReason.Dropped)))
-            is ConcurrencyPolicy.Parallel -> if (runningIn(lane).size < policy.limit) start(registration) else enqueue(registration, lane)
-            ConcurrencyPolicy.Independent -> start(registration)
+            }
+
+            is ConcurrencyPolicy.Parallel -> {
+                if (runningIn(lane).size < policy.limit) start(registration) else enqueue(registration, lane)
+            }
+
+            ConcurrencyPolicy.Independent -> {
+                start(registration)
+            }
         }
     }
 
@@ -67,11 +78,12 @@ data class Lanes<CMD : Any>(
         while (true) {
             val waiting = next.queued[lane] ?: break
             val candidate = waiting.first()
-            val fits = when (val policy = candidate.policy) {
-                ConcurrencyPolicy.Sequential -> next.runningIn(lane).isEmpty()
-                is ConcurrencyPolicy.Parallel -> next.runningIn(lane).size < policy.limit
-                else -> true
-            }
+            val fits =
+                when (val policy = candidate.policy) {
+                    ConcurrencyPolicy.Sequential -> next.runningIn(lane).isEmpty()
+                    is ConcurrencyPolicy.Parallel -> next.runningIn(lane).size < policy.limit
+                    else -> true
+                }
             if (!fits) break
             next = next.copy(running = next.running + (candidate.id to candidate), queued = next.without(lane, candidate))
             started += candidate
@@ -95,13 +107,17 @@ data class Lanes<CMD : Any>(
     /** The running commands of [lane], in start order. */
     fun runningIn(lane: LaneId): List<CommandRegistration<CMD>> = running.values.filter { it.lane == lane }
 
-    private fun start(registration: CommandRegistration<CMD>): LaneChange<CMD> =
-        LaneChange(copy(running = running + (registration.id to registration)), started = listOf(registration))
+    private fun start(registration: CommandRegistration<CMD>): LaneChange<CMD> = LaneChange(copy(running = running + (registration.id to registration)), started = listOf(registration))
 
-    private fun enqueue(registration: CommandRegistration<CMD>, lane: LaneId): LaneChange<CMD> =
-        LaneChange(copy(queued = queued + (lane to (queued[lane] ?: emptyList()) + registration)))
+    private fun enqueue(
+        registration: CommandRegistration<CMD>,
+        lane: LaneId,
+    ): LaneChange<CMD> = LaneChange(copy(queued = queued + (lane to (queued[lane] ?: emptyList()) + registration)))
 
-    private fun without(lane: LaneId, registration: CommandRegistration<CMD>): Map<LaneId, List<CommandRegistration<CMD>>> {
+    private fun without(
+        lane: LaneId,
+        registration: CommandRegistration<CMD>,
+    ): Map<LaneId, List<CommandRegistration<CMD>>> {
         val rest = (queued[lane] ?: emptyList()) - registration
         return if (rest.isEmpty()) queued - lane else queued + (lane to rest)
     }
@@ -124,5 +140,8 @@ data class LaneChange<CMD : Any>(
     val abandoned: List<Abandoned<CMD>> = emptyList(),
 ) {
     /** A command the executor gave up on, and why. */
-    data class Abandoned<CMD : Any>(val registration: CommandRegistration<CMD>, val reason: AbandonReason)
+    data class Abandoned<CMD : Any>(
+        val registration: CommandRegistration<CMD>,
+        val reason: AbandonReason,
+    )
 }

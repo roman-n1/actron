@@ -1,9 +1,8 @@
 package actron.statechart.machine
 
-import actron.core.InputAttribution
-
 import actron.core.Event
 import actron.core.ExperimentalActronApi
+import actron.core.InputAttribution
 import actron.core.InputId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -37,7 +36,9 @@ sealed interface EffectPolicy {
      * retry budget of the category (handoff §10), against an effect that crashes every
      * subscriber it reaches; [RetryBudget.Unlimited] keeps retrying
      */
-    data class Retained(val retryBudget: RetryBudget = RetryBudget.Unlimited) : EffectPolicy {
+    data class Retained(
+        val retryBudget: RetryBudget = RetryBudget.Unlimited,
+    ) : EffectPolicy {
         constructor(maxAttempts: Int) : this(RetryBudget.Limited(maxAttempts))
     }
 
@@ -47,40 +48,51 @@ sealed interface EffectPolicy {
      *
      * @property retryBudget The retry budget, as [Retained.retryBudget]
      */
-    data class Latest(val key: String, val retryBudget: RetryBudget = RetryBudget.Unlimited) : EffectPolicy {
+    data class Latest(
+        val key: String,
+        val retryBudget: RetryBudget = RetryBudget.Unlimited,
+    ) : EffectPolicy {
         constructor(key: String, maxAttempts: Int) : this(key, RetryBudget.Limited(maxAttempts))
     }
 
     /** The policy's name, the journal's vocabulary; a budget follows in brackets. */
     val name: String
-        get() = when (this) {
-            Transient -> "Transient"
-            is Retained -> "Retained" + retryBudget.suffix
-            is Latest -> "Latest($key)" + retryBudget.suffix
-        }
+        get() =
+            when (this) {
+                Transient -> "Transient"
+                is Retained -> "Retained" + retryBudget.suffix
+                is Latest -> "Latest($key)" + retryBudget.suffix
+            }
 
-    fun exhausted(attempts: Int): Boolean = when (this) {
-        Transient -> false
-        is Retained -> retryBudget.exhausted(attempts)
-        is Latest -> retryBudget.exhausted(attempts)
-    }
+    fun exhausted(attempts: Int): Boolean =
+        when (this) {
+            Transient -> false
+            is Retained -> retryBudget.exhausted(attempts)
+            is Latest -> retryBudget.exhausted(attempts)
+        }
 }
 
 /** Decides when failed effect deliveries exhaust their retry policy. */
 sealed interface RetryBudget {
     fun exhausted(attempts: Int): Boolean
+
     val suffix: String
 
     data object Unlimited : RetryBudget {
         override fun exhausted(attempts: Int): Boolean = false
+
         override val suffix: String = ""
     }
 
-    data class Limited(val maxAttempts: Int) : RetryBudget {
+    data class Limited(
+        val maxAttempts: Int,
+    ) : RetryBudget {
         init {
             require(maxAttempts >= 1) { "[Actron] maxAttempts must be at least 1" }
         }
+
         override fun exhausted(attempts: Int): Boolean = attempts >= maxAttempts
+
         override val suffix: String get() = "[$maxAttempts]"
     }
 }
@@ -112,7 +124,13 @@ enum class EffectDiscardReason {
  * @property attempts How many times a subscriber took it
  * @property handling Whether a subscriber has it now
  */
-data class PendingEffect<out E : Event>(val id: EffectId, val event: E, val policy: EffectPolicy, val attempts: Int, val handling: Boolean)
+data class PendingEffect<out E : Event>(
+    val id: EffectId,
+    val event: E,
+    val policy: EffectPolicy,
+    val attempts: Int,
+    val handling: Boolean,
+)
 
 /**
  * An effect handed to a subscriber of the mailbox. [acknowledge] it once the UI did what it
@@ -138,13 +156,19 @@ class Delivery<out E : Event> internal constructor(
  * continues.
  */
 interface EffectListener<in E : Event> {
-    fun onQueued(input: InputAttribution, effect: PendingEffect<E>) {}
+    fun onQueued(
+        input: InputAttribution,
+        effect: PendingEffect<E>,
+    ) {}
 
     fun onHandlingStarted(effect: PendingEffect<E>) {}
 
     fun onAcknowledged(id: EffectId) {}
 
-    fun onDiscarded(id: EffectId, reason: EffectDiscardReason) {}
+    fun onDiscarded(
+        id: EffectId,
+        reason: EffectDiscardReason,
+    ) {}
 }
 
 /**
@@ -219,18 +243,29 @@ internal class MailboxImpl<E : Event>(
 
     private sealed interface DeliveryOwner {
         val handling: Boolean
+
         fun belongsTo(subscriber: Any): Boolean
+
         data object Waiting : DeliveryOwner {
             override val handling = false
+
             override fun belongsTo(subscriber: Any): Boolean = false
         }
-        class Subscriber(private val identity: Any) : DeliveryOwner {
+
+        class Subscriber(
+            private val identity: Any,
+        ) : DeliveryOwner {
             override val handling = true
+
             override fun belongsTo(subscriber: Any): Boolean = identity === subscriber
         }
     }
 
-    private class Entry<E : Event>(val id: EffectId, val event: E, val policy: EffectPolicy) {
+    private class Entry<E : Event>(
+        val id: EffectId,
+        val event: E,
+        val policy: EffectPolicy,
+    ) {
         var attempts = 0
         var handler: DeliveryOwner = DeliveryOwner.Waiting
 
@@ -241,100 +276,112 @@ internal class MailboxImpl<E : Event>(
         get() = locked { entries.map { it.pending() } }
 
     /** Queues the effects of a decision made while processing [input]. */
-    fun enqueue(input: InputAttribution, effects: List<EffectEnvelope<E>>) {
+    fun enqueue(
+        input: InputAttribution,
+        effects: List<EffectEnvelope<E>>,
+    ) {
         for (effect in effects) {
-            val policy = try {
-                config.policy(effect.event)
-            } catch (e: Exception) {
-                report(e)
-                EffectPolicy.Transient
-            }
+            val policy =
+                try {
+                    config.policy(effect.event)
+                } catch (e: Exception) {
+                    report(e)
+                    EffectPolicy.Transient
+                }
             if (policy == EffectPolicy.Transient) {
                 transientChannel.trySend(effect.event)
                 continue
             }
             val discarded = mutableListOf<Pair<EffectId, EffectDiscardReason>>()
-            val announceQueued: () -> Unit = locked {
-                if (closed) {
-                    discarded += effect.id to EffectDiscardReason.StoreClosed
-                    return@locked {}
+            val announceQueued: () -> Unit =
+                locked {
+                    if (closed) {
+                        discarded += effect.id to EffectDiscardReason.StoreClosed
+                        return@locked {}
+                    }
+                    if (policy is EffectPolicy.Latest) {
+                        val superseded = entries.filter { !it.handler.handling && (it.policy as? EffectPolicy.Latest)?.key == policy.key }
+                        entries.removeAll(superseded)
+                        for (old in superseded) discarded += old.id to EffectDiscardReason.Superseded
+                    }
+                    while (entries.size >= config.maxRetained) {
+                        val waiting = entries.filter { !it.handler.handling }
+                        if (waiting.isEmpty()) break
+                        val oldest = waiting.first()
+                        entries.remove(oldest)
+                        discarded += oldest.id to EffectDiscardReason.Overflow
+                    }
+                    if (entries.size >= config.maxRetained) {
+                        // Every held effect is being handled: the new one has no room.
+                        discarded += effect.id to EffectDiscardReason.Overflow
+                        return@locked {}
+                    }
+                    val queued = Entry(effect.id, effect.event, policy).also { entries += it }.pending()
+                    val announce: () -> Unit = {
+                        notify { it.onQueued(input, queued) }
+                        ring()
+                    }
+                    announce
                 }
-                if (policy is EffectPolicy.Latest) {
-                    val superseded = entries.filter { !it.handler.handling && (it.policy as? EffectPolicy.Latest)?.key == policy.key }
-                    entries.removeAll(superseded)
-                    for (old in superseded) discarded += old.id to EffectDiscardReason.Superseded
-                }
-                while (entries.size >= config.maxRetained) {
-                    val waiting = entries.filter { !it.handler.handling }
-                    if (waiting.isEmpty()) break
-                    val oldest = waiting.first()
-                    entries.remove(oldest)
-                    discarded += oldest.id to EffectDiscardReason.Overflow
-                }
-                if (entries.size >= config.maxRetained) {
-                    // Every held effect is being handled: the new one has no room.
-                    discarded += effect.id to EffectDiscardReason.Overflow
-                    return@locked {}
-                }
-                val queued = Entry(effect.id, effect.event, policy).also { entries += it }.pending()
-                val announce: () -> Unit = {
-                    notify { it.onQueued(input, queued) }
-                    ring()
-                }
-                announce
-            }
             for ((id, reason) in discarded) notify { it.onDiscarded(id, reason) }
             announceQueued()
         }
     }
 
-    override fun subscribe(): Flow<Delivery<E>> = flow {
-        val subscriber = Any()
-        try {
-            while (true) {
-                // The doorbell is read before the queue: a ring between the two is not missed.
-                val seen = doorbell.value
-                val receive: suspend () -> Unit = locked {
-                    if (closed) return@flow
-                    val waiting = entries.filter { !it.handler.handling }
-                    if (waiting.isEmpty()) {
-                        val wait: suspend () -> Unit = { doorbell.first { it != seen }; Unit }
-                        wait
-                    } else {
-                        val entry = waiting.first()
-                        entry.handler = DeliveryOwner.Subscriber(subscriber)
-                        entry.attempts++
-                        val taken = entry.pending()
-                        val deliver: suspend () -> Unit = {
-                            notify { it.onHandlingStarted(taken) }
-                            emit(Delivery(taken.id, taken.event, taken.attempts) { acknowledge(taken.id) })
+    override fun subscribe(): Flow<Delivery<E>> =
+        flow {
+            val subscriber = Any()
+            try {
+                while (true) {
+                    // The doorbell is read before the queue: a ring between the two is not missed.
+                    val seen = doorbell.value
+                    val receive: suspend () -> Unit =
+                        locked {
+                            if (closed) return@flow
+                            val waiting = entries.filter { !it.handler.handling }
+                            if (waiting.isEmpty()) {
+                                val wait: suspend () -> Unit = {
+                                    doorbell.first { it != seen }
+                                    Unit
+                                }
+                                wait
+                            } else {
+                                val entry = waiting.first()
+                                entry.handler = DeliveryOwner.Subscriber(subscriber)
+                                entry.attempts++
+                                val taken = entry.pending()
+                                val deliver: suspend () -> Unit = {
+                                    notify { it.onHandlingStarted(taken) }
+                                    emit(Delivery(taken.id, taken.event, taken.attempts) { acknowledge(taken.id) })
+                                }
+                                deliver
+                            }
                         }
-                        deliver
-                    }
+                    receive()
                 }
-                receive()
+            } finally {
+                // The subscriber is gone: what it was handling waits for the next one, unless the
+                // policy's budget of attempts is spent.
+                val (released, exhausted) =
+                    locked {
+                        val held = entries.filter { it.handler.belongsTo(subscriber) }
+                        val spent = held.filter { entry -> entry.policy.exhausted(entry.attempts) }
+                        entries.removeAll(spent)
+                        for (entry in held) if (entry !in spent) entry.handler = DeliveryOwner.Waiting
+                        (held.size > spent.size) to spent
+                    }
+                for (entry in exhausted) notify { it.onDiscarded(entry.id, EffectDiscardReason.Exhausted) }
+                if (released) ring()
             }
-        } finally {
-            // The subscriber is gone: what it was handling waits for the next one, unless the
-            // policy's budget of attempts is spent.
-            val (released, exhausted) = locked {
-                val held = entries.filter { it.handler.belongsTo(subscriber) }
-                val spent = held.filter { entry -> entry.policy.exhausted(entry.attempts) }
-                entries.removeAll(spent)
-                for (entry in held) if (entry !in spent) entry.handler = DeliveryOwner.Waiting
-                (held.size > spent.size) to spent
-            }
-            for (entry in exhausted) notify { it.onDiscarded(entry.id, EffectDiscardReason.Exhausted) }
-            if (released) ring()
         }
-    }
 
     override fun acknowledge(id: EffectId): Boolean {
-        val removed = locked {
-            val index = entries.indexOfFirst { it.id == id }
-            if (index >= 0) entries.removeAt(index)
-            index >= 0
-        }
+        val removed =
+            locked {
+                val index = entries.indexOfFirst { it.id == id }
+                if (index >= 0) entries.removeAt(index)
+                index >= 0
+            }
         if (removed) notify { it.onAcknowledged(id) }
         return removed
     }
@@ -344,12 +391,13 @@ internal class MailboxImpl<E : Event>(
 
     /** Discards every pending effect as [EffectDiscardReason.StoreClosed] and ends the subscribers. */
     fun close() {
-        val remaining = locked {
-            closed = true
-            val all = entries.toList()
-            entries.clear()
-            all
-        }
+        val remaining =
+            locked {
+                closed = true
+                val all = entries.toList()
+                entries.clear()
+                all
+            }
         for (entry in remaining) notify { it.onDiscarded(entry.id, EffectDiscardReason.StoreClosed) }
         transientChannel.close()
         ring()

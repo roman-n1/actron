@@ -1,10 +1,10 @@
 package actron.diagnostics.sdk
 
-import com.google.firebase.crashlytics.*
 import actron.core.InputId
 import actron.diagnostics.*
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.*
+import com.google.firebase.crashlytics.*
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.*
 import kotlin.test.*
@@ -13,10 +13,24 @@ class CrashlyticsDiagnosticSinkTest {
     @Test fun sendsPerReportKeysWithoutGlobalCustomKeyMutationOrSdkInitialization() {
         val sdk = checkNotNull(mock(FirebaseCrashlytics::class.java))
         val origin = TraceOrigin(StoreInstanceId("store"), InputId(1), 1)
-        val event = CausalTraceEvent(DefinitionId("workflow"), DefinitionVersion("1"), origin, TraceLineage.Root(origin),
-            "dispatch", MachineTime.Zero, TraceProvenance.Local, emptyList(), emptyList(), emptyList(),
-            TraceAssessment.Decided(DecisionExplanation(emptySet(), emptyList(), emptyList()), "failed",
-                listOf(TraceFault.of(FailureSource.Decision, actron.observability.FailureDescriptor("SafeType")))))
+        val event =
+            CausalTraceEvent(
+                DefinitionId("workflow"),
+                DefinitionVersion("1"),
+                origin,
+                TraceLineage.Root(origin),
+                "dispatch",
+                MachineTime.Zero,
+                TraceProvenance.Local,
+                emptyList(),
+                emptyList(),
+                emptyList(),
+                TraceAssessment.Decided(
+                    DecisionExplanation(emptySet(), emptyList(), emptyList()),
+                    "failed",
+                    listOf(TraceFault.of(FailureSource.Decision, actron.observability.FailureDescriptor("SafeType"))),
+                ),
+            )
         CrashlyticsDiagnosticSink(sdk).emit(event)
         verify(sdk).log("Actron workflow dispatch failed")
         val failure: ArgumentCaptor<Throwable> = checkNotNull(ArgumentCaptor.forClass(Throwable::class.java))

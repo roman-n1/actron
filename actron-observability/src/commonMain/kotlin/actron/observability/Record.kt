@@ -2,10 +2,9 @@
 
 package actron.observability
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.core.InternalActronApi
 import actron.core.State
@@ -66,45 +65,72 @@ sealed interface JournalEntry<out S : State, out A : Action, out E : Event> {
     /**
      * A Store started recording into the session, with what its recording can be used for.
      */
-    data class StoreRegistered(val capability: Capability) : JournalEntry<Nothing, Nothing, Nothing>
+    data class StoreRegistered(
+        val capability: Capability,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * The Store accepted [input]; see [InputDescriptor] for what it is.
      */
-    data class InputAccepted<out A : Action>(val input: InputId, val kind: InputDescriptor<A>) : JournalEntry<Nothing, A, Nothing>
+    data class InputAccepted<out A : Action>(
+        val input: InputId,
+        val kind: InputDescriptor<A>,
+    ) : JournalEntry<Nothing, A, Nothing>
 
     /**
      * [input] will never be processed.
      */
-    data class InputDiscarded(val input: InputId, val reason: DiscardDescriptor) : JournalEntry<Nothing, Nothing, Nothing>
+    data class InputDiscarded(
+        val input: InputId,
+        val reason: DiscardDescriptor,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * Processing of [input] began; [ordinal] is the Store's dense processing number.
      */
-    data class ProcessingStarted(val input: InputId, val ordinal: Long) : JournalEntry<Nothing, Nothing, Nothing>
+    data class ProcessingStarted(
+        val input: InputId,
+        val ordinal: Long,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * A snapshot was committed while processing [input]; [revision] is the Store's dense commit
      * number. [previous] and [state] are what the policy kept of the two snapshots.
      */
-    data class StateCommitted<out S : State>(val input: InputId, val revision: Long, val previous: Payload<S>, val state: Payload<S>) : JournalEntry<S, Nothing, Nothing>
+    data class StateCommitted<out S : State>(
+        val input: InputId,
+        val revision: Long,
+        val previous: Payload<S>,
+        val state: Payload<S>,
+    ) : JournalEntry<S, Nothing, Nothing>
 
     /**
      * An event was emitted by the processing of [input], or by a coroutine it launched.
      */
-    data class EventEmitted<out E : Event>(val input: InputAttribution, val event: Payload<E>) : JournalEntry<Nothing, Nothing, E>
+    data class EventEmitted<out E : Event>(
+        val input: InputAttribution,
+        val event: Payload<E>,
+    ) : JournalEntry<Nothing, Nothing, E>
 
     /**
      * A failure reached the Store's exception handler while processing [input], or from a
      * coroutine it launched; [InputAttribution.Unattributed] when the Store could not tell.
      */
-    data class FailureReported(val input: InputAttribution, val failure: FailureDescriptor) : JournalEntry<Nothing, Nothing, Nothing>
+    data class FailureReported(
+        val input: InputAttribution,
+        val failure: FailureDescriptor,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * Processing of [input] ended with [outcome] after [duration], measured from its
      * [ProcessingStarted] with the session's time source.
      */
-    data class ProcessingFinished(val input: InputId, val ordinal: Long, val outcome: OutcomeDescriptor, val duration: Duration) : JournalEntry<Nothing, Nothing, Nothing>
+    data class ProcessingFinished(
+        val input: InputId,
+        val ordinal: Long,
+        val outcome: OutcomeDescriptor,
+        val duration: Duration,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * Every coroutine of the Store has ended.
@@ -115,7 +141,10 @@ sealed interface JournalEntry<out S : State, out A : Action, out E : Event> {
      * An action was refused at admission, before it became an input: the store's pending queue
      * was full. Nothing of it was processed. [action] is what the policy kept of it.
      */
-    data class InputRejected<out A : Action>(val action: Payload<A>, val reason: String) : JournalEntry<Nothing, A, Nothing>
+    data class InputRejected<out A : Action>(
+        val action: Payload<A>,
+        val reason: String,
+    ) : JournalEntry<Nothing, A, Nothing>
 
     /**
      * The decision of a replay-ready machine behind the [StateCommitted] of the same [input]
@@ -142,7 +171,10 @@ sealed interface JournalEntry<out S : State, out A : Action, out E : Event> {
      * A replay-ready machine ignored [input] for [reason] (the machine's `IgnoreReason` name):
      * nothing was committed.
      */
-    data class DecisionIgnored(val input: InputAttribution, val reason: String) : JournalEntry<Nothing, Nothing, Nothing>
+    data class DecisionIgnored(
+        val input: InputAttribution,
+        val reason: String,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * A bridge routed an effect of this Store to [to] as the message [message]; [delivered] is
@@ -151,54 +183,91 @@ sealed interface JournalEntry<out S : State, out A : Action, out E : Event> {
      * was deciding when it emitted the effect, when it was one: the request a reply decided in
      * the same step replies to.
      */
-    data class BridgeSent(val input: InputAttribution, val message: MessageRef, val to: StoreInstanceId, val delivered: Boolean, val cause: MessageCause = MessageCause.Unprompted) : JournalEntry<Nothing, Nothing, Nothing>
+    data class BridgeSent(
+        val input: InputAttribution,
+        val message: MessageRef,
+        val to: StoreInstanceId,
+        val delivered: Boolean,
+        val cause: MessageCause = MessageCause.Unprompted,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * This Store decided the bridge message [message] while processing [input]: the
      * `BridgeReceived` input the message became was handled, ignored or failed.
      */
-    data class BridgeReceived(val input: InputAttribution, val message: MessageRef) : JournalEntry<Nothing, Nothing, Nothing>
+    data class BridgeReceived(
+        val input: InputAttribution,
+        val message: MessageRef,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * The bridge message [message], delivered to [to] and not yet decided, never will be: the
      * store it was delivered to closed ([reason] `StoreClosed`). A record of [to]; nothing of
      * the message was processed, and it is not in flight any more.
      */
-    data class BridgeDropped(val message: MessageRef, val to: StoreInstanceId, val reason: String) : JournalEntry<Nothing, Nothing, Nothing>
+    data class BridgeDropped(
+        val message: MessageRef,
+        val to: StoreInstanceId,
+        val reason: String,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * The effect [effect] of a decision made while processing [input] entered the Store's
      * mailbox under [policy] (the policy's name); [event] is what the describer kept of it.
      */
-    data class EffectQueued<out E : Event>(val input: InputAttribution, val effect: Long, val policy: String, val event: Payload<E>) : JournalEntry<Nothing, Nothing, E>
+    data class EffectQueued<out E : Event>(
+        val input: InputAttribution,
+        val effect: Long,
+        val policy: String,
+        val event: Payload<E>,
+    ) : JournalEntry<Nothing, Nothing, E>
 
     /** A subscriber took the effect [effect] from the mailbox, for the [attempt]th time. */
-    data class EffectHandlingStarted(val effect: Long, val attempt: Int) : JournalEntry<Nothing, Nothing, Nothing>
+    data class EffectHandlingStarted(
+        val effect: Long,
+        val attempt: Int,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /** The effect [effect] was acknowledged: the UI did what it asked. */
-    data class EffectAcknowledged(val effect: Long) : JournalEntry<Nothing, Nothing, Nothing>
+    data class EffectAcknowledged(
+        val effect: Long,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /** The mailbox gave up the effect [effect] for [reason] (the reason's name) without an acknowledgement. */
-    data class EffectDiscarded(val effect: Long, val reason: String) : JournalEntry<Nothing, Nothing, Nothing>
+    data class EffectDiscarded(
+        val effect: Long,
+        val reason: String,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * This Store decided an input the external source [source] fed while processing [input].
      */
-    data class ExternalReceived(val input: InputAttribution, val source: String) : JournalEntry<Nothing, Nothing, Nothing>
+    data class ExternalReceived(
+        val input: InputAttribution,
+        val source: String,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * A consistent cut of the group was taken: [members] were frozen and idle, [sources] were
      * paused and snapshotted, [inFlight] bridge messages were on their way. A record of the
      * session itself, at the boundary the cut was taken at.
      */
-    data class CheckpointCreated(val members: List<StoreInstanceId>, val sources: List<String>, val inFlight: Int) : JournalEntry<Nothing, Nothing, Nothing>
+    data class CheckpointCreated(
+        val members: List<StoreInstanceId>,
+        val sources: List<String>,
+        val inFlight: Int,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * The Store closed with commands its executor had not finished, for [reason] (`StoreClosed`):
      * [queued] had been registered and never started, [running] were cancelled. Journaled once
      * by the executor as it stops, which may be before or after the Store's own [StoreClosed].
      */
-    data class CommandsAbandoned(val reason: String, val queued: List<Long>, val running: List<Long>) : JournalEntry<Nothing, Nothing, Nothing>
+    data class CommandsAbandoned(
+        val reason: String,
+        val queued: List<Long>,
+        val running: List<Long>,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * [dropped] published records before this one never reached the sinks: the writer's queue was
@@ -206,7 +275,9 @@ sealed interface JournalEntry<out S : State, out A : Action, out E : Event> {
      * number of its own, so a sink sees the hole between the previous record and this one, and
      * the count tells whether the hole is fully explained.
      */
-    data class JournalGap(val dropped: Long) : JournalEntry<Nothing, Nothing, Nothing>
+    data class JournalGap(
+        val dropped: Long,
+    ) : JournalEntry<Nothing, Nothing, Nothing>
 
     /**
      * The session stopped recording: nothing published after this reaches the sinks or the
@@ -221,13 +292,20 @@ sealed interface JournalEntry<out S : State, out A : Action, out E : Event> {
 sealed interface InputDescriptor<out A : Action> {
     data object Startup : InputDescriptor<Nothing>
 
-    data class Dispatch<out A : Action>(val action: Payload<A>) : InputDescriptor<A>
+    data class Dispatch<out A : Action>(
+        val action: Payload<A>,
+    ) : InputDescriptor<A>
 
     /** A `transaction {}` from a coroutine launched while processing [origin]. */
-    data class Transaction(val origin: InputAttribution) : InputDescriptor<Nothing>
+    data class Transaction(
+        val origin: InputAttribution,
+    ) : InputDescriptor<Nothing>
 
     /** The `recover {}` pass for a launched coroutine of [origin] that failed with [failure]. */
-    data class Recovery(val failure: FailureDescriptor, val origin: InputAttribution) : InputDescriptor<Nothing>
+    data class Recovery(
+        val failure: FailureDescriptor,
+        val origin: InputAttribution,
+    ) : InputDescriptor<Nothing>
 }
 
 /**
@@ -252,22 +330,35 @@ sealed interface DiscardDescriptor {
     val kind: DiscardKind
     val hasFailure: Boolean
     val detailSuffix: String
+
     fun withFailure(accept: (FailureDescriptor) -> Unit)
 
-    data class Reason(override val kind: DiscardKind) : DiscardDescriptor {
+    data class Reason(
+        override val kind: DiscardKind,
+    ) : DiscardDescriptor {
         override val hasFailure: Boolean = false
         override val detailSuffix: String = ""
+
         override fun withFailure(accept: (FailureDescriptor) -> Unit) = Unit
     }
-    data class Failure(override val kind: DiscardKind, val failure: FailureDescriptor) : DiscardDescriptor {
+
+    data class Failure(
+        override val kind: DiscardKind,
+        val failure: FailureDescriptor,
+    ) : DiscardDescriptor {
         override val hasFailure: Boolean = true
         override val detailSuffix: String get() = " " + JournalFormat.failure(failure)
+
         override fun withFailure(accept: (FailureDescriptor) -> Unit) = accept(failure)
     }
 }
 
 fun DiscardDescriptor(kind: DiscardKind): DiscardDescriptor = DiscardDescriptor.Reason(kind)
-fun DiscardDescriptor(kind: DiscardKind, failure: FailureDescriptor): DiscardDescriptor = DiscardDescriptor.Failure(kind, failure)
+
+fun DiscardDescriptor(
+    kind: DiscardKind,
+    failure: FailureDescriptor,
+): DiscardDescriptor = DiscardDescriptor.Failure(kind, failure)
 
 /**
  * How a processing ended; the names are the wire vocabulary.
@@ -289,31 +380,58 @@ sealed interface OutcomeDescriptor {
     val kind: OutcomeKind
     val commits: Int
     val hasFailure: Boolean
+
     fun withFailure(accept: (FailureDescriptor) -> Unit)
 
-    data class Decision(override val kind: OutcomeKind, override val commits: Int) : OutcomeDescriptor {
+    data class Decision(
+        override val kind: OutcomeKind,
+        override val commits: Int,
+    ) : OutcomeDescriptor {
         override val hasFailure: Boolean = false
+
         override fun withFailure(accept: (FailureDescriptor) -> Unit) = Unit
     }
-    data class Failure(override val kind: OutcomeKind, override val commits: Int, val failure: FailureDescriptor) : OutcomeDescriptor {
+
+    data class Failure(
+        override val kind: OutcomeKind,
+        override val commits: Int,
+        val failure: FailureDescriptor,
+    ) : OutcomeDescriptor {
         override val hasFailure: Boolean = true
+
         override fun withFailure(accept: (FailureDescriptor) -> Unit) = accept(failure)
     }
 }
 
-fun OutcomeDescriptor(kind: OutcomeKind, commits: Int = 0): OutcomeDescriptor = OutcomeDescriptor.Decision(kind, commits)
-fun OutcomeDescriptor(kind: OutcomeKind, commits: Int = 0, failure: FailureDescriptor): OutcomeDescriptor = OutcomeDescriptor.Failure(kind, commits, failure)
+fun OutcomeDescriptor(
+    kind: OutcomeKind,
+    commits: Int = 0,
+): OutcomeDescriptor = OutcomeDescriptor.Decision(kind, commits)
+
+fun OutcomeDescriptor(
+    kind: OutcomeKind,
+    commits: Int = 0,
+    failure: FailureDescriptor,
+): OutcomeDescriptor = OutcomeDescriptor.Failure(kind, commits, failure)
 
 /**
  * A node with an activation id, as a decision names them.
  */
-data class ActivationRef(val node: String, val activation: Long)
+data class ActivationRef(
+    val node: String,
+    val activation: Long,
+)
 
 /**
  * A command a decision registered: its id, the activation it belongs to, its lane and policy
  * names, and what the policy kept of the command itself.
  */
-data class CommandRef(val id: Long, val scope: Long, val execution: CommandExecution, val command: Payload<Any>) {
+data class CommandRef(
+    val id: Long,
+    val scope: Long,
+    val execution: CommandExecution,
+    val command: Payload<Any>,
+) {
     constructor(id: Long, scope: Long, lane: String, policy: String, command: Payload<Any>) :
         this(id, scope, CommandExecution.InLane(lane, policy), command)
 }
@@ -328,7 +446,10 @@ sealed interface CommandExecution {
         override val description: String = ""
     }
 
-    data class InLane(val lane: String, val policy: String) : CommandExecution {
+    data class InLane(
+        val lane: String,
+        val policy: String,
+    ) : CommandExecution {
         override val journalSuffix: String get() = " $lane/$policy"
         override val description: String get() = " in $lane ($policy)"
     }
@@ -338,28 +459,41 @@ sealed interface CommandExecution {
  * A timer a decision scheduled: its id, the transition it fires (by position in the chart), the
  * activation of its source and when it is due on the machine's clock.
  */
-data class TimerRef(val id: Long, val transition: Int, val activation: Long, val deadline: Duration)
+data class TimerRef(
+    val id: Long,
+    val transition: Int,
+    val activation: Long,
+    val deadline: Duration,
+)
 
-/**
+/*
  * A bridge message as the journal names it: the Store that sent it and the id of the effect it
  * was routed from, so the same effect gives the same message in a replay.
  */
+
 /** Whether a bridge message was decided while receiving another bridge message. */
 sealed interface MessageCause {
     val prompted: Boolean
     val replySuffix: String
+
     fun withMessage(accept: (MessageRef) -> Unit)
 
     data object Unprompted : MessageCause {
         override val prompted: Boolean = false
         override val replySuffix: String = ""
+
         override fun withMessage(accept: (MessageRef) -> Unit) = Unit
     }
 }
 
-data class MessageRef(val from: StoreInstanceId, val effect: Long) : MessageCause {
+data class MessageRef(
+    val from: StoreInstanceId,
+    val effect: Long,
+) : MessageCause {
     override val prompted: Boolean = true
     override val replySuffix: String get() = " reply-to=$this"
+
     override fun withMessage(accept: (MessageRef) -> Unit) = accept(this)
+
     override fun toString(): String = "${from.value}/e$effect"
 }

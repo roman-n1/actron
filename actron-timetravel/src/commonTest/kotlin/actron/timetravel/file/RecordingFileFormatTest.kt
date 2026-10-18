@@ -45,9 +45,10 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```
  */
 class RecordingFileFormatTest {
-
     @Serializable
-    data class Ctx(val n: Int = 0)
+    data class Ctx(
+        val n: Int = 0,
+    )
 
     @Serializable
     sealed interface Act : Action {
@@ -64,10 +65,12 @@ class RecordingFileFormatTest {
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
-    private val machine = Machine<Ctx, Act, NoCommand, Ev>(
-        DefinitionId("counter"), DefinitionVersion("1"),
-        StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, ActionMatcher.of<Act.Inc>("Inc"), effect = actron.statechart.EffectKey("inc")))),
-    ) { effect("inc") { c, _ -> c.copy(n = c.n + 1) } }
+    private val machine =
+        Machine<Ctx, Act, NoCommand, Ev>(
+            DefinitionId("counter"),
+            DefinitionVersion("1"),
+            StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, ActionMatcher.of<Act.Inc>("Inc"), effect = actron.statechart.EffectKey("inc")))),
+        ) { effect("inc") { c, _ -> c.copy(n = c.n + 1) } }
 
     private val codec = RecordingCodec(Ctx.serializer(), Act.serializer(), NoCommand.serializer(), Ev.serializer())
     private val store = StoreInstanceId("counter-1")
@@ -82,7 +85,12 @@ class RecordingFileFormatTest {
         }
     }
 
-    private fun segment(steps: List<RecordedStep<Ctx, Act, NoCommand, Ev>>, index: Int = 0, firstStep: Int = 0, finished: Boolean = true): ByteArray {
+    private fun segment(
+        steps: List<RecordedStep<Ctx, Act, NoCommand, Ev>>,
+        index: Int = 0,
+        firstStep: Int = 0,
+        finished: Boolean = true,
+    ): ByteArray {
         val start = Recording<Ctx, Act, NoCommand, Ev>(machine.id, machine.version, machine.initialSnapshot(Ctx()), emptyList()).start
         var bytes = RecordingFileFormat.header(machine.id, machine.version, store, index, firstStep) + RecordingFileFormat.checkpointFrame(codec.encodeCheckpoint(start))
         for (step in steps) bytes += RecordingFileFormat.stepFrame(codec.encodeStep(step))

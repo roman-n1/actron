@@ -2,12 +2,11 @@
 
 package actron.statechart.machine
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
+import actron.core.InputAttribution
 import actron.core.InternalActronApi
 import actron.core.StoreProbe
 import actron.observability.JournalConfig
@@ -16,7 +15,6 @@ import actron.observability.Payload
 import actron.observability.PayloadPolicy
 import actron.observability.RecordingSession
 import actron.observability.StoreInstanceId
-import actron.statechart.recordTo
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.CompoundState
@@ -24,6 +22,7 @@ import actron.statechart.StateChartDefinition
 import actron.statechart.StateId
 import actron.statechart.Transition
 import actron.statechart.Trigger
+import actron.statechart.recordTo
 import actron.test.startAndAwait
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -56,41 +55,54 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```
  */
 class FaultInjectionTest {
-
-    data class Ctx(val loaded: List<Int> = emptyList(), val timeouts: Int = 0)
+    data class Ctx(
+        val loaded: List<Int> = emptyList(),
+        val timeouts: Int = 0,
+    )
 
     sealed interface Act : Action {
-        data class Load(val n: Int) : Act
-        data class Loaded(val n: Int) : Act
+        data class Load(
+            val n: Int,
+        ) : Act
+
+        data class Loaded(
+            val n: Int,
+        ) : Act
     }
 
     data object Nothing : Event
 
-    data class Fetch(val n: Int)
+    data class Fetch(
+        val n: Int,
+    )
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
     private val loading = StateId("Loading")
 
-    private val chart = StateChartDefinition(
-        root,
-        listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root)),
-        listOf(
-            Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
-            Transition(loading, idle, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("store")),
-            Transition(loading, loading, ActionMatcher.of<Act.Load>("Load")),
-            Transition(loading, idle, Trigger.After(50.milliseconds), effect = actron.statechart.EffectKey("timeout")),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            root,
+            listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root)),
+            listOf(
+                Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
+                Transition(loading, idle, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("store")),
+                Transition(loading, loading, ActionMatcher.of<Act.Load>("Load")),
+                Transition(loading, idle, Trigger.After(50.milliseconds), effect = actron.statechart.EffectKey("timeout")),
+            ),
+        )
 
-    private val machine = Machine<Ctx, Act, Fetch, Nothing>(DefinitionId("faults"), DefinitionVersion("1"), chart) {
-        effect("store") { c, a -> c.copy(loaded = c.loaded + (a as Act.Loaded).n) }
-        effect("timeout") { c, _ -> c.copy(timeouts = c.timeouts + 1) }
-        onEnter(loading) { command(Fetch((action as Act.Load).n)) }
-    }
+    private val machine =
+        Machine<Ctx, Act, Fetch, Nothing>(DefinitionId("faults"), DefinitionVersion("1"), chart) {
+            effect("store") { c, a -> c.copy(loaded = c.loaded + (a as Act.Loaded).n) }
+            effect("timeout") { c, _ -> c.copy(timeouts = c.timeouts + 1) }
+            onEnter(loading) { command(Fetch((action as Act.Load).n)) }
+        }
 
     /** Relative to its creation: several stores run one after another on one virtual clock. */
-    private class TestClock(private val scheduler: TestCoroutineScheduler) : MachineClock {
+    private class TestClock(
+        private val scheduler: TestCoroutineScheduler,
+    ) : MachineClock {
         private val origin = scheduler.currentTime
 
         override fun now(): MachineTime = MachineTime((scheduler.currentTime - origin).milliseconds)
@@ -102,7 +114,10 @@ class FaultInjectionTest {
     }
 
     /** The scripted scenario: loads with latencies that let some time out and some answer. */
-    private suspend fun TestScope.scenario(store: MachineStore<Ctx, Act, Fetch, Nothing>, snapshots: MutableList<MachineSnapshot<Ctx>>) {
+    private suspend fun TestScope.scenario(
+        store: MachineStore<Ctx, Act, Fetch, Nothing>,
+        snapshots: MutableList<MachineSnapshot<Ctx>>,
+    ) {
         store.startAndAwait()
         runCurrent()
         val random = Random(99)
@@ -116,71 +131,95 @@ class FaultInjectionTest {
         snapshots += store.currentState
     }
 
-    private fun TestScope.newStore(inject: (Int, String) -> Unit = { _, _ -> }, configure: actron.statechart.StoreConfiguration<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>.() -> Unit = {}, handled: MutableList<Throwable>, committed: MutableList<MachineSnapshot<Ctx>>): Pair<MachineStore<Ctx, Act, Fetch, Nothing>, CoroutineScope> {
+    private fun TestScope.newStore(
+        inject: (Int, String) -> Unit = { _, _ -> },
+        configure: actron.statechart.StoreConfiguration<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>.() -> Unit = {},
+        handled: MutableList<Throwable>,
+        committed: MutableList<MachineSnapshot<Ctx>>,
+    ): Pair<MachineStore<Ctx, Act, Fetch, Nothing>, CoroutineScope> {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
-        val handler = CommandHandler<Fetch, Act> { command, results ->
-            delay(((command.command.n * 37) % 90 + 5).milliseconds)
-            results.result(Act.Loaded(command.command.n))
-        }
-        val recorder = object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
-            override fun onCommitted(input: actron.core.InputAttribution, machineInput: MachineInput<Act>, decision: Decision<Ctx, Fetch, Nothing>) {
-                committed += decision.snapshot
+        val handler =
+            CommandHandler<Fetch, Act> { command, results ->
+                delay(((command.command.n * 37) % 90 + 5).milliseconds)
+                results.result(Act.Loaded(command.command.n))
             }
-        }
-        val faulty = object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
-                override fun onCommitted(input: actron.core.InputAttribution, machineInput: MachineInput<Act>, decision: Decision<Ctx, Fetch, Nothing>) {
+        val recorder =
+            object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
+                override fun onCommitted(
+                    input: actron.core.InputAttribution,
+                    machineInput: MachineInput<Act>,
+                    decision: Decision<Ctx, Fetch, Nothing>,
+                ) {
+                    committed += decision.snapshot
+                }
+            }
+        val faulty =
+            object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
+                override fun onCommitted(
+                    input: actron.core.InputAttribution,
+                    machineInput: MachineInput<Act>,
+                    decision: Decision<Ctx, Fetch, Nothing>,
+                ) {
                     inject(4, "observer fault")
                 }
-        }
-        val store = MachineStore(machine, Ctx(), handler, executionScope, TestClock(testScheduler), dispatcher, observers = listOf(recorder, faulty)) {
-            exceptionHandler(ExceptionHandler { handled += it })
-            probe(StoreProbe { inject(5, "probe fault") })
-            configure()
-
-        }
+            }
+        val store =
+            MachineStore(machine, Ctx(), handler, executionScope, TestClock(testScheduler), dispatcher, observers = listOf(recorder, faulty)) {
+                exceptionHandler(ExceptionHandler { handled += it })
+                probe(StoreProbe { inject(5, "probe fault") })
+                configure()
+            }
         return store to executionScope
     }
 
     @Test
-    fun faultsInEveryDiagnosticBoundary_changeNothingAboutTheRun() = runTest {
-        val clean = mutableListOf<MachineSnapshot<Ctx>>()
-        val cleanHandled = mutableListOf<Throwable>()
-        val cleanFinal = mutableListOf<MachineSnapshot<Ctx>>()
-        val (cleanStore, cleanScope) = newStore(handled = cleanHandled, committed = clean)
-        scenario(cleanStore, cleanFinal)
-        cleanStore.close()
-        cleanScope.cancel()
-        assertTrue(clean.size > 40 && cleanHandled.isEmpty(), "the clean run is meaningful: ${clean.size} commits")
+    fun faultsInEveryDiagnosticBoundary_changeNothingAboutTheRun() =
+        runTest {
+            val clean = mutableListOf<MachineSnapshot<Ctx>>()
+            val cleanHandled = mutableListOf<Throwable>()
+            val cleanFinal = mutableListOf<MachineSnapshot<Ctx>>()
+            val (cleanStore, cleanScope) = newStore(handled = cleanHandled, committed = clean)
+            scenario(cleanStore, cleanFinal)
+            cleanStore.close()
+            cleanScope.cancel()
+            assertTrue(clean.size > 40 && cleanHandled.isEmpty(), "the clean run is meaningful: ${clean.size} commits")
 
-        for (seed in listOf(3, 11, 2024)) {
-            val faults = Random(seed)
-            val handled = mutableListOf<Throwable>()
-            val committed = mutableListOf<MachineSnapshot<Ctx>>()
-            val journalFailures = mutableListOf<Any>()
-            val sink = JournalSink { if (faults.nextInt(6) == 0) throw IllegalStateException("sink fault") }
-            val session = RecordingSession(backgroundScope, config = JournalConfig(onFailure = { journalFailures += it }), sinks = listOf(sink))
-            val final = mutableListOf<MachineSnapshot<Ctx>>()
-            val (store, scope) = newStore(
-                inject = { denominator, message -> if (faults.nextInt(denominator) == 0) throw IllegalStateException(message) },
-                configure = {
-                    recordTo(session, StoreInstanceId("faulty"), PayloadPolicy(
-                        state = { if (faults.nextInt(3) == 0) throw IllegalStateException("policy fault") else Payload.Omitted },
-                    ))
-                }, handled = handled, committed = committed,
-            )
-            scenario(store, final)
-            store.close()
-            session.close()
-            scope.cancel()
+            for (seed in listOf(3, 11, 2024)) {
+                val faults = Random(seed)
+                val handled = mutableListOf<Throwable>()
+                val committed = mutableListOf<MachineSnapshot<Ctx>>()
+                val journalFailures = mutableListOf<Any>()
+                val sink = JournalSink { if (faults.nextInt(6) == 0) throw IllegalStateException("sink fault") }
+                val session = RecordingSession(backgroundScope, config = JournalConfig(onFailure = { journalFailures += it }), sinks = listOf(sink))
+                val final = mutableListOf<MachineSnapshot<Ctx>>()
+                val (store, scope) =
+                    newStore(
+                        inject = { denominator, message -> if (faults.nextInt(denominator) == 0) throw IllegalStateException(message) },
+                        configure = {
+                            recordTo(
+                                session,
+                                StoreInstanceId("faulty"),
+                                PayloadPolicy(
+                                    state = { if (faults.nextInt(3) == 0) throw IllegalStateException("policy fault") else Payload.Omitted },
+                                ),
+                            )
+                        },
+                        handled = handled,
+                        committed = committed,
+                    )
+                scenario(store, final)
+                store.close()
+                session.close()
+                scope.cancel()
 
-            assertEquals(clean, committed, "seed $seed: every committed snapshot must match the clean run")
-            assertEquals(cleanFinal, final, "seed $seed")
-            val messages = handled.map { it.message.orEmpty() }.toSet()
-            assertTrue(messages.all { it == "probe fault" || it == "observer fault" }, "seed $seed: unexpected report $messages")
-            assertTrue(handled.isNotEmpty(), "seed $seed: no fault was reported, so none was injected")
-            assertTrue(journalFailures.isNotEmpty(), "seed $seed: no policy or sink fault reached the session")
-            assertTrue(session.stats.policyFailures + session.stats.sinkFailures > 0, "seed $seed")
+                assertEquals(clean, committed, "seed $seed: every committed snapshot must match the clean run")
+                assertEquals(cleanFinal, final, "seed $seed")
+                val messages = handled.map { it.message.orEmpty() }.toSet()
+                assertTrue(messages.all { it == "probe fault" || it == "observer fault" }, "seed $seed: unexpected report $messages")
+                assertTrue(handled.isNotEmpty(), "seed $seed: no fault was reported, so none was injected")
+                assertTrue(journalFailures.isNotEmpty(), "seed $seed: no policy or sink fault reached the session")
+                assertTrue(session.stats.policyFailures + session.stats.sinkFailures > 0, "seed $seed")
+            }
         }
-    }
 }

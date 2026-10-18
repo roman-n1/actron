@@ -74,7 +74,10 @@ data class StateChartPath(
     val triggers: List<Trigger> get() = transitions.map { it.trigger }
 }
 
-private fun requireConnected(start: StateId, transitions: List<Transition>): List<Transition> {
+private fun requireConnected(
+    start: StateId,
+    transitions: List<Transition>,
+): List<Transition> {
     transitions.fold(start) { current, transition ->
         require(transition.source == current) {
             "[Actron] Path is not connected: $transition does not leave $current"
@@ -102,7 +105,10 @@ private fun requireConnected(start: StateId, transitions: List<Transition>): Lis
  * Among paths of equal length, the one found first by following transitions in declaration order
  * is returned, so the result is stable for a given definition.
  */
-fun StateChartDefinition.shortestPathTo(target: StateId, accept: (StateChartPath) -> Unit): Boolean {
+fun StateChartDefinition.shortestPathTo(
+    target: StateId,
+    accept: (StateChartPath) -> Unit,
+): Boolean {
     val graph = configurationGraph
     if (target !in graph.firstReaching) return false
     accept(graph.pathTo(graph.firstReaching.getValue(target)))
@@ -122,14 +128,15 @@ fun StateChartDefinition.shortestPathTo(target: StateId, accept: (StateChartPath
  */
 fun StateChartDefinition.transitionCoveragePaths(): List<StateChartPath> {
     val graph = configurationGraph
-    val candidates = buildList {
-        for (transition in transitions) {
-            if (transition.source !in graph.firstReaching) continue
-            val prefix = graph.firstReaching.getValue(transition.source)
-            val step = graphStep(prefix.configuration, transition)
-            add(ReachedConfiguration(step.configuration, prefix.transitions + transition, prefix.leafSets + listOf(step.leaves(this@transitionCoveragePaths))))
-        }
-    }.distinctBy { it.transitions }
+    val candidates =
+        buildList {
+            for (transition in transitions) {
+                if (transition.source !in graph.firstReaching) continue
+                val prefix = graph.firstReaching.getValue(transition.source)
+                val step = graphStep(prefix.configuration, transition)
+                add(ReachedConfiguration(step.configuration, prefix.transitions + transition, prefix.leafSets + listOf(step.leaves(this@transitionCoveragePaths))))
+            }
+        }.distinctBy { it.transitions }
     return candidates
         .filter { path -> candidates.none { other -> other.transitions.size > path.transitions.size && other.transitions.subList(0, path.transitions.size) == path.transitions } }
         .map { graph.pathTo(it) }
@@ -157,8 +164,7 @@ internal class ConfigurationGraph(
     val firstReaching: Map<StateId, ReachedConfiguration>,
     val reachable: List<StateConfiguration>,
 ) {
-    fun pathTo(reached: ReachedConfiguration): StateChartPath =
-        StateChartPath(startLeaves.first(), reached.transitions, reached.leafSets.map { it.first() }, startLeaves, reached.leafSets)
+    fun pathTo(reached: ReachedConfiguration): StateChartPath = StateChartPath(startLeaves.first(), reached.transitions, reached.leafSets.map { it.first() }, startLeaves, reached.leafSets)
 }
 
 /**

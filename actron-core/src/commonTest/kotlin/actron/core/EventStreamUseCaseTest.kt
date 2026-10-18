@@ -10,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/**
+/*
  * This test case was generated with assistance from Anthropic's Claude AI.
  */
 
@@ -43,7 +43,6 @@ import kotlin.test.assertIs
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class EventStreamUseCaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     // Domain models
@@ -70,13 +69,14 @@ class EventStreamUseCaseTest {
         private var onError: (Throwable) -> Unit = {}
         private var isRegistered = false
 
-        private val registrationHandle = object : EventProvider.RegistrationHandle {
-            override fun unregister() {
-                isRegistered = false
-                onEvent = {}
-                onError = {}
+        private val registrationHandle =
+            object : EventProvider.RegistrationHandle {
+                override fun unregister() {
+                    isRegistered = false
+                    onEvent = {}
+                    onError = {}
+                }
             }
-        }
 
         override fun registerCallback(
             onEvent: (DataEvent) -> Unit,
@@ -102,40 +102,51 @@ class EventStreamUseCaseTest {
     }
 
     // Monitor class that wraps callback-based API with Flow
-    class EventStreamMonitor(private val eventProvider: EventProvider) {
-        val eventStream: Flow<Result<DataEvent>> = callbackFlow {
-            val handle = eventProvider.registerCallback(
-                onEvent = { event ->
-                    trySend(Result.success(event))
-                },
-                onError = { error ->
-                    trySend(Result.failure(error))
-                },
-            )
+    class EventStreamMonitor(
+        private val eventProvider: EventProvider,
+    ) {
+        val eventStream: Flow<Result<DataEvent>> =
+            callbackFlow {
+                val handle =
+                    eventProvider.registerCallback(
+                        onEvent = { event ->
+                            trySend(Result.success(event))
+                        },
+                        onError = { error ->
+                            trySend(Result.failure(error))
+                        },
+                    )
 
-            awaitClose {
-                handle.unregister()
+                awaitClose {
+                    handle.unregister()
+                }
             }
-        }
     }
 
     // Actron State definitions
     sealed interface AppState : State {
         data object Idle : AppState
-        data class Active(val processedData: List<String> = emptyList()) : AppState
-        data class Error(val error: Throwable) : AppState
+
+        data class Active(
+            val processedData: List<String> = emptyList(),
+        ) : AppState
+
+        data class Error(
+            val error: Throwable,
+        ) : AppState
     }
 
     // Actron Action definitions
     sealed interface AppAction : Action {
         data object Subscribe : AppAction
+
         data object Unsubscribe : AppAction
     }
 
     private fun createTestStore(
         eventStreamMonitor: EventStreamMonitor,
-    ): Store<AppState, AppAction, Nothing> {
-        return Store {
+    ): Store<AppState, AppAction, Nothing> =
+        Store {
             initialState(AppState.Idle)
             coroutineContext(Dispatchers.Unconfined)
 
@@ -183,73 +194,74 @@ class EventStreamUseCaseTest {
                 }
             }
         }
-    }
 
     @Test
-    fun eventStream_shouldSubscribeAndProcessEvents() = runTest(testDispatcher) {
-        // Mock implementation of event provider
-        val mockEventProvider = MockEventProvider()
-        val eventStreamMonitor = EventStreamMonitor(mockEventProvider)
+    fun eventStream_shouldSubscribeAndProcessEvents() =
+        runTest(testDispatcher) {
+            // Mock implementation of event provider
+            val mockEventProvider = MockEventProvider()
+            val eventStreamMonitor = EventStreamMonitor(mockEventProvider)
 
-        // Create store with idle state
-        val store = createTestStore(eventStreamMonitor)
+            // Create store with idle state
+            val store = createTestStore(eventStreamMonitor)
 
-        // Initial state should be Idle
-        assertIs<AppState.Idle>(store.currentState)
+            // Initial state should be Idle
+            assertIs<AppState.Idle>(store.currentState)
 
-        // Start subscription - goes directly to Active state
-        store.dispatch(AppAction.Subscribe)
+            // Start subscription - goes directly to Active state
+            store.dispatch(AppAction.Subscribe)
 
-        // State should change directly to Active
-        assertIs<AppState.Active>(store.currentState)
+            // State should change directly to Active
+            assertIs<AppState.Active>(store.currentState)
 
-        // Simulate receiving first event
-        val firstEvent = DataEvent("first-data", 1234567890L) // Fixed timestamp for test
-        mockEventProvider.emitEvent(firstEvent)
+            // Simulate receiving first event
+            val firstEvent = DataEvent("first-data", 1234567890L) // Fixed timestamp for test
+            mockEventProvider.emitEvent(firstEvent)
 
-        // State should update with the processed data
-        val stateAfterFirstEvent = store.currentState
-        assertIs<AppState.Active>(stateAfterFirstEvent)
-        assertEquals(firstEvent.data, stateAfterFirstEvent.processedData.last())
+            // State should update with the processed data
+            val stateAfterFirstEvent = store.currentState
+            assertIs<AppState.Active>(stateAfterFirstEvent)
+            assertEquals(firstEvent.data, stateAfterFirstEvent.processedData.last())
 
-        // Simulate receiving second event - should continue to process in Active state
-        val secondEvent = DataEvent("second-data", 1234567891L) // Fixed timestamp for test
-        mockEventProvider.emitEvent(secondEvent)
+            // Simulate receiving second event - should continue to process in Active state
+            val secondEvent = DataEvent("second-data", 1234567891L) // Fixed timestamp for test
+            mockEventProvider.emitEvent(secondEvent)
 
-        // State should update again with the new data
-        val stateAfterSecondEvent = store.currentState
-        assertIs<AppState.Active>(stateAfterSecondEvent)
-        assertEquals(secondEvent.data, stateAfterSecondEvent.processedData.last())
+            // State should update again with the new data
+            val stateAfterSecondEvent = store.currentState
+            assertIs<AppState.Active>(stateAfterSecondEvent)
+            assertEquals(secondEvent.data, stateAfterSecondEvent.processedData.last())
 
-        // Unsubscribe
-        store.dispatch(AppAction.Unsubscribe)
+            // Unsubscribe
+            store.dispatch(AppAction.Unsubscribe)
 
-        // State should return to Idle
-        assertIs<AppState.Idle>(store.currentState)
-    }
+            // State should return to Idle
+            assertIs<AppState.Idle>(store.currentState)
+        }
 
     @Test
-    fun eventStream_shouldHandleProcessingErrors() = runTest(testDispatcher) {
-        // Mock implementation of event provider
-        val mockEventProvider = MockEventProvider()
-        val eventStreamMonitor = EventStreamMonitor(mockEventProvider)
+    fun eventStream_shouldHandleProcessingErrors() =
+        runTest(testDispatcher) {
+            // Mock implementation of event provider
+            val mockEventProvider = MockEventProvider()
+            val eventStreamMonitor = EventStreamMonitor(mockEventProvider)
 
-        // Create store with idle state
-        val store = createTestStore(eventStreamMonitor)
+            // Create store with idle state
+            val store = createTestStore(eventStreamMonitor)
 
-        // Start subscription - goes directly to Active state
-        store.dispatch(AppAction.Subscribe)
+            // Start subscription - goes directly to Active state
+            store.dispatch(AppAction.Subscribe)
 
-        // State should change directly to Active
-        assertIs<AppState.Active>(store.currentState)
+            // State should change directly to Active
+            assertIs<AppState.Active>(store.currentState)
 
-        // Simulate error event
-        val error = Exception("Processing error")
-        mockEventProvider.emitError(error)
+            // Simulate error event
+            val error = Exception("Processing error")
+            mockEventProvider.emitError(error)
 
-        // State should change to Error
-        val currentState = store.currentState
-        assertIs<AppState.Error>(currentState)
-        assertEquals(error, currentState.error)
-    }
+            // State should change to Error
+            val currentState = store.currentState
+            assertIs<AppState.Error>(currentState)
+            assertEquals(error, currentState.error)
+        }
 }

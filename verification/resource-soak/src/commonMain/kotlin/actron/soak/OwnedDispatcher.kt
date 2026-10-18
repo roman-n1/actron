@@ -3,9 +3,13 @@ package actron.soak
 import kotlinx.coroutines.CoroutineDispatcher
 
 /** The benchmark owns and terminates its workers before collecting allocator measurements. */
-internal expect class OwnedDispatcher(workers: Int, name: String) {
+internal expect class OwnedDispatcher(
+    workers: Int,
+    name: String,
+) {
     val dispatcher: CoroutineDispatcher
     val remainingWorkers: Int
+
     fun closeAndJoin()
 }
 

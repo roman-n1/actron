@@ -31,20 +31,25 @@ import kotlin.coroutines.CoroutineContext
  */
 internal object MailboxFixture {
     sealed interface Act : Action {
-        data class Navigate(val route: String) : Act
+        data class Navigate(
+            val route: String,
+        ) : Act
     }
 
     sealed interface Ev : Event {
-        data class Navigate(val route: String) : Ev
+        data class Navigate(
+            val route: String,
+        ) : Ev
     }
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
     private val chart = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), emptyList())
 
-    val machine = Machine<Unit, Act, Nothing, Ev>(DefinitionId("mailbox-effect"), DefinitionVersion("1"), chart) {
-        onAction(root, ActionMatcher.of<Act.Navigate>("Navigate")) { event(Ev.Navigate((action as Act.Navigate).route)) }
-    }
+    val machine =
+        Machine<Unit, Act, Nothing, Ev>(DefinitionId("mailbox-effect"), DefinitionVersion("1"), chart) {
+            onAction(root, ActionMatcher.of<Act.Navigate>("Navigate")) { event(Ev.Navigate((action as Act.Navigate).route)) }
+        }
 
     /**
      * A started store whose mailbox retains every effect; [scope] runs its executor and
@@ -57,8 +62,13 @@ internal object MailboxFixture {
         maxRetained: Int = 64,
         budget: actron.statechart.machine.RetryBudget = actron.statechart.machine.RetryBudget.Unlimited,
         report: (Throwable) -> Unit = { throw it },
-    ): MachineStore<Unit, Act, Nothing, Ev> = MachineStore(
-        machine, Unit, CommandHandler<Nothing, Act> { _, _ -> }, scope, coroutineContext = coroutineContext,
-        mailbox = MailboxConfig(policy = { EffectPolicy.Retained(budget) }, maxRetained = maxRetained),
-    ) { exceptionHandler(ExceptionHandler { report(it) }) }.also { it.start() }
+    ): MachineStore<Unit, Act, Nothing, Ev> =
+        MachineStore(
+            machine,
+            Unit,
+            CommandHandler<Nothing, Act> { _, _ -> },
+            scope,
+            coroutineContext = coroutineContext,
+            mailbox = MailboxConfig(policy = { EffectPolicy.Retained(budget) }, maxRetained = maxRetained),
+        ) { exceptionHandler(ExceptionHandler { report(it) }) }.also { it.start() }
 }

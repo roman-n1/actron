@@ -22,9 +22,10 @@ interface ExceptionHandler {
         /**
          * Ignores all handled exceptions.
          */
-        val Ignore: ExceptionHandler = object : ExceptionHandler {
-            override fun handle(error: Throwable) {}
-        }
+        val Ignore: ExceptionHandler =
+            object : ExceptionHandler {
+                override fun handle(error: Throwable) {}
+            }
 
         /**
          * Deprecated alias for [Ignore].
@@ -36,21 +37,21 @@ interface ExceptionHandler {
         /**
          * Prints the exception message and stack trace for debugging.
          */
-        val Log: ExceptionHandler = object : ExceptionHandler {
-            override fun handle(error: Throwable) {
-                println("[Actron] An exception occurred in the Actron Framework: ${error.message ?: "Unknown error"}")
-                error.printStackTrace()
+        val Log: ExceptionHandler =
+            object : ExceptionHandler {
+                override fun handle(error: Throwable) {
+                    println("[Actron] An exception occurred in the Actron Framework: ${error.message ?: "Unknown error"}")
+                    error.printStackTrace()
+                }
             }
-        }
 
         /**
          * Rethrows handled exceptions instead of swallowing them.
          */
-        val Rethrow: ExceptionHandler = object : ExceptionHandler {
-            override fun handle(error: Throwable) {
-                throw error
+        val Rethrow: ExceptionHandler =
+            object : ExceptionHandler {
+                override fun handle(error: Throwable): Unit = throw error
             }
-        }
 
         /**
          * Deprecated alias for [Rethrow].
@@ -64,8 +65,9 @@ interface ExceptionHandler {
 /**
  * Creates an [ExceptionHandler] from a single callback.
  */
-fun ExceptionHandler(block: (error: Throwable) -> Unit) = object : ExceptionHandler {
-    override fun handle(error: Throwable) {
-        block.invoke(error)
+fun ExceptionHandler(block: (error: Throwable) -> Unit) =
+    object : ExceptionHandler {
+        override fun handle(error: Throwable) {
+            block.invoke(error)
+        }
     }
-}

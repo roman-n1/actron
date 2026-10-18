@@ -12,7 +12,9 @@ sealed interface AdmissionPolicy {
     data object Unbounded : AdmissionPolicy
 
     /** At most [maxPending] actions wait for processing; further ones are refused. */
-    data class Bounded(val maxPending: Int) : AdmissionPolicy {
+    data class Bounded(
+        val maxPending: Int,
+    ) : AdmissionPolicy {
         init {
             require(maxPending >= 1) { "[Actron] maxPending must be at least 1" }
         }
@@ -31,5 +33,8 @@ sealed interface Admission {
     data object Closed : Admission
 
     /** The action was refused: [pending] actions already waited, the limit is [limit]. */
-    data class Rejected(val pending: Int, val limit: Int) : Admission
+    data class Rejected(
+        val pending: Int,
+        val limit: Int,
+    ) : Admission
 }

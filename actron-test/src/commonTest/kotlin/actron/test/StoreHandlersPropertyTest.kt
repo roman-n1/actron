@@ -23,10 +23,13 @@ import kotlin.test.assertTrue
  * ```
  */
 class StoreHandlersPropertyTest {
-
     private fun render(regs: List<Registration>): String {
         fun name(k: kotlin.reflect.KClass<*>) = k.simpleName ?: "?"
-        fun section(kind: String, line: (Int, Registration) -> String): String {
+
+        fun section(
+            kind: String,
+            line: (Int, Registration) -> String,
+        ): String {
             val ofKind = regs.filter { it.kind == kind }
             return if (ofKind.isEmpty()) "$kind: none" else "$kind:\n" + ofKind.mapIndexed { i, r -> "  " + line(i, r) }.joinToString("\n")
         }
@@ -43,6 +46,7 @@ class StoreHandlersPropertyTest {
         repeat(400) { seed ->
             val regs = randomRegistrations(Random(seed), max = 24)
             val handlers = buildKtStore(regs, KtState.B).describeHandlers()
+
             fun of(kind: String) = regs.filter { it.kind == kind }
             val context = "seed=$seed"
 
@@ -68,81 +72,94 @@ class StoreHandlersPropertyTest {
     }
 
     @Test
-    fun tablePredictsTheEnterExitAndRecoverHandlersTheStoreRuns() = runTest {
-        var recovered = 0
-        var moved = 0
-        repeat(300) { seed ->
-            val random = Random(seed)
-            val regs = randomRegistrations(random, max = 24).filter { it.kind != "action" }
-            val initial = ktStates.random(random)
-            val target = ktStates.random(random)
-            val error: Exception = listOf(IllegalStateException("s"), IllegalArgumentException("a"), KtBoom(), Exception("e")).random(random)
-            val fail = random.nextBoolean()
-            val log = mutableListOf<String>()
-            val store = buildKtStore(regs, initial, log) {
-                coroutineContext(StandardTestDispatcher(testScheduler))
-                exceptionHandler(ExceptionHandler.Ignore)
-                // One routing action at the end, so the action table stays out of the way.
-                state<KtState> {
-                    action<KtAction> {
-                        if (fail) throw error
-                        nextState { target }
+    fun tablePredictsTheEnterExitAndRecoverHandlersTheStoreRuns() =
+        runTest {
+            var recovered = 0
+            var moved = 0
+            repeat(300) { seed ->
+                val random = Random(seed)
+                val regs = randomRegistrations(random, max = 24).filter { it.kind != "action" }
+                val initial = ktStates.random(random)
+                val target = ktStates.random(random)
+                val error: Exception = listOf(IllegalStateException("s"), IllegalArgumentException("a"), KtBoom(), Exception("e")).random(random)
+                val fail = random.nextBoolean()
+                val log = mutableListOf<String>()
+                val store =
+                    buildKtStore(regs, initial, log) {
+                        coroutineContext(StandardTestDispatcher(testScheduler))
+                        exceptionHandler(ExceptionHandler.Ignore)
+                        // One routing action at the end, so the action table stays out of the way.
+                        state<KtState> {
+                            action<KtAction> {
+                                if (fail) throw error
+                                nextState { target }
+                            }
+                        }
                     }
+                val table = store.describeHandlers()
+                val expected = mutableListOf<String>()
+
+                fun observeFirstState(
+                    list: List<StateHandlerDescription>,
+                    state: KtState,
+                    kind: String,
+                ) {
+                    val index = list.indexOfFirst { it.stateType.isInstance(state) }
+                    if (index >= 0) expected += "$kind#${list[index].index}"
                 }
-            }
-            val table = store.describeHandlers()
-            val expected = mutableListOf<String>()
-            fun observeFirstState(list: List<StateHandlerDescription>, state: KtState, kind: String) {
-                val index = list.indexOfFirst { it.stateType.isInstance(state) }
-                if (index >= 0) expected += "$kind#${list[index].index}"
-            }
-            observeFirstState(table.enter, initial, "enter")
-            if (fail) {
-                table.recover.firstOrNull { kotlin.test.assertNotNull(it.stateType).isInstance(initial) && kotlin.test.assertNotNull(it.exceptionType).isInstance(error) }
-                    ?.let { expected += "recover#${it.index}"; recovered++ }
-            } else if (target::class != initial::class) {
-                observeFirstState(table.exit, initial, "exit")
-                observeFirstState(table.enter, target, "enter")
-                moved++
-            }
+                observeFirstState(table.enter, initial, "enter")
+                if (fail) {
+                    table.recover
+                        .firstOrNull { kotlin.test.assertNotNull(it.stateType).isInstance(initial) && kotlin.test.assertNotNull(it.exceptionType).isInstance(error) }
+                        ?.let {
+                            expected += "recover#${it.index}"
+                            recovered++
+                        }
+                } else if (target::class != initial::class) {
+                    observeFirstState(table.exit, initial, "exit")
+                    observeFirstState(table.enter, target, "enter")
+                    moved++
+                }
 
-            store.startAndAwait()
-            store.dispatchAndAwait(KtAction.P)
+                store.startAndAwait()
+                store.dispatchAndAwait(KtAction.P)
 
-            assertEquals(expected, log, "seed=$seed initial=$initial target=$target fail=$fail error=$error")
-            store.close()
+                assertEquals(expected, log, "seed=$seed initial=$initial target=$target fail=$fail error=$error")
+                store.close()
+            }
+            assertTrue(recovered > 30 && moved > 60, "recovered=$recovered moved=$moved")
         }
-        assertTrue(recovered > 30 && moved > 60, "recovered=$recovered moved=$moved")
-    }
 
     @Test
-    fun describingIsImmediateWhileADispatchHoldsTheStore() = runTest {
-        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<KtState, KtAction, KtEvent>>()
-        val insideObservations = mutableListOf<StoreHandlers>()
-        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-        val store: Store<KtState, KtAction, KtEvent> = Store(KtState.B) {
-            coroutineContext(StandardTestDispatcher(testScheduler))
-            state<KtState.B> {
-                action<KtAction.P> {
-                    insideObservations.add(storePublication.getCompleted().describeHandlers())
-                    delay(10_000)
+    fun describingIsImmediateWhileADispatchHoldsTheStore() =
+        runTest {
+            val storePublication = kotlinx.coroutines.CompletableDeferred<Store<KtState, KtAction, KtEvent>>()
+            val insideObservations = mutableListOf<StoreHandlers>()
+
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            val store: Store<KtState, KtAction, KtEvent> =
+                Store(KtState.B) {
+                    coroutineContext(StandardTestDispatcher(testScheduler))
+                    state<KtState.B> {
+                        action<KtAction.P> {
+                            insideObservations.add(storePublication.getCompleted().describeHandlers())
+                            delay(10_000)
+                        }
+                        exit { }
+                    }
                 }
-                exit { }
-            }
+            storePublication.complete(store)
+
+            store.dispatch(KtAction.P)
+            testScheduler.advanceTimeBy(5)
+
+            val outside = store.describeHandlers()
+
+            assertEquals(5, currentTime)
+            assertEquals(insideObservations.single().toString(), outside.toString())
+            assertEquals("enter: none\naction:\n  #0 state<B> / action<P>\nexit:\n  #0 state<B>\nrecover: none", outside.toString())
+            store.close()
         }
-        storePublication.complete(store)
-
-
-        store.dispatch(KtAction.P)
-        testScheduler.advanceTimeBy(5)
-
-        val outside = store.describeHandlers()
-
-        assertEquals(5, currentTime)
-        assertEquals(insideObservations.single().toString(), outside.toString())
-        assertEquals("enter: none\naction:\n  #0 state<B> / action<P>\nexit:\n  #0 state<B>\nrecover: none", outside.toString())
-        store.close()
-    }
 
     @Test
     fun nonActronStoreIsRejected() {
@@ -153,12 +170,13 @@ class StoreHandlersPropertyTest {
     @Test
     fun unnamedTypesRenderAsQuestionMarks() {
         val unnamed = object {}::class
-        val handlers = StoreHandlers(
-            enter = listOf(StateHandlerDescription(0, unnamed)),
-            action = listOf(ActionHandlerDescription(0, KtState.B::class, unnamed)),
-            exit = emptyList(),
-            recover = listOf(RecoverHandlerDescription(0, unnamed, unnamed), RecoverHandlerDescription(1, KtState::class, KtBoom::class)),
-        )
+        val handlers =
+            StoreHandlers(
+                enter = listOf(StateHandlerDescription(0, unnamed)),
+                action = listOf(ActionHandlerDescription(0, KtState.B::class, unnamed)),
+                exit = emptyList(),
+                recover = listOf(RecoverHandlerDescription(0, unnamed, unnamed), RecoverHandlerDescription(1, KtState::class, KtBoom::class)),
+            )
         assertEquals(
             "enter:\n  #0 state<?>\naction:\n  #0 state<B> / action<?>\nexit: none\nrecover:\n  #0 state<?> / recover<?>\n  #1 state<KtState> / recover<KtBoom>",
             handlers.toString(),

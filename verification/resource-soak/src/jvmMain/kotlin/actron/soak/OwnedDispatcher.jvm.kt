@@ -1,18 +1,25 @@
 package actron.soak
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.asCoroutineDispatcher
 
-internal actual class OwnedDispatcher actual constructor(workers: Int, name: String) {
+internal actual class OwnedDispatcher actual constructor(
+    workers: Int,
+    name: String,
+) {
     private val threads = ConcurrentLinkedQueue<Thread>()
-    private val executor: java.util.concurrent.ExecutorService = checkNotNull(Executors.newFixedThreadPool(workers) { task: Runnable ->
-        Thread(task, name).also { threads.add(it) }
-    })
+    private val executor: java.util.concurrent.ExecutorService =
+        checkNotNull(
+            Executors.newFixedThreadPool(workers) { task: Runnable ->
+                Thread(task, name).also { threads.add(it) }
+            },
+        )
     actual val dispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher()
     actual val remainingWorkers: Int get() = threads.count { thread: Thread -> thread.isAlive }
+
     actual fun closeAndJoin() {
         (dispatcher as kotlinx.coroutines.ExecutorCoroutineDispatcher).close()
         check(executor.awaitTermination(10, TimeUnit.SECONDS)) { "Owned executor did not terminate" }

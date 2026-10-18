@@ -14,8 +14,9 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StorePatchTest {
-
-    data class AppState(val count: Int) : State
+    data class AppState(
+        val count: Int,
+    ) : State
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
@@ -23,11 +24,15 @@ class StorePatchTest {
 
     sealed interface PendingPolicyState : State {
         data object Initial : PendingPolicyState
-        data class Active(val value: Int = 0) : PendingPolicyState
+
+        data class Active(
+            val value: Int = 0,
+        ) : PendingPolicyState
     }
 
     sealed interface PendingPolicyAction : Action {
         data object EnterActiveAfterDelay : PendingPolicyAction
+
         data object Increment : PendingPolicyAction
     }
 
@@ -35,6 +40,7 @@ class StorePatchTest {
         private val restoring: (AppState) -> AppState = { it },
     ) : StateSaver<AppState> {
         constructor(restoredState: AppState) : this({ restoredState })
+
         val savedStates = mutableListOf<AppState>()
 
         override fun save(state: AppState) {
@@ -47,13 +53,12 @@ class StorePatchTest {
     private fun recordingPlugin(
         name: String,
         records: MutableList<String>,
-    ): Plugin<AppState, AppAction, Nothing> {
-        return Plugin(
+    ): Plugin<AppState, AppAction, Nothing> =
+        Plugin(
             onAction = { _, _ ->
                 records += name
             },
         )
-    }
 
     @Test
     fun storeInitialStateOverload_shouldApplyPatchAfterSetup() {
@@ -61,20 +66,21 @@ class StorePatchTest {
         val configuredSaver = RecordingStateSaver(restoredState = AppState(count = 10))
         val pluginRecords = mutableListOf<String>()
 
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            stateSaver(setupSaver)
-            plugin(recordingPlugin("setup", pluginRecords))
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                stateSaver(setupSaver)
+                plugin(recordingPlugin("setup", pluginRecords))
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
+            }.patchForTest {
+                coroutineContext(Dispatchers.Unconfined)
+                stateSaver(configuredSaver)
+                replacePlugins(recordingPlugin("override", pluginRecords))
             }
-        }.patchForTest {
-            coroutineContext(Dispatchers.Unconfined)
-            stateSaver(configuredSaver)
-            replacePlugins(recordingPlugin("override", pluginRecords))
-        }
 
         assertEquals(AppState(count = 10), store.currentState)
 
@@ -91,22 +97,23 @@ class StorePatchTest {
         val configuredSaver = RecordingStateSaver(restoredState = AppState(count = 20))
         val pluginRecords = mutableListOf<String>()
 
-        val store: Store<AppState, AppAction, Nothing> = Store {
-            initialState(AppState(count = 0))
-            stateSaver(setupSaver)
-            plugin(recordingPlugin("setup", pluginRecords))
+        val store: Store<AppState, AppAction, Nothing> =
+            Store {
+                initialState(AppState(count = 0))
+                stateSaver(setupSaver)
+                plugin(recordingPlugin("setup", pluginRecords))
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
+            }.patchForTest {
+                coroutineContext(Dispatchers.Unconfined)
+                stateSaver(configuredSaver)
+                replacePlugins(recordingPlugin("replacement", pluginRecords))
+                plugin(recordingPlugin("extra", pluginRecords))
             }
-        }.patchForTest {
-            coroutineContext(Dispatchers.Unconfined)
-            stateSaver(configuredSaver)
-            replacePlugins(recordingPlugin("replacement", pluginRecords))
-            plugin(recordingPlugin("extra", pluginRecords))
-        }
 
         assertEquals(AppState(count = 20), store.currentState)
 
@@ -121,18 +128,19 @@ class StorePatchTest {
     fun clearPluginsInPatch_shouldClearPreviouslyConfiguredPlugins() {
         val pluginRecords = mutableListOf<String>()
 
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            coroutineContext(Dispatchers.Unconfined)
-            plugin(recordingPlugin("setup", pluginRecords))
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                coroutineContext(Dispatchers.Unconfined)
+                plugin(recordingPlugin("setup", pluginRecords))
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
+            }.patchForTest {
+                clearPlugins()
             }
-        }.patchForTest {
-            clearPlugins()
-        }
 
         store.dispatch(AppAction.Increment)
 
@@ -143,24 +151,25 @@ class StorePatchTest {
     fun plugin_shouldAcceptMultipleValuesInSetupAndPatch() {
         val pluginRecords = mutableListOf<String>()
 
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            coroutineContext(Dispatchers.Unconfined)
-            plugin(
-                recordingPlugin("setup1", pluginRecords),
-                recordingPlugin("setup2", pluginRecords),
-            )
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                coroutineContext(Dispatchers.Unconfined)
+                plugin(
+                    recordingPlugin("setup1", pluginRecords),
+                    recordingPlugin("setup2", pluginRecords),
+                )
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
+            }.patchForTest {
+                plugin(
+                    recordingPlugin("override1", pluginRecords),
+                    recordingPlugin("override2", pluginRecords),
+                )
             }
-        }.patchForTest {
-            plugin(
-                recordingPlugin("override1", pluginRecords),
-                recordingPlugin("override2", pluginRecords),
-            )
-        }
 
         store.dispatch(AppAction.Increment)
 
@@ -171,53 +180,56 @@ class StorePatchTest {
     }
 
     @Test
-    fun patch_shouldOverridePendingActionPolicyFromBuilder() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val store = Store<PendingPolicyState, PendingPolicyAction, Nothing>(initialState = PendingPolicyState.Initial) {
-            coroutineContext(testDispatcher)
-            pendingActionPolicy(PendingActionPolicy.ClearOnStateExit)
+    fun patch_shouldOverridePendingActionPolicyFromBuilder() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val store =
+                Store<PendingPolicyState, PendingPolicyAction, Nothing>(initialState = PendingPolicyState.Initial) {
+                    coroutineContext(testDispatcher)
+                    pendingActionPolicy(PendingActionPolicy.ClearOnStateExit)
 
-            state<PendingPolicyState.Initial> {
-                action<PendingPolicyAction.EnterActiveAfterDelay>(testDispatcher) {
-                    delay(100)
-                    nextState { PendingPolicyState.Active() }
-                }
-            }
+                    state<PendingPolicyState.Initial> {
+                        action<PendingPolicyAction.EnterActiveAfterDelay>(testDispatcher) {
+                            delay(100)
+                            nextState { PendingPolicyState.Active() }
+                        }
+                    }
 
-            state<PendingPolicyState.Active> {
-                action<PendingPolicyAction.Increment>(testDispatcher) {
-                    nextState { state.copy(value = state.value + 1) }
+                    state<PendingPolicyState.Active> {
+                        action<PendingPolicyAction.Increment>(testDispatcher) {
+                            nextState { state.copy(value = state.value + 1) }
+                        }
+                    }
+                }.patchForTest {
+                    pendingActionPolicy(PendingActionPolicy.Keep)
                 }
-            }
-        }.patchForTest {
-            pendingActionPolicy(PendingActionPolicy.Keep)
+
+            store.dispatch(PendingPolicyAction.EnterActiveAfterDelay)
+            runCurrent()
+
+            store.dispatch(PendingPolicyAction.Increment)
+            store.dispatch(PendingPolicyAction.Increment)
+
+            advanceUntilIdle()
+
+            assertEquals(PendingPolicyState.Active(value = 2), store.currentState)
         }
-
-        store.dispatch(PendingPolicyAction.EnterActiveAfterDelay)
-        runCurrent()
-
-        store.dispatch(PendingPolicyAction.Increment)
-        store.dispatch(PendingPolicyAction.Increment)
-
-        advanceUntilIdle()
-
-        assertEquals(PendingPolicyState.Active(value = 2), store.currentState)
-    }
 
     @Test
     fun patch_shouldOverrideAutoStartPolicyFromBuilder() {
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            coroutineContext(Dispatchers.Unconfined)
-            autoStartPolicy(AutoStartPolicy.OnDispatchOrStateCollection)
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                coroutineContext(Dispatchers.Unconfined)
+                autoStartPolicy(AutoStartPolicy.OnDispatchOrStateCollection)
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
+            }.patchForTest {
+                autoStartPolicy(AutoStartPolicy.OnDispatch)
             }
-        }.patchForTest {
-            autoStartPolicy(AutoStartPolicy.OnDispatch)
-        }
 
         store.collectState { }
 
@@ -230,15 +242,16 @@ class StorePatchTest {
 
     @Test
     fun patch_shouldOverrideInitialStateFromBuilder() {
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
+            }.patchForTest {
+                initialState(AppState(count = 42))
             }
-        }.patchForTest {
-            initialState(AppState(count = 42))
-        }
 
         assertEquals(AppState(count = 42), store.currentState)
     }
@@ -246,15 +259,18 @@ class StorePatchTest {
     @Test
     fun patch_shouldPassLastInitialStateToRestorationOnce() {
         val restoredFrom = mutableListOf<AppState>()
-        val store = Store<AppState, AppAction, Nothing>(AppState(0)) {
-            stateSaver(StateSaver(save = {}, restore = { initial ->
-                restoredFrom += initial
-                initial.copy(count = initial.count + 1)
-            }))
-        }.patchForTest {
-            initialState(AppState(10))
-            initialState(AppState(20))
-        }
+        val store =
+            Store<AppState, AppAction, Nothing>(AppState(0)) {
+                stateSaver(
+                    StateSaver(save = {}, restore = { initial ->
+                        restoredFrom += initial
+                        initial.copy(count = initial.count + 1)
+                    }),
+                )
+            }.patchForTest {
+                initialState(AppState(10))
+                initialState(AppState(20))
+            }
 
         assertEquals(AppState(21), store.currentState)
         assertEquals(AppState(21), store.currentState)
@@ -264,13 +280,14 @@ class StorePatchTest {
 
     @Test
     fun patch_shouldRejectInitialStateChangeAfterCurrentStateIsRead() {
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
             }
-        }
 
         assertEquals(AppState(count = 0), store.currentState)
 
@@ -283,13 +300,14 @@ class StorePatchTest {
 
     @Test
     fun patch_shouldRejectStateSaverChangeAfterCurrentStateIsRead() {
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
             }
-        }
 
         assertEquals(AppState(count = 0), store.currentState)
 
@@ -303,15 +321,16 @@ class StorePatchTest {
     @Test
     fun patch_shouldAllowOtherChangesAfterCurrentStateIsRead() {
         val pluginRecords = mutableListOf<String>()
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            coroutineContext(Dispatchers.Unconfined)
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                coroutineContext(Dispatchers.Unconfined)
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
             }
-        }
 
         assertEquals(AppState(count = 0), store.currentState)
 
@@ -327,15 +346,16 @@ class StorePatchTest {
 
     @Test
     fun patch_shouldRejectCoroutineContextChangeAfterCollectEvent() {
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            coroutineContext(Dispatchers.Unconfined)
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                coroutineContext(Dispatchers.Unconfined)
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
             }
-        }
 
         store.collectEvent { }
 
@@ -349,15 +369,16 @@ class StorePatchTest {
     @Test
     fun patch_shouldAllowOtherChangesAfterCollectEvent() {
         val pluginRecords = mutableListOf<String>()
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
-            coroutineContext(Dispatchers.Unconfined)
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+                coroutineContext(Dispatchers.Unconfined)
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { AppState(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { AppState(count = state.count + 1) }
+                    }
                 }
             }
-        }
 
         store.collectEvent { }
 

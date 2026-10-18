@@ -1,6 +1,9 @@
 plugins { java }
 
-java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
 val compilerVersion = org.gradle.kotlin.dsl.embeddedKotlinVersion
 repositories { mavenCentral() }
 dependencies {
@@ -16,5 +19,10 @@ val compilerTest by tasks.registering(JavaExec::class) {
     dependsOn(tasks.jar)
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("actron.verification.CompilerGuardTest")
-    args(tasks.jar.flatMap { it.archiveFile }.get().asFile.absolutePath)
+    args(
+        tasks.jar
+            .flatMap { it.archiveFile }
+            .get()
+            .asFile.absolutePath,
+    )
 }

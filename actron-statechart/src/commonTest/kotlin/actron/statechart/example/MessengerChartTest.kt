@@ -68,7 +68,6 @@ import kotlin.time.Duration.Companion.seconds
  */
 @OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
 class MessengerChartTest {
-
     /**
      * Services that answer in virtual time: sign-in takes 1 s and accepts the password "secret",
      * connecting takes 0.5 s, sending takes 1 s. Failures are scripted per test.
@@ -85,7 +84,10 @@ class MessengerChartTest {
             disconnects.trySend(Unit)
         }
 
-        override suspend fun signIn(login: String, password: String): String {
+        override suspend fun signIn(
+            login: String,
+            password: String,
+        ): String {
             delay(1.seconds)
             if (password != "secret") throw IllegalArgumentException("wrong password")
             return login
@@ -104,7 +106,10 @@ class MessengerChartTest {
             disconnects.receive()
         }
 
-        override suspend fun send(chatId: String, text: String) {
+        override suspend fun send(
+            chatId: String,
+            text: String,
+        ) {
             sendCalls++
             delay(1.seconds)
             if (sendFailures > 0) {
@@ -117,10 +122,19 @@ class MessengerChartTest {
 
     /** Services that never answer, so only the test moves the chart. */
     private object SilentServices : MessengerServices {
-        override suspend fun signIn(login: String, password: String): String = awaitCancellation()
+        override suspend fun signIn(
+            login: String,
+            password: String,
+        ): String = awaitCancellation()
+
         override suspend fun connect(): Unit = awaitCancellation()
+
         override suspend fun awaitDisconnect(): Unit = awaitCancellation()
-        override suspend fun send(chatId: String, text: String): Unit = awaitCancellation()
+
+        override suspend fun send(
+            chatId: String,
+            text: String,
+        ): Unit = awaitCancellation()
     }
 
     private val MessengerStore.leaves: List<StateId> get() = currentState.activeLeaves(definition)
@@ -131,13 +145,18 @@ class MessengerChartTest {
         runCurrent()
     }
 
-    private suspend fun TestScope.send(store: MessengerStore, vararg actions: MessengerAction) {
+    private suspend fun TestScope.send(
+        store: MessengerStore,
+        vararg actions: MessengerAction,
+    ) {
         for (action in actions) store.dispatchAndAwait(action)
         runCurrent()
     }
 
-    private fun TestScope.messenger(services: MessengerServices, policy: RetryPolicy = RetryPolicy()): MessengerStore =
-        MessengerStore(services, MessengerContext(policy = policy), backgroundScope.coroutineContext)
+    private fun TestScope.messenger(
+        services: MessengerServices,
+        policy: RetryPolicy = RetryPolicy(),
+    ): MessengerStore = MessengerStore(services, MessengerContext(policy = policy), backgroundScope.coroutineContext)
 
     /** Signs in with the fake's 1 s delay: the Store is then in Session, Connecting and ChatList. */
     private suspend fun TestScope.signIn(store: MessengerStore): MessengerStore {
@@ -149,145 +168,151 @@ class MessengerChartTest {
     // region scenarios
 
     @Test
-    fun signInFailsWithAnEventThenSucceedsAndStartsBothRegions() = runTest {
-        val services = FakeServices()
-        val store = messenger(services)
-        val recorder = store.createRecorder()
-        send(store, MessengerAction.SubmitCredentials("roman", "wrong"))
-        assertEquals(listOf(signingIn), store.leaves)
-        advance(1.seconds)
-        assertEquals(listOf(signedOut), store.leaves)
-        assertEquals(listOf(MessengerEvent.SignInError("wrong password")), recorder.events)
+    fun signInFailsWithAnEventThenSucceedsAndStartsBothRegions() =
+        runTest {
+            val services = FakeServices()
+            val store = messenger(services)
+            val recorder = store.createRecorder()
+            send(store, MessengerAction.SubmitCredentials("roman", "wrong"))
+            assertEquals(listOf(signingIn), store.leaves)
+            advance(1.seconds)
+            assertEquals(listOf(signedOut), store.leaves)
+            assertEquals(listOf(MessengerEvent.SignInError("wrong password")), recorder.events)
 
-        send(store, MessengerAction.SubmitCredentials("roman", "secret"))
-        advance(1.seconds)
-        assertEquals(listOf(connecting, chatList), store.leaves, "one leaf per region")
-        assertEquals(MessengerAccount.Authenticated("roman"), store.context.account)
-        advance(500.milliseconds)
-        assertEquals(listOf(online, chatList), store.leaves)
-        store.close()
-    }
-
-    @Test
-    fun reconnectBacksOffQuicklyThenSlowlyWhileTheChatKeepsWorking() = runTest {
-        val services = FakeServices().apply { connectFailures = Int.MAX_VALUE }
-        val store = signIn(messenger(services, RetryPolicy(quickReconnects = 2)))
-        advance(500.milliseconds)
-        assertEquals(backoff, store.leaves.first())
-        assertEquals(1, store.context.connectAttempts)
-        // The other region does not care: the user opens a chat while offline.
-        send(store, MessengerAction.OpenChat("family"))
-        assertEquals(listOf(backoff, composing), store.leaves)
-
-        advance(2.seconds) // quick backoff: attempt 2
-        assertEquals(listOf(connecting, composing), store.leaves)
-        advance(500.milliseconds + 2.seconds + 500.milliseconds) // attempt 2 fails, attempt 3 fails
-        assertEquals(3, services.connectCalls)
-        assertEquals(3, store.context.connectAttempts)
-        advance(29.seconds) // past the quick backoff: now it waits 30 s
-        assertEquals(3, services.connectCalls)
-        assertEquals(backoff, store.leaves.first())
-
-        services.connectFailures = 0
-        advance(1.seconds + 500.milliseconds)
-        assertEquals(listOf(online, composing), store.leaves)
-        assertEquals(0, store.context.connectAttempts)
-
-        services.dropConnection() // the Online activity reports it
-        runCurrent()
-        assertEquals(listOf(backoff, composing), store.leaves)
-        advance(2.seconds + 500.milliseconds)
-        assertEquals(online, store.leaves.first())
-        store.close()
-    }
+            send(store, MessengerAction.SubmitCredentials("roman", "secret"))
+            advance(1.seconds)
+            assertEquals(listOf(connecting, chatList), store.leaves, "one leaf per region")
+            assertEquals(MessengerAccount.Authenticated("roman"), store.context.account)
+            advance(500.milliseconds)
+            assertEquals(listOf(online, chatList), store.leaves)
+            store.close()
+        }
 
     @Test
-    fun aFailedMessageIsResentThenMarkedFailedAndCanBeRetried() = runTest {
-        val services = FakeServices().apply { sendFailures = 2 }
-        val store = messenger(services, RetryPolicy(resends = 1))
-        val recorder = store.createRecorder()
-        signIn(store)
-        send(store, MessengerAction.OpenChat("family"), MessengerAction.SendMessage("hi"))
-        assertEquals(sending, store.leaves.last())
-        advance(1.seconds)
-        assertEquals(retryWait, store.leaves.last())
-        advance(3.seconds) // one resend allowed
-        assertEquals(sending, store.leaves.last())
-        advance(1.seconds + 3.seconds) // fails again: no resend left
-        assertEquals(failed, store.leaves.last())
-        assertEquals(listOf(MessengerEvent.MessageNotSent("hi")), recorder.events)
-        assertEquals(2, services.sendCalls)
+    fun reconnectBacksOffQuicklyThenSlowlyWhileTheChatKeepsWorking() =
+        runTest {
+            val services = FakeServices().apply { connectFailures = Int.MAX_VALUE }
+            val store = signIn(messenger(services, RetryPolicy(quickReconnects = 2)))
+            advance(500.milliseconds)
+            assertEquals(backoff, store.leaves.first())
+            assertEquals(1, store.context.connectAttempts)
+            // The other region does not care: the user opens a chat while offline.
+            send(store, MessengerAction.OpenChat("family"))
+            assertEquals(listOf(backoff, composing), store.leaves)
 
-        send(store, MessengerAction.RetryMessage)
-        advance(1.seconds)
-        assertEquals(composing, store.leaves.last())
-        assertEquals(listOf("family" to "hi"), services.sent)
-        assertEquals(listOf("hi"), store.context.delivered)
-        assertEquals(OutgoingMessage.Composing, store.context.outgoing)
-        store.close()
-    }
+            advance(2.seconds) // quick backoff: attempt 2
+            assertEquals(listOf(connecting, composing), store.leaves)
+            advance(500.milliseconds + 2.seconds + 500.milliseconds) // attempt 2 fails, attempt 3 fails
+            assertEquals(3, services.connectCalls)
+            assertEquals(3, store.context.connectAttempts)
+            advance(29.seconds) // past the quick backoff: now it waits 30 s
+            assertEquals(3, services.connectCalls)
+            assertEquals(backoff, store.leaves.first())
 
-    @Test
-    fun closingSettingsReturnsToTheSameChatAndResumesTheSend() = runTest {
-        val services = FakeServices()
-        val store = signIn(messenger(services))
-        send(store, MessengerAction.OpenChat("family"), MessengerAction.SendMessage("hi"))
-        advance(500.milliseconds)
-        send(store, MessengerAction.OpenSettings)
-        assertEquals(listOf(online, settings), store.leaves)
-        advance(10.seconds)
-        assertEquals(emptyList(), services.sent, "leaving Sending cancelled the call")
+            services.connectFailures = 0
+            advance(1.seconds + 500.milliseconds)
+            assertEquals(listOf(online, composing), store.leaves)
+            assertEquals(0, store.context.connectAttempts)
 
-        send(store, MessengerAction.CloseSettings) // deep history: back in Chat > Sending
-        assertEquals(listOf(online, sending), store.leaves)
-        assertTrue(store.currentState.isActive(chat))
-        advance(1.seconds)
-        assertEquals(listOf("family" to "hi"), services.sent)
-        assertEquals(2, services.sendCalls, "entering Sending again sends again")
-        assertEquals(listOf(online, composing), store.leaves)
-        store.close()
-    }
+            services.dropConnection() // the Online activity reports it
+            runCurrent()
+            assertEquals(listOf(backoff, composing), store.leaves)
+            advance(2.seconds + 500.milliseconds)
+            assertEquals(online, store.leaves.first())
+            store.close()
+        }
 
     @Test
-    fun signingOutLeavesEveryRegionAndStopsTheirWork() = runTest {
-        val services = FakeServices().apply { connectFailures = Int.MAX_VALUE }
-        val store = signIn(messenger(services))
-        send(store, MessengerAction.OpenChat("family"), MessengerAction.SendMessage("hi"))
-        advance(500.milliseconds) // connect failed; the send is still running
-        send(store, MessengerAction.SignOut)
-        assertEquals(listOf(signedOut), store.leaves)
-        assertEquals(MessengerContext(), store.context)
-        val calls = services.connectCalls
-        advance(60.seconds)
-        assertEquals(calls, services.connectCalls, "no backoff timer survives sign-out")
-        assertEquals(emptyList(), services.sent)
-        assertEquals(listOf(signedOut), store.leaves)
-        store.close()
-    }
+    fun aFailedMessageIsResentThenMarkedFailedAndCanBeRetried() =
+        runTest {
+            val services = FakeServices().apply { sendFailures = 2 }
+            val store = messenger(services, RetryPolicy(resends = 1))
+            val recorder = store.createRecorder()
+            signIn(store)
+            send(store, MessengerAction.OpenChat("family"), MessengerAction.SendMessage("hi"))
+            assertEquals(sending, store.leaves.last())
+            advance(1.seconds)
+            assertEquals(retryWait, store.leaves.last())
+            advance(3.seconds) // one resend allowed
+            assertEquals(sending, store.leaves.last())
+            advance(1.seconds + 3.seconds) // fails again: no resend left
+            assertEquals(failed, store.leaves.last())
+            assertEquals(listOf(MessengerEvent.MessageNotSent("hi")), recorder.events)
+            assertEquals(2, services.sendCalls)
+
+            send(store, MessengerAction.RetryMessage)
+            advance(1.seconds)
+            assertEquals(composing, store.leaves.last())
+            assertEquals(listOf("family" to "hi"), services.sent)
+            assertEquals(listOf("hi"), store.context.delivered)
+            assertEquals(OutgoingMessage.Composing, store.context.outgoing)
+            store.close()
+        }
+
+    @Test
+    fun closingSettingsReturnsToTheSameChatAndResumesTheSend() =
+        runTest {
+            val services = FakeServices()
+            val store = signIn(messenger(services))
+            send(store, MessengerAction.OpenChat("family"), MessengerAction.SendMessage("hi"))
+            advance(500.milliseconds)
+            send(store, MessengerAction.OpenSettings)
+            assertEquals(listOf(online, settings), store.leaves)
+            advance(10.seconds)
+            assertEquals(emptyList(), services.sent, "leaving Sending cancelled the call")
+
+            send(store, MessengerAction.CloseSettings) // deep history: back in Chat > Sending
+            assertEquals(listOf(online, sending), store.leaves)
+            assertTrue(store.currentState.isActive(chat))
+            advance(1.seconds)
+            assertEquals(listOf("family" to "hi"), services.sent)
+            assertEquals(2, services.sendCalls, "entering Sending again sends again")
+            assertEquals(listOf(online, composing), store.leaves)
+            store.close()
+        }
+
+    @Test
+    fun signingOutLeavesEveryRegionAndStopsTheirWork() =
+        runTest {
+            val services = FakeServices().apply { connectFailures = Int.MAX_VALUE }
+            val store = signIn(messenger(services))
+            send(store, MessengerAction.OpenChat("family"), MessengerAction.SendMessage("hi"))
+            advance(500.milliseconds) // connect failed; the send is still running
+            send(store, MessengerAction.SignOut)
+            assertEquals(listOf(signedOut), store.leaves)
+            assertEquals(MessengerContext(), store.context)
+            val calls = services.connectCalls
+            advance(60.seconds)
+            assertEquals(calls, services.connectCalls, "no backoff timer survives sign-out")
+            assertEquals(emptyList(), services.sent)
+            assertEquals(listOf(signedOut), store.leaves)
+            store.close()
+        }
 
     // endregion
 
     // region model
 
     /** One action per action matcher of the chart, for validation and for replaying paths. */
-    private val sampleActions = listOf(
-        MessengerAction.SubmitCredentials("roman", "secret"),
-        MessengerAction.SignInSucceeded("roman"),
-        MessengerAction.SignInFailed("wrong password"),
-        MessengerAction.SignOut,
-        MessengerAction.ConnectionOpened,
-        MessengerAction.ConnectFailed,
-        MessengerAction.ConnectionLost,
-        MessengerAction.OpenChat("family"),
-        MessengerAction.CloseChat,
-        MessengerAction.SendMessage("hi"),
-        MessengerAction.MessageDelivered,
-        MessengerAction.SendFailed,
-        MessengerAction.RetryMessage,
-        MessengerAction.DiscardMessage,
-        MessengerAction.OpenSettings,
-        MessengerAction.CloseSettings,
-    )
+    private val sampleActions =
+        listOf(
+            MessengerAction.SubmitCredentials("roman", "secret"),
+            MessengerAction.SignInSucceeded("roman"),
+            MessengerAction.SignInFailed("wrong password"),
+            MessengerAction.SignOut,
+            MessengerAction.ConnectionOpened,
+            MessengerAction.ConnectFailed,
+            MessengerAction.ConnectionLost,
+            MessengerAction.OpenChat("family"),
+            MessengerAction.CloseChat,
+            MessengerAction.SendMessage("hi"),
+            MessengerAction.MessageDelivered,
+            MessengerAction.SendFailed,
+            MessengerAction.RetryMessage,
+            MessengerAction.DiscardMessage,
+            MessengerAction.OpenSettings,
+            MessengerAction.CloseSettings,
+        )
 
     @Test
     fun chartIsValid() {
@@ -303,20 +328,25 @@ class MessengerChartTest {
      * Paths ignore guards, so each path gets a retry policy under which the guards it passes are
      * true: a path through a "slow" or "give up" timer needs a policy with no quick retries left.
      */
-    private fun policyFor(path: StateChartPath) = RetryPolicy(
-        quickReconnects = if (MessengerChart.slowReconnect in path.transitions) 0 else 3,
-        resends = if (MessengerChart.giveUpSending in path.transitions) 0 else 2,
-    )
+    private fun policyFor(path: StateChartPath) =
+        RetryPolicy(
+            quickReconnects = if (MessengerChart.slowReconnect in path.transitions) 0 else 3,
+            resends = if (MessengerChart.giveUpSending in path.transitions) 0 else 2,
+        )
 
     /**
      * Replays [path] on a fresh Store with [SilentServices]: dispatches a sample action for each
      * action step and lets virtual time pass for each timer step, and checks the active leaves
      * after every step and the conformance plugin at the end. Returns what the plugin covered.
      */
-    private suspend fun TestScope.replay(index: Int, path: StateChartPath): Set<Transition> {
-        val conformance = StateChartConformance.withActiveLeaves<ChartState<MessengerContext>, MessengerAction, MessengerEvent>(definition) {
-            it.activeLeaves(definition).toSet()
-        }
+    private suspend fun TestScope.replay(
+        index: Int,
+        path: StateChartPath,
+    ): Set<Transition> {
+        val conformance =
+            StateChartConformance.withActiveLeaves<ChartState<MessengerContext>, MessengerAction, MessengerEvent>(definition) {
+                it.activeLeaves(definition).toSet()
+            }
         val store = messenger(SilentServices, policyFor(path)).patch { plugin(conformance) }
         store.startAndAwait()
         runCurrent()
@@ -339,25 +369,27 @@ class MessengerChartTest {
     private suspend fun yieldToEventLoop() = withContext(Dispatchers.Default) { yield() }
 
     @Test
-    fun everyGeneratedPathReplaysOnTheStoreAndTogetherTheyCoverTheChart() = runTest {
-        val paths = definition.transitionCoveragePaths()
-        val covered = mutableSetOf<Transition>()
-        paths.forEachIndexed { index, path ->
-            covered += replay(index, path)
-            yieldToEventLoop()
+    fun everyGeneratedPathReplaysOnTheStoreAndTogetherTheyCoverTheChart() =
+        runTest {
+            val paths = definition.transitionCoveragePaths()
+            val covered = mutableSetOf<Transition>()
+            paths.forEachIndexed { index, path ->
+                covered += replay(index, path)
+                yieldToEventLoop()
+            }
+            assertEquals(definition.transitions.toSet(), paths.flatMap { it.transitions }.toSet(), "paths take every transition")
+            // The conformance plugin sees leaves, not guards or clocks: Backoff -> Connecting is explained
+            // by the first timer that leads there, quickReconnect, even on the path where slowReconnect
+            // fired. The replay itself proved slowReconnect: the leaves changed only after 30 s.
+            assertEquals(listOf(MessengerChart.slowReconnect), definition.transitions.filter { it !in covered }, "the Store took every transition")
         }
-        assertEquals(definition.transitions.toSet(), paths.flatMap { it.transitions }.toSet(), "paths take every transition")
-        // The conformance plugin sees leaves, not guards or clocks: Backoff -> Connecting is explained
-        // by the first timer that leads there, quickReconnect, even on the path where slowReconnect
-        // fired. The replay itself proved slowReconnect: the leaves changed only after 30 s.
-        assertEquals(listOf(MessengerChart.slowReconnect), definition.transitions.filter { it !in covered }, "the Store took every transition")
-    }
 
     // endregion
 
     private companion object {
         /** Exactly the diagram in the KDoc of [MessengerChart]. */
-        val MERMAID = """
+        val MERMAID =
+            """
             stateDiagram-v2
                 [*] --> App
                 state App {
@@ -410,6 +442,6 @@ class MessengerChartTest {
                     SigningIn --> SignedOut : SignInFailed
                     Session --> SignedOut : SignOut / forgetUser
                 }
-        """.trimIndent()
+            """.trimIndent()
     }
 }

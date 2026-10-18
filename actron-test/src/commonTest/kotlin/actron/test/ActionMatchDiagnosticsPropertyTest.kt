@@ -30,13 +30,17 @@ import kotlin.test.assertTrue
  * ```
  */
 class ActionMatchDiagnosticsPropertyTest {
-
-    private fun expectedText(s: KtState, a: KtAction, matched: List<ActionHandlerDescription>): String {
-        val body = if (matched.isEmpty()) {
-            "no handler matches"
-        } else {
-            "selected " + matched.joinToString(", shadowed ") { "#${it.index} state<${kotlin.test.assertNotNull(it.stateType).simpleName}> / action<${kotlin.test.assertNotNull(it.actionType).simpleName}>" }
-        }
+    private fun expectedText(
+        s: KtState,
+        a: KtAction,
+        matched: List<ActionHandlerDescription>,
+    ): String {
+        val body =
+            if (matched.isEmpty()) {
+                "no handler matches"
+            } else {
+                "selected " + matched.joinToString(", shadowed ") { "#${it.index} state<${kotlin.test.assertNotNull(it.stateType).simpleName}> / action<${kotlin.test.assertNotNull(it.actionType).simpleName}>" }
+            }
         return "ActionMatchDiagnostics(state=$s, action=$a: $body)"
     }
 
@@ -50,49 +54,52 @@ class ActionMatchDiagnosticsPropertyTest {
             val store = buildKtStore(actionRegs, KtState.B)
             val expectedHandlers = actionRegs.mapIndexed { i, r -> ActionHandlerDescription(i, r.stateType, requireNotNull(r.inputType)) }
 
-            for (s in ktStates) for (a in ktActions) {
-                val d = store.diagnoseActionMatches(s, a)
-                val model = actionRegs.indices.filter { actionRegs[it].stateType.isInstance(s) && kotlin.test.assertNotNull(actionRegs[it].inputType).isInstance(a) }
-                val context = "seed=$seed s=$s a=$a"
+            for (s in ktStates) {
+                for (a in ktActions) {
+                    val d = store.diagnoseActionMatches(s, a)
+                    val model = actionRegs.indices.filter { actionRegs[it].stateType.isInstance(s) && kotlin.test.assertNotNull(actionRegs[it].inputType).isInstance(a) }
+                    val context = "seed=$seed s=$s a=$a"
 
-                assertSame(s, d.state, context)
-                assertSame(a, d.action, context)
-                assertEquals(expectedHandlers, d.handlers, context)
-                assertEquals(model, d.matchedHandlerIndices, context)
-                assertEquals(model.size, d.matchedHandlerCount, context)
-                val selectedHandlers = buildList<Int> { d.withSelectedHandler { add(it.index) } }
-                assertEquals(model.take(1), selectedHandlers, context)
-                assertEquals(model.map { expectedHandlers[it] }, d.matchedHandlers, context)
-                assertTrue(d.matchedHandlerIndices.zipWithNext().all { (x, y) -> x < y }, context)
-                assertEquals(expectedText(s, a, d.matchedHandlers), d.toString(), context)
+                    assertSame(s, d.state, context)
+                    assertSame(a, d.action, context)
+                    assertEquals(expectedHandlers, d.handlers, context)
+                    assertEquals(model, d.matchedHandlerIndices, context)
+                    assertEquals(model.size, d.matchedHandlerCount, context)
+                    val selectedHandlers = buildList<Int> { d.withSelectedHandler { add(it.index) } }
+                    assertEquals(model.take(1), selectedHandlers, context)
+                    assertEquals(model.map { expectedHandlers[it] }, d.matchedHandlers, context)
+                    assertTrue(d.matchedHandlerIndices.zipWithNext().all { (x, y) -> x < y }, context)
+                    assertEquals(expectedText(s, a, d.matchedHandlers), d.toString(), context)
 
-                if (model.size >= 2) shadowing++
-                if (model.isEmpty()) unhandled++
+                    if (model.size >= 2) shadowing++
+                    if (model.isEmpty()) unhandled++
+                }
             }
         }
         assertTrue(shadowing > 500 && unhandled > 500, "shadowing=$shadowing unhandled=$unhandled")
     }
 
     @Test
-    fun selectedHandlerIsTheOneTheRealStoreRuns() = runTest {
-        var handled = 0
-        repeat(300) { seed ->
-            val random = Random(seed)
-            val regs = randomRegistrations(random).filter { it.kind == "action" }
-            val s = ktStates.random(random)
-            val a = ktActions.random(random)
-            val log = mutableListOf<String>()
-            val store = buildKtStore(regs, s, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
+    fun selectedHandlerIsTheOneTheRealStoreRuns() =
+        runTest {
+            var handled = 0
+            repeat(300) { seed ->
+                val random = Random(seed)
+                val regs = randomRegistrations(random).filter { it.kind == "action" }
+                val s = ktStates.random(random)
+                val a = ktActions.random(random)
+                val log = mutableListOf<String>()
+                val store = buildKtStore(regs, s, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
 
-            val selected = buildList<Int> { store.diagnoseActionMatches(s, a).withSelectedHandler { add(it.index) } }
-            store.dispatchAndAwait(a)
+                val selected = buildList<Int> { store.diagnoseActionMatches(s, a).withSelectedHandler { add(it.index) } }
+                store.dispatchAndAwait(a)
 
-            assertEquals(selected.map { "action#$it" }, log, "seed=$seed")
-            if (selected.isNotEmpty()) handled++
-            store.close()
+                assertEquals(selected.map { "action#$it" }, log, "seed=$seed")
+                if (selected.isNotEmpty()) handled++
+                store.close()
+            }
+            assertTrue(handled > 100, "handled=$handled")
         }
-        assertTrue(handled > 100, "handled=$handled")
-    }
 
     @Test
     fun diagnosingEveryPairDoesNotStartTheStoreOrRunAnyHandler() {
@@ -136,122 +143,132 @@ class ActionMatchDiagnosticsPropertyTest {
         }
 
     @Test
-    fun suspendingOverloadWaitsForTheWholeStartupChain() = runTest {
-        val log = mutableListOf<String>()
-        val store = startupChainStore(log)
+    fun suspendingOverloadWaitsForTheWholeStartupChain() =
+        runTest {
+            val log = mutableListOf<String>()
+            val store = startupChainStore(log)
 
-        val d = store.diagnoseActionMatches(KtAction.P)
+            val d = store.diagnoseActionMatches(KtAction.P)
 
-        assertEquals(500, currentTime)
-        assertEquals(listOf("enter A", "enter X", "enter B"), log)
-        assertEquals(KtState.B, d.state)
-        assertEquals(listOf(0, 1), d.matchedHandlerIndices)
-        store.close()
-    }
-
-    @Test
-    fun concurrentSuspendingCallsShareOneStartup() = runTest {
-        val log = mutableListOf<String>()
-        val store = startupChainStore(log)
-
-        val results = List(50) { i ->
-            async {
-                delay(i * 7L) // some callers arrive mid-startup, some after it
-                store.diagnoseActionMatches(if (i % 2 == 0) KtAction.P else KtAction.Q)
-            }
-        }.awaitAll()
-
-        assertEquals(listOf("enter A", "enter X", "enter B"), log, "startup ran exactly once")
-        assertTrue(results.all { it.state == KtState.B })
-        results.forEachIndexed { i, d ->
-            assertEquals(if (i % 2 == 0) listOf(0, 1) else listOf(1), d.matchedHandlerIndices, "caller $i")
+            assertEquals(500, currentTime)
+            assertEquals(listOf("enter A", "enter X", "enter B"), log)
+            assertEquals(KtState.B, d.state)
+            assertEquals(listOf(0, 1), d.matchedHandlerIndices)
+            store.close()
         }
-        store.close()
-    }
 
     @Test
-    fun suspendingOverloadOnARunningStoreUsesItsCurrentStateWithoutReentering() = runTest {
-        val log = mutableListOf<String>()
-        val store = startupChainStore(log)
-        store.startAndAwait()
-        store.dispatchAndAwait(KtAction.P) // B -> A(7) -> X(0) -> B again
-        advanceUntilIdle()
-        val enters = log.size
+    fun concurrentSuspendingCallsShareOneStartup() =
+        runTest {
+            val log = mutableListOf<String>()
+            val store = startupChainStore(log)
 
-        val d = store.diagnoseActionMatches(KtAction.Q)
+            val results =
+                List(50) { i ->
+                    async {
+                        delay(i * 7L) // some callers arrive mid-startup, some after it
+                        store.diagnoseActionMatches(if (i % 2 == 0) KtAction.P else KtAction.Q)
+                    }
+                }.awaitAll()
 
-        assertEquals(enters, log.size)
-        assertEquals(store.currentState, d.state)
-        assertEquals(store.diagnoseActionMatches(store.currentState, KtAction.Q).matchedHandlerIndices, d.matchedHandlerIndices)
-        store.close()
-    }
+            assertEquals(listOf("enter A", "enter X", "enter B"), log, "startup ran exactly once")
+            assertTrue(results.all { it.state == KtState.B })
+            results.forEachIndexed { i, d ->
+                assertEquals(if (i % 2 == 0) listOf(0, 1) else listOf(1), d.matchedHandlerIndices, "caller $i")
+            }
+            store.close()
+        }
 
     @Test
-    fun suspendingOverloadQueuesBehindAnInFlightDispatchAndSeesItsResult() = runTest {
-        val store: Store<KtState, KtAction, KtEvent> = Store(KtState.B) {
-            coroutineContext(StandardTestDispatcher(testScheduler))
-            state<KtState.B> {
-                action<KtAction.P> {
-                    delay(1_000)
-                    nextState { KtState.Sub.Y }
+    fun suspendingOverloadOnARunningStoreUsesItsCurrentStateWithoutReentering() =
+        runTest {
+            val log = mutableListOf<String>()
+            val store = startupChainStore(log)
+            store.startAndAwait()
+            store.dispatchAndAwait(KtAction.P) // B -> A(7) -> X(0) -> B again
+            advanceUntilIdle()
+            val enters = log.size
+
+            val d = store.diagnoseActionMatches(KtAction.Q)
+
+            assertEquals(enters, log.size)
+            assertEquals(store.currentState, d.state)
+            assertEquals(store.diagnoseActionMatches(store.currentState, KtAction.Q).matchedHandlerIndices, d.matchedHandlerIndices)
+            store.close()
+        }
+
+    @Test
+    fun suspendingOverloadQueuesBehindAnInFlightDispatchAndSeesItsResult() =
+        runTest {
+            val store: Store<KtState, KtAction, KtEvent> =
+                Store(KtState.B) {
+                    coroutineContext(StandardTestDispatcher(testScheduler))
+                    state<KtState.B> {
+                        action<KtAction.P> {
+                            delay(1_000)
+                            nextState { KtState.Sub.Y }
+                        }
+                    }
+                    state<KtState.Sub.Y> { action<KtAction.Q> { } }
                 }
-            }
-            state<KtState.Sub.Y> { action<KtAction.Q> { } }
+            store.startAndAwait()
+            launch { store.dispatchAndAwait(KtAction.P) }
+            testScheduler.advanceTimeBy(100)
+
+            // The non-suspending overload answers at once for any state, even mid-dispatch.
+            assertEquals(emptyList(), store.diagnoseActionMatches(KtState.B, KtAction.Q).matchedHandlerIndices)
+            assertEquals(100, currentTime)
+
+            // The suspending overload awaits startup like startAndAwait(), which takes the Store lock even
+            // when already started, so it waits for the running dispatch and reports the state after it.
+            val d = store.diagnoseActionMatches(KtAction.Q)
+
+            assertEquals(1_000, currentTime)
+            assertEquals(KtState.Sub.Y, d.state)
+            assertEquals(listOf(1), d.matchedHandlerIndices)
+            store.close()
         }
-        store.startAndAwait()
-        launch { store.dispatchAndAwait(KtAction.P) }
-        testScheduler.advanceTimeBy(100)
-
-        // The non-suspending overload answers at once for any state, even mid-dispatch.
-        assertEquals(emptyList(), store.diagnoseActionMatches(KtState.B, KtAction.Q).matchedHandlerIndices)
-        assertEquals(100, currentTime)
-
-        // The suspending overload awaits startup like startAndAwait(), which takes the Store lock even
-        // when already started, so it waits for the running dispatch and reports the state after it.
-        val d = store.diagnoseActionMatches(KtAction.Q)
-
-        assertEquals(1_000, currentTime)
-        assertEquals(KtState.Sub.Y, d.state)
-        assertEquals(listOf(1), d.matchedHandlerIndices)
-        store.close()
-    }
 
     @Test
-    fun suspendingOverloadAfterCloseReportsTheInitialStateWithoutStarting() = runTest {
-        val log = mutableListOf<String>()
-        val store = startupChainStore(log)
-        store.close()
+    fun suspendingOverloadAfterCloseReportsTheInitialStateWithoutStarting() =
+        runTest {
+            val log = mutableListOf<String>()
+            val store = startupChainStore(log)
+            store.close()
 
-        val d = store.diagnoseActionMatches(KtAction.P)
+            val d = store.diagnoseActionMatches(KtAction.P)
 
-        assertEquals(KtState.A(0), d.state)
-        assertEquals(emptyList(), log, "a closed Store does not run startup")
-        assertEquals(listOf(1), d.matchedHandlerIndices)
-        assertEquals(0, currentTime)
-    }
+            assertEquals(KtState.A(0), d.state)
+            assertEquals(emptyList(), log, "a closed Store does not run startup")
+            assertEquals(listOf(1), d.matchedHandlerIndices)
+            assertEquals(0, currentTime)
+        }
 
     @Test
-    fun nonActronStoreIsRejectedByBothOverloads() = runTest {
-        val real = buildKtStore(emptyList(), KtState.B)
-        val foreign = object : Store<KtState, KtAction, KtEvent> by real {}
+    fun nonActronStoreIsRejectedByBothOverloads() =
+        runTest {
+            val real = buildKtStore(emptyList(), KtState.B)
+            val foreign = object : Store<KtState, KtAction, KtEvent> by real {}
 
-        assertFailsWith<IllegalStateException> { foreign.diagnoseActionMatches(KtState.B, KtAction.P) }
-        assertFailsWith<IllegalStateException> { foreign.diagnoseActionMatches(KtAction.P) }
-    }
+            assertFailsWith<IllegalStateException> { foreign.diagnoseActionMatches(KtState.B, KtAction.P) }
+            assertFailsWith<IllegalStateException> { foreign.diagnoseActionMatches(KtAction.P) }
+        }
 
     @Test
     fun unnamedTypesRenderAsQuestionMarks() {
         val unnamed = object {}::class
-        val d = ActionMatchDiagnostics(
-            state = KtState.B,
-            action = KtAction.P,
-            handlers = listOf(
-                ActionHandlerDescription(0, unnamed, unnamed),
-                ActionHandlerDescription(1, KtState::class, unnamed),
-                ActionHandlerDescription(2, unnamed, KtAction.P::class),
-            ),
-            matchedHandlerIndices = listOf(0, 2),
-        )
+        val d =
+            ActionMatchDiagnostics(
+                state = KtState.B,
+                action = KtAction.P,
+                handlers =
+                    listOf(
+                        ActionHandlerDescription(0, unnamed, unnamed),
+                        ActionHandlerDescription(1, KtState::class, unnamed),
+                        ActionHandlerDescription(2, unnamed, KtAction.P::class),
+                    ),
+                matchedHandlerIndices = listOf(0, 2),
+            )
 
         assertEquals("#1 state<KtState> / action<?>", d.handlers[1].toString())
         assertEquals(

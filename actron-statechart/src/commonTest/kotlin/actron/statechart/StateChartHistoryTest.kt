@@ -44,27 +44,44 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartHistoryTest {
-
     sealed interface ChatAction : Action {
         data object Start : ChatAction
+
         data object Open : ChatAction
+
         data object Send : ChatAction
+
         data object Sent : ChatAction
+
         data object Retry : ChatAction
+
         data object Settings : ChatAction
+
         data object Back : ChatAction
+
         data object Close : ChatAction
+
         data object Lock : ChatAction
+
         data object Unlock : ChatAction
     }
 
     sealed interface ChatState : State {
         data object Splash : ChatState
+
         data object Inbox : ChatState
+
         data object Composing : ChatState
+
         data object Sending : ChatState
-        data class Settings(val returnTo: ChatState) : ChatState
-        data class Locked(val returnTo: ChatState) : ChatState
+
+        data class Settings(
+            val returnTo: ChatState,
+        ) : ChatState
+
+        data class Locked(
+            val returnTo: ChatState,
+        ) : ChatState
     }
 
     sealed interface ChatEvent : Event
@@ -91,22 +108,24 @@ class StateChartHistoryTest {
     private val lock = Transition(main, locked, ActionMatcher.of<ChatAction.Lock>("Lock"))
     private val unlock = Transition(locked, mainHistory, ActionMatcher.of<ChatAction.Unlock>("Unlock"))
 
-    private val chart = StateChartDefinition(
-        initial = splash,
-        states = listOf(
-            AtomicState(splash),
-            CompoundState(main, initial = inbox),
-            HistoryState(mainHistory, parent = main, deep = true, default = composing),
-            AtomicState(inbox, parent = main),
-            CompoundState(chat, initial = composing, parent = main),
-            HistoryState(chatHistory, parent = chat),
-            AtomicState(composing, parent = chat),
-            AtomicState(sending, parent = chat),
-            AtomicState(settings, parent = main),
-            AtomicState(locked),
-        ),
-        transitions = listOf(start, open, send, sent, retry, toSettings, back, close, lock, unlock),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = splash,
+            states =
+                listOf(
+                    AtomicState(splash),
+                    CompoundState(main, initial = inbox),
+                    HistoryState(mainHistory, parent = main, deep = true, default = composing),
+                    AtomicState(inbox, parent = main),
+                    CompoundState(chat, initial = composing, parent = main),
+                    HistoryState(chatHistory, parent = chat),
+                    AtomicState(composing, parent = chat),
+                    AtomicState(sending, parent = chat),
+                    AtomicState(settings, parent = main),
+                    AtomicState(locked),
+                ),
+            transitions = listOf(start, open, send, sent, retry, toSettings, back, close, lock, unlock),
+        )
 
     private val stateIdOf: (ChatState) -> StateId = { state ->
         when (state) {
@@ -122,7 +141,10 @@ class StateChartHistoryTest {
     private val runtime = StateChartRuntime(chart, stateIdOf)
 
     /** Steps from [configuration] with [actions]; returns every result. The chart has no guards, so the Actron state is not read. */
-    private fun walk(configuration: StateConfiguration, vararg actions: ChatAction): List<StepResult.Transitioned> {
+    private fun walk(
+        configuration: StateConfiguration,
+        vararg actions: ChatAction,
+    ): List<StepResult.Transitioned> {
         var current = configuration
         return actions.map { action ->
             (runtime.step(current, ChatState.Splash, action) as StepResult.Transitioned).also { current = it.configuration }
@@ -181,9 +203,10 @@ class StateChartHistoryTest {
         val shallow = chart.copy(states = chart.states.map { if (it.id == mainHistory) HistoryState(mainHistory, parent = main) else it })
         val shallowRuntime = StateChartRuntime(shallow, stateIdOf)
         var configuration = shallowRuntime.initialConfiguration()
-        val results = listOf(ChatAction.Start, ChatAction.Open, ChatAction.Send, ChatAction.Lock, ChatAction.Unlock).map { action ->
-            (shallowRuntime.step(configuration, ChatState.Splash, action) as StepResult.Transitioned).also { configuration = it.configuration }
-        }
+        val results =
+            listOf(ChatAction.Start, ChatAction.Open, ChatAction.Send, ChatAction.Lock, ChatAction.Unlock).map { action ->
+                (shallowRuntime.step(configuration, ChatState.Splash, action) as StepResult.Transitioned).also { configuration = it.configuration }
+            }
         assertEquals(listOf(main, inbox), results[0].entered) // no default: Main's initial child
         assertEquals(mapOf(chatHistory to setOf(sending), mainHistory to setOf(chat)), results[3].configuration.history)
         assertEquals(listOf(main, chat, composing), results[4].entered)
@@ -225,23 +248,25 @@ class StateChartHistoryTest {
 
     @Test
     fun malformedHistoryIsReportedInOrder() {
-        val broken = StateChartDefinition(
-            initial = chatHistory,
-            states = listOf(
-                CompoundState(main, initial = mainHistory),
-                HistoryState(mainHistory, parent = main, deep = true, default = main),
-                AtomicState(inbox, parent = main),
-                CompoundState(chat, initial = composing, parent = main),
-                HistoryState(chatHistory, parent = chat, default = sending),
-                AtomicState(composing, parent = chat),
-                AtomicState(sending, parent = chatHistory),
-                HistoryState(StateId("OnAtomic"), parent = inbox, default = StateId("Nowhere")),
-                HistoryState(StateId("Orphan"), parent = StateId("Ghost")),
-                HistoryState(StateId("Shallow"), parent = main, default = composing),
-                HistoryState(StateId("ToHistory"), parent = main, deep = true, default = chatHistory),
-            ),
-            transitions = listOf(Transition(chatHistory, inbox, ActionMatcher("Go"))),
-        )
+        val broken =
+            StateChartDefinition(
+                initial = chatHistory,
+                states =
+                    listOf(
+                        CompoundState(main, initial = mainHistory),
+                        HistoryState(mainHistory, parent = main, deep = true, default = main),
+                        AtomicState(inbox, parent = main),
+                        CompoundState(chat, initial = composing, parent = main),
+                        HistoryState(chatHistory, parent = chat, default = sending),
+                        AtomicState(composing, parent = chat),
+                        AtomicState(sending, parent = chatHistory),
+                        HistoryState(StateId("OnAtomic"), parent = inbox, default = StateId("Nowhere")),
+                        HistoryState(StateId("Orphan"), parent = StateId("Ghost")),
+                        HistoryState(StateId("Shallow"), parent = main, default = composing),
+                        HistoryState(StateId("ToHistory"), parent = main, deep = true, default = chatHistory),
+                    ),
+                transitions = listOf(Transition(chatHistory, inbox, ActionMatcher("Go"))),
+            )
         assertEquals(
             listOf(
                 ValidationIssue.HistoryParent(sending, chatHistory),
@@ -302,7 +327,8 @@ class StateChartHistoryTest {
 
     @Test
     fun mermaidDrawsHistoryAsLabelledStatesWithDefaultEdges() {
-        val expected = """
+        val expected =
+            """
             stateDiagram-v2
                 [*] --> Splash
                 state Main {
@@ -328,23 +354,26 @@ class StateChartHistoryTest {
                 Splash --> MainHistory : Start
                 Main --> Locked : Lock
                 Locked --> MainHistory : Unlock
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(expected, chart.toMermaid())
     }
 
     @Test
     fun mermaidAliasesHistoryIdsAndDrawsBrokenOnesAtTheTop() {
-        val odd = StateChartDefinition(
-            initial = StateId("a b"),
-            states = listOf(
-                CompoundState(StateId("a b"), initial = StateId("in")),
-                AtomicState(StateId("in"), parent = StateId("a b")),
-                HistoryState(StateId("state"), parent = StateId("a b"), default = StateId("in")),
-                HistoryState(StateId("lost"), parent = StateId("in"), deep = true, default = StateId("gone")),
-            ),
-            transitions = listOf(Transition(StateId("in"), StateId("state"), ActionMatcher("Go"))),
-        )
-        val expected = """
+        val odd =
+            StateChartDefinition(
+                initial = StateId("a b"),
+                states =
+                    listOf(
+                        CompoundState(StateId("a b"), initial = StateId("in")),
+                        AtomicState(StateId("in"), parent = StateId("a b")),
+                        HistoryState(StateId("state"), parent = StateId("a b"), default = StateId("in")),
+                        HistoryState(StateId("lost"), parent = StateId("in"), deep = true, default = StateId("gone")),
+                    ),
+                transitions = listOf(Transition(StateId("in"), StateId("state"), ActionMatcher("Go"))),
+            )
+        val expected =
+            """
             stateDiagram-v2
                 state "[H*]" as lost
                 [*] --> actron_state_0
@@ -356,7 +385,7 @@ class StateChartHistoryTest {
                     in --> actron_state_1 : Go
                 }
                 lost --> gone
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(expected, odd.toMermaid())
     }
 
@@ -378,58 +407,62 @@ class StateChartHistoryTest {
     // region conformance
 
     /** Keeps the screen to return to in the state, like a real app would. */
-    private fun createStore(forgetful: Boolean): Store<ChatState, ChatAction, ChatEvent> = Store(ChatState.Splash) {
-        coroutineContext(Dispatchers.Unconfined)
-        state<ChatState.Splash> { action<ChatAction.Start> { nextState { ChatState.Composing } } }
-        state<ChatState.Composing> {
-            action<ChatAction.Send> { nextState { ChatState.Sending } }
-            action<ChatAction.Settings> { nextState { ChatState.Settings(state) } }
-            action<ChatAction.Lock> { nextState { ChatState.Locked(state) } }
+    private fun createStore(forgetful: Boolean): Store<ChatState, ChatAction, ChatEvent> =
+        Store(ChatState.Splash) {
+            coroutineContext(Dispatchers.Unconfined)
+            state<ChatState.Splash> { action<ChatAction.Start> { nextState { ChatState.Composing } } }
+            state<ChatState.Composing> {
+                action<ChatAction.Send> { nextState { ChatState.Sending } }
+                action<ChatAction.Settings> { nextState { ChatState.Settings(state) } }
+                action<ChatAction.Lock> { nextState { ChatState.Locked(state) } }
+            }
+            state<ChatState.Sending> {
+                action<ChatAction.Sent> { nextState { ChatState.Composing } }
+                action<ChatAction.Settings> { nextState { ChatState.Settings(state) } }
+                action<ChatAction.Lock> { nextState { ChatState.Locked(state) } }
+            }
+            state<ChatState.Settings> {
+                action<ChatAction.Back> { nextState { if (forgetful) ChatState.Composing else state.returnTo } }
+            }
+            state<ChatState.Locked> {
+                action<ChatAction.Unlock> { nextState { state.returnTo } }
+            }
         }
-        state<ChatState.Sending> {
-            action<ChatAction.Sent> { nextState { ChatState.Composing } }
-            action<ChatAction.Settings> { nextState { ChatState.Settings(state) } }
-            action<ChatAction.Lock> { nextState { ChatState.Locked(state) } }
-        }
-        state<ChatState.Settings> {
-            action<ChatAction.Back> { nextState { if (forgetful) ChatState.Composing else state.returnTo } }
-        }
-        state<ChatState.Locked> {
-            action<ChatAction.Unlock> { nextState { state.returnTo } }
-        }
-    }
 
     @Test
-    fun storeThatRestoresConformsAndOneThatForgetsIsReported() = runTest {
-        val actions = listOf(ChatAction.Start, ChatAction.Send, ChatAction.Settings, ChatAction.Back, ChatAction.Lock, ChatAction.Unlock)
-        val good = StateChartConformance<ChatState, ChatAction, ChatEvent>(chart, stateIdOf)
-        val store = createStore(forgetful = false).patch { plugin(good) }
-        actions.forEach { store.dispatchAndAwait(it) }
-        assertEquals(ChatState.Sending, store.currentState)
-        assertEquals(emptyList(), good.violations)
-        assertEquals(listOf(start, send, toSettings, back, lock, unlock), good.coveredTransitions.toList())
+    fun storeThatRestoresConformsAndOneThatForgetsIsReported() =
+        runTest {
+            val actions = listOf(ChatAction.Start, ChatAction.Send, ChatAction.Settings, ChatAction.Back, ChatAction.Lock, ChatAction.Unlock)
+            val good = StateChartConformance<ChatState, ChatAction, ChatEvent>(chart, stateIdOf)
+            val store = createStore(forgetful = false).patch { plugin(good) }
+            actions.forEach { store.dispatchAndAwait(it) }
+            assertEquals(ChatState.Sending, store.currentState)
+            assertEquals(emptyList(), good.violations)
+            assertEquals(listOf(start, send, toSettings, back, lock, unlock), good.coveredTransitions.toList())
 
-        val bad = StateChartConformance<ChatState, ChatAction, ChatEvent>(chart, stateIdOf)
-        val forgetful = createStore(forgetful = true).patch { plugin(bad) }
-        actions.forEach { forgetful.dispatchAndAwait(it) }
-        assertEquals(listOf(ConformanceViolation.UndeclaredTransition(settings, composing, ChatAction.Back)), bad.violations)
-        // The plugin then follows the Store's Composing: Lock records it, and Unlock restores it.
-        assertEquals(listOf(start, send, toSettings, lock, unlock), bad.coveredTransitions.toList())
-    }
+            val bad = StateChartConformance<ChatState, ChatAction, ChatEvent>(chart, stateIdOf)
+            val forgetful = createStore(forgetful = true).patch { plugin(bad) }
+            actions.forEach { forgetful.dispatchAndAwait(it) }
+            assertEquals(listOf(ConformanceViolation.UndeclaredTransition(settings, composing, ChatAction.Back)), bad.violations)
+            // The plugin then follows the Store's Composing: Lock records it, and Unlock restores it.
+            assertEquals(listOf(start, send, toSettings, lock, unlock), bad.coveredTransitions.toList())
+        }
 
     @Test
-    fun storeStartedFromASavedStateMayRestoreAnythingTheHistoryCouldHold() = runTest {
-        // The plugin never saw Chat exited, so Back to Sending is accepted.
-        val conformance = StateChartConformance<ChatState, ChatAction, ChatEvent>(chart, stateIdOf)
-        val store = createStore(forgetful = false).patch {
-            initialState(ChatState.Settings(ChatState.Sending))
-            plugin(conformance)
+    fun storeStartedFromASavedStateMayRestoreAnythingTheHistoryCouldHold() =
+        runTest {
+            // The plugin never saw Chat exited, so Back to Sending is accepted.
+            val conformance = StateChartConformance<ChatState, ChatAction, ChatEvent>(chart, stateIdOf)
+            val store =
+                createStore(forgetful = false).patch {
+                    initialState(ChatState.Settings(ChatState.Sending))
+                    plugin(conformance)
+                }
+            store.dispatchAndAwait(ChatAction.Back)
+            assertEquals(ChatState.Sending, store.currentState)
+            assertEquals(emptyList(), conformance.violations)
+            assertEquals(listOf(back), conformance.coveredTransitions.toList())
         }
-        store.dispatchAndAwait(ChatAction.Back)
-        assertEquals(ChatState.Sending, store.currentState)
-        assertEquals(emptyList(), conformance.violations)
-        assertEquals(listOf(back), conformance.coveredTransitions.toList())
-    }
 
     // endregion
 }

@@ -1,5 +1,5 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.android.kotlin.multiplatform.library") apply false
@@ -11,12 +11,35 @@ if (providers.gradleProperty("consumer.target").get() == "android") {
 }
 kotlin {
     when (providers.gradleProperty("consumer.target").get()) {
-        "jvm" -> jvm { compilerOptions { jvmTarget = JvmTarget.JVM_11 } }
-        "android" -> targets.named<KotlinMultiplatformAndroidLibraryTarget>("android") { namespace = "consumer.app"; compileSdk = 36; minSdk = 24 }
-        "js" -> js(IR) { browser() }
-        "wasm" -> @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
-        "ios" -> { iosArm64(); iosSimulatorArm64() }
-        else -> error("Unsupported consumer target")
+        "jvm" -> {
+            jvm { compilerOptions { jvmTarget = JvmTarget.JVM_11 } }
+        }
+
+        "android" -> {
+            targets.named<KotlinMultiplatformAndroidLibraryTarget>("android") {
+                namespace = "consumer.app"
+                compileSdk = 36
+                minSdk = 24
+            }
+        }
+
+        "js" -> {
+            js(IR) { browser() }
+        }
+
+        "wasm" -> {
+            @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+            wasmJs { browser() }
+        }
+
+        "ios" -> {
+            iosArm64()
+            iosSimulatorArm64()
+        }
+
+        else -> {
+            error("Unsupported consumer target")
+        }
     }
     sourceSets {
         commonMain {

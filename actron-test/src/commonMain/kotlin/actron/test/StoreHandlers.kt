@@ -33,8 +33,7 @@ data class RecoverHandlerDescription(
     val stateType: KClass<*>,
     val exceptionType: KClass<*>,
 ) {
-    override fun toString(): String =
-        "#$index state<${stateType.simpleName ?: "?"}> / recover<${exceptionType.simpleName ?: "?"}>"
+    override fun toString(): String = "#$index state<${stateType.simpleName ?: "?"}> / recover<${exceptionType.simpleName ?: "?"}>"
 }
 
 /**
@@ -53,21 +52,25 @@ class StoreHandlers internal constructor(
     val exit: List<StateHandlerDescription>,
     val recover: List<RecoverHandlerDescription>,
 ) {
-    override fun toString(): String = buildString {
-        fun section(name: String, handlers: List<Any>) {
-            append(name).append(':')
-            if (handlers.isEmpty()) {
-                append(" none\n")
-            } else {
-                append('\n')
-                handlers.forEach { append("  ").append(it).append('\n') }
+    override fun toString(): String =
+        buildString {
+            fun section(
+                name: String,
+                handlers: List<Any>,
+            ) {
+                append(name).append(':')
+                if (handlers.isEmpty()) {
+                    append(" none\n")
+                } else {
+                    append('\n')
+                    handlers.forEach { append("  ").append(it).append('\n') }
+                }
             }
-        }
-        section("enter", enter)
-        section("action", action)
-        section("exit", exit)
-        section("recover", recover)
-    }.trimEnd()
+            section("enter", enter)
+            section("action", action)
+            section("exit", exit)
+            section("recover", recover)
+        }.trimEnd()
 }
 
 /**
@@ -82,6 +85,7 @@ class StoreHandlers internal constructor(
 @OptIn(InternalActronApi::class)
 fun <S : State, A : Action, E : Event> Store<S, A, E>.describeHandlers(): StoreHandlers {
     val metadata = requireStoreInternalApi().handlerMetadata()
+
     fun List<HandlerMetadata>.toStateHandlers() = map { StateHandlerDescription(it.index, it.stateType) }
     return StoreHandlers(
         enter = metadata.enter.toStateHandlers(),

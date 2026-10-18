@@ -3,6 +3,7 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 plugins {
+    base
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
@@ -104,3 +105,4 @@ subprojects {
     }
 }
 
+apply(from = "gradle/ktlint.gradle.kts")

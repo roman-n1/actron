@@ -33,7 +33,10 @@ data class ExecutorCheckpoint<C : Any, CMD : Any>(
 ) {
     init {
         val running = lanes.running.keys
-        val queued = lanes.queued.values.flatten().map { it.id }
+        val queued =
+            lanes.queued.values
+                .flatten()
+                .map { it.id }
         val all = running.toList() + queued + ending.keys
         require(all.size == all.toSet().size) { "[Actron] A command is in more than one place of the checkpoint: ${all.groupBy { it }.filterValues { it.size > 1 }.keys}" }
         require(all.toSet() == snapshot.commands.keys) {
@@ -50,7 +53,10 @@ data class ExecutorCheckpoint<C : Any, CMD : Any>(
         get() = lanes.all + ending
 
     /** Reports time remaining for a scheduled timer, negative when overdue; false if unscheduled. */
-    fun remaining(id: TimerId, accept: (Duration) -> Unit): Boolean {
+    fun remaining(
+        id: TimerId,
+        accept: (Duration) -> Unit,
+    ): Boolean {
         if (id !in snapshot.timers) return false
         accept(snapshot.timers.getValue(id).deadline - now)
         return true

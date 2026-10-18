@@ -3,10 +3,10 @@
 package actron.example.timetravel
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.ComposeUiTest
-import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -52,10 +52,12 @@ class DemoScreenTest {
                 onAllNodesWithText(expected, substring = true).fetchSemanticsNodes().isNotEmpty()
             }
         } catch (timeout: ComposeTimeoutException) {
-            val status = onNodeWithTag("demo-status").fetchSemanticsNode().config[SemanticsProperties.Text]
-                .joinToString { it.text }
+            val status =
+                onNodeWithTag("demo-status")
+                    .fetchSemanticsNode()
+                    .config[SemanticsProperties.Text]
+                    .joinToString { it.text }
             throw AssertionError("Expected '$expected'; actual demo status: $status", timeout)
         }
     }
-
 }

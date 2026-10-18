@@ -27,7 +27,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * storage over it reads them, sizes and deletion work.
  */
 class FileSegmentStorageIosTest {
-
     @Test
     fun aRegularFileCannotBeUsedAsTheStorageDirectory() {
         val directory = NSTemporaryDirectory() + "actron-directory-" + Random.nextLong().toULong().toString(16)
@@ -60,28 +59,37 @@ class FileSegmentStorageIosTest {
 
     private val session = RuntimeSessionId("ios")
 
-    private fun record(seq: Long) = JournalRecord(
-        JOURNAL_FORMAT_VERSION, session, MachineGroupId("g"), StoreInstanceId("s"), ExecutionMode.Live, GroupSeq(seq), StoreSeq(seq), seq.milliseconds,
-        JournalEntry.ProcessingStarted(InputId(seq), seq),
-    )
+    private fun record(seq: Long) =
+        JournalRecord(
+            JOURNAL_FORMAT_VERSION,
+            session,
+            MachineGroupId("g"),
+            StoreInstanceId("s"),
+            ExecutionMode.Live,
+            GroupSeq(seq),
+            StoreSeq(seq),
+            seq.milliseconds,
+            JournalEntry.ProcessingStarted(InputId(seq), seq),
+        )
 
     @Test
-    fun segmentsAreFilesOfTheDirectory_readableByAnotherStorage() = runTest {
-        val directory = NSTemporaryDirectory() + "actron-journal-" + Random.nextLong().toULong().toString(16)
-        val sink = JournalFileSink(FileSegmentStorage(directory), JournalFileConfig(maxSegmentBytes = 300, maxSegments = 3))
-        val records = (1L..20L).map { record(it) }
-        for (record in records) sink.write(record)
-        sink.close()
+    fun segmentsAreFilesOfTheDirectory_readableByAnotherStorage() =
+        runTest {
+            val directory = NSTemporaryDirectory() + "actron-journal-" + Random.nextLong().toULong().toString(16)
+            val sink = JournalFileSink(FileSegmentStorage(directory), JournalFileConfig(maxSegmentBytes = 300, maxSegments = 3))
+            val records = (1L..20L).map { record(it) }
+            for (record in records) sink.write(record)
+            sink.close()
 
-        val storage = FileSegmentStorage(directory)
-        val contents = JournalFiles(storage).read(session)
+            val storage = FileSegmentStorage(directory)
+            val contents = JournalFiles(storage).read(session)
 
-        assertEquals(3, storage.list().size, storage.list().toString())
-        assertTrue(storage.list().all { it.size > 0 && it.name.endsWith(JournalFileFormat.EXTENSION) })
-        val read = contents.records.map { it.groupSeq.value }
-        assertEquals((read.first()..20L).toList(), read)
-        assertTrue(contents.marks.single() is SegmentMark.MissingSegments, contents.marks.toString())
-        for (info in storage.list()) storage.delete(info.name)
-        assertTrue(storage.list().isEmpty())
-    }
+            assertEquals(3, storage.list().size, storage.list().toString())
+            assertTrue(storage.list().all { it.size > 0 && it.name.endsWith(JournalFileFormat.EXTENSION) })
+            val read = contents.records.map { it.groupSeq.value }
+            assertEquals((read.first()..20L).toList(), read)
+            assertTrue(contents.marks.single() is SegmentMark.MissingSegments, contents.marks.toString())
+            for (info in storage.list()) storage.delete(info.name)
+            assertTrue(storage.list().isEmpty())
+        }
 }

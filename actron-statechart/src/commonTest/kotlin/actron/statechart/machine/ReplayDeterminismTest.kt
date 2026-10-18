@@ -2,12 +2,11 @@
 
 package actron.statechart.machine
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.core.InternalActronApi
 import actron.statechart.ActionMatcher
@@ -52,110 +51,150 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```
  */
 class ReplayDeterminismTest {
-
-    data class Ctx(val ticks: Int = 0, val loaded: Int = -1, val timeouts: Int = 0)
+    data class Ctx(
+        val ticks: Int = 0,
+        val loaded: Int = -1,
+        val timeouts: Int = 0,
+    )
 
     sealed interface Act : Action {
-        data class Load(val n: Int) : Act
-        data class Loaded(val n: Int) : Act
+        data class Load(
+            val n: Int,
+        ) : Act
+
+        data class Loaded(
+            val n: Int,
+        ) : Act
+
         data object Tick : Act
     }
 
     data object Nothing : Event
 
-    data class Fetch(val n: Int)
+    data class Fetch(
+        val n: Int,
+    )
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
     private val loading = StateId("Loading")
 
-    private val chart = StateChartDefinition(
-        root,
-        listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root)),
-        listOf(
-            Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
-            Transition(loading, loading, ActionMatcher.of<Act.Load>("Load")),
-            Transition(loading, idle, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("store")),
-            Transition(loading, idle, Trigger.After(3.milliseconds), effect = actron.statechart.EffectKey("timeout")),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            root,
+            listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root)),
+            listOf(
+                Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
+                Transition(loading, loading, ActionMatcher.of<Act.Load>("Load")),
+                Transition(loading, idle, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("store")),
+                Transition(loading, idle, Trigger.After(3.milliseconds), effect = actron.statechart.EffectKey("timeout")),
+            ),
+        )
 
-    private val machine = Machine<Ctx, Act, Fetch, Nothing>(DefinitionId("replay"), DefinitionVersion("1"), chart) {
-        effect("store") { c, a -> c.copy(loaded = (a as Act.Loaded).n) }
-        effect("timeout") { c, _ -> c.copy(timeouts = c.timeouts + 1) }
-        onEnter(loading) { command(Fetch((action as Act.Load).n)) }
-        onAction(root, ActionMatcher.of<Act.Tick>("Tick")) { context = context.copy(ticks = context.ticks + 1) }
-    }
+    private val machine =
+        Machine<Ctx, Act, Fetch, Nothing>(DefinitionId("replay"), DefinitionVersion("1"), chart) {
+            effect("store") { c, a -> c.copy(loaded = (a as Act.Loaded).n) }
+            effect("timeout") { c, _ -> c.copy(timeouts = c.timeouts + 1) }
+            onEnter(loading) { command(Fetch((action as Act.Load).n)) }
+            onAction(root, ActionMatcher.of<Act.Tick>("Tick")) { context = context.copy(ticks = context.ticks + 1) }
+        }
 
     private sealed interface Recorded {
         val input: MachineInput<Act>
-        data class Committed(override val input: MachineInput<Act>, val snapshot: MachineSnapshot<Ctx>) : Recorded
-        data class Ignored(override val input: MachineInput<Act>, val reason: IgnoreReason) : Recorded
+
+        data class Committed(
+            override val input: MachineInput<Act>,
+            val snapshot: MachineSnapshot<Ctx>,
+        ) : Recorded
+
+        data class Ignored(
+            override val input: MachineInput<Act>,
+            val reason: IgnoreReason,
+        ) : Recorded
     }
 
     @Test
-    fun aRecordedRun_decidesAgainToTheSameSnapshots() = runTest {
-        val senders = 6
-        val perSender = 120
-        val recorded = Channel<Recorded>(Channel.UNLIMITED)
-        val handled = Channel<Throwable>(Channel.UNLIMITED)
-        val executionScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val handler = CommandHandler<Fetch, Act> { command, results ->
-            delay(Random.nextLong(0, 5).milliseconds)
-            results.result(Act.Loaded(command.command.n))
-        }
-        val recorder = object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
-            override fun onCommitted(input: InputAttribution, machineInput: MachineInput<Act>, decision: Decision<Ctx, Fetch, Nothing>) {
-                recorded.trySend(Recorded.Committed(machineInput, decision.snapshot))
-            }
+    fun aRecordedRun_decidesAgainToTheSameSnapshots() =
+        runTest {
+            val senders = 6
+            val perSender = 120
+            val recorded = Channel<Recorded>(Channel.UNLIMITED)
+            val handled = Channel<Throwable>(Channel.UNLIMITED)
+            val executionScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val handler =
+                CommandHandler<Fetch, Act> { command, results ->
+                    delay(Random.nextLong(0, 5).milliseconds)
+                    results.result(Act.Loaded(command.command.n))
+                }
+            val recorder =
+                object : DecisionObserver<Ctx, Act, Fetch, Nothing> {
+                    override fun onCommitted(
+                        input: InputAttribution,
+                        machineInput: MachineInput<Act>,
+                        decision: Decision<Ctx, Fetch, Nothing>,
+                    ) {
+                        recorded.trySend(Recorded.Committed(machineInput, decision.snapshot))
+                    }
 
-            override fun onIgnored(input: InputAttribution, machineInput: MachineInput<Act>, reason: IgnoreReason) {
-                recorded.trySend(Recorded.Ignored(machineInput, reason))
-            }
-        }
-        val store = MachineStore(machine, Ctx(), handler, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(recorder)) {
-            exceptionHandler(ExceptionHandler { handled.trySend(it) })
-        }
-        val ticks = senders * perSender / 2
+                    override fun onIgnored(
+                        input: InputAttribution,
+                        machineInput: MachineInput<Act>,
+                        reason: IgnoreReason,
+                    ) {
+                        recorded.trySend(Recorded.Ignored(machineInput, reason))
+                    }
+                }
+            val store =
+                MachineStore(machine, Ctx(), handler, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(recorder)) {
+                    exceptionHandler(ExceptionHandler { handled.trySend(it) })
+                }
+            val ticks = senders * perSender / 2
 
-        withContext(Dispatchers.Default) {
-            coroutineScope {
-                repeat(senders) { sender ->
-                    launch {
-                        repeat(perSender) { index ->
-                            store.dispatch(if (index % 2 == 0) Act.Tick else Act.Load(sender * perSender + index))
-                            if (index % 17 == 0) delay(1.milliseconds)
+            withContext(Dispatchers.Default) {
+                coroutineScope {
+                    repeat(senders) { sender ->
+                        launch {
+                            repeat(perSender) { index ->
+                                store.dispatch(if (index % 2 == 0) Act.Tick else Act.Load(sender * perSender + index))
+                                if (index % 17 == 0) delay(1.milliseconds)
+                            }
                         }
                     }
                 }
+                withTimeout(20_000) { store.state.first { it.context.ticks == ticks && it.commands.isEmpty() && it.isActive(idle) } }
             }
-            withTimeout(20_000) { store.state.first { it.context.ticks == ticks && it.commands.isEmpty() && it.isActive(idle) } }
-        }
-        val final = store.currentState
-        store.close()
-        executionScope.cancel()
-        val run = buildList { while (true) { val received = recorded.tryReceive(); if (received.isFailure) break; add(received.getOrThrow()) } }
+            val final = store.currentState
+            store.close()
+            executionScope.cancel()
+            val run =
+                buildList {
+                    while (true) {
+                        val received = recorded.tryReceive()
+                        if (received.isFailure) break
+                        add(received.getOrThrow())
+                    }
+                }
 
-        // Replay: the same inputs, in processing order, from the initial snapshot, by the pure machine.
-        var snapshot = machine.initialSnapshot(Ctx())
-        var replayed = 0
-        run.forEachIndexed { index, step ->
-            val decision = machine.decide(snapshot, step.input)
-            if (step is Recorded.Committed) {
-                assertEquals(DecisionOutcome.Handled, decision.outcome, "step $index: ${step.input} was handled live")
-                assertEquals(step.snapshot, decision.snapshot, "step $index: ${step.input} decided differently on replay")
-                snapshot = decision.snapshot
-                replayed++
-            } else {
-                assertTrue(decision.outcome is DecisionOutcome.Ignored, "step $index: ${step.input} was ignored live, replay says ${decision.outcome}")
+            // Replay: the same inputs, in processing order, from the initial snapshot, by the pure machine.
+            var snapshot = machine.initialSnapshot(Ctx())
+            var replayed = 0
+            run.forEachIndexed { index, step ->
+                val decision = machine.decide(snapshot, step.input)
+                if (step is Recorded.Committed) {
+                    assertEquals(DecisionOutcome.Handled, decision.outcome, "step $index: ${step.input} was handled live")
+                    assertEquals(step.snapshot, decision.snapshot, "step $index: ${step.input} decided differently on replay")
+                    snapshot = decision.snapshot
+                    replayed++
+                } else {
+                    assertTrue(decision.outcome is DecisionOutcome.Ignored, "step $index: ${step.input} was ignored live, replay says ${decision.outcome}")
+                }
             }
+            assertEquals(final, snapshot, "the replay ends where the live run ended")
+            assertEquals(final.revision, replayed.toLong())
+            assertTrue(handled.tryReceive().isFailure, "nothing was reported")
+            // How rich the storm was depends on the platform's threads and timers; it is reported, not required.
+            val timers = run.count { it.input is MachineInput.TimerFired && it is Recorded.Committed }
+            val stale = run.count { it.input is MachineInput.CommandResult<*> && it is Recorded.Ignored }
+            println("[Replay] ${run.size} steps replayed: ${final.revision} commits, $timers timers fired, $stale stale results ignored")
         }
-        assertEquals(final, snapshot, "the replay ends where the live run ended")
-        assertEquals(final.revision, replayed.toLong())
-        assertTrue(handled.tryReceive().isFailure, "nothing was reported")
-        // How rich the storm was depends on the platform's threads and timers; it is reported, not required.
-        val timers = run.count { it.input is MachineInput.TimerFired && it is Recorded.Committed }
-        val stale = run.count { it.input is MachineInput.CommandResult<*> && it is Recorded.Ignored }
-        println("[Replay] ${run.size} steps replayed: ${final.revision} commits, $timers timers fired, $stale stale results ignored")
-    }
 }

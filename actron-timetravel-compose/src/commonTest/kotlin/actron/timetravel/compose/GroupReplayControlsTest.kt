@@ -122,44 +122,61 @@ class GroupReplayControlsTest {
 internal object GroupReplayFixture {
     val a = StoreInstanceId("chat-7")
     val b = StoreInstanceId("root-2")
-    data class Ctx(val n: Int)
+
+    data class Ctx(
+        val n: Int,
+    )
+
     data object Inc : Action
+
     data object Nothing : Event
+
     private val root = StateId("Root")
     private val idle = StateId("Idle")
     private val chart = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, ActionMatcher.of<Inc>("Inc"), effect = actron.statechart.EffectKey("inc"))))
-    fun machine(increment: Int = 1) = Machine<Ctx, Inc, Nothing, Nothing>(DefinitionId("group-counter"), DefinitionVersion("1"), chart) {
-        effect("inc") { c, _ -> c.copy(n = c.n + increment) }
-    }
+
+    fun machine(increment: Int = 1) =
+        Machine<Ctx, Inc, Nothing, Nothing>(DefinitionId("group-counter"), DefinitionVersion("1"), chart) {
+            effect("inc") { c, _ -> c.copy(n = c.n + increment) }
+        }
+
     private fun recording(initial: Int): Recording<Ctx, Inc, Nothing, Nothing> {
         val machine = machine()
         val inputs = listOf(MachineInput.Start(MachineTime.Zero), MachineInput.Dispatch(Inc, MachineTime(10.milliseconds)), MachineInput.Dispatch(Inc, MachineTime(20.milliseconds)))
         var snapshot = machine.initialSnapshot(Ctx(initial))
-        val steps = inputs.map { input ->
-            val decision = machine.decide(snapshot, input)
-            snapshot = decision.snapshot
-            RecordedStep.Committed<Ctx, Inc, Nothing, Nothing>(input, decision)
-        }
+        val steps =
+            inputs.map { input ->
+                val decision = machine.decide(snapshot, input)
+                snapshot = decision.snapshot
+                RecordedStep.Committed<Ctx, Inc, Nothing, Nothing>(input, decision)
+            }
         return Recording(machine.id, machine.version, machine.initialSnapshot(Ctx(initial)), steps)
     }
+
     fun recording() = GroupRecording(mapOf(a to recording(0), b to recording(10)), (0..2).flatMap { listOf(GroupStep(a, it), GroupStep(b, it)) })
+
     fun controls(changed: Boolean = false) = GroupReplayControls(GroupReplaySession(mapOf(a to machine(), b to machine(if (changed) 7 else 1)), recording()))
 
-    fun journal(recording: GroupRecording): List<JournalRecord<*, *, *>> = buildList {
-        var seq = 0L
-        fun append(store: StoreInstanceId, entry: JournalEntry<*, *, *>) {
-            seq++
-            add(JournalRecord(JOURNAL_FORMAT_VERSION, RuntimeSessionId("group-run"), MachineGroupId("counter"), store, ExecutionMode.Live, GroupSeq(seq), StoreSeq(seq), seq.milliseconds, entry))
+    fun journal(recording: GroupRecording): List<JournalRecord<*, *, *>> =
+        buildList {
+            var seq = 0L
+
+            fun append(
+                store: StoreInstanceId,
+                entry: JournalEntry<*, *, *>,
+            ) {
+                seq++
+                add(JournalRecord(JOURNAL_FORMAT_VERSION, RuntimeSessionId("group-run"), MachineGroupId("counter"), store, ExecutionMode.Live, GroupSeq(seq), StoreSeq(seq), seq.milliseconds, entry))
+            }
+            for (store in recording.members.keys) append(store, JournalEntry.StoreRegistered(Capability.DeterministicReplay))
+            for (step in recording.order) {
+                val recorded = recording.members.getValue(step.store).steps[step.step] as RecordedStep.Committed<*, *, *, *>
+                val id = InputId(step.step.toLong() + 1)
+                val kind = if (recorded.input is MachineInput.Start) InputDescriptor.Startup else InputDescriptor.Dispatch(Payload.Projected("Inc"))
+                append(step.store, JournalEntry.InputAccepted(id, kind))
+                append(step.store, JournalEntry.ProcessingStarted(id, step.step.toLong() + 1))
+                append(step.store, JournalEntry.StateCommitted(id, recorded.decision.snapshot.revision, Payload.Omitted, Payload.Omitted))
+                append(step.store, JournalEntry.ProcessingFinished(id, step.step.toLong() + 1, OutcomeDescriptor(OutcomeKind.Handled, 1), 1.milliseconds))
+            }
         }
-        for (store in recording.members.keys) append(store, JournalEntry.StoreRegistered(Capability.DeterministicReplay))
-        for (step in recording.order) {
-            val recorded = recording.members.getValue(step.store).steps[step.step] as RecordedStep.Committed<*, *, *, *>
-            val id = InputId(step.step.toLong() + 1)
-            val kind = if (recorded.input is MachineInput.Start) InputDescriptor.Startup else InputDescriptor.Dispatch(Payload.Projected("Inc"))
-            append(step.store, JournalEntry.InputAccepted(id, kind))
-            append(step.store, JournalEntry.ProcessingStarted(id, step.step.toLong() + 1))
-            append(step.store, JournalEntry.StateCommitted(id, recorded.decision.snapshot.revision, Payload.Omitted, Payload.Omitted))
-            append(step.store, JournalEntry.ProcessingFinished(id, step.step.toLong() + 1, OutcomeDescriptor(OutcomeKind.Handled, 1), 1.milliseconds))
-        }
-    }
 }

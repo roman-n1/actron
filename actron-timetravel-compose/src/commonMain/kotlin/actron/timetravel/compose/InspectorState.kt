@@ -1,5 +1,12 @@
 package actron.timetravel.compose
 
+import actron.core.ExperimentalActronApi
+import actron.observability.RecordSubject
+import actron.observability.RecordingSession
+import actron.observability.StoreInstanceId
+import actron.timetravel.Recording
+import actron.timetravel.inspect.Inspector
+import actron.timetravel.inspect.TimelineItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -7,13 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import actron.core.ExperimentalActronApi
-import actron.observability.RecordingSession
-import actron.observability.RecordSubject
-import actron.observability.StoreInstanceId
-import actron.timetravel.Recording
-import actron.timetravel.inspect.Inspector
-import actron.timetravel.inspect.TimelineItem
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -44,7 +44,10 @@ enum class InspectorMode {
  */
 @ExperimentalActronApi
 @Stable
-class InspectorState(initial: Inspector, mode: InspectorMode = InspectorMode.Inspect) {
+class InspectorState(
+    initial: Inspector,
+    mode: InspectorMode = InspectorMode.Inspect,
+) {
     var inspector: Inspector by mutableStateOf(initial)
         private set
 
@@ -60,6 +63,7 @@ class InspectorState(initial: Inspector, mode: InspectorMode = InspectorMode.Ins
         accept(inspector.timeline[current.index])
         return true
     }
+
     val visibleTimeline: List<IndexedValue<TimelineItem>>
         get() = inspector.timeline.withIndex().filter { (_, item) -> filter.includes(item.subject) }
 
@@ -74,7 +78,10 @@ class InspectorState(initial: Inspector, mode: InspectorMode = InspectorMode.Ins
     fun select(index: Int) {
         selection = if (index in inspector.timeline.indices) InspectorSelection.Position(index) else InspectorSelection.Overview
     }
-    fun clearSelection() { selection = InspectorSelection.Overview }
+
+    fun clearSelection() {
+        selection = InspectorSelection.Overview
+    }
 
     /** Narrows the timeline to [store], or widens it again when it already is. */
     fun toggleFilter(store: StoreInstanceId) {
@@ -84,14 +91,23 @@ class InspectorState(initial: Inspector, mode: InspectorMode = InspectorMode.Ins
 
 sealed interface InspectorSelection {
     data object Overview : InspectorSelection
-    data class Position(val index: Int) : InspectorSelection
+
+    data class Position(
+        val index: Int,
+    ) : InspectorSelection
 }
 
 /** Selects the whole history or the records of one Store, retaining session-level diagnostics. */
 sealed interface StoreFilter {
     fun includes(subject: RecordSubject): Boolean
-    data object All : StoreFilter { override fun includes(subject: RecordSubject): Boolean = true }
-    data class Single(val store: StoreInstanceId) : StoreFilter {
+
+    data object All : StoreFilter {
+        override fun includes(subject: RecordSubject): Boolean = true
+    }
+
+    data class Single(
+        val store: StoreInstanceId,
+    ) : StoreFilter {
         override fun includes(subject: RecordSubject): Boolean = subject == store || subject == RecordSubject.Session
     }
 }
@@ -99,7 +115,10 @@ sealed interface StoreFilter {
 /** Remembers an [InspectorState] for [inspector]; a new inspector replaces the shown one. */
 @ExperimentalActronApi
 @Composable
-fun rememberInspectorState(inspector: Inspector, mode: InspectorMode = InspectorMode.Inspect): InspectorState {
+fun rememberInspectorState(
+    inspector: Inspector,
+    mode: InspectorMode = InspectorMode.Inspect,
+): InspectorState {
     val state = remember { InspectorState(inspector, mode) }
     LaunchedEffect(inspector) { state.refresh(inspector) }
     return state

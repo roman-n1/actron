@@ -4,7 +4,9 @@ package actron.observability.file
  * A growable byte buffer with the primitive encodings of the journal file format: big-endian
  * integers, `u8` booleans and flags, strings as a byte length and UTF-8.
  */
-internal class ByteWriter(initial: Int = 256) {
+internal class ByteWriter(
+    initial: Int = 256,
+) {
     private var buffer = ByteArray(initial)
 
     var size: Int = 0
@@ -43,7 +45,10 @@ internal class ByteWriter(initial: Int = 256) {
         size += value.size
     }
 
-    fun <T : Any> list(values: List<T>, write: (T) -> Unit) {
+    fun <T : Any> list(
+        values: List<T>,
+        write: (T) -> Unit,
+    ) {
         i32(values.size)
         for (value in values) write(value)
     }
@@ -62,8 +67,14 @@ internal class ByteWriter(initial: Int = 256) {
  * Reads what [ByteWriter] wrote; every read is bounds-checked and a read past [limit] throws
  * [Malformed], which the segment decoder turns into a mark rather than a crash.
  */
-internal class ByteReader(private val bytes: ByteArray, var position: Int = 0, private val limit: Int = bytes.size) {
-    class Malformed(message: String) : RuntimeException(message)
+internal class ByteReader(
+    private val bytes: ByteArray,
+    var position: Int = 0,
+    private val limit: Int = bytes.size,
+) {
+    class Malformed(
+        message: String,
+    ) : RuntimeException(message)
 
     val remaining: Int get() = limit - position
 
@@ -74,21 +85,23 @@ internal class ByteReader(private val bytes: ByteArray, var position: Int = 0, p
 
     fun i32(): Int {
         need(4)
-        val value = ((bytes[position].toInt() and 0xFF) shl 24) or
-            ((bytes[position + 1].toInt() and 0xFF) shl 16) or
-            ((bytes[position + 2].toInt() and 0xFF) shl 8) or
-            (bytes[position + 3].toInt() and 0xFF)
+        val value =
+            ((bytes[position].toInt() and 0xFF) shl 24) or
+                ((bytes[position + 1].toInt() and 0xFF) shl 16) or
+                ((bytes[position + 2].toInt() and 0xFF) shl 8) or
+                (bytes[position + 3].toInt() and 0xFF)
         position += 4
         return value
     }
 
     fun i64(): Long = (i32().toLong() shl 32) or (i32().toLong() and 0xFFFFFFFFL)
 
-    fun bool(): Boolean = when (val value = u8()) {
-        0 -> false
-        1 -> true
-        else -> throw Malformed("not a boolean: $value")
-    }
+    fun bool(): Boolean =
+        when (val value = u8()) {
+            0 -> false
+            1 -> true
+            else -> throw Malformed("not a boolean: $value")
+        }
 
     fun string(): String = bytes().decodeToString()
 
@@ -112,7 +125,11 @@ internal class ByteReader(private val bytes: ByteArray, var position: Int = 0, p
     }
 
     /** Copies [length] bytes from [start] into [into]; the caller has checked the bounds. */
-    fun copyInto(start: Int, length: Int, into: ByteArray) {
+    fun copyInto(
+        start: Int,
+        length: Int,
+        into: ByteArray,
+    ) {
         bytes.copyInto(into, 0, start, start + length)
     }
 
@@ -125,13 +142,18 @@ internal class ByteReader(private val bytes: ByteArray, var position: Int = 0, p
  * CRC-32 (IEEE 802.3, the one of zip and PNG), for the frames of a segment.
  */
 internal object Crc32 {
-    private val table = IntArray(256) { n ->
-        var c = n
-        repeat(8) { c = if (c and 1 != 0) (c ushr 1) xor 0xEDB88320.toInt() else c ushr 1 }
-        c
-    }
+    private val table =
+        IntArray(256) { n ->
+            var c = n
+            repeat(8) { c = if (c and 1 != 0) (c ushr 1) xor 0xEDB88320.toInt() else c ushr 1 }
+            c
+        }
 
-    fun of(bytes: ByteArray, from: Int = 0, to: Int = bytes.size): Int {
+    fun of(
+        bytes: ByteArray,
+        from: Int = 0,
+        to: Int = bytes.size,
+    ): Int {
         var crc = -1
         for (i in from until to) crc = table[(crc xor bytes[i].toInt()) and 0xFF] xor (crc ushr 8)
         return crc.inv()

@@ -2,12 +2,11 @@
 
 package actron.statechart.machine
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.core.InternalActronApi
 import actron.statechart.ActionMatcher
@@ -49,9 +48,9 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```
  */
 class TimerExitRaceTest {
-
     sealed interface Act : Action {
         data object Load : Act
+
         data object Loaded : Act
     }
 
@@ -65,21 +64,25 @@ class TimerExitRaceTest {
     private val content = StateId("Content")
     private val timeout = StateId("Timeout")
 
-    private val chart = StateChartDefinition(
-        root,
-        listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root), AtomicState(content, parent = root), AtomicState(timeout, parent = root)),
-        listOf(
-            Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
-            Transition(loading, content, ActionMatcher.of<Act.Loaded>("Loaded")),
-            Transition(loading, timeout, Trigger.After(100.milliseconds)),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            root,
+            listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root), AtomicState(content, parent = root), AtomicState(timeout, parent = root)),
+            listOf(
+                Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
+                Transition(loading, content, ActionMatcher.of<Act.Loaded>("Loaded")),
+                Transition(loading, timeout, Trigger.After(100.milliseconds)),
+            ),
+        )
 
-    private val machine = Machine<Unit, Act, Fetch, Nothing>(DefinitionId("timer-race"), DefinitionVersion("1"), chart) {
-        onEnter(loading) { command(Fetch) }
-    }
+    private val machine =
+        Machine<Unit, Act, Fetch, Nothing>(DefinitionId("timer-race"), DefinitionVersion("1"), chart) {
+            onEnter(loading) { command(Fetch) }
+        }
 
-    private class TestClock(private val scheduler: TestCoroutineScheduler) : MachineClock {
+    private class TestClock(
+        private val scheduler: TestCoroutineScheduler,
+    ) : MachineClock {
         override fun now(): MachineTime = MachineTime(scheduler.currentTime.milliseconds)
 
         override suspend fun delayUntil(deadline: MachineTime) {
@@ -88,57 +91,77 @@ class TimerExitRaceTest {
         }
     }
 
-    private fun run(resultFirst: Boolean) = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val executionScope = CoroutineScope(dispatcher + SupervisorJob())
-        val gate = CompletableDeferred<Unit>()
-        val sinkObservations = mutableListOf<ResultSink<Act>>()
-        val ignored = mutableListOf<Pair<MachineInput<Act>, IgnoreReason>>()
-        val handled = mutableListOf<Throwable>()
-        val store = MachineStore(
-            machine, Unit,
-            CommandHandler<Fetch, Act> { _, results -> sinkObservations.add(results); gate.await(); awaitCancellation() },
-            executionScope, TestClock(testScheduler), dispatcher,
-            observers = listOf(object : DecisionObserver<Unit, Act, Fetch, Nothing> {
-                override fun onIgnored(input: InputAttribution, machineInput: MachineInput<Act>, reason: IgnoreReason) {
-                    ignored += machineInput to reason
-                }
-            }),
-        ) { exceptionHandler(ExceptionHandler { handled += it }) }
-        store.startAndAwait()
-        store.dispatch(Act.Load)
-        runCurrent()
-        val timer = store.currentState.timers.keys.single()
-        val command = store.currentState.commands.keys.single()
+    private fun run(resultFirst: Boolean) =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val executionScope = CoroutineScope(dispatcher + SupervisorJob())
+            val gate = CompletableDeferred<Unit>()
+            val sinkObservations = mutableListOf<ResultSink<Act>>()
+            val ignored = mutableListOf<Pair<MachineInput<Act>, IgnoreReason>>()
+            val handled = mutableListOf<Throwable>()
+            val store =
+                MachineStore(
+                    machine,
+                    Unit,
+                    CommandHandler<Fetch, Act> { _, results ->
+                        sinkObservations.add(results)
+                        gate.await()
+                        awaitCancellation()
+                    },
+                    executionScope,
+                    TestClock(testScheduler),
+                    dispatcher,
+                    observers =
+                        listOf(
+                            object : DecisionObserver<Unit, Act, Fetch, Nothing> {
+                                override fun onIgnored(
+                                    input: InputAttribution,
+                                    machineInput: MachineInput<Act>,
+                                    reason: IgnoreReason,
+                                ) {
+                                    ignored += machineInput to reason
+                                }
+                            },
+                        ),
+                ) { exceptionHandler(ExceptionHandler { handled += it }) }
+            store.startAndAwait()
+            store.dispatch(Act.Load)
+            runCurrent()
+            val timer =
+                store.currentState.timers.keys
+                    .single()
+            val command =
+                store.currentState.commands.keys
+                    .single()
 
-        // Both events land on the same virtual instant; only their order differs.
-        advanceTimeBy(100.milliseconds)
-        if (resultFirst) {
-            kotlin.test.assertNotNull(sinkObservations.single()).result(Act.Loaded)
+            // Both events land on the same virtual instant; only their order differs.
+            advanceTimeBy(100.milliseconds)
+            if (resultFirst) {
+                kotlin.test.assertNotNull(sinkObservations.single()).result(Act.Loaded)
+                runCurrent()
+            } else {
+                runCurrent()
+                kotlin.test.assertNotNull(sinkObservations.single()).result(Act.Loaded)
+                runCurrent()
+            }
+
+            val snapshot = store.currentState
+            val won = if (resultFirst) content else timeout
+            val lost = if (resultFirst) timeout else content
+            assertTrue(snapshot.isActive(won) && !snapshot.isActive(lost), "resultFirst=$resultFirst: ${snapshot.configuration.active}")
+            assertTrue(snapshot.timers.isEmpty(), "no timer is left, spent or cancelled")
+            assertTrue(snapshot.commands.isEmpty(), "the command left with Loading")
+            val reason = ignored.single().second
+            assertEquals(if (resultFirst) IgnoreReason.UnknownTimer else IgnoreReason.StaleCommand, reason)
+            // A second firing of the same timer, or a second result, changes nothing more.
+            (store as MachineStoreImpl<Unit, Act, Fetch, Nothing>).inner.dispatch(MachineInput.TimerFired(timer, MachineTime(100.milliseconds)))
+            (store as MachineStoreImpl<Unit, Act, Fetch, Nothing>).inner.dispatch(MachineInput.CommandResult(command, Act.Loaded, MachineTime(100.milliseconds)))
             runCurrent()
-        } else {
-            runCurrent()
-            kotlin.test.assertNotNull(sinkObservations.single()).result(Act.Loaded)
-            runCurrent()
+            assertEquals(snapshot, store.currentState)
+            assertTrue(handled.isEmpty())
+            store.close()
+            executionScope.cancel()
         }
-
-        val snapshot = store.currentState
-        val won = if (resultFirst) content else timeout
-        val lost = if (resultFirst) timeout else content
-        assertTrue(snapshot.isActive(won) && !snapshot.isActive(lost), "resultFirst=$resultFirst: ${snapshot.configuration.active}")
-        assertTrue(snapshot.timers.isEmpty(), "no timer is left, spent or cancelled")
-        assertTrue(snapshot.commands.isEmpty(), "the command left with Loading")
-        val reason = ignored.single().second
-        assertEquals(if (resultFirst) IgnoreReason.UnknownTimer else IgnoreReason.StaleCommand, reason)
-        // A second firing of the same timer, or a second result, changes nothing more.
-        (store as MachineStoreImpl<Unit, Act, Fetch, Nothing>).inner.dispatch(MachineInput.TimerFired(timer, MachineTime(100.milliseconds)))
-        (store as MachineStoreImpl<Unit, Act, Fetch, Nothing>).inner.dispatch(MachineInput.CommandResult(command, Act.Loaded, MachineTime(100.milliseconds)))
-        runCurrent()
-        assertEquals(snapshot, store.currentState)
-        assertTrue(handled.isEmpty())
-        store.close()
-        executionScope.cancel()
-    }
 
     @Test
     fun theResultArrivesFirst_andTheTimerIsUnknown() = run(resultFirst = true)

@@ -11,6 +11,7 @@ import kotlin.time.Duration
 @InternalActronApi
 interface StoreInternalApi<S : State, A : Action, E : Event> {
     suspend fun startAndAwait()
+
     suspend fun dispatchAndAwait(action: A)
 
     /**
@@ -19,14 +20,21 @@ interface StoreInternalApi<S : State, A : Action, E : Event> {
      * The predicate must be fast, non-suspending and side-effect free. A predicate that throws
      * discards the action and its failure reaches the exception handler, not `recover {}`.
      */
-    fun dispatchIf(action: A, isValid: () -> Boolean)
+    fun dispatchIf(
+        action: A,
+        isValid: () -> Boolean,
+    )
+
     fun patch(patch: StorePatch<S, A, E>): Store<S, A, E>
 
     /**
      * Returns every registered action handler in first-match order, marking which ones match
      * [state] and [action]. No handler runs.
      */
-    fun matchActionHandlers(state: S, action: A): List<ActionHandlerMatch>
+    fun matchActionHandlers(
+        state: S,
+        action: A,
+    ): List<ActionHandlerMatch>
 
     /**
      * Returns the declared types of all registered handlers. No handler runs.
@@ -49,6 +57,9 @@ interface StoreInternalApi<S : State, A : Action, E : Event> {
  * What a Store still has to do, as [StoreInternalApi.awaitIdle] found it: [inputs] accepted and
  * not finished or discarded, [launches] started from `enter {}` or `action {}` and still active.
  */
-data class StorePendingWork(val inputs: Int, val launches: Int) {
+data class StorePendingWork(
+    val inputs: Int,
+    val launches: Int,
+) {
     val isIdle: Boolean get() = inputs == 0 && launches == 0
 }

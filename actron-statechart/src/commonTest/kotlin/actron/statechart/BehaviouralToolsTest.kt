@@ -8,7 +8,9 @@ import kotlin.time.Duration.Companion.seconds
 
 class BehaviouralToolsTest {
     private data object Go : Action
+
     private data object Finish : Action
+
     private val idle = StateId("idle")
     private val done = StateId("done")
     private val go = ActionMatcher.of<Go>("go")
@@ -35,12 +37,22 @@ class BehaviouralToolsTest {
     @Test fun versionedDiffDoesNotExecuteOrPretendToCompareOpaqueRules() {
         var calls = 0
         val chart = StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed"))))
-        fun machine(version: String, model: StateChartDefinition = chart, identity: String = "versions") =
-            Machine<Unit, Action, Nothing, Event>(DefinitionId(identity), DefinitionVersion(version), model) {
-                guard("allowed") { _, _ -> calls++; true }
-                invariant("valid") { calls++; true }
-                onEnter(idle) { calls++ }
+
+        fun machine(
+            version: String,
+            model: StateChartDefinition = chart,
+            identity: String = "versions",
+        ) = Machine<Unit, Action, Nothing, Event>(DefinitionId(identity), DefinitionVersion(version), model) {
+            guard("allowed") { _, _ ->
+                calls++
+                true
             }
+            invariant("valid") {
+                calls++
+                true
+            }
+            onEnter(idle) { calls++ }
+        }
         val before = machine("1")
         val versioned = before.behaviouralDiffTo(machine("2"))
         assertFalse(versioned.implementationsCompared)
@@ -53,11 +65,16 @@ class BehaviouralToolsTest {
     }
 
     @Test fun matrixRetainsGuardAlternativesTimersAndTransitionOrder() {
-        val chart = StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(
-            Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed"), effect = actron.statechart.EffectKey("save")),
-            Transition(idle, idle, go, guard = actron.statechart.GuardKey("retry"), kind = TransitionKind.Internal),
-            Transition(idle, done, Trigger.After(5.seconds)),
-        ))
+        val chart =
+            StateChartDefinition(
+                idle,
+                listOf(AtomicState(idle), FinalState(done)),
+                listOf(
+                    Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed"), effect = actron.statechart.EffectKey("save")),
+                    Transition(idle, idle, go, guard = actron.statechart.GuardKey("retry"), kind = TransitionKind.Internal),
+                    Transition(idle, done, Trigger.After(5.seconds)),
+                ),
+            )
         val matrix = chart.transitionMatrix()
         assertEquals(2, matrix.triggers.size)
         assertEquals(listOf(0, 1), matrix.cell(idle, Trigger.OnAction(go)).map { it.index })
@@ -72,12 +89,21 @@ class BehaviouralToolsTest {
     @Test fun matrixShowsDeclarationsWithoutCopyingParentTransitionsIntoChildRows() {
         val root = StateId("root")
         val history = StateId("history")
-        val chart = StateChartDefinition(root, listOf(CompoundState(root, idle), AtomicState(idle, root),
-            FinalState(done, root), HistoryState(history, root)), listOf(
-            Transition(root, root, go, kind = TransitionKind.Internal),
-            Transition(idle, done, Trigger.Eventless),
-            Transition(root, root, Trigger.Completion, kind = TransitionKind.Internal),
-        ))
+        val chart =
+            StateChartDefinition(
+                root,
+                listOf(
+                    CompoundState(root, idle),
+                    AtomicState(idle, root),
+                    FinalState(done, root),
+                    HistoryState(history, root),
+                ),
+                listOf(
+                    Transition(root, root, go, kind = TransitionKind.Internal),
+                    Transition(idle, done, Trigger.Eventless),
+                    Transition(root, root, Trigger.Completion, kind = TransitionKind.Internal),
+                ),
+            )
         val matrix = chart.transitionMatrix()
         assertEquals(listOf(root, idle, done, history), matrix.states)
         assertTrue(matrix.cell(idle, Trigger.OnAction(go)).isEmpty())
@@ -88,10 +114,15 @@ class BehaviouralToolsTest {
 
     @Test fun markdownEscapesNamesAndKeepsDifferentMatchersWithTheSameDisplayName() {
         val unsafe = StateId("draft | <script>\nnext")
-        val chart = StateChartDefinition(unsafe, listOf(AtomicState(unsafe), FinalState(done)), listOf(
-            Transition(unsafe, done, ActionMatcher.of<Go>("same")),
-            Transition(unsafe, done, ActionMatcher.of<Finish>("same")),
-        ))
+        val chart =
+            StateChartDefinition(
+                unsafe,
+                listOf(AtomicState(unsafe), FinalState(done)),
+                listOf(
+                    Transition(unsafe, done, ActionMatcher.of<Go>("same")),
+                    Transition(unsafe, done, ActionMatcher.of<Finish>("same")),
+                ),
+            )
         val matrix = chart.transitionMatrix()
         assertEquals(2, matrix.triggers.size)
         val markdown = matrix.toMarkdown()

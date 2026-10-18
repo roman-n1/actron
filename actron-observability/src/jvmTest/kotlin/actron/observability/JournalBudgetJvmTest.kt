@@ -29,8 +29,9 @@ import kotlin.time.TimeSource
  * set, and a change here should update them.
  */
 class JournalBudgetJvmTest {
-
-    data class Counter(val count: Int = 0) : State
+    data class Counter(
+        val count: Int = 0,
+    ) : State
 
     data object Increment : Action
 
@@ -53,76 +54,82 @@ class JournalBudgetJvmTest {
     }
 
     @Test
-    fun retainedRecord_costsAFewHundredBytes_underTheProductionPolicy() = runBlocking {
-        val n = 20_000
-        val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val session = RecordingSession(scope, config = JournalConfig(retainedRecords = n, writerQueueCapacity = 1))
-        val store = StoreInstanceId("m")
-        val before = usedMemory()
+    fun retainedRecord_costsAFewHundredBytes_underTheProductionPolicy() =
+        runBlocking {
+            val n = 20_000
+            val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val session = RecordingSession(scope, config = JournalConfig(retainedRecords = n, writerQueueCapacity = 1))
+            val store = StoreInstanceId("m")
+            val before = usedMemory()
 
-        // The entries are built inside the measured region: a retained record is the envelope and
-        // the entry, with the descriptors a production policy leaves in it.
-        repeat(n) { session.publish(store, entryAt(it)) }
-        val records = session.records()
-        val after = usedMemory()
+            // The entries are built inside the measured region: a retained record is the envelope and
+            // the entry, with the descriptors a production policy leaves in it.
+            repeat(n) { session.publish(store, entryAt(it)) }
+            val records = session.records()
+            val after = usedMemory()
 
-        val perRecord = (after - before) / n
-        println("[JournalBudget] retained record: ~$perRecord bytes (n=$n, envelope and entry, payloads omitted)")
-        assertTrue(records.size == n)
-        assertTrue(perRecord in 64..2_048, "a retained record costs $perRecord bytes; expected a few hundred")
-        scope.cancel()
-    }
-
-    @Test
-    fun publish_takesMicroseconds() = runBlocking {
-        val n = 200_000
-        val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val session = RecordingSession(scope, config = JournalConfig(retainedRecords = 2_000, writerQueueCapacity = 4_096))
-        val store = StoreInstanceId("m")
-        val entry = JournalEntry.ProcessingStarted(InputId(1), 1)
-        repeat(10_000) { session.publish(store, entry) } // warm-up
-
-        val mark = TimeSource.Monotonic.markNow()
-        repeat(n) { session.publish(store, entry) }
-        val elapsed = mark.elapsedNow()
-
-        val perPublish = elapsed / n
-        println("[JournalBudget] publish: $perPublish per record, ${(n / elapsed.inWholeMilliseconds.coerceAtLeast(1)) * 1000} records/s (retained ring 2000, queue 4096, no sinks)")
-        assertTrue(perPublish < 50.milliseconds / 1000, "a publish takes $perPublish; expected microseconds")
-        scope.cancel()
-    }
-
-    @Test
-    fun dispatch_withTheJournal_staysWithinAFewTimesOfWithout() = runBlocking {
-        val n = 30_000
-        fun store(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit): Store<Counter, Increment, Nothing> = Store(Counter()) {
-            coroutineContext(Dispatchers.Default)
-            configure()
-            state<Counter> {
-                action<Increment> { nextState { state.copy(count = state.count + 1) } }
-            }
+            val perRecord = (after - before) / n
+            println("[JournalBudget] retained record: ~$perRecord bytes (n=$n, envelope and entry, payloads omitted)")
+            assertTrue(records.size == n)
+            assertTrue(perRecord in 64..2_048, "a retained record costs $perRecord bytes; expected a few hundred")
+            scope.cancel()
         }
-        suspend fun measure(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit = {}): Long {
-            val store = store(configure)
-            store.dispatch(Increment) // startup
-            withTimeout(30_000) { store.state.first { it.count == 1 } }
+
+    @Test
+    fun publish_takesMicroseconds() =
+        runBlocking {
+            val n = 200_000
+            val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val session = RecordingSession(scope, config = JournalConfig(retainedRecords = 2_000, writerQueueCapacity = 4_096))
+            val store = StoreInstanceId("m")
+            val entry = JournalEntry.ProcessingStarted(InputId(1), 1)
+            repeat(10_000) { session.publish(store, entry) } // warm-up
+
             val mark = TimeSource.Monotonic.markNow()
-            repeat(n) { store.dispatch(Increment) }
-            withTimeout(60_000) { store.state.first { it.count == n + 1 } }
+            repeat(n) { session.publish(store, entry) }
             val elapsed = mark.elapsedNow()
-            store.close()
-            return elapsed.inWholeMicroseconds
+
+            val perPublish = elapsed / n
+            println("[JournalBudget] publish: $perPublish per record, ${(n / elapsed.inWholeMilliseconds.coerceAtLeast(1)) * 1000} records/s (retained ring 2000, queue 4096, no sinks)")
+            assertTrue(perPublish < 50.milliseconds / 1000, "a publish takes $perPublish; expected microseconds")
+            scope.cancel()
         }
 
-        measure() // warm-up
-        val without = measure()
-        val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val session = RecordingSession(scope, config = JournalConfig(retainedRecords = 2_000, writerQueueCapacity = 4_096))
-        val with = measure { recordTo(session, StoreInstanceId("m"), PayloadPolicy.metadataOnly()) }
-        val ratio = with.toDouble() / without.coerceAtLeast(1)
-        println("[JournalBudget] dispatch: ${without / n} us without the journal, ${with / n} us with it (metadata only), ratio %.2f; session stats ${session.stats}".format(ratio))
-        assertTrue(ratio < 5.0, "the journal made dispatch $ratio times slower; expected a few times at most")
-        session.close()
-        scope.cancel()
-    }
+    @Test
+    fun dispatch_withTheJournal_staysWithinAFewTimesOfWithout() =
+        runBlocking {
+            val n = 30_000
+
+            fun store(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit): Store<Counter, Increment, Nothing> =
+                Store(Counter()) {
+                    coroutineContext(Dispatchers.Default)
+                    configure()
+                    state<Counter> {
+                        action<Increment> { nextState { state.copy(count = state.count + 1) } }
+                    }
+                }
+
+            suspend fun measure(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit = {}): Long {
+                val store = store(configure)
+                store.dispatch(Increment) // startup
+                withTimeout(30_000) { store.state.first { it.count == 1 } }
+                val mark = TimeSource.Monotonic.markNow()
+                repeat(n) { store.dispatch(Increment) }
+                withTimeout(60_000) { store.state.first { it.count == n + 1 } }
+                val elapsed = mark.elapsedNow()
+                store.close()
+                return elapsed.inWholeMicroseconds
+            }
+
+            measure() // warm-up
+            val without = measure()
+            val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val session = RecordingSession(scope, config = JournalConfig(retainedRecords = 2_000, writerQueueCapacity = 4_096))
+            val with = measure { recordTo(session, StoreInstanceId("m"), PayloadPolicy.metadataOnly()) }
+            val ratio = with.toDouble() / without.coerceAtLeast(1)
+            println("[JournalBudget] dispatch: ${without / n} us without the journal, ${with / n} us with it (metadata only), ratio %.2f; session stats ${session.stats}".format(ratio))
+            assertTrue(ratio < 5.0, "the journal made dispatch $ratio times slower; expected a few times at most")
+            session.close()
+            scope.cancel()
+        }
 }

@@ -1,10 +1,10 @@
 package actron.compose
 
-import androidx.compose.runtime.Composable
-import io.github.takahirom.rin.rememberRetained
 import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
+import androidx.compose.runtime.Composable
+import io.github.takahirom.rin.rememberRetained
 
 private class StateSaverImpl<S : State> : StateSaver<S> {
     private var restoredState: (S) -> S = { it }
@@ -13,9 +13,7 @@ private class StateSaverImpl<S : State> : StateSaver<S> {
         restoredState = { state }
     }
 
-    override fun restore(initialState: S): S {
-        return restoredState(initialState)
-    }
+    override fun restore(initialState: S): S = restoredState(initialState)
 }
 
 /**
@@ -32,8 +30,7 @@ private class StateSaverImpl<S : State> : StateSaver<S> {
  */
 @ExperimentalActronApi
 @Composable
-fun <S : State> rememberStateSaver(): StateSaver<S> {
-    return rememberRetained {
+fun <S : State> rememberStateSaver(): StateSaver<S> =
+    rememberRetained {
         StateSaverImpl()
     }
-}

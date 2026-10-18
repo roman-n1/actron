@@ -12,47 +12,80 @@ import actron.observability.file.SegmentMark
 @ExperimentalActronApi
 sealed interface Incompleteness {
     /** [count] payloads of [store] were omitted by its policy: states, actions or events are not in the journal. */
-    data class PayloadsOmitted(val store: StoreInstanceId, val count: Int) : Incompleteness
+    data class PayloadsOmitted(
+        val store: StoreInstanceId,
+        val count: Int,
+    ) : Incompleteness
 
     /** [count] payloads of [store] were lost because its policy threw. */
-    data class PayloadsUnavailable(val store: StoreInstanceId, val count: Int) : Incompleteness
+    data class PayloadsUnavailable(
+        val store: StoreInstanceId,
+        val count: Int,
+    ) : Incompleteness
 
     /** [dropped] records never reached the sinks, in [gaps] holes the session marked. */
-    data class RecordsDropped(val gaps: Int, val dropped: Long) : Incompleteness
+    data class RecordsDropped(
+        val gaps: Int,
+        val dropped: Long,
+    ) : Incompleteness
 
     /** [count] records were pushed out of the session's memory: the beginning is gone. */
-    data class RecordsEvicted(val count: Long) : Incompleteness
+    data class RecordsEvicted(
+        val count: Long,
+    ) : Incompleteness
 
     /** [count] records were published after the session stopped and were not kept. */
-    data class RecordsAfterStop(val count: Long) : Incompleteness
+    data class RecordsAfterStop(
+        val count: Long,
+    ) : Incompleteness
 
     /** Segments or frames of the journal's files are missing or damaged. */
-    data class Damaged(val mark: SegmentMark) : Incompleteness
+    data class Damaged(
+        val mark: SegmentMark,
+    ) : Incompleteness
 
     /** The registration of [store] is not in the journal: its beginning is gone, and its capability unknown. */
-    data class NotRegistered(val store: StoreInstanceId) : Incompleteness
+    data class NotRegistered(
+        val store: StoreInstanceId,
+    ) : Incompleteness
 
     /** The session stopped while these Stores were still open: their later history is not here. */
-    data class StoppedWhileOpen(val stores: List<StoreInstanceId>) : Incompleteness
+    data class StoppedWhileOpen(
+        val stores: List<StoreInstanceId>,
+    ) : Incompleteness
 
     /** [count] inputs of [store] were accepted and have no end in the journal. */
-    data class InputsPending(val store: StoreInstanceId, val count: Int) : Incompleteness
+    data class InputsPending(
+        val store: StoreInstanceId,
+        val count: Int,
+    ) : Incompleteness
 
     /** [count] records of [store] could not be attributed to a processing. */
-    data class Unattributed(val subject: actron.observability.RecordSubject, val count: Int) : Incompleteness
+    data class Unattributed(
+        val subject: actron.observability.RecordSubject,
+        val count: Int,
+    ) : Incompleteness
 
     /** The recording attached for [store] is not the run the journal shows. */
-    data class RecordingMismatch(val store: StoreInstanceId, val reason: String) : Incompleteness
+    data class RecordingMismatch(
+        val store: StoreInstanceId,
+        val reason: String,
+    ) : Incompleteness
 
     /** [count] bridge messages of [store] went to members that were not attached, had closed or had left: part of the group is not here. */
-    data class MessagesUndelivered(val store: StoreInstanceId, val count: Int) : Incompleteness
+    data class MessagesUndelivered(
+        val store: StoreInstanceId,
+        val count: Int,
+    ) : Incompleteness
 }
 
 /**
  * The completeness of a history: complete when nothing is missing, else the reasons.
  */
 @ExperimentalActronApi
-data class Completeness(val reasons: List<Incompleteness>) {
+data class Completeness(
+    val reasons: List<Incompleteness>,
+) {
     val isComplete: Boolean get() = reasons.isEmpty()
 
     companion object {
@@ -68,7 +101,9 @@ data class Completeness(val reasons: List<Incompleteness>) {
 sealed interface Availability {
     data object Available : Availability
 
-    data class Unavailable(val reasons: List<String>) : Availability
+    data class Unavailable(
+        val reasons: List<String>,
+    ) : Availability
 }
 
 /**
@@ -80,10 +115,14 @@ sealed interface RecordingStatus {
     data object Unrecorded : RecordingStatus
 
     /** A recording of [steps] steps, matching the journal's decisions. */
-    data class Attached(val steps: Int) : RecordingStatus
+    data class Attached(
+        val steps: Int,
+    ) : RecordingStatus
 
     /** A recording that does not match the journal; it is not used. */
-    data class Mismatch(val reason: String) : RecordingStatus
+    data class Mismatch(
+        val reason: String,
+    ) : RecordingStatus
 }
 
 /**
@@ -111,6 +150,7 @@ data class StoreView(
         accept(registrations.first().capability)
         return true
     }
+
     fun withRevision(accept: (Long) -> Unit): Boolean {
         if (revisions.isEmpty()) return false
         accept(revisions.max())

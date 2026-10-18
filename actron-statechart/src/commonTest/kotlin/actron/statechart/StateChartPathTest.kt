@@ -20,11 +20,13 @@ import kotlin.test.assertNull
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartPathTest {
-
     sealed interface FormAction : Action {
         data object Submit : FormAction
+
         data object Loaded : FormAction
+
         data object Retry : FormAction
+
         data object Refresh : FormAction
     }
 
@@ -41,11 +43,12 @@ class StateChartPathTest {
     private val refresh = Transition(ready, ready, ActionMatcher.of<FormAction.Refresh>("Refresh"))
     private val orphanRetry = Transition(orphan, idle, ActionMatcher.of<FormAction.Retry>("Retry"))
 
-    private val chart = StateChartDefinition(
-        initial = idle,
-        states = listOf(idle, loading, ready, error, orphan).map(::AtomicState),
-        transitions = listOf(submitValid, submitInvalid, loaded, retry, refresh, orphanRetry),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = idle,
+            states = listOf(idle, loading, ready, error, orphan).map(::AtomicState),
+            transitions = listOf(submitValid, submitInvalid, loaded, retry, refresh, orphanRetry),
+        )
 
     @Test
     fun shortestPathToInitialStateIsEmpty() {

@@ -20,12 +20,26 @@ class StoreCancelLaunchTest {
     }
 
     sealed interface AppAction : Action {
-        data class StartDropIfRunningShared(val marker: Int) : AppAction
-        data class StartDropIfRunningOther(val marker: Int) : AppAction
-        data class StartCancelPreviousShared(val marker: Int) : AppAction
-        data class StartUntrackedShared(val marker: Int) : AppAction
+        data class StartDropIfRunningShared(
+            val marker: Int,
+        ) : AppAction
+
+        data class StartDropIfRunningOther(
+            val marker: Int,
+        ) : AppAction
+
+        data class StartCancelPreviousShared(
+            val marker: Int,
+        ) : AppAction
+
+        data class StartUntrackedShared(
+            val marker: Int,
+        ) : AppAction
+
         data object StartEnterLaunch : AppAction
+
         data object CancelShared : AppAction
+
         data object CancelMissing : AppAction
     }
 
@@ -33,8 +47,8 @@ class StoreCancelLaunchTest {
         testDispatcher: TestDispatcher,
         onStart: (Int) -> Unit = {},
         onCancel: (Int) -> Unit = {},
-    ): Store<AppState, AppAction, Nothing> {
-        return Store(AppState.Active) {
+    ): Store<AppState, AppAction, Nothing> =
+        Store(AppState.Active) {
             coroutineContext(testDispatcher)
 
             state<AppState.Active> {
@@ -118,171 +132,186 @@ class StoreCancelLaunchTest {
                 }
             }
         }
-    }
 
     @Test
-    fun cancelLaunch_cancelsDropIfRunningLaunchWithMatchingLane() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onCancel = { cancelled += it },
-        )
+    fun cancelLaunch_cancelsDropIfRunningLaunchWithMatchingLane() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onCancel = { cancelled += it },
+                )
 
-        store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
-        runCurrent()
+            store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
+            runCurrent()
 
-        store.dispatch(AppAction.CancelShared)
-        runCurrent()
+            store.dispatch(AppAction.CancelShared)
+            runCurrent()
 
-        assertEquals(listOf(1), cancelled)
-    }
-
-    @Test
-    fun cancelLaunch_cancelsCancelPreviousLaunchWithMatchingLane() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val started = mutableListOf<Int>()
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onStart = { started += it },
-            onCancel = { cancelled += it },
-        )
-
-        store.dispatch(AppAction.StartCancelPreviousShared(marker = 9))
-        runCurrent()
-
-        assertEquals(listOf(-1, 9), started)
-
-        store.dispatch(AppAction.CancelShared)
-        runCurrent()
-
-        assertEquals(listOf(9), cancelled)
-    }
+            assertEquals(listOf(1), cancelled)
+        }
 
     @Test
-    fun cancelLaunch_onlyAffectsMatchingTrackedKey() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onCancel = { cancelled += it },
-        )
+    fun cancelLaunch_cancelsCancelPreviousLaunchWithMatchingLane() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val started = mutableListOf<Int>()
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onStart = { started += it },
+                    onCancel = { cancelled += it },
+                )
 
-        store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
-        store.dispatch(AppAction.StartDropIfRunningOther(marker = 100))
-        runCurrent()
+            store.dispatch(AppAction.StartCancelPreviousShared(marker = 9))
+            runCurrent()
 
-        store.dispatch(AppAction.CancelShared)
-        runCurrent()
+            assertEquals(listOf(-1, 9), started)
 
-        assertEquals(listOf(1), cancelled)
-    }
+            store.dispatch(AppAction.CancelShared)
+            runCurrent()
 
-    @Test
-    fun cancelLaunch_isNoOpWhenLaneDoesNotExist() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onCancel = { cancelled += it },
-        )
-
-        store.dispatch(AppAction.CancelMissing)
-        runCurrent()
-
-        assertEquals(emptyList(), cancelled)
-    }
+            assertEquals(listOf(9), cancelled)
+        }
 
     @Test
-    fun cancelLaunch_affectsSharedTrackedLaneAcrossControls() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val started = mutableListOf<Int>()
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onStart = { started += it },
-            onCancel = { cancelled += it },
-        )
+    fun cancelLaunch_onlyAffectsMatchingTrackedKey() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onCancel = { cancelled += it },
+                )
 
-        store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
-        runCurrent()
+            store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
+            store.dispatch(AppAction.StartDropIfRunningOther(marker = 100))
+            runCurrent()
 
-        store.dispatch(AppAction.StartCancelPreviousShared(marker = 9))
-        runCurrent()
+            store.dispatch(AppAction.CancelShared)
+            runCurrent()
 
-        assertEquals(listOf(-1, 1, 9), started)
-        assertEquals(listOf(1), cancelled)
-
-        store.dispatch(AppAction.CancelShared)
-        runCurrent()
-
-        assertEquals(listOf(1, 9), cancelled)
-    }
+            assertEquals(listOf(1), cancelled)
+        }
 
     @Test
-    fun cancelLaunch_doesNotCancelUntrackedLaunches() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onCancel = { cancelled += it },
-        )
+    fun cancelLaunch_isNoOpWhenLaneDoesNotExist() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onCancel = { cancelled += it },
+                )
 
-        store.dispatch(AppAction.StartUntrackedShared(marker = 7))
-        runCurrent()
+            store.dispatch(AppAction.CancelMissing)
+            runCurrent()
 
-        store.dispatch(AppAction.CancelShared)
-        runCurrent()
+            assertEquals(emptyList(), cancelled)
+        }
 
-        assertEquals(emptyList(), cancelled)
+    @Test
+    fun cancelLaunch_affectsSharedTrackedLaneAcrossControls() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val started = mutableListOf<Int>()
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onStart = { started += it },
+                    onCancel = { cancelled += it },
+                )
 
-        store.close()
-    }
+            store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
+            runCurrent()
+
+            store.dispatch(AppAction.StartCancelPreviousShared(marker = 9))
+            runCurrent()
+
+            assertEquals(listOf(-1, 1, 9), started)
+            assertEquals(listOf(1), cancelled)
+
+            store.dispatch(AppAction.CancelShared)
+            runCurrent()
+
+            assertEquals(listOf(1, 9), cancelled)
+        }
+
+    @Test
+    fun cancelLaunch_doesNotCancelUntrackedLaunches() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onCancel = { cancelled += it },
+                )
+
+            store.dispatch(AppAction.StartUntrackedShared(marker = 7))
+            runCurrent()
+
+            store.dispatch(AppAction.CancelShared)
+            runCurrent()
+
+            assertEquals(emptyList(), cancelled)
+
+            store.close()
+        }
 
     @Suppress("DEPRECATION")
     @Test
-    fun dispose_cancelsStoreLaunchesLikeClose() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onCancel = { cancelled += it },
-        )
+    fun dispose_cancelsStoreLaunchesLikeClose() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onCancel = { cancelled += it },
+                )
 
-        store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
-        runCurrent()
+            store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
+            runCurrent()
 
-        store.dispose()
-        runCurrent()
+            store.dispose()
+            runCurrent()
 
-        assertEquals(setOf(-1, 1), cancelled.toSet())
-    }
+            assertEquals(setOf(-1, 1), cancelled.toSet())
+        }
 
     @Test
-    fun cancelLaunch_doesNotCancelEnterLaunches() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val started = mutableListOf<Int>()
-        val cancelled = mutableListOf<Int>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            onStart = { started += it },
-            onCancel = { cancelled += it },
-        )
+    fun cancelLaunch_doesNotCancelEnterLaunches() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val started = mutableListOf<Int>()
+            val cancelled = mutableListOf<Int>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    onStart = { started += it },
+                    onCancel = { cancelled += it },
+                )
 
-        store.dispatch(AppAction.StartEnterLaunch)
-        runCurrent()
+            store.dispatch(AppAction.StartEnterLaunch)
+            runCurrent()
 
-        assertEquals(listOf(-1), started)
+            assertEquals(listOf(-1), started)
 
-        store.dispatch(AppAction.CancelShared)
-        runCurrent()
+            store.dispatch(AppAction.CancelShared)
+            runCurrent()
 
-        assertEquals(emptyList(), cancelled)
+            assertEquals(emptyList(), cancelled)
 
-        store.close()
-        runCurrent()
+            store.close()
+            runCurrent()
 
-        assertEquals(listOf(-1), cancelled)
-    }
+            assertEquals(listOf(-1), cancelled)
+        }
 }

@@ -1,4 +1,5 @@
 [versions]
+ktlint = "1.8.0"
 actron = "5.0.0-alpha.1"
 agp = "9.2.1"
 kotlin = "2.3.20"

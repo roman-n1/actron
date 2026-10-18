@@ -27,12 +27,12 @@ import kotlin.test.assertTrue
  * ```
  */
 class StoreMatchActionHandlersPropertyTest {
+    private fun Store<RtState, RtAction, RtEvent>.match(
+        s: RtState,
+        a: RtAction,
+    ): List<ActionHandlerMatch> = (this as StoreInternalApi<RtState, RtAction, RtEvent>).matchActionHandlers(s, a)
 
-    private fun Store<RtState, RtAction, RtEvent>.match(s: RtState, a: RtAction): List<ActionHandlerMatch> =
-        (this as StoreInternalApi<RtState, RtAction, RtEvent>).matchActionHandlers(s, a)
-
-    private fun Store<RtState, RtAction, RtEvent>.registry(): HandlerRegistry<RtState, RtAction> =
-        (this as StoreImpl<RtState, RtAction, RtEvent>).handlerRegistry
+    private fun Store<RtState, RtAction, RtEvent>.registry(): HandlerRegistry<RtState, RtAction> = (this as StoreImpl<RtState, RtAction, RtEvent>).handlerRegistry
 
     @Test
     fun matchesEqualTheRealPredicatesForEveryStateAndActionIncludingLegacyHandlers() {
@@ -44,152 +44,169 @@ class StoreMatchActionHandlersPropertyTest {
             val registry = store.registry()
             assertEquals(registry.action.size, registry.actionPredicates.size, "seed=$seed")
 
-            for (s in statePool) for (a in actionPool) {
-                val matches = store.match(s, a)
-                val context = "seed=$seed s=$s a=$a"
-                assertEquals(planned.indices.toList(), matches.map { it.index }, context)
-                assertEquals(planned.map { it.matches(s, a) }, matches.map { it.matches }, context)
-                assertEquals(registry.action.map { it.stateType }, matches.map { it.stateType }, context)
-                assertEquals(registry.action.map { it.inputType }, matches.map { it.actionType }, context)
-                legacyMatches += matches.count { it.matches && it.actionType == RtAction::class }
+            for (s in statePool) {
+                for (a in actionPool) {
+                    val matches = store.match(s, a)
+                    val context = "seed=$seed s=$s a=$a"
+                    assertEquals(planned.indices.toList(), matches.map { it.index }, context)
+                    assertEquals(planned.map { it.matches(s, a) }, matches.map { it.matches }, context)
+                    assertEquals(registry.action.map { it.stateType }, matches.map { it.stateType }, context)
+                    assertEquals(registry.action.map { it.inputType }, matches.map { it.actionType }, context)
+                    legacyMatches += matches.count { it.matches && it.actionType == RtAction::class }
+                }
             }
         }
         assertTrue(legacyMatches > 100, "legacy handlers should match sometimes, saw $legacyMatches")
     }
 
     @Test
-    fun firstMatchIsTheHandlerThatDispatchRuns() = runTest {
-        var checked = 0
-        repeat(300) { seed ->
-            val random = Random(seed)
-            val program = RoutingProgram.random(random, maxBlocks = 14)
-            val actionIds = program.planned(HandlerKind.ACTION).map { it.id }
-            val initial = statePool.random(random)
-            val action = randomAction(random)
-            val log = mutableListOf<Int>()
-            val store = buildRtStore(program, initial, log) {
-                coroutineContext(StandardTestDispatcher(testScheduler))
-                exceptionHandler(ExceptionHandler.Ignore)
-            }
-
-            val selected = store.match(initial, action).indexOfFirst { it.matches }
-            store.startAndAwaitForTest()
-            log.clear()
-            store.dispatchAndAwaitForTest(action)
-
-            assertEquals(if (selected < 0) emptyList() else listOf(actionIds[selected]), log.filter { it in actionIds }.take(1), "seed=$seed")
-            if (selected >= 0) checked++
-            store.close()
-        }
-        assertTrue(checked > 90, "checked=$checked")
-    }
-
-    @Test
-    fun matchingDoesNotRunHandlersReadStateOrStartTheStore() = runTest {
-        val random = Random(42)
-        repeat(50) { seed ->
-            val program = RoutingProgram.random(random, maxBlocks = 10)
-            val log = mutableListOf<Int>()
-            val store = buildRtStore(program, RtState.B, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
-
-            for (s in statePool) for (a in actionPool) store.match(s, a)
-
-            assertTrue(log.isEmpty(), "seed=$seed log=$log")
-            // patch() rejects initialState once the state was read and rejects everything once started.
-            store.patchForTest { initialState(RtState.Sub.Y) }
-            assertEquals(RtState.Sub.Y, store.currentState)
-            store.close()
-        }
-    }
-
-    @Test
-    fun matchingAnswersImmediatelyWhileADispatchHoldsTheStore() = runTest {
-        val inside = mutableListOf<List<Boolean>>()
-        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<RtState, RtAction, RtEvent>>()
-        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-        val store: Store<RtState, RtAction, RtEvent> = Store(RtState.A(0)) {
-            coroutineContext(StandardTestDispatcher(testScheduler))
-            state<RtState.A> {
-                action<RtAction.P> {
-                    // Re-entrant call from inside a running handler: must not wait for the Store.
-                    inside += storePublication.getCompleted().match(state, RtAction.Q()).map { it.matches }
-                    delay(1_000)
-                    nextState { RtState.B }
-                }
-                action<RtAction.Q> { }
-            }
-            state<RtState> {
-                action<RtAction> { }
-            }
-        }
-        storePublication.complete(store)
-
-
-
-        store.dispatch(RtAction.P())
-        testScheduler.advanceTimeBy(10)
-        val before = currentTime
-        val whileBusy = store.match(RtState.A(0), RtAction.Q()).map { it.matches }
-        assertEquals(before, currentTime)
-        assertEquals(RtState.A(0), store.currentState, "the slow handler is still running")
-
-        advanceUntilIdle()
-        assertEquals(RtState.B, store.currentState)
-        assertEquals(listOf(listOf(false, true, true)), inside)
-        assertEquals(listOf(false, true, true), whileBusy)
-        store.close()
-    }
-
-    @Test
-    fun underConcurrentDispatchesEveryProcessedActionRanItsFirstMatch() = runTest {
-        repeat(30) { seed ->
-            val random = Random(1_000 + seed)
-            val program = RoutingProgram.random(random, maxBlocks = 10)
-            val actionIds = program.planned(HandlerKind.ACTION).map { it.id }.toSet()
-            val log = mutableListOf<Int>()
-            val seen = mutableListOf<Pair<RtState, RtAction>>()
-            val snapshots = mutableListOf<Triple<RtState, RtAction, List<ActionHandlerMatch>>>()
-            val store = buildRtStore(program, statePool.random(random), log) {
-                coroutineContext(StandardTestDispatcher(testScheduler))
-                exceptionHandler(ExceptionHandler.Ignore)
-                pendingActionPolicy(if (random.nextBoolean()) PendingActionPolicy.ClearOnStateExit else PendingActionPolicy.Keep)
-                plugin(
-                    object : Plugin<RtState, RtAction, RtEvent> {
-                        override suspend fun onAction(scope: PluginScope<RtState, RtAction>, state: RtState, action: RtAction) {
-                            seen += state to action
-                            delay(random.nextLong(0, 5))
-                        }
-                    },
-                )
-            }
-
-            repeat(60) {
+    fun firstMatchIsTheHandlerThatDispatchRuns() =
+        runTest {
+            var checked = 0
+            repeat(300) { seed ->
+                val random = Random(seed)
+                val program = RoutingProgram.random(random, maxBlocks = 14)
+                val actionIds = program.planned(HandlerKind.ACTION).map { it.id }
+                val initial = statePool.random(random)
                 val action = randomAction(random)
-                val at = random.nextLong(0, 200)
-                launch {
-                    delay(at)
-                    store.dispatch(action)
-                }
-                launch {
-                    delay(random.nextLong(0, 200))
-                    val s = store.currentState
-                    snapshots += Triple(s, action, store.match(s, action))
-                }
-            }
-            advanceUntilIdle()
+                val log = mutableListOf<Int>()
+                val store =
+                    buildRtStore(program, initial, log) {
+                        coroutineContext(StandardTestDispatcher(testScheduler))
+                        exceptionHandler(ExceptionHandler.Ignore)
+                    }
 
-            val expectedIds = seen.flatMap { (s, a) ->
-                store.match(s, a).filter { it.matches }.take(1).map { program.planned(HandlerKind.ACTION)[it.index].id }
+                val selected = store.match(initial, action).indexOfFirst { it.matches }
+                store.startAndAwaitForTest()
+                log.clear()
+                store.dispatchAndAwaitForTest(action)
+
+                assertEquals(if (selected < 0) emptyList() else listOf(actionIds[selected]), log.filter { it in actionIds }.take(1), "seed=$seed")
+                if (selected >= 0) checked++
+                store.close()
             }
-            assertEquals(expectedIds, log.filter { it in actionIds }, "seed=$seed")
-            // Answers taken mid-flight are a pure function of (state, action).
-            val reference = buildRtStore(program, RtState.B, mutableListOf())
-            for ((s, a, m) in snapshots) {
-                assertEquals(reference.match(s, a).map { it.matches }, m.map { it.matches }, "seed=$seed s=$s a=$a")
+            assertTrue(checked > 90, "checked=$checked")
+        }
+
+    @Test
+    fun matchingDoesNotRunHandlersReadStateOrStartTheStore() =
+        runTest {
+            val random = Random(42)
+            repeat(50) { seed ->
+                val program = RoutingProgram.random(random, maxBlocks = 10)
+                val log = mutableListOf<Int>()
+                val store = buildRtStore(program, RtState.B, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
+
+                for (s in statePool) for (a in actionPool) store.match(s, a)
+
+                assertTrue(log.isEmpty(), "seed=$seed log=$log")
+                // patch() rejects initialState once the state was read and rejects everything once started.
+                store.patchForTest { initialState(RtState.Sub.Y) }
+                assertEquals(RtState.Sub.Y, store.currentState)
+                store.close()
             }
+        }
+
+    @Test
+    fun matchingAnswersImmediatelyWhileADispatchHoldsTheStore() =
+        runTest {
+            val inside = mutableListOf<List<Boolean>>()
+            val storePublication = kotlinx.coroutines.CompletableDeferred<Store<RtState, RtAction, RtEvent>>()
+
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            val store: Store<RtState, RtAction, RtEvent> =
+                Store(RtState.A(0)) {
+                    coroutineContext(StandardTestDispatcher(testScheduler))
+                    state<RtState.A> {
+                        action<RtAction.P> {
+                            // Re-entrant call from inside a running handler: must not wait for the Store.
+                            inside += storePublication.getCompleted().match(state, RtAction.Q()).map { it.matches }
+                            delay(1_000)
+                            nextState { RtState.B }
+                        }
+                        action<RtAction.Q> { }
+                    }
+                    state<RtState> {
+                        action<RtAction> { }
+                    }
+                }
+            storePublication.complete(store)
+
+            store.dispatch(RtAction.P())
+            testScheduler.advanceTimeBy(10)
+            val before = currentTime
+            val whileBusy = store.match(RtState.A(0), RtAction.Q()).map { it.matches }
+            assertEquals(before, currentTime)
+            assertEquals(RtState.A(0), store.currentState, "the slow handler is still running")
+
+            advanceUntilIdle()
+            assertEquals(RtState.B, store.currentState)
+            assertEquals(listOf(listOf(false, true, true)), inside)
+            assertEquals(listOf(false, true, true), whileBusy)
             store.close()
         }
-    }
+
+    @Test
+    fun underConcurrentDispatchesEveryProcessedActionRanItsFirstMatch() =
+        runTest {
+            repeat(30) { seed ->
+                val random = Random(1_000 + seed)
+                val program = RoutingProgram.random(random, maxBlocks = 10)
+                val actionIds = program.planned(HandlerKind.ACTION).map { it.id }.toSet()
+                val log = mutableListOf<Int>()
+                val seen = mutableListOf<Pair<RtState, RtAction>>()
+                val snapshots = mutableListOf<Triple<RtState, RtAction, List<ActionHandlerMatch>>>()
+                val store =
+                    buildRtStore(program, statePool.random(random), log) {
+                        coroutineContext(StandardTestDispatcher(testScheduler))
+                        exceptionHandler(ExceptionHandler.Ignore)
+                        pendingActionPolicy(if (random.nextBoolean()) PendingActionPolicy.ClearOnStateExit else PendingActionPolicy.Keep)
+                        plugin(
+                            object : Plugin<RtState, RtAction, RtEvent> {
+                                override suspend fun onAction(
+                                    scope: PluginScope<RtState, RtAction>,
+                                    state: RtState,
+                                    action: RtAction,
+                                ) {
+                                    seen += state to action
+                                    delay(random.nextLong(0, 5))
+                                }
+                            },
+                        )
+                    }
+
+                repeat(60) {
+                    val action = randomAction(random)
+                    val at = random.nextLong(0, 200)
+                    launch {
+                        delay(at)
+                        store.dispatch(action)
+                    }
+                    launch {
+                        delay(random.nextLong(0, 200))
+                        val s = store.currentState
+                        snapshots += Triple(s, action, store.match(s, action))
+                    }
+                }
+                advanceUntilIdle()
+
+                val expectedIds =
+                    seen.flatMap { (s, a) ->
+                        store
+                            .match(s, a)
+                            .filter { it.matches }
+                            .take(1)
+                            .map { program.planned(HandlerKind.ACTION)[it.index].id }
+                    }
+                assertEquals(expectedIds, log.filter { it in actionIds }, "seed=$seed")
+                // Answers taken mid-flight are a pure function of (state, action).
+                val reference = buildRtStore(program, RtState.B, mutableListOf())
+                for ((s, a, m) in snapshots) {
+                    assertEquals(reference.match(s, a).map { it.matches }, m.map { it.matches }, "seed=$seed s=$s a=$a")
+                }
+                store.close()
+            }
+        }
 
     @Test
     fun storeWithoutActionHandlersMatchesNothing() {

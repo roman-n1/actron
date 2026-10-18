@@ -1,9 +1,5 @@
 package actron.timetravel.compose
 
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExperimentalActronApi
@@ -12,6 +8,10 @@ import actron.statechart.machine.MachineSnapshot
 import actron.statechart.toMermaid
 import actron.timetravel.ReplaySession
 import actron.timetravel.ReplayStep
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
  * The replay of one Store's recording as the screen drives it (handoff §11, v2): the position,
@@ -23,7 +23,10 @@ import actron.timetravel.ReplayStep
  */
 @ExperimentalActronApi
 @Stable
-class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(val store: StoreInstanceId, val session: ReplaySession<C, A, CMD, E>) {
+class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(
+    val store: StoreInstanceId,
+    val session: ReplaySession<C, A, CMD, E>,
+) {
     /** The replay's position, mirrored for Compose. */
     var position: Int by mutableStateOf(session.position)
         private set
@@ -60,11 +63,22 @@ class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(val store: Store
     val canStepForward: Boolean get() = position < length
 
     /** Availability of a forward step, with explicit reasons when disabled. */
-    val forwardAvailability: actron.timetravel.inspect.Availability get() = when {
-        position >= length -> actron.timetravel.inspect.Availability.Unavailable(listOf("at the end of the recording"))
-        movement is ReplayMovement.Diverged -> actron.timetravel.inspect.Availability.Unavailable(listOf("the replay diverged here: ${(movement as ReplayMovement.Diverged).description}"))
-        else -> actron.timetravel.inspect.Availability.Available
-    }
+    val forwardAvailability: actron.timetravel.inspect.Availability get() =
+        when {
+            position >= length -> {
+                actron.timetravel.inspect.Availability
+                    .Unavailable(listOf("at the end of the recording"))
+            }
+
+            movement is ReplayMovement.Diverged -> {
+                actron.timetravel.inspect.Availability
+                    .Unavailable(listOf("the replay diverged here: ${(movement as ReplayMovement.Diverged).description}"))
+            }
+
+            else -> {
+                actron.timetravel.inspect.Availability.Available
+            }
+        }
 
     fun stepForward() {
         when (val step = session.stepForward()) {
@@ -98,25 +112,46 @@ class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(val store: Store
 
 sealed interface ReplayMovement {
     data object Open : ReplayMovement
-    data class Diverged(val position: Int, val description: String) : ReplayMovement
+
+    data class Diverged(
+        val position: Int,
+        val description: String,
+    ) : ReplayMovement
 }
+
 sealed interface ReplayVerification {
     data object Unchecked : ReplayVerification
-    data class Checked(val verdict: String) : ReplayVerification
+
+    data class Checked(
+        val verdict: String,
+    ) : ReplayVerification
 }
 
 /** Diagnostic computation is explicitly requested for a checkpoint or its next decision. */
 sealed interface ChartInspection {
     val violations: List<actron.statechart.machine.InvariantViolation>
+
     fun withExplanation(accept: (actron.statechart.machine.DecisionExplanation) -> Unit)
+
     data object Unrequested : ChartInspection {
         override val violations: List<actron.statechart.machine.InvariantViolation> get() = emptyList()
+
         override fun withExplanation(accept: (actron.statechart.machine.DecisionExplanation) -> Unit) {}
     }
-    data class Checkpoint(override val violations: List<actron.statechart.machine.InvariantViolation>) : ChartInspection {
+
+    data class Checkpoint(
+        override val violations: List<actron.statechart.machine.InvariantViolation>,
+    ) : ChartInspection {
         override fun withExplanation(accept: (actron.statechart.machine.DecisionExplanation) -> Unit) {}
     }
-    data class Decided(val explanation: actron.statechart.machine.DecisionExplanation, val outcome: String, override val violations: List<actron.statechart.machine.InvariantViolation>) : ChartInspection {
-        override fun withExplanation(accept: (actron.statechart.machine.DecisionExplanation) -> Unit) { accept(explanation) }
+
+    data class Decided(
+        val explanation: actron.statechart.machine.DecisionExplanation,
+        val outcome: String,
+        override val violations: List<actron.statechart.machine.InvariantViolation>,
+    ) : ChartInspection {
+        override fun withExplanation(accept: (actron.statechart.machine.DecisionExplanation) -> Unit) {
+            accept(explanation)
+        }
     }
 }
