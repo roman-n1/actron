@@ -83,6 +83,38 @@ open class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E :
             registerCompound(T::class, initial, build)
         }
 
+        /** A parallel node is one outer state value with independently bound child regions. */
+        inline fun <reified T : S> parallel(
+            noinline enter: (C) -> T,
+            noinline build: TypedParallelMachineBuilder<C, S, A, CMD, E>.() -> Unit,
+        ) = registerParallel(T::class, enter, build)
+
+        inline fun <reified T : S> parallel(
+            value: T,
+            noinline build: TypedParallelMachineBuilder<C, S, A, CMD, E>.() -> Unit,
+        ) = parallel<T>(enter = { value }, build = build)
+
+        @PublishedApi
+        internal fun registerParallel(
+            type: KClass<out S>,
+            enter: (C) -> S,
+            build: TypedParallelMachineBuilder<C, S, A, CMD, E>.() -> Unit,
+        ) {
+            val id = reference(type)
+            require(id !in states) { "State $id is declared twice" }
+            states[id] = type
+            registry.factories += id
+            nodes += ParallelState(id, parent)
+            implementation.onEnter(id) { context = this@TypedStateMachineBuilder.writeState(context, enter(context)) }
+            TypedParallelMachineBuilder(
+                id,
+                implementation,
+                transitions,
+                nodes,
+                TypedMachineStateBuilder(this, MachineStateBuilder(id, implementation, transitions), writeState),
+            ).apply(build).finish()
+        }
+
         @PublishedApi
         internal fun implicitReference(type: KClass<out S>): StateId = reference(type).also { registry.implicitTargets += it }
 
@@ -184,7 +216,9 @@ open class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E :
             val declared = states.filterKeys { it !in registry.compounds }
             implementation.invariant("${prefix}typed-state-matches-graph") { snapshot ->
                 val type = readState(snapshot.context)::class
-                if (!snapshot.isStarted) {
+                if (snapshot.isStarted && parent is StateId && !snapshot.isActive(parent)) {
+                    true // A nested region retains its data while its owning parallel state is inactive.
+                } else if (!snapshot.isStarted) {
                     type == initial::class
                 } else {
                     val active = snapshot.configuration.active.filter { it in declared }
@@ -254,6 +288,14 @@ class TypedMachineStateBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Even
         @PublishedApi internal val delegate: MachineStateBuilder<C, A, CMD, E>,
         @PublishedApi internal val writeState: (C, S) -> C,
     ) {
+        /** Bind a typed child to this state's activation, with typed event routes. */
+        fun <CC : Any, CA : Action, CCMD : Any, CE : Event> invoke(
+            child: TypedInvocation<C, A, CMD, E, CC, CA, CCMD, CE>,
+            context: (MachineSnapshot<C>) -> CC,
+            toChild: (E, (CA) -> Unit) -> Unit = { _, _ -> },
+            toParent: (CE, (A) -> Unit) -> Unit = { _, _ -> },
+        ) = child.register(delegate.source, context, toChild, toParent)
+
         /** Enter a target whose value is supplied by its state entry factory. */
         inline fun <reified T : A, reified Target : S> on() = transition<T, Target>()
 

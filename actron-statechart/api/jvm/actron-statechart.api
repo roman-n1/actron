@@ -3330,13 +3330,32 @@ public final class actron/statechart/machine/TypedCompoundMachineBuilder : actro
 	public final fun transitions (Lkotlin/jvm/functions/Function1;)V
 }
 
+public final class actron/statechart/machine/TypedInvocation {
+}
+
+public final class actron/statechart/machine/TypedInvocationDslKt {
+	public static final fun typedInvokedMachine-uSyZRXE (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/Machine;ILkotlin/jvm/functions/Function2;)Lactron/statechart/machine/InvokedMachine;
+	public static synthetic fun typedInvokedMachine-uSyZRXE$default (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/Machine;ILkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lactron/statechart/machine/InvokedMachine;
+}
+
 public final class actron/statechart/machine/TypedMachineStateBuilder {
 	public fun <init> (Lactron/statechart/machine/TypedStateMachineBuilder;Lactron/statechart/machine/MachineStateBuilder;Lkotlin/jvm/functions/Function2;)V
 	public final fun getDelegate ()Lactron/statechart/machine/MachineStateBuilder;
 	public final fun getOwner ()Lactron/statechart/machine/TypedStateMachineBuilder;
 	public final fun getWriteState ()Lkotlin/jvm/functions/Function2;
+	public final fun invoke (Lactron/statechart/machine/TypedInvocation;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;)V
+	public static synthetic fun invoke$default (Lactron/statechart/machine/TypedMachineStateBuilder;Lactron/statechart/machine/TypedInvocation;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
 	public final fun onEnter (Lkotlin/jvm/functions/Function1;)V
 	public final fun onExit (Lkotlin/jvm/functions/Function1;)V
+}
+
+public final class actron/statechart/machine/TypedParallelMachineBuilder {
+	public synthetic fun <init> (Ljava/lang/String;Lactron/statechart/machine/MachineBuilder;Ljava/util/List;Ljava/util/List;Lactron/statechart/machine/TypedMachineStateBuilder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getHandlers ()Lactron/statechart/machine/TypedMachineStateBuilder;
+	public final fun onEnter (Lkotlin/jvm/functions/Function1;)V
+	public final fun onExit (Lkotlin/jvm/functions/Function1;)V
+	public final fun registerRegion (Ljava/lang/String;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;)V
+	public final fun transitions (Lkotlin/jvm/functions/Function1;)V
 }
 
 public class actron/statechart/machine/TypedStateMachineBuilder {
@@ -3350,6 +3369,7 @@ public class actron/statechart/machine/TypedStateMachineBuilder {
 	public final fun register (Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;)V
 	public final fun registerCompound (Lkotlin/reflect/KClass;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)V
 	public final fun registerEntry (Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;ZLkotlin/jvm/functions/Function1;)V
+	public final fun registerParallel (Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)V
 	public final fun valueReference-9F0ExCQ (Lkotlin/reflect/KClass;)Ljava/lang/String;
 }
 
