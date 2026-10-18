@@ -3320,6 +3320,16 @@ public final class actron/statechart/machine/TransitionSelectionExplanation {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/statechart/machine/TypedCompoundMachineBuilder : actron/statechart/machine/TypedStateMachineBuilder {
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/MachineBuilder;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/lang/String;Lactron/statechart/machine/TypedStateRegistry;Lactron/statechart/machine/TypedMachineStateBuilder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getHandlers ()Lactron/statechart/machine/TypedMachineStateBuilder;
+	public final fun history (Z)V
+	public static synthetic fun history$default (Lactron/statechart/machine/TypedCompoundMachineBuilder;ZILjava/lang/Object;)V
+	public final fun onEnter (Lkotlin/jvm/functions/Function1;)V
+	public final fun onExit (Lkotlin/jvm/functions/Function1;)V
+	public final fun transitions (Lkotlin/jvm/functions/Function1;)V
+}
+
 public final class actron/statechart/machine/TypedMachineStateBuilder {
 	public fun <init> (Lactron/statechart/machine/TypedStateMachineBuilder;Lactron/statechart/machine/MachineStateBuilder;Lkotlin/jvm/functions/Function2;)V
 	public final fun getDelegate ()Lactron/statechart/machine/MachineStateBuilder;
@@ -3329,14 +3339,33 @@ public final class actron/statechart/machine/TypedMachineStateBuilder {
 	public final fun onExit (Lkotlin/jvm/functions/Function1;)V
 }
 
-public final class actron/statechart/machine/TypedStateMachineBuilder {
+public class actron/statechart/machine/TypedStateMachineBuilder {
 	public fun <init> (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/MachineBuilder;Ljava/util/List;Ljava/util/List;Lactron/statechart/StateParent;Ljava/lang/String;)V
 	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/MachineBuilder;Ljava/util/List;Ljava/util/List;Lactron/statechart/StateParent;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/MachineBuilder;Ljava/util/List;Ljava/util/List;Lactron/statechart/StateParent;Ljava/lang/String;Lactron/statechart/machine/TypedStateRegistry;)V
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/statechart/machine/MachineBuilder;Ljava/util/List;Ljava/util/List;Lactron/statechart/StateParent;Ljava/lang/String;Lactron/statechart/machine/TypedStateRegistry;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun historyReference-9F0ExCQ (Lkotlin/reflect/KClass;)Ljava/lang/String;
+	public final fun implicitReference-9F0ExCQ (Lkotlin/reflect/KClass;)Ljava/lang/String;
 	public final fun reference-9F0ExCQ (Lkotlin/reflect/KClass;)Ljava/lang/String;
 	public final fun register (Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;)V
+	public final fun registerCompound (Lkotlin/reflect/KClass;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)V
+	public final fun registerEntry (Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;ZLkotlin/jvm/functions/Function1;)V
+	public final fun valueReference-9F0ExCQ (Lkotlin/reflect/KClass;)Ljava/lang/String;
 }
 
 public final class actron/statechart/machine/TypedStateMachineDslKt {
 	public static final fun typedStateMachine-GhXO0fo (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/Machine;
+}
+
+public final class actron/statechart/machine/TypedStateRegistry {
+	public fun <init> ()V
+	public final fun getCompounds ()Ljava/util/Set;
+	public final fun getFactories ()Ljava/util/Set;
+	public final fun getHistories ()Ljava/util/Set;
+	public final fun getHistoryTargets ()Ljava/util/Set;
+	public final fun getImplicitTargets ()Ljava/util/Set;
+	public final fun getReferences ()Ljava/util/LinkedHashMap;
+	public final fun getStates ()Ljava/util/LinkedHashMap;
+	public final fun getValueTargets ()Ljava/util/Set;
 }
 

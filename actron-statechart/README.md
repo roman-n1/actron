@@ -689,8 +689,6 @@ tests.
 ## Limitations
 
 - External sources and debug tooling remain experimental; no release has been published yet.
-- No eventless (completion) transitions, final states, internal transitions or SCXML `invoke`.
-  Model "when the work is done" as an action that the state's work dispatches.
 - Guards and effects are labels in the model; their code lives in the Store builder, so tools see
   the label, not the condition. Paths ignore guards.
 - The conformance plugin sees leaves, not guards or clocks: when two transitions lead to the same
@@ -785,6 +783,67 @@ invariants check state/data agreement. Persisted IDs are qualified by region nam
 `Current.Loading` and `Hourly.Loading`. Region names must be unique and at least two regions
 are required. Rename types/regions only with a definition version bump.
 
+## Typed hierarchy, history and completion
+
+The typed builder also supports nested compounds. Compound types identify structural nodes;
+`readState(context)` holds the active **leaf** value. Every leaf in a hierarchical region
+provides its value once at entry: `state(Phase.Loading)` for objects, or
+`state<Phase.Results>(enter = { context -> Phase.Results(context.cachedResults) })` for data.
+The entry factory runs before that leaf's user `onEnter` hooks, including on history restore.
+Keep data that must survive leaving a phase in the ordinary context.
+
+```kotlin
+typedStateMachine<Context, Phase, Action, Command, Event>(
+    DefinitionId("weather-session"), DefinitionVersion("1"), Phase.Paused,
+    readState = { it.phase },
+    writeState = { context, phase -> context.copy(phase = phase) },
+) {
+    state(Phase.Paused) {
+        onHistory<Action.Resume, Phase.Active>()
+        on<Action.Restart, Phase.Active>()
+    }
+    compound<Phase.Active>(initial = Phase.Loading) {
+        history(deep = true)
+        on<Action.Pause, Phase.Paused>()
+        onDone<Phase.Finished>()
+
+        state(Phase.Loading) {
+            onEnter { command(Command.Load) }
+            on<Action.Loaded, Phase.Ready>()
+        }
+        state(Phase.Ready) {
+            on<Action.Finish, Phase.Done>()
+        }
+        final(Phase.Done)
+    }
+    final(Phase.Finished)
+}
+```
+
+`history()` remembers one level, `history(deep = true)` remembers nested leaves. Before the
+first exit it falls back to the compound's initial configuration. `onHistory<Action, Parent>()`
+targets that declaration with no history ID or string key. History restores graph configuration,
+**not old business data or command results**; enter factories rebuild leaf values from current
+context and ordinary enter hooks run again. This differs from Time Travel inspection/replay.
+
+`onDone<Target>()` fires when the compound completes. `always<Target>(guard = { ... })` fires
+without another external action. Automatic microsteps use the existing engine's transactional
+commit and cycle limit. Compound handlers follow the usual inner-before-outer priority.
+Use `transitions { ... }` inside a compound for the full state handler API.
+
+Factory-backed targets use `on<Action, Target>()`, or
+`transition<Action, Target>(guard = { context, action -> ... }, reduce = { context, action -> ... })`.
+`afterEnter<Target>(delay)` uses the target entry factory after a timer. The existing
+`on<Action, Target> { context, action -> Target(...) }` and `after<Target>(delay) { ... }`
+remain available for flat states without entry factories. Mixing both ways of supplying a
+target value is rejected at definition time, rather than silently overwriting the supplied data.
+
+These declarations also work inside `parallelStateMachine` regions. State names must remain
+unique within each region, including nested compounds. The same generated graph drives the
+runtime, invariants, Mermaid, diagnostics and recordings. Missing targets, missing history,
+duplicate names and hierarchical leaves without entry factories fail during construction.
+See [executable hierarchy tests](src/commonTest/kotlin/actron/statechart/machine/TypedHierarchyDslTest.kt).
+
 ## State-local machine DSL
 
 For flat machines, `stateMachine` declares the graph and implementations together:
@@ -818,7 +877,7 @@ command ownership. External self-transitions restart them. Hooks and reducers ar
 The facade builds the existing `Machine`/`StateChartDefinition`, retaining validation,
 recording and replay semantics. Implementation keys are generated deterministically from
 transition declaration indices. Bump `DefinitionVersion` when changing the definition.
-The explicit chart API below remains available for hierarchical and parallel machines.
+The typed hierarchy and parallel builders use that same model and runtime.
 
 ## Automatic workflow transitions and typed DSL
 

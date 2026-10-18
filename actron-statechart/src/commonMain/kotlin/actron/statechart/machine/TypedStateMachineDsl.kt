@@ -25,7 +25,7 @@ fun <C : Any, S : Any, A : Action, CMD : Any, E : Event> typedStateMachine(
         .build(id, version, initial)
 
 @ActronStoreDsl
-class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Event>
+open class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Event>
     @PublishedApi
     internal constructor(
         private val readState: (C) -> S,
@@ -35,9 +35,106 @@ class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Even
         private val nodes: MutableList<StateNode> = mutableListOf(),
         private val parent: StateParent = StateParent.Root,
         private val prefix: String = "",
+        private val registry: TypedStateRegistry<S>,
     ) {
-        private val states = linkedMapOf<StateId, KClass<out S>>()
-        private val references = linkedMapOf<StateId, KClass<out S>>()
+        /** Preserve the original constructor used by previously compiled inline DSL calls. */
+        @PublishedApi
+        internal constructor(
+            readState: (C) -> S,
+            writeState: (C, S) -> C,
+            implementation: MachineBuilder<C, A, CMD, E> = MachineBuilder(),
+            transitions: MutableList<Transition> = mutableListOf(),
+            nodes: MutableList<StateNode> = mutableListOf(),
+            parent: StateParent = StateParent.Root,
+            prefix: String = "",
+        ) : this(readState, writeState, implementation, transitions, nodes, parent, prefix, TypedStateRegistry())
+
+        private val states get() = registry.states
+        private val references get() = registry.references
+
+        /** A leaf with an entry factory can be entered implicitly by a parent or history. */
+        inline fun <reified T : S> state(
+            noinline enter: (C) -> T,
+            noinline build: TypedMachineStateBuilder<C, S, A, CMD, E>.() -> Unit = {},
+        ) {
+            registerEntry(T::class, enter, false, build)
+        }
+
+        inline fun <reified T : S> state(
+            value: T,
+            noinline build: TypedMachineStateBuilder<C, S, A, CMD, E>.() -> Unit = {},
+        ) {
+            state<T>(enter = { value }, build = build)
+        }
+
+        inline fun <reified T : S> final(noinline enter: (C) -> T) {
+            registerEntry(T::class, enter, true) {}
+        }
+
+        inline fun <reified T : S> final(value: T) {
+            final<T> { value }
+        }
+
+        /** Compound types identify structure; the context contains the active leaf value. */
+        inline fun <reified T : S> compound(
+            initial: S,
+            noinline build: TypedCompoundMachineBuilder<C, S, A, CMD, E>.() -> Unit,
+        ) {
+            registerCompound(T::class, initial, build)
+        }
+
+        @PublishedApi
+        internal fun implicitReference(type: KClass<out S>): StateId = reference(type).also { registry.implicitTargets += it }
+
+        @PublishedApi
+        internal fun valueReference(type: KClass<out S>): StateId = reference(type).also { registry.valueTargets += it }
+
+        @PublishedApi
+        internal fun historyReference(type: KClass<out S>): StateId =
+            reference(type).let {
+                registry.historyTargets += it
+                StateId("${it.value}.History")
+            }
+
+        @PublishedApi
+        internal fun registerEntry(
+            type: KClass<out S>,
+            enter: (C) -> S,
+            final: Boolean,
+            build: TypedMachineStateBuilder<C, S, A, CMD, E>.() -> Unit,
+        ) {
+            val id = reference(type)
+            require(id !in states) { "State $id is declared twice" }
+            states[id] = type
+            registry.factories += id
+            nodes += if (final) FinalState(id, parent) else AtomicState(id, parent)
+            implementation.onEnter(id) { context = this@TypedStateMachineBuilder.writeState(context, enter(context)) }
+            TypedMachineStateBuilder(this, MachineStateBuilder(id, implementation, transitions), writeState).apply(build)
+        }
+
+        @PublishedApi
+        internal fun registerCompound(
+            type: KClass<out S>,
+            initial: S,
+            build: TypedCompoundMachineBuilder<C, S, A, CMD, E>.() -> Unit,
+        ) {
+            val id = reference(type)
+            require(id !in states) { "State $id is declared twice" }
+            states[id] = type
+            registry.compounds += id
+            nodes += CompoundState(id, initial = reference(initial::class), parent = parent)
+            TypedCompoundMachineBuilder(
+                readState,
+                writeState,
+                implementation,
+                transitions,
+                nodes,
+                id,
+                prefix,
+                registry,
+                TypedMachineStateBuilder(this, MachineStateBuilder(id, implementation, transitions), writeState),
+            ).apply(build)
+        }
 
         inline fun <reified T : S> state(noinline build: TypedMachineStateBuilder<C, S, A, CMD, E>.() -> Unit = {}) {
             register(T::class, build)
@@ -76,7 +173,15 @@ class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Even
         internal fun finish(initial: S): StateId {
             val initialId = reference(initial::class)
             require(references.all { (id, type) -> states[id] == type }) { "Every referenced state type must be declared" }
-            val declared = states.toMap()
+            require(registry.historyTargets.all { it in registry.histories }) { "Every history target needs history() in its compound" }
+            require(registry.implicitTargets.all { it in registry.factories || it in registry.compounds }) { "Implicit targets require a state entry factory" }
+            require(registry.valueTargets.none { it in registry.factories || it in registry.compounds }) {
+                "Targets with entry factories use on<Action, Target>() or transition; do not also supply a target value"
+            }
+            if (registry.compounds.isNotEmpty()) {
+                require(states.keys.all { it in registry.compounds || it in registry.factories }) { "Hierarchical leaves require entry factories (state(value) or state(enter = ...))" }
+            }
+            val declared = states.filterKeys { it !in registry.compounds }
             implementation.invariant("${prefix}typed-state-matches-graph") { snapshot ->
                 val type = readState(snapshot.context)::class
                 if (!snapshot.isStarted) {
@@ -91,6 +196,56 @@ class TypedStateMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Even
         }
     }
 
+/** Shared type registry for a single typed region, including all nested compounds. */
+@PublishedApi
+internal class TypedStateRegistry<S : Any> {
+    val states = linkedMapOf<StateId, KClass<out S>>()
+    val references = linkedMapOf<StateId, KClass<out S>>()
+    val factories = mutableSetOf<StateId>()
+    val compounds = mutableSetOf<StateId>()
+    val implicitTargets = mutableSetOf<StateId>()
+    val valueTargets = mutableSetOf<StateId>()
+    val histories = mutableSetOf<StateId>()
+    val historyTargets = mutableSetOf<StateId>()
+}
+
+@ActronStoreDsl
+class TypedCompoundMachineBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Event>
+    @PublishedApi
+    internal constructor(
+        readState: (C) -> S,
+        writeState: (C, S) -> C,
+        implementation: MachineBuilder<C, A, CMD, E>,
+        transitions: MutableList<Transition>,
+        private val nodes: MutableList<StateNode>,
+        private val id: StateId,
+        prefix: String,
+        private val registry: TypedStateRegistry<S>,
+        @PublishedApi internal val handlers: TypedMachineStateBuilder<C, S, A, CMD, E>,
+    ) : TypedStateMachineBuilder<C, S, A, CMD, E>(readState, writeState, implementation, transitions, nodes, id, prefix, registry) {
+        inline fun <reified T : A, reified Target : S> on() = handlers.on<T, Target>()
+
+        inline fun <reified Target : S> onDone(
+            noinline guard: (C) -> Boolean = { true },
+            noinline reduce: (C) -> C = { it },
+        ) = handlers.onDone<Target>(guard, reduce)
+
+        /** Parent handlers participate in the normal inner-before-outer transition priority. */
+        fun transitions(build: TypedMachineStateBuilder<C, S, A, CMD, E>.() -> Unit) {
+            handlers.apply(build)
+        }
+
+        fun onEnter(block: MachineEnterScope<C, A, CMD, E>.() -> Unit) = handlers.onEnter(block)
+
+        fun onExit(block: MachineExitScope<C, A, E>.() -> Unit) = handlers.onExit(block)
+
+        /** One history per compound; absent history falls back to the compound's initial child. */
+        fun history(deep: Boolean = false) {
+            require(registry.histories.add(id)) { "History for $id is declared twice" }
+            nodes += HistoryState(StateId("${id.value}.History"), id, deep)
+        }
+    }
+
 @ActronStoreDsl
 class TypedMachineStateBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Event>
     @PublishedApi
@@ -99,13 +254,64 @@ class TypedMachineStateBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Even
         @PublishedApi internal val delegate: MachineStateBuilder<C, A, CMD, E>,
         @PublishedApi internal val writeState: (C, S) -> C,
     ) {
+        /** Enter a target whose value is supplied by its state entry factory. */
+        inline fun <reified T : A, reified Target : S> on() = transition<T, Target>()
+
+        /** Guarded/reducing transition to an entry-factory state or compound. */
+        inline fun <reified T : A, reified Target : S> transition(
+            noinline guard: (C, T) -> Boolean = { _, _ -> true },
+            noinline reduce: (C, T) -> C = { context, _ -> context },
+        ) {
+            delegate.on<T>(owner.implicitReference(Target::class), guard, reduce)
+        }
+
+        inline fun <reified T : A, reified Parent : S> onHistory(
+            noinline guard: (C, T) -> Boolean = { _, _ -> true },
+            noinline reduce: (C, T) -> C = { context, _ -> context },
+        ) {
+            delegate.on<T>(owner.historyReference(Parent::class), guard, reduce)
+        }
+
+        inline fun <reified Target : S> always(
+            noinline guard: (C) -> Boolean = { true },
+            noinline reduce: (C) -> C = { it },
+        ) {
+            delegate.add(
+                owner.implicitReference(Target::class),
+                Trigger.Eventless,
+                TransitionKind.External,
+                { context, _ -> guard(context) },
+                { context, _ -> reduce(context) },
+            )
+        }
+
+        inline fun <reified Target : S> onDone(
+            noinline guard: (C) -> Boolean = { true },
+            noinline reduce: (C) -> C = { it },
+        ) {
+            delegate.add(
+                owner.implicitReference(Target::class),
+                Trigger.Completion,
+                TransitionKind.External,
+                { context, _ -> guard(context) },
+                { context, _ -> reduce(context) },
+            )
+        }
+
+        inline fun <reified Target : S> afterEnter(
+            delay: Duration,
+            noinline reduce: (C) -> C = { it },
+        ) {
+            delegate.after(delay, owner.implicitReference(Target::class), reduce)
+        }
+
         /** [reduce] updates shared data; [to] builds the target state from that updated data. */
         inline fun <reified T : A, reified Target : S> on(
             noinline guard: (C, T) -> Boolean = { _, _ -> true },
             noinline reduce: (C, T) -> C = { context, _ -> context },
             noinline to: (C, T) -> Target,
         ) {
-            delegate.on<T>(owner.reference(Target::class), guard) { context, action ->
+            delegate.on<T>(owner.valueReference(Target::class), guard) { context, action ->
                 val updated = reduce(context, action)
                 writeState(updated, to(updated, action))
             }
@@ -115,7 +321,7 @@ class TypedMachineStateBuilder<C : Any, S : Any, A : Action, CMD : Any, E : Even
             delay: Duration,
             noinline to: (C) -> Target,
         ) {
-            delegate.after(delay, owner.reference(Target::class)) { context -> writeState(context, to(context)) }
+            delegate.after(delay, owner.valueReference(Target::class)) { context -> writeState(context, to(context)) }
         }
 
         inline fun <reified T : A> internal(
