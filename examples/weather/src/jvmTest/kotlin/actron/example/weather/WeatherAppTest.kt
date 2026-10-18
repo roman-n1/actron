@@ -3,6 +3,7 @@
 package actron.example.weather
 
 import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.app.WeatherTheme
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -15,10 +16,11 @@ import actron.example.weather.feature.weather.domain.WeatherRepository
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -40,26 +42,83 @@ import kotlin.test.Test
 
 class WeatherAppTest {
     @Test
+    fun continueHereRestoresSearchAndAcceptsNewInput() =
+        runComposeUiTest {
+            setRootContent(SampleWeatherRepository)
+            onNodeWithTag("city-search").performTextInput("Lisbon")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("debug-settings").performClick()
+            onNodeWithTag("debug-panel-switch").performClick()
+            onNodeWithTag("debug-settings-done").performClick()
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("history-continue").performClick()
+            onNodeWithTag("city-search").assert(
+                SemanticsMatcher.expectValue(
+                    androidx.compose.ui.semantics.SemanticsProperties.EditableText,
+                    androidx.compose.ui.text
+                        .AnnotatedString(""),
+                ),
+            )
+            onNodeWithTag("city-search").performTextReplacement("Tokyo")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
+        }
+
+    @Test
+    fun debounceDoesNotClaimRequestIsAlreadyRunning() =
+        runComposeUiTest {
+            val ui =
+                androidx.compose.runtime.mutableStateOf(
+                    actron.example.weather.feature.cities.presentation.CitySearchUiState(
+                        "P",
+                        actron.example.weather.core.mvi.RequestState.Debouncing,
+                        true,
+                    ),
+                )
+            setContent {
+                androidx.compose.material3.MaterialTheme {
+                    actron.example.weather.feature.cities.presentation
+                        .CitySearchScreen(ui.value, onIntent = {})
+                }
+            }
+            onNodeWithTag("city-search-debounce").assertIsDisplayed()
+            onNodeWithTag("city-search-loading").assertDoesNotExist()
+            runOnIdle { ui.value = ui.value.copy(phase = actron.example.weather.core.mvi.RequestState.Loading) }
+            onNodeWithTag("city-search-loading").assertIsDisplayed()
+            onNodeWithTag("city-search-debounce").assertDoesNotExist()
+        }
+
+    @Test
     fun enablingPanelShowsEarlierSearchAndKeepsRecordingAfterClosing() =
         runComposeUiTest {
             setRootContent(SampleWeatherRepository)
             onNodeWithTag("city-search").performTextInput("Lisbon")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("weather-history-panel").assertDoesNotExist()
-            onNodeWithText("Settings").performClick()
+            onNodeWithTag("debug-settings").performClick()
             onNodeWithTag("debug-panel-switch").performClick()
-            onNodeWithText("Done").performClick()
+            onNodeWithTag("debug-settings-done").performClick()
             onNodeWithTag("weather-history-panel").assertIsDisplayed()
-            onNodeWithText("Current session").assertIsDisplayed()
+
             onNodeWithTag("history-entry-1").performClick()
-            onNodeWithText("Verify").performClick()
-            onNodeWithText("Replay verified", substring = true).assertIsDisplayed()
-            onNodeWithText("Close").performClick()
+            onNodeWithTag("city-search").assert(
+                SemanticsMatcher.expectValue(
+                    androidx.compose.ui.semantics.SemanticsProperties.EditableText,
+                    androidx.compose.ui.text
+                        .AnnotatedString(""),
+                ),
+            )
+            onNodeWithTag("city-search").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.IsEditable, false))
+            onNodeWithTag("history-live").performClick()
+            onNodeWithTag("city-search").assertTextContains("Lisbon")
+            onNodeWithTag("city-search").assertIsEnabled()
+            onNodeWithTag("debug-settings").performClick()
+            onNodeWithTag("debug-panel-switch").performClick()
+            onNodeWithTag("debug-settings-done").performClick()
             onNodeWithTag("city-search").performTextReplacement("Tokyo")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
-            onNodeWithText("Settings").performClick()
+            onNodeWithTag("debug-settings").performClick()
             onNodeWithTag("debug-panel-switch").performClick()
-            onNodeWithText("Done").performClick()
+            onNodeWithTag("debug-settings-done").performClick()
             onNodeWithTag("weather-history-panel").assertIsDisplayed()
         }
 
@@ -169,7 +228,7 @@ private fun ComposeUiTest.setRootContent(
             lifecycle.resume()
             onDispose { lifecycle.destroy() }
         }
-        MaterialTheme {
+        WeatherTheme {
             Box(Modifier.width(1180.dp).height(900.dp)) { root.Render() }
         }
     }

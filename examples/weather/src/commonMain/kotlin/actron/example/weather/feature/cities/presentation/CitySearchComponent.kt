@@ -8,6 +8,7 @@ import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.domain.CitySearchRepository
 import actron.example.weather.feature.cities.domain.SearchCitiesUseCase
 import actron.statechart.machine.MachineSnapshot
+import actron.timetravel.historyFields
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +20,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlin.coroutines.CoroutineContext
 
 interface CitySearchComponent : BaseComponent {
@@ -51,7 +53,16 @@ class DefaultCitySearchComponent(
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
     private val machine =
         instanceKeeper.getOrCreate {
-            MachineInstance(CitySearchMachine.create(), CitySearchState(), citySearchHandler(SearchCitiesUseCase(repository)), coroutineContext, history)
+            MachineInstance(
+                CitySearchMachine.create(),
+                CitySearchState(),
+                citySearchHandler(SearchCitiesUseCase(repository)),
+                coroutineContext,
+                history,
+                checkpoint = history.searchCheckpoint(),
+                describe = { historyFields(Json.encodeToJsonElement(CitySearchState.serializer(), it)) },
+                update = history::updateSearch,
+            )
         }
     override val state = machine.store.state
 

@@ -3,11 +3,11 @@
 package actron.example.weather
 
 import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.app.WeatherTheme
 import actron.example.weather.core.network.weatherHttpClient
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
 import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
 import actron.example.weather.feature.weather.data.OpenMeteoWeatherRepository
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.window.ComposeViewport
 import com.arkivanov.decompose.DefaultComponentContext
@@ -31,6 +31,6 @@ fun main() {
                 client.close()
             }
         }
-        MaterialTheme { root.Render() }
+        WeatherTheme { root.Render() }
     }
 }

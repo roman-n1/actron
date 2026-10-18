@@ -7,7 +7,9 @@ import actron.example.weather.core.component.ParentBridge
 import actron.example.weather.core.component.StackComponent
 import actron.example.weather.core.component.toStateFlow
 import actron.example.weather.core.debug.WeatherDebugLayout
+import actron.example.weather.core.debug.WeatherFrame
 import actron.example.weather.core.debug.WeatherHistory
+import actron.example.weather.core.debug.WeatherRoute
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.domain.CitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchComponent
@@ -23,6 +25,7 @@ import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.push
+import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.essenty.instancekeeper.getOrCreate
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import kotlinx.coroutines.CoroutineScope
@@ -56,25 +59,38 @@ class DefaultWeatherRootComponent(
         childStack(
             source = navigation,
             serializer = ChildConfiguration.serializer(),
-            initialConfiguration = ChildConfiguration.Search,
+            initialConfiguration = ChildConfiguration.Search(),
             handleBackButton = true,
             childFactory = ::createChild,
         )
     private val stackFlow = stack.toStateFlow()
 
     init {
-        lifecycle.doOnDestroy { scope.cancel() }
+        val navigationObserver =
+            stack.subscribe { value ->
+                if (value.active.configuration is ChildConfiguration.Search && history.frame.route is WeatherRoute.Weather) history.back()
+            }
+        lifecycle.doOnDestroy {
+            navigationObserver.cancel()
+            scope.cancel()
+        }
         searchBridge.subscribe(scope) { news ->
-            if (stack.value.active.configuration == ChildConfiguration.Search) {
+            if (stack.value.active.configuration is ChildConfiguration.Search) {
                 when (news) {
-                    is CitySearchComponent.News.CitySelected -> navigation.push(ChildConfiguration.Weather(news.city))
+                    is CitySearchComponent.News.CitySelected -> {
+                        history.openCity(news.city)
+                        navigation.push(ChildConfiguration.Weather(news.city, history.branch))
+                    }
                 }
             }
         }
         weatherBridge.subscribe(scope) { news ->
             if (stack.value.active.configuration is ChildConfiguration.Weather) {
                 when (news) {
-                    CityWeatherComponent.News.BackClicked -> navigation.pop()
+                    CityWeatherComponent.News.BackClicked -> {
+                        history.back()
+                        navigation.pop()
+                    }
                 }
             }
         }
@@ -85,13 +101,21 @@ class DefaultWeatherRootComponent(
         context: ComponentContext,
     ): BaseComponent =
         when (configuration) {
-            ChildConfiguration.Search -> searchFactory.create(context, searchBridge.endpoint)
+            is ChildConfiguration.Search -> searchFactory.create(context, searchBridge.endpoint)
             is ChildConfiguration.Weather -> weatherFactory.create(context, configuration.city, weatherBridge.endpoint)
         }
 
     @Composable
     override fun Render() {
-        WeatherDebugLayout(history) { super<WeatherRootComponent>.Render() }
+        WeatherDebugLayout(history, onContinue = ::continueFrom) { super<WeatherRootComponent>.Render() }
+    }
+
+    fun continueFrom(frame: WeatherFrame) {
+        history.beginBranch(frame)
+        when (val route = frame.route) {
+            WeatherRoute.Search -> navigation.replaceAll(ChildConfiguration.Search(history.branch))
+            is WeatherRoute.Weather -> navigation.replaceAll(ChildConfiguration.Search(history.branch), ChildConfiguration.Weather(route.checkpoint.snapshot.context.city, history.branch))
+        }
     }
 
     override fun getChildStack(): StateFlow<ChildStack<*, BaseComponent>> = stackFlow
@@ -99,11 +123,14 @@ class DefaultWeatherRootComponent(
     @Serializable
     private sealed interface ChildConfiguration {
         @Serializable
-        data object Search : ChildConfiguration
+        data class Search(
+            val branch: Long = 0,
+        ) : ChildConfiguration
 
         @Serializable
         data class Weather(
             val city: City,
+            val branch: Long = 0,
         ) : ChildConfiguration
     }
 }

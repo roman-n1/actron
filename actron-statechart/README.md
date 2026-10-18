@@ -1054,3 +1054,17 @@ for payload-based verification, exported runtime frames, IDE navigation and CI r
 Nullable APIs and optional containers have been removed from library implementations.
 See the [null-free API policy](../doc/guides/absence-policy.md) for breaking replacements
 and the strict CI checks, including inferred types. Old persistence readers remain supported.
+
+
+## Continuing a checkpoint
+
+The experimental `resumeMachineStore` factory creates a new executor from a started
+`ExecutorCheckpoint`. It preserves active configuration and context without rerunning entry
+hooks, restarts running commands, retains queued lanes and schedules remaining timer delays.
+Call `start()` on the returned store. When replacing a live executor, close the old one and
+discard stale callbacks before installing the replacement.
+
+Commands have **at-least-once** semantics on restart: use restartable handlers, such as read-only
+queries. This does not reconstruct accepted mailbox inputs or replay transient effects.
+Checkpoints with ending commands or unacknowledged effects are rejected. Definition/version
+and machine invariants are checked. Application navigation is restored by the host.

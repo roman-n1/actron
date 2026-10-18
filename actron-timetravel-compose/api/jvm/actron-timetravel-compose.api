@@ -187,6 +187,17 @@ public final class actron/timetravel/compose/ComposableSingletons$GroupTimeTrave
 	public final fun getLambda$-957906810$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
+public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelKt;
+	public fun <init> ()V
+	public final fun getLambda$-210840690$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-617536418$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1080733875$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1734039882$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$395722496$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$613318343$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
 public final class actron/timetravel/compose/ComposableSingletons$InspectorScreenKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$InspectorScreenKt;
 	public fun <init> ()V
@@ -360,6 +371,33 @@ public final class actron/timetravel/compose/GroupVerification$Unchecked : actro
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/timetravel/compose/HistoryPanelKt {
+	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class actron/timetravel/compose/HistoryPanelLayoutState {
+	public static final field $stable I
+	public fun <init> ()V
+	public final fun getHeightFraction ()F
+	public final fun getWidthFraction ()F
+	public final fun resizeHeight (F)V
+	public final fun resizeWidth (F)V
+}
+
+public final class actron/timetravel/compose/HistoryPanelState {
+	public static final field $stable I
+	public fun <init> ()V
+	public final fun getPreview ()Ljava/util/List;
+	public final fun getSelection ()Ljava/util/List;
+	public final fun previewSelected ()V
+	public final fun returnToLive ()V
+	public final fun select (Lactron/timetravel/HistoryEntry;)V
+}
+
+public final class actron/timetravel/compose/HistoryTime_jvmKt {
+	public static final fun formatHistoryTime (Lkotlin/time/Instant;Landroidx/compose/runtime/Composer;I)Ljava/lang/String;
+}
+
 public final class actron/timetravel/compose/InspectorMode : java/lang/Enum {
 	public static final field Branch Lactron/timetravel/compose/InspectorMode;
 	public static final field Inspect Lactron/timetravel/compose/InspectorMode;
@@ -503,6 +541,10 @@ public final class actron/timetravel/compose/ReplayVerification$Unchecked : actr
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/compose/ResizableHistoryLayoutKt {
+	public static final fun ResizableHistoryLayout (Lactron/timetravel/compose/HistoryPanelLayoutState;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class actron/timetravel/compose/StateChartPanelKt {

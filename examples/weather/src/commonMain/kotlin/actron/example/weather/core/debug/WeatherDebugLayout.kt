@@ -1,105 +1,86 @@
 package actron.example.weather.core.debug
 
-import androidx.compose.foundation.clickable
+import actron.example.weather.feature.cities.presentation.CitySearchScreen
+import actron.example.weather.feature.cities.presentation.toUiState
+import actron.example.weather.feature.weather.presentation.CityWeatherScreen
+import actron.example.weather.feature.weather.presentation.toUiState
+import actron.timetravel.compose.HistoryPanel
+import actron.timetravel.compose.ResizableHistoryLayout
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
+
+internal val LocalWeatherSettings = staticCompositionLocalOf<() -> Unit> { {} }
 
 @Composable
 fun WeatherDebugLayout(
     history: WeatherHistory,
+    onContinue: (WeatherFrame) -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val russian = androidx.compose.ui.text.intl.Locale.current.language == "ru"
     var settingsOpen by remember { mutableStateOf(false) }
     val visible by history.panelVisible.collectAsState()
-    Column(Modifier.fillMaxSize()) {
-        TextButton(onClick = { settingsOpen = true }) { Text("Settings") }
-        Row(Modifier.weight(1f)) {
-            if (visible) {
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                    val panelWidth = minOf(360.dp, maxWidth * 0.6f)
-                    Row(Modifier.fillMaxSize()) {
-                        Box(Modifier.weight(1f)) { content() }
-                        HistoryPanel(history, Modifier.width(panelWidth).fillMaxHeight())
+    CompositionLocalProvider(LocalWeatherSettings provides { settingsOpen = true }) {
+        Box(Modifier.fillMaxSize()) {
+            val preview: @Composable () -> Unit = {
+                val selection = history.panel.preview
+                if (selection.isEmpty()) {
+                    content()
+                } else {
+                    val frame = selection.single().snapshot
+                    when (val route = frame.route) {
+                        WeatherRoute.Search -> {
+                            CitySearchScreen(
+                                frame.search.snapshot.context
+                                    .toUiState(false),
+                                onIntent = {},
+                            )
+                        }
+
+                        is WeatherRoute.Weather -> {
+                            CityWeatherScreen(
+                                route.checkpoint.snapshot.context
+                                    .toUiState(false),
+                                onIntent = {},
+                            )
+                        }
                     }
                 }
+            }
+            if (!visible) {
+                preview()
             } else {
-                Box(Modifier.fillMaxSize()) { content() }
+                ResizableHistoryLayout(
+                    history.panelLayout,
+                    Modifier.fillMaxSize(),
+                    content = preview,
+                    panel = {
+                        HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.fillMaxSize().testTag("weather-history-panel"), WeatherFrame::canResume)
+                    },
+                )
             }
         }
     }
     if (settingsOpen) {
         AlertDialog(
             onDismissRequest = { settingsOpen = false },
-            title = { Text("Settings") },
+            title = { Text(if (russian) "Настройки" else "Settings") },
             text = {
                 Column {
                     Row {
-                        Text("Debug panel", Modifier.weight(1f))
-                        Switch(modifier = Modifier.testTag("debug-panel-switch"), checked = visible, onCheckedChange = { history.panelVisible.value = it })
+                        Text(if (russian) "Панель отладки" else "Debug panel", Modifier.weight(1f))
+                        Switch(visible, {
+                            history.panelVisible.value = it
+                            if (!it) history.panel.returnToLive()
+                        }, Modifier.testTag("debug-panel-switch"))
                     }
-                    Text("The last ${history.capacity} entries are recorded throughout this session, even with the panel closed. Oldest entries are replaced automatically.")
+                    Text(if (russian) "Сохраняются последние ${history.capacity} событий текущего запуска. Просмотр истории не запускает запросы. «Продолжить отсюда» удаляет более позднюю историю и перезапускает незавершённые запросы." else "The last ${history.capacity} events are recorded throughout this session. Preview does not run requests. Continue here removes later history and restarts unfinished requests.")
                 }
             },
-            confirmButton = { TextButton(onClick = { settingsOpen = false }) { Text("Done") } },
+            confirmButton = { TextButton(onClick = { settingsOpen = false }, modifier = Modifier.testTag("debug-settings-done")) { Text(if (russian) "Готово" else "Done") } },
         )
-    }
-}
-
-@Composable
-private fun HistoryPanel(
-    history: WeatherHistory,
-    modifier: Modifier,
-) {
-    val entries by history.entries.collectAsState()
-    var selectedId by remember { mutableStateOf(-1L) }
-    Surface(modifier.testTag("weather-history-panel"), tonalElevation = 4.dp) {
-        Column(Modifier.padding(8.dp)) {
-            Text("History · ${entries.size}/${history.capacity}")
-            Text("Current session", style = MaterialTheme.typography.labelSmall)
-            Row {
-                TextButton(onClick = { history.clear() }) { Text("Clear") }
-                TextButton(onClick = { history.panelVisible.value = false }) { Text("Close") }
-            }
-            LazyColumn(Modifier.weight(1f)) {
-                items(entries.asReversed(), key = { it.id }) { entry ->
-                    Column(
-                        Modifier
-                            .testTag("history-entry-${entry.id}")
-                            .fillMaxWidth()
-                            .clickable { selectedId = entry.id }
-                            .padding(vertical = 8.dp),
-                    ) {
-                        Text("#${entry.id} ${entry.machine}", style = MaterialTheme.typography.labelMedium)
-                        Text(entry.summary, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            val selected = entries.filter { it.id == selectedId }
-            if (selected.isEmpty()) {
-                Text("Select an entry. Older entries may have been overwritten.", style = MaterialTheme.typography.bodySmall)
-            } else {
-                val entry = selected.single()
-                val replay = remember(entry.id) { entry.replay() }
-                var frame by remember(entry.id) { mutableStateOf(replay.frame()) }
-                Row {
-                    TextButton(onClick = { frame = replay.backward() }, enabled = frame.position > 0) { Text("Previous") }
-                    TextButton(onClick = { frame = replay.forward() }, enabled = frame.position < frame.length) { Text("Next") }
-                    TextButton(onClick = { frame = replay.verify() }) { Text("Verify") }
-                }
-                Text("Replay ${frame.position}/${frame.length}: ${frame.status}", style = MaterialTheme.typography.labelSmall)
-                SelectionContainer(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Text(frame.details + "\n\nSelected entry:\n" + remember(entry.id) { entry.details() }, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
     }
 }

@@ -1,6 +1,7 @@
 package actron.example.weather.android
 
 import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.app.WeatherTheme
 import actron.example.weather.core.network.weatherHttpClient
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
 import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
@@ -10,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
         val network = context.instanceKeeper.getOrCreate { NetworkDependencies() }
         val root = DefaultWeatherRootComponent(context, network.weather, network.cities, network.hourly)
         setContent {
-            MaterialTheme {
+            WeatherTheme {
                 Box(Modifier.fillMaxSize().safeDrawingPadding()) { root.Render() }
             }
         }

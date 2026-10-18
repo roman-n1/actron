@@ -13,7 +13,7 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
                 temperature = "${kotlin.math.round(reading.temperature).toInt()}°"
                 updatedAt =
                     if (reading.receivedAt.isNotEmpty()) {
-                        "Updated ${reading.receivedAt.substringBefore('.').removeSuffix("Z").replace('T', ' ')} UTC"
+                        reading.receivedAt
                     } else {
                         reading.time.replace('T', ' ')
                     }

@@ -107,7 +107,15 @@ internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
         messages.close()
     }
 
+    fun resume(checkpoint: ExecutorCheckpoint<C, CMD>) {
+        messages.trySend(Message.Resume(checkpoint))
+    }
+
     private sealed interface Message {
+        class Resume<C : Any, CMD : Any>(
+            val checkpoint: ExecutorCheckpoint<C, CMD>,
+        ) : Message
+
         class Apply<C : Any, CMD : Any, E : Event>(
             val decision: Decision<C, CMD, E>,
             val input: InputAttribution,
@@ -128,6 +136,22 @@ internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
 
     private fun handle(message: Message) {
         when (message) {
+            is Message.Resume<*, *> -> {
+                @Suppress("UNCHECKED_CAST")
+                val checkpoint = message.checkpoint as ExecutorCheckpoint<C, CMD>
+                lastSnapshot = checkpoint.snapshot
+                lanes = checkpoint.lanes
+                for (registration in lanes.running.values) start(registration)
+                for ((id, timer) in lastSnapshot.timers) {
+                    timers[id] =
+                        scope.launch {
+                            clock.delayUntil(timer.deadline)
+                            feed(MachineInput.TimerFired(id, clock.now()))
+                            messages.trySend(Message.TimerDone(id))
+                        }
+                }
+            }
+
             is Message.Apply<*, *, *> -> {
                 @Suppress("UNCHECKED_CAST")
                 carryOut(message.decision as Decision<C, CMD, E>, message.input)

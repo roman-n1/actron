@@ -3121,6 +3121,11 @@ public abstract interface class actron/statechart/machine/ResultSink {
 	public abstract fun result (Lactron/core/Action;)V
 }
 
+public final class actron/statechart/machine/ResumeMachineStoreKt {
+	public static final fun resumeMachineStore (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;)Lactron/statechart/machine/MachineStore;
+	public static synthetic fun resumeMachineStore$default (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
+}
+
 public abstract interface class actron/statechart/machine/RetryBudget {
 	public abstract fun exhausted (I)Z
 	public abstract fun getSuffix ()Ljava/lang/String;
