@@ -108,6 +108,15 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
                     file.getFileEntry().getColumnNumber(offset) + 1, null));
         }
 
+        @Override public Unit visitClass(IrClass klass, IrFile file) {
+            // FIR plugins can generate whole classes before our IR audit. Their receivers
+            // have INSTANCE_RECEIVER origin, so checking each child's origin alone would
+            // mistake e.g. a generic serialization $serializer receiver for authored code.
+            // Source classes (including @Serializable classes) are still fully traversed.
+            if (klass.getOrigin().getName().startsWith("GENERATED")) return Unit.INSTANCE;
+            return visitElement(klass, file);
+        }
+
         @Override public Unit visitVariable(IrVariable variable, IrFile file) {
             check(variable, variable.getType(), file, "local");
             return visitElement(variable, file);

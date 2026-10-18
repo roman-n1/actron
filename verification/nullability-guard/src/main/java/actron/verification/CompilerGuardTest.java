@@ -46,6 +46,21 @@ public final class CompilerGuardTest {
                 compile(plugin, root, "fun lookup() = listOf(1).firstOrNull()", true, path);
                 compile(plugin, root, "val normalized = listOf(1).firstOrNull() ?: 0", false, path);
             }
+            if (args.length > 1) {
+                Path serializationPlugin = Path.of(args[1]).toAbsolutePath();
+                String genericState = "@kotlinx.serialization.Serializable sealed interface State<out T : Any> { "
+                    + "@kotlinx.serialization.Serializable data object Idle : State<Nothing>; "
+                    + "@kotlinx.serialization.Serializable data class Success<T : Any>(val value: T) : State<T> }";
+                compile(plugin, root, genericState, false, "commonMain", serializationPlugin);
+                String badProperty = "@kotlinx.serialization.Serializable data class Success<T : Any>(val value: T, val bad: String?)";
+                String badLocal = "@kotlinx.serialization.Serializable data class Success<T : Any>(val value: T) { fun test() { val bad = listOf(value).firstOrNull() } }";
+                for (String source : java.util.List.of(badProperty, badLocal)) {
+                    String output = compile(plugin, root, source, true, "commonMain", serializationPlugin);
+                    if (!output.contains("[Actron nullability]") || !output.contains("'bad'")) {
+                        throw new AssertionError("Serializable classes must still audit authored declarations\n" + output);
+                    }
+                }
+            }
             Files.delete(policy.resolve("strict"));
             compile(plugin, root, "fun lookup() = listOf(\"one\").firstOrNull()", false, "commonMain");
             System.out.println("Resolved nullability compiler tests passed.");
@@ -63,7 +78,7 @@ public final class CompilerGuardTest {
     private static void accept(Path plugin, Path root, String source) throws Exception {
         compile(plugin, root, source, false, "commonMain");
     }
-    private static String compile(Path plugin, Path root, String source, boolean reject, String set) throws Exception {
+    private static String compile(Path plugin, Path root, String source, boolean reject, String set, Path... otherPlugins) throws Exception {
         Path file = root.resolve(set.contains("/") ? set + "/Fixture.kt" : "actron-fixture/src/" + set + "/kotlin/Fixture.kt");
         Files.createDirectories(file.getParent());
         Files.writeString(file, source);
@@ -72,7 +87,7 @@ public final class CompilerGuardTest {
         try (PrintStream output = new PrintStream(captured, true, StandardCharsets.UTF_8)) {
             result = new K2JVMCompiler().exec(output,
                 "-no-stdlib", "-no-reflect", "-classpath", System.getProperty("java.class.path"),
-                "-Xplugin=" + plugin, "-P", "plugin:actron-nullability:root=" + root,
+                "-Xplugin=" + java.util.stream.Stream.concat(java.util.stream.Stream.of(plugin), java.util.Arrays.stream(otherPlugins)).map(Path::toString).collect(java.util.stream.Collectors.joining(",")), "-P", "plugin:actron-nullability:root=" + root,
                 "-P", "plugin:actron-nullability:enforce=false",
                 "-d", root.resolve("compiled").toString(), file.toString());
         }
