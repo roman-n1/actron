@@ -1,0 +1,99 @@
+@file:OptIn(com.arkivanov.decompose.DelicateDecomposeApi::class)
+
+package actron.example.weather.app
+
+import actron.example.weather.core.component.BaseComponent
+import actron.example.weather.core.component.ParentBridge
+import actron.example.weather.core.component.StackComponent
+import actron.example.weather.core.component.toStateFlow
+import actron.example.weather.core.domain.City
+import actron.example.weather.feature.cities.domain.CitySearchRepository
+import actron.example.weather.feature.cities.presentation.CitySearchComponent
+import actron.example.weather.feature.cities.presentation.DefaultCitySearchComponentFactory
+import actron.example.weather.feature.weather.domain.HourlyForecastRepository
+import actron.example.weather.feature.weather.domain.WeatherRepository
+import actron.example.weather.feature.weather.presentation.CityWeatherComponent
+import actron.example.weather.feature.weather.presentation.DefaultCityWeatherComponentFactory
+import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.decompose.router.stack.ChildStack
+import com.arkivanov.decompose.router.stack.StackNavigation
+import com.arkivanov.decompose.router.stack.childStack
+import com.arkivanov.decompose.router.stack.pop
+import com.arkivanov.decompose.router.stack.push
+import com.arkivanov.essenty.lifecycle.doOnDestroy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
+import kotlin.coroutines.CoroutineContext
+
+interface WeatherRootComponent : StackComponent
+
+class DefaultWeatherRootComponent(
+    componentContext: ComponentContext,
+    api: WeatherRepository,
+    citySearch: CitySearchRepository,
+    hourlyApi: HourlyForecastRepository,
+    coroutineContext: CoroutineContext = Dispatchers.Main.immediate,
+    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, coroutineContext),
+    private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext),
+) : WeatherRootComponent,
+    ComponentContext by componentContext {
+    private val scope = CoroutineScope(coroutineContext + SupervisorJob())
+
+    private val searchBridge = ParentBridge<Nothing, CitySearchComponent.News>()
+    private val weatherBridge = ParentBridge<Nothing, CityWeatherComponent.News>()
+    private val navigation = StackNavigation<ChildConfiguration>()
+    private val stack =
+        childStack(
+            source = navigation,
+            serializer = ChildConfiguration.serializer(),
+            initialConfiguration = ChildConfiguration.Search,
+            handleBackButton = true,
+            childFactory = ::createChild,
+        )
+    private val stackFlow = stack.toStateFlow()
+
+    init {
+        lifecycle.doOnDestroy { scope.cancel() }
+        searchBridge.subscribe(scope) { news ->
+            if (stack.value.active.configuration == ChildConfiguration.Search) {
+                when (news) {
+                    is CitySearchComponent.News.CitySelected -> navigation.push(ChildConfiguration.Weather(news.city))
+                }
+            }
+        }
+        weatherBridge.subscribe(scope) { news ->
+            if (stack.value.active.configuration is ChildConfiguration.Weather) {
+                when (news) {
+                    CityWeatherComponent.News.BackClicked -> navigation.pop()
+                }
+            }
+        }
+    }
+
+    private fun createChild(
+        configuration: ChildConfiguration,
+        context: ComponentContext,
+    ): BaseComponent =
+        when (configuration) {
+            ChildConfiguration.Search -> searchFactory.create(context, searchBridge.endpoint)
+            is ChildConfiguration.Weather -> weatherFactory.create(context, configuration.city, weatherBridge.endpoint)
+        }
+
+    override fun getChildStack(): StateFlow<ChildStack<*, BaseComponent>> = stackFlow
+
+    @Serializable
+    private sealed interface ChildConfiguration {
+        @Serializable
+        data object Search : ChildConfiguration
+
+        @Serializable
+        data class Weather(
+            val city: City,
+        ) : ChildConfiguration
+    }
+}

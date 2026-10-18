@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.composeMultiplatform)
@@ -6,6 +7,18 @@ plugins {
 }
 
 kotlin {
+    android {
+        namespace = "actron.example.weather.shared"
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+        compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11 }
+    }
     jvm()
     js(IR) {
         browser()
@@ -13,7 +26,9 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":actron-timetravel-compose"))
+            implementation(project(":actron-statechart"))
+            implementation("com.arkivanov.decompose:decompose:3.5.0")
+            implementation("com.arkivanov.decompose:extensions-compose:3.5.0")
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(libs.coroutines.core)
@@ -27,7 +42,11 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.coroutines.get()}")
             implementation("io.ktor:ktor-client-cio:3.5.0")
+        }
+        androidMain.dependencies {
+            implementation("io.ktor:ktor-client-okhttp:3.5.0")
         }
         jsMain.dependencies {
             implementation("io.ktor:ktor-client-js:3.5.0")

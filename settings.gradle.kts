@@ -43,3 +43,6 @@ project(":behaviour-review").projectDir = file("verification/behaviour-review")
 
 include(":nullability-guard")
 project(":nullability-guard").projectDir = file("verification/nullability-guard")
+
+include(":weather-android")
+project(":weather-android").projectDir = file("examples/weather-android")
