@@ -78,3 +78,10 @@ use `autoClose = false`; its owner is responsible for closing it.
 
 This suite covers configuration changes and screen lifetime. Process death needs
 a persistent `StateSaver`; the in-memory retained saver does not survive it.
+
+## UI collection independent of processing
+
+`store.state.collectAsUiState()` collects a `StateFlow` on `Dispatchers.Main.immediate`, tied
+to the composition lifetime. Use it when a machine may process actions on a worker dispatcher
+but Compose state must be updated on Main. The host must provide Main and create the composition
+on its platform UI thread. See the [MVI threading contract](../doc/guides/machine-mvi.md).

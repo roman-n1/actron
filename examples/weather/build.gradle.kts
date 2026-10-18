@@ -29,6 +29,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":actron-statechart"))
+            implementation(project(":actron-compose"))
             implementation(project(":actron-timetravel-compose"))
             implementation("com.arkivanov.decompose:decompose:3.5.0")
             implementation("com.arkivanov.decompose:extensions-compose:3.5.0")

@@ -1,5 +1,6 @@
 package actron.example.weather.feature.cities.presentation
 
+import actron.compose.collectAsUiState
 import actron.example.weather.core.component.BaseComponent
 import actron.example.weather.core.component.BridgeEndpoint
 import actron.example.weather.core.component.MachineInstance
@@ -10,7 +11,6 @@ import actron.example.weather.feature.cities.domain.SearchCitiesUseCase
 import actron.statechart.machine.MachineSnapshot
 import actron.timetravel.historyFields
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.instancekeeper.getOrCreate
@@ -81,7 +81,7 @@ class DefaultCitySearchComponent(
 
     @Composable
     override fun Render() {
-        val snapshot by state.collectAsState()
+        val snapshot by state.collectAsUiState()
         CitySearchScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent)
     }
 }

@@ -43,6 +43,12 @@ import kotlin.time.Duration
  * A [Machine] running as a Actron Store: the state is the [MachineSnapshot], actions are decided
  * by the machine, and the decisions' commands, timers and events are carried out after each
  * commit. See [MachineStore] (the factory) for the protocol.
+ *
+ * All producers enter one ordered input queue per machine. Only machine decisions write
+ * snapshots; handlers return actions, never state updates. Acceptance establishes order for
+ * concurrent producers. Closing can discard pending inputs. Keep context deeply immutable.
+ * Processing is sequential even on a dispatcher pool; physical thread confinement requires
+ * Main or a dedicated single-thread dispatcher. UI collection has its own context.
  */
 interface MachineStore<C : Any, A : Action, CMD : Any, E : Event> : Store<MachineSnapshot<C>, A, E> {
     /**
@@ -130,7 +136,10 @@ interface MachineStore<C : Any, A : Action, CMD : Any, E : Event> : Store<Machin
  * @param scope Runs commands, timers and event delivery; needs a real dispatcher, not
  * [Dispatchers.Unconfined], or handlers would run under the store's lock
  * @param clock The machine's clock
- * @param coroutineContext The Store's coroutine context, as in Actron's `Store(...)`
+ * @param coroutineContext Where decisions and snapshot commits run, independently of command
+ * [scope]. Use Dispatchers.Main for UI-thread processing, or a caller-owned single-thread
+ * dispatcher for worker-thread confinement. Default/IO pools still serialize decisions but
+ * do not pin them to one physical thread. This does not change UI collectors' context.
  * @param admission How many dispatched actions may wait; see [AdmissionPolicy]
  * @param mailbox What the mailbox keeps of the effects and for whom; see [MailboxConfig]
  * @param observers See the decisions as they are committed, ignored or refused; for example

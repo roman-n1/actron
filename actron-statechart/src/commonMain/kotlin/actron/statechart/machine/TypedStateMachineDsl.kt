@@ -7,6 +7,17 @@ import actron.statechart.*
 import kotlin.reflect.KClass
 import kotlin.time.Duration
 
+/**
+ * A machine whose complete context is its typed state value. Use this overload when there is
+ * no separate shared context: the DSL supplies the identity read/write binding automatically.
+ */
+fun <S : Any, A : Action, CMD : Any, E : Event> typedStateMachine(
+    id: DefinitionId,
+    version: DefinitionVersion,
+    initial: S,
+    build: TypedStateMachineBuilder<S, S, A, CMD, E>.() -> Unit,
+): Machine<S, A, CMD, E> = typedStateMachine(id, version, initial, { it }, { _, state -> state }, build)
+
 /** The selected state value is the source of graph identity and UI/recording data.
  * State class names form persisted graph IDs; renaming a class requires a definition version bump.
  * [readState] and [writeState] must be pure and describe the same property.

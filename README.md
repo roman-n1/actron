@@ -4,41 +4,48 @@
 
 **From chaos to deterministic behavior.**
 
-MVI, statecharts and Time Travel for Kotlin Multiplatform.
+**MVI with an explicit model of what can happen next.**
 
-A tap starts a request. Another tap cancels it. A response arrives late. A retry timer fires.
-The hard part is knowing what your feature should do next — and explaining how it got here.
+Actron is a Kotlin Multiplatform library for features whose behavior includes requests,
+cancellation, retries, timers, and independent processes running at the same time.
 
-Actron gives that behavior an explicit model: **what can happen, what changes, and what runs
-next.** Start with a small Store, describe richer flows with statecharts, and use pure Machines
-to make decisions you can record, verify and replay.
+The recommended screen API is **a typed state machine + `MachineStore`**. Send an action from
+any thread. The runtime queues inputs, makes one pure decision at a time, commits the next
+state in one place, and executes commands afterward. Command handlers call your use cases
+and return actions; they never write state. Compose observes state on the UI dispatcher.
 
-**Model behavior. Control state. Replay time.**
+## What does Actron add to MVI?
 
-**Totally null-free domain model. Enforced in CI.** Actron's own values and domain contracts
-are non-null. Absence has behavior: lifecycle phases, domain outcomes and operations replace
-nullable values. `Optional`, `Option`, `Maybe` and renamed value/empty containers are forbidden.
-The same policy covers examples, tests, verification tools and the IntelliJ plugin.
-CI checks both Kotlin source and compiler-resolved types, including inferred types and nested
-generic arguments. The nullable baseline is empty; the strict policy prevents new debt and
-cannot be removed relative to the base branch. Readers for old recordings remain supported.
-See the [null-free API and enforcement policy](doc/guides/absence-policy.md) for migration,
-the language-required `equals` signature and external integration boundaries.
+MVI gives a feature a one-way flow: **action → state → UI**. Actron also describes the allowed
+behavior as a graph that the executor, diagrams, tests, and recordings share.
 
-[Get started](#1-a-store-for-a-counter) · [Try Time Travel](#4-time-travel-from-a-real-saved-run) ·
-[Installation](#installation) · [Migrating from Koma](doc/guides/migrating-from-koma.md)
+| Feature problem | What you declare | What Actron handles |
+|---|---|---|
+| A request must stop when its screen phase ends | A command in `Loading.onEnter` | Activation-scoped cancellation and rejection of stale responses |
+| Typing should debounce; loading should time out | `after<Target>(duration)` inside the owning state | Timer identity, cancellation on exit, and explicit time during replay |
+| Current weather and forecast load independently | Typed parallel regions | Separate lifetimes with one ordered stream of state decisions |
+| Several phases share behavior | Nested states, parent transitions, history and final states | Transition selection, exit/entry ordering, and composite completion |
+| The UI and debug graph disagree about the phase | One sealed state value bound with `typedStateMachine` | Derived graph IDs and invariant checks; no handwritten `GuardKey`, `EffectKey`, or action casts |
+| A bug depends on a particular sequence of responses | Record machine inputs, decisions and checkpoints | Bounded recording, replay verification, and inspection of Before / Action / After |
+| You want to continue from a past point | Restore a compatible executor checkpoint | Restartable commands and remaining timer delays; the host restores navigation |
 
-## Why Actron?
+This is a modeling choice, not a claim that other MVI libraries lack debugging or safety.
+[MVIKotlin](https://github.com/arkivanov/MVIKotlin) emphasizes a single source of state and
+includes logging and Time Travel. [Orbit](https://github.com/orbit-mvi/orbit-mvi) emphasizes
+concise coroutine-based intents, reductions, and ViewModel integration. Actron's focus is
+**an executable statechart with pure decisions and explicit command/timer lifetimes**.
+Use it when those lifetimes and transitions deserve to be visible in the feature definition.
+A small form or counter may not need a statechart.
 
-As a feature grows, its behavior spreads across callbacks, flags, coroutine jobs and UI code.
-Actron brings the rules into a model you can read, test and inspect.
+Actron does not provide navigation, repositories, or dependency injection. The weather example
+uses Decompose for component lifetimes and navigation. `actron-core` remains a flexible,
+lower-level Store API; arbitrary core handlers do not have the pure Machine contract.
+Library and example sources follow a CI-enforced [null-free policy](doc/guides/absence-policy.md),
+including compiler-resolved types; absence is modeled as explicit domain states.
 
-| Bring order to… | With Actron… |
-|---|---|
-| **What can happen next** | Declare states, transitions and guards. Model loading, cancellation and retry as explicit behavior. |
-| **What changes and what runs** | A pure Machine returns the next snapshot and commands as data. The runtime commits the decision, then handlers perform I/O. |
-| **How you got here** | Record Machine inputs and decisions, inspect checkpoints and verify a replay to find the first divergence. |
-| **What could happen instead** | Branch from a recorded checkpoint, supply command responses and advance virtual time in an isolated experiment. |
+[Typed MVI quick start](#1-a-store-for-a-counter) · [Threading and commands](doc/guides/machine-mvi.md) ·
+[Weather demo](examples/weather/README.md) · [Installation](#installation) ·
+[Null-free API policy](doc/guides/absence-policy.md)
 
 ### Determinism you can verify
 
@@ -53,7 +60,7 @@ and codecs. Replay, branching and inspector APIs are currently experimental.
 
 ### Start small. Make complexity explicit.
 
-A counter needs a Store. A loading screen needs clear phases. A feature with nested or
+A counter can use a single state. A loading screen needs clear phases. A feature with nested or
 parallel lifetimes can use a statechart. Add recording and Time Travel when you need them;
 choose the modules that fit your feature.
 
@@ -64,8 +71,8 @@ engine that gives them structure.
 
 | You want to… | Start with… |
 |---|---|
-| Understand actions, state and a Store | [The counter below](#1-a-store-for-a-counter), then [actron-core](actron-core/README.md) |
-| Model Loading → Content or Error | [actron-core](actron-core/README.md#states-for-a-loading-screen) |
+| Understand typed actions, state and a Store | [The counter below](#1-a-store-for-a-counter), then [the MVI contract](doc/guides/machine-mvi.md) |
+| Model Loading → Content or Error | [Typed states](actron-statechart/README.md#state-types-shared-by-graph-ui-and-recordings) |
 | Describe nested/parallel phases and draw their transitions | [actron-statechart](actron-statechart/README.md) |
 | Keep I/O separate from decisions and replay them | [A pure Machine below](#3-a-machine-makes-decisions-io-runs-afterward) |
 | Connect a Store to Compose | [actron-compose](actron-compose/README.md) |
@@ -77,45 +84,54 @@ engine that gives them structure.
 
 ## 1. A Store for a counter
 
-Three concepts are enough to start:
-
-- **State** is the data you can render now: the count is 0.
-- **Action** is an input: the user pressed Increment.
-- **Store** processes actions and publishes the resulting state: the count becomes 1.
+The typed DSL declares transitions and handlers inside their state. Here one state owns
+context-only updates; no separate node IDs or reducer registration strings are needed.
 
 ```kotlin
 import actron.core.Action
-import actron.core.State
-import actron.core.Store
+import actron.statechart.machine.*
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
-data class CounterState(val count: Int = 0) : State
-
+data class CounterState(val count: Int = 0)
 sealed interface CounterAction : Action {
     data object Increment : CounterAction
     data object Decrement : CounterAction
 }
 
-fun counterStore(scope: CoroutineScope): Store<CounterState, CounterAction, Nothing> =
-    Store(CounterState(), context = scope.coroutineContext) {
-        state<CounterState> {
-            action<CounterAction.Increment> {
-                nextState { state.copy(count = state.count + 1) }
-            }
-            action<CounterAction.Decrement> {
-                nextState { state.copy(count = (state.count - 1).coerceAtLeast(0)) }
-            }
-        }
+val counterMachine = typedStateMachine<CounterState, CounterAction, Nothing, Nothing>(
+    DefinitionId("counter"), DefinitionVersion("1"), CounterState(),
+) {
+    state<CounterState> {
+        internal<CounterAction.Increment> { context, _ -> context.copy(count = context.count + 1) }
+        internal<CounterAction.Decrement> { context, _ -> context.copy(count = (context.count - 1).coerceAtLeast(0)) }
     }
+}
+
+fun counterStore(scope: CoroutineScope) = MachineStore(
+    machine = counterMachine,
+    context = CounterState(),
+    handler = CommandHandler<Nothing, CounterAction> { _, _ -> },
+    scope = scope,
+    coroutineContext = Dispatchers.Main, // Choose where decisions and commits run.
+)
 ```
 
-The owner supplies a lifecycle scope, creates the Store once, collects `store.state` and calls
-`store.dispatch(CounterAction.Increment)` on a click. Dispatch queues work; collect the
-`StateFlow` rather than assuming that `currentState` has already changed when dispatch returns.
-Call `store.close()` when the owner is destroyed. `Nothing` means this Store emits no events.
+Create the Store once for its owner's lifetime. `store.dispatch(CounterAction.Increment)`
+queues an action and starts a lazy store; it does not wait for the new state. Collect
+`store.state` and render `snapshot.context.count`. Call `store.close()` when the owner is
+destroyed. `Nothing` means this machine has no commands or events.
 
-Events, such as navigation requests, are separate from persistent state. The ordinary Store
-event flow is transient; retained effects are available on the Machine path described below.
+For Compose, `val snapshot by store.state.collectAsUiState()` from `actron-compose` collects
+on Main even if the machine processes on a background dispatcher. The platform must provide
+`Dispatchers.Main` and create its composition on the UI thread. This is independent of
+`scope`, which supplies the command execution context and lifetime.
+
+The queue preserves acceptance order per machine. A single-thread dispatcher or Main also
+pins processing to one physical thread; Default/IO pools still process inputs sequentially,
+but may use different threads. See the [full threading contract](doc/guides/machine-mvi.md).
+
+For the original, more permissive coroutine Store DSL, see [actron-core](actron-core/README.md).
 
 ## 2. Which kind of state machine do you need?
 
@@ -125,12 +141,12 @@ feature's behaviour.
 
 | Shape | Example | Actron representation |
 |---|---|---|
-| One state with changing data | A counter or an editable form | A data class implementing `State` |
-| Flat, mutually exclusive phases | Idle → Loading → Content or Error | Sealed `State` variants, or `AtomicState` chart nodes |
-| Hierarchical phases | Connected contains Idle and ChatOpen | `CompoundState`; one active child at a time |
-| Parallel phases | Connection status and upload status evolve independently | `ParallelState`; every region is active |
-| Return to a previous substate | Resume an interrupted multi-step editor | `HistoryState`: shallow remembers the direct child, deep remembers its nested configuration |
-| Timed transitions | Debounce a query or leave Loading after a timeout | `Trigger.After`; command execution belongs to the runtime |
+| One state with changing data | A counter or an editable form | A data class and `internal<Action>` updates |
+| Flat, mutually exclusive phases | Idle → Loading → Content or Error | Sealed values with `typedStateMachine` |
+| Hierarchical phases | Connected contains Idle and ChatOpen | `compound<Parent>`; one active child at a time |
+| Parallel phases | Connection status and upload status evolve independently | `parallelStateMachine` regions, or nested `parallel<Parent>` |
+| Return to a previous substate | Resume an interrupted multi-step editor | `history()` / `history(deep = true)` and `onHistory<Action, Parent>()` |
+| Timed transitions | Debounce a query or leave Loading after a timeout | `after<Target>(duration)` inside a state |
 
 For example, ChatOpen and Idle share the Connected lifetime:
 
@@ -155,9 +171,10 @@ in state/context fields. Loading, Editing and WaitingForConfirmation are useful 
 they change which actions, commands or lifetimes are allowed. You do not need a node for every
 possible query or count.
 
-In a chart, `StateId` identifies a node; `StateConfiguration` says which nodes are active;
-**context** holds the feature's data. A node such as Loading is not a Kotlin `State` object.
-The Store adapter combines configuration and context into the state exposed to the UI.
+Internally, `StateId` identifies a node and `StateConfiguration` tracks active nodes. The typed
+DSL derives these graph identities from your state types and binds them to the values the UI
+reads. Shared data can live in a separate context; when the typed state is the complete model,
+the short overload supplies the binding. The runtime exposes both graph and data in a snapshot.
 
 ## 3. A Machine makes decisions; I/O runs afterward
 
@@ -172,49 +189,28 @@ A pure `Machine` takes a snapshot and an input and returns a `Decision`. Command
 changes and effects are data in that decision. `MachineStore` commits it, then a
 `CommandHandler` performs I/O and sends results back as new inputs.
 
-Here is a replay-ready counter, reusing `CounterAction` from the first example:
+The counter above can also run without coroutines:
 
 ```kotlin
-import actron.statechart.*
-import actron.statechart.machine.*
-
-data class CounterContext(val count: Int = 0)
-
-val counting = StateId("Counting")
-val counterChart = StateChartDefinition(
-    initial = counting,
-    states = listOf(AtomicState(counting)),
-    transitions = listOf(
-        Transition(counting, counting, ActionMatcher.of<CounterAction.Increment>("Increment"), effect = EffectKey("increment")),
-        Transition(counting, counting, ActionMatcher.of<CounterAction.Decrement>("Decrement"), effect = EffectKey("decrement")),
-    ),
-)
-
-val counterMachine = Machine<CounterContext, CounterAction, Nothing, Nothing>(
-    DefinitionId("counter"), DefinitionVersion("1"), counterChart,
-) {
-    effect("increment") { context, _ -> context.copy(count = context.count + 1) }
-    effect("decrement") { context, _ -> context.copy(count = (context.count - 1).coerceAtLeast(0)) }
-}
-
 val started = counterMachine.decide(
-    counterMachine.initialSnapshot(CounterContext()), MachineInput.Start(MachineTime.Zero),
+    counterMachine.initialSnapshot(CounterState()), MachineInput.Start(MachineTime.Zero),
 )
 val incremented = counterMachine.decide(
     started.snapshot, MachineInput.Dispatch(CounterAction.Increment, MachineTime.Zero),
 )
-// incremented.snapshot.context.count == 1; no Store or coroutine was started.
+// incremented.snapshot.context.count == 1; no Store or I/O was started.
 ```
 
-An external self-transition exits and re-enters its node. For context-only changes without
-that lifetime change, a Machine can use `onAction`; see the
-[machine guide](actron-statechart/README.md#replay-ready-machine).
+For a request, entering Loading registers a command. A `commandHandler(onFailure = ...)`
+executes the use case and returns a success or failure action. `commandHandlers { handle<T> { ... } }`
+routes several command types without casts or manual result emission. The runtime owns the
+queue, cancellation and dispatch of those results. See the [request example](doc/guides/machine-mvi.md#request-handlers).
 
-The same approach works for a loader: entering Loading registers `FetchItems`, the handler
-calls a repository, and `ItemsLoaded` moves the machine to Content. Replay re-decides those
-recorded inputs and checks the resulting snapshots, commands and effects; it does not call
-the repository. Guards and effects are labelled in the model, with their implementations
-supplied to the runtime. See [the complete statechart guide](actron-statechart/README.md).
+The typed DSL supports [sealed phases](actron-statechart/README.md#state-types-shared-by-graph-ui-and-recordings),
+[parallel regions](actron-statechart/README.md#typed-parallel-regions),
+[hierarchy, history and completion](actron-statechart/README.md#typed-hierarchy-history-and-completion),
+and [child invocation](actron-statechart/README.md#state-local-typed-invocation).
+Explicit-ID definitions remain available for lower-level tools and existing users.
 
 ## 4. Time Travel from a real saved run
 
@@ -257,7 +253,7 @@ Every library module has its own README with setup, examples and its contract.
 | [actron-timetravel](actron-timetravel/README.md) | Recording, codecs, checkpoints, replay and isolated branches |
 | [actron-timetravel-compose](actron-timetravel-compose/README.md) | Inspector UI and group replay/experiment controls |
 | [time-travel-example](examples/time-travel/README.md) | Runnable JVM debug application; not a published library |
-| [weather-example](examples/weather/README.md) | Compose Multiplatform MVI weather app with a live API and bottom/side debug docks; not a published library |
+| [weather-example](examples/weather/README.md) | Compose Multiplatform MVI weather app with a live API and resizable debug panel; not a published library |
 | [durable-effects-example](examples/durable-effects/README.md) | Runnable JVM outbox and idempotent-effect application; not a published library |
 
 ## Installation

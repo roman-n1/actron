@@ -44,7 +44,7 @@ class DefaultWeatherRootComponent(
     api: WeatherRepository,
     citySearch: CitySearchRepository,
     hourlyApi: HourlyForecastRepository,
-    coroutineContext: CoroutineContext = Dispatchers.Main.immediate,
+    coroutineContext: CoroutineContext = Dispatchers.Main,
     private val history: WeatherHistory = componentContext.instanceKeeper.getOrCreate(key = "weather-history") { WeatherHistory() },
     private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, coroutineContext, history),
     private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history),

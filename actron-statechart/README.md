@@ -1,5 +1,9 @@
 # actron-statechart
 
+For new MVI screens, start with the [typed state DSL](#state-types-shared-by-graph-ui-and-recordings)
+and [MachineStore threading and request handlers](../doc/guides/machine-mvi.md).
+The explicit-ID chart examples below document the lower-level API, which remains supported.
+
 ## First: a phase is different from its data
 
 A search screen can be **Loading** while its context contains a query and selected contacts.
@@ -709,7 +713,23 @@ tests.
 
 ## State types shared by graph, UI and recordings
 
-`typedStateMachine` binds a sealed state value in the context to a flat graph. Define the
+When the complete screen state is one value, no context binding is needed:
+
+```kotlin
+data class CounterState(val count: Int = 0)
+data object Increment : Action
+val counter = typedStateMachine<CounterState, Increment, Nothing, Nothing>(
+    DefinitionId("counter"), DefinitionVersion("1"), CounterState(),
+) {
+    state<CounterState> {
+        internal<Increment> { state, _ -> state.copy(count = state.count + 1) }
+    }
+}
+```
+
+Use the explicit binding below when context also holds data shared between phases.
+
+`typedStateMachine` binds a sealed state value in the context to the graph. Define the
 variants once; separate StateId constants are not needed:
 
 ```kotlin
@@ -947,8 +967,9 @@ The typed hierarchy and parallel builders use that same model and runtime.
 
 ## Automatic workflow transitions and typed DSL
 
-The DSL builds the same immutable `StateChartDefinition` used by runtime, Mermaid, validation
-and tests. `GuardKey`/`EffectKey` share stable labels with their typed implementations:
+The lower-level `stateChart` DSL builds the same immutable `StateChartDefinition` used by
+runtime, Mermaid, validation and tests. This API uses explicit `GuardKey`/`EffectKey` labels;
+the recommended `typedStateMachine` DSL binds implementations inside each state instead:
 
 ```kotlin
 val valid = GuardKey("valid")
