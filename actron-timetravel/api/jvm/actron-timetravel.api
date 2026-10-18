@@ -1,3 +1,21 @@
+public final class actron/timetravel/BoundedMachineRecorder : actron/statechart/machine/DecisionObserver {
+	public fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;I)V
+	public synthetic fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;I)V
+	public synthetic fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun capture ()Lactron/timetravel/RecordingWindow;
+	public final fun clear ()V
+	public final fun discardBefore (J)V
+	public final fun getCapacity ()I
+	public final fun getNextStep ()J
+	public fun onClosed (Ljava/util/List;Ljava/util/List;)V
+	public fun onCommitted (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/Decision;)V
+	public fun onFailed (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/observability/FailureDescriptor;)V
+	public fun onIgnored (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/IgnoreReason;)V
+	public fun onRejected (Lactron/core/Action;Lactron/statechart/machine/Admission$Rejected;)V
+	public final fun recording ()Lactron/timetravel/Recording;
+}
+
 public final class actron/timetravel/Branch {
 	public fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/Recording;)V
 	public fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lkotlin/jvm/functions/Function3;)V
@@ -485,6 +503,22 @@ public final class actron/timetravel/RecordingOrigin$UnknownBeginning : actron/t
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 	public fun withProblem (Lkotlin/jvm/functions/Function1;)Z
+}
+
+public final class actron/timetravel/RecordingWindow {
+	public fun <init> (JLactron/timetravel/Recording;Lactron/timetravel/RecordingOrigin;)V
+	public final fun component1 ()J
+	public final fun component2 ()Lactron/timetravel/Recording;
+	public final fun component3 ()Lactron/timetravel/RecordingOrigin;
+	public final fun copy (JLactron/timetravel/Recording;Lactron/timetravel/RecordingOrigin;)Lactron/timetravel/RecordingWindow;
+	public static synthetic fun copy$default (Lactron/timetravel/RecordingWindow;JLactron/timetravel/Recording;Lactron/timetravel/RecordingOrigin;ILjava/lang/Object;)Lactron/timetravel/RecordingWindow;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFirstStep ()J
+	public final fun getNextStep ()J
+	public final fun getOrigin ()Lactron/timetravel/RecordingOrigin;
+	public final fun getRecording ()Lactron/timetravel/Recording;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class actron/timetravel/ReplayMismatch {

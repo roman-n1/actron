@@ -4,6 +4,7 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.InputAttribution
 import actron.statechart.machine.*
+import actron.timetravel.BoundedMachineRecorder
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +31,8 @@ class WeatherHistory(
         val machine: String,
         val summary: String,
         val details: () -> String,
+        val replay: () -> HistoryReplay,
+        val discard: () -> Unit,
     )
 
     fun <C : Any, A : Action, CMD : Any, E : Event> observer(
@@ -37,34 +40,36 @@ class WeatherHistory(
         initial: C,
     ): DecisionTraceObserver<C, A, CMD, E> {
         val name = locked { "${machine.id.value} #${++nextMachine}" }
+        val recorder = BoundedMachineRecorder(machine, initial, capacity)
         return object : DecisionTraceObserver<C, A, CMD, E> {
-            private var previous = machine.initialSnapshot(initial)
-
             override fun onDecided(
                 input: InputAttribution,
                 machineInput: MachineInput<A>,
                 explained: ExplainedDecision<C, CMD, E>,
             ) {
-                val before = previous
                 val decision = explained.decision
-                previous = decision.snapshot
-                append(name, "${decision.snapshot.configuration.active.joinToString()} · ${decision.outcome}") {
-                    "Input: $machineInput\n\nBefore: $before\n\nAfter: ${decision.snapshot}\n\nDecision: $decision\n\nExplanation: ${explained.explanation.describe()}"
+                when (val outcome = decision.outcome) {
+                    DecisionOutcome.Handled -> recorder.onCommitted(input, machineInput, decision)
+                    is DecisionOutcome.Ignored -> recorder.onIgnored(input, machineInput, outcome.reason)
+                    is DecisionOutcome.Failed -> recorder.onFailed(input, machineInput, outcome.failure)
                 }
-            }
-
-            override fun onRejected(
-                action: A,
-                rejection: Admission.Rejected,
-            ) {
-                append(name, "Rejected") { "Action: $action\n$rejection" }
-            }
-
-            override fun onClosed(
-                queued: List<CommandId>,
-                running: List<CommandId>,
-            ) {
-                append(name, "Cancelled on close") { "Queued: $queued\nRunning: $running" }
+                val index = recorder.nextStep - 1
+                val explanation = explained.explanation.describe()
+                append(
+                    name,
+                    "${decision.snapshot.configuration.active.joinToString()} · ${decision.outcome}",
+                    details = {
+                        val window = recorder.capture()
+                        val position = (index - window.firstStep).toInt()
+                        if (position !in window.recording.steps.indices) {
+                            "This entry has been evicted"
+                        } else {
+                            "Input: ${window.recording.steps[position].input}\n\nBefore: ${window.recording.snapshotAt(position)}\n\nAfter: ${window.recording.snapshotAt(position + 1)}\n\nStep: ${window.recording.steps[position]}\n\nExplanation: $explanation"
+                        }
+                    },
+                    replay = { RecordedHistoryReplay(machine, recorder.capture(), index) },
+                    discard = { recorder.discardBefore(index + 1) },
+                )
             }
         }
     }
@@ -73,14 +78,17 @@ class WeatherHistory(
         machine: String,
         summary: String,
         details: () -> String,
+        replay: () -> HistoryReplay,
+        discard: () -> Unit,
     ) = locked {
-        if (buffer.size == capacity) buffer.removeFirst()
-        buffer.addLast(Entry(++nextEntry, machine, summary, details))
+        if (buffer.size == capacity) buffer.removeFirst().discard()
+        buffer.addLast(Entry(++nextEntry, machine, summary, details, replay, discard))
         mutableEntries.value = buffer.toList()
     }
 
     fun clear() =
         locked {
+            buffer.forEach { it.discard() }
             buffer.clear()
             mutableEntries.value = emptyList()
         }

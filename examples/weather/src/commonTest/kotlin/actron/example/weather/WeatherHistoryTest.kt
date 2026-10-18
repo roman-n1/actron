@@ -15,6 +15,7 @@ class WeatherHistoryTest {
     fun realStoreRecordsBeforePanelOpensAndRetainsClosedFeature() =
         kotlinx.coroutines.test.runTest {
             val history = WeatherHistory()
+            var apiCalls = 0
             val instance =
                 actron.example.weather.core.component.MachineInstance(
                     CitySearchMachine.create(),
@@ -22,11 +23,15 @@ class WeatherHistoryTest {
                     actron.example.weather.feature.cities.presentation.citySearchHandler(
                         actron.example.weather.feature.cities.domain.SearchCitiesUseCase(
                             actron.example.weather.feature.cities.domain
-                                .CitySearchRepository { emptyList() },
+                                .CitySearchRepository {
+                                    apiCalls++
+                                    emptyList()
+                                },
                         ),
                     ),
                     coroutineContext,
                     history,
+                    clock = MachineClock.monotonic(testScheduler.timeSource),
                 )
             testScheduler.runCurrent()
             assertEquals(1, history.entries.value.size)
@@ -38,6 +43,17 @@ class WeatherHistoryTest {
             testScheduler.advanceTimeBy(350)
             testScheduler.runCurrent()
             assertTrue(history.entries.value.any { it.details().contains("Found") })
+            val live = instance.store.state.value
+            val calls = apiCalls
+            val replay =
+                history.entries.value
+                    .last()
+                    .replay()
+            assertEquals("Replay verified", replay.verify().status)
+            replay.backward()
+            replay.forward()
+            assertEquals(live, instance.store.state.value)
+            assertEquals(calls, apiCalls)
             val beforeClose = history.entries.value.toList()
             instance.onDestroy()
             testScheduler.runCurrent()
@@ -71,12 +87,18 @@ class WeatherHistoryTest {
                 .first()
                 .id > beforeOpening.first().id,
         )
+        for (entry in history.entries.value) assertEquals("Replay verified", entry.replay().verify().status)
+        val frozen =
+            history.entries.value
+                .last()
+                .replay()
         val lastId =
             history.entries.value
                 .last()
                 .id
         history.clear()
         assertTrue(history.entries.value.isEmpty())
+        assertEquals("Replay verified", frozen.verify().status)
         traceEdits(history, listOf("Rome"))
         assertTrue(
             history.entries.value

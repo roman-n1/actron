@@ -5,6 +5,7 @@ import actron.core.Event
 import actron.example.weather.core.debug.WeatherHistory
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineClock
 import actron.statechart.machine.MachineStore
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.CoroutineScope
@@ -19,9 +20,10 @@ class MachineInstance<C : Any, A : Action, CMD : Any, E : Event>(
     handler: CommandHandler<CMD, A>,
     context: CoroutineContext,
     history: WeatherHistory = WeatherHistory(),
+    clock: MachineClock = MachineClock.monotonic(),
 ) : InstanceKeeper.Instance {
     private val scope = CoroutineScope(context + SupervisorJob())
-    val store = MachineStore(machine, initial, handler, scope, coroutineContext = context, observers = listOf(history.observer(machine, initial)))
+    val store = MachineStore(machine, initial, handler, scope, coroutineContext = context, observers = listOf(history.observer(machine, initial)), clock = clock)
 
     init {
         store.start()

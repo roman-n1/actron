@@ -68,8 +68,9 @@ gradle.projectsEvaluated {
 
 // The time-travel modules are debug tooling (handoff §11, §12): no production module may depend
 // on them, so an app that keeps them in a debug source set keeps them out of its release graph.
+// The time-travel and weather examples intentionally demonstrate this tooling on every target.
 // `checkDebugGraph` fails on a dependency in the wrong direction; CI runs it next to `apiCheck`.
-val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":time-travel-example")
+val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":time-travel-example", ":weather-example", ":weather-android")
 // Collected once every project is evaluated, at configuration time, so the task's action holds
 // plain strings and the configuration cache can keep it.
 val debugGraphOffenders = mutableListOf<String>()
