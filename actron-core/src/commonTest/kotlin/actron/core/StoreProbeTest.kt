@@ -844,7 +844,11 @@ class StoreProbeTest {
                             }
                             if (traces.none { it === StoreTrace.StoreClosed }) continue
                             val waiting =
-                                traces.filterIsInstance<StoreTrace.InputAccepted<StormAction>>().map { it.input }.toSet() -
+                                traces
+                                    .filterIsInstance<StoreTrace.InputAccepted<StormAction>>()
+                                    .filter { it.kind is InputKind.Dispatch }
+                                    .map { it.input }
+                                    .toSet() -
                                     traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }.toSet() -
                                     traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.input }.toSet()
                             if (waiting.isEmpty()) break
@@ -854,12 +858,17 @@ class StoreProbeTest {
                 }
                 assertTrue(traces.any { it === StoreTrace.StoreClosed }, "iteration $iteration: StoreClosed never came")
 
-                val accepted = traces.filterIsInstance<StoreTrace.InputAccepted<StormAction>>().map { it.input }
                 val finished = traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }
                 val discarded = traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.input }
                 val ended = finished + discarded
                 assertEquals(ended.size, ended.toSet().size, "iteration $iteration: an input ended twice")
-                val dispatches = accepted.toSet() - InputId(1)
+                // Startup can win its CAS with a later candidate id under concurrent first dispatches.
+                val dispatches =
+                    traces
+                        .filterIsInstance<StoreTrace.InputAccepted<StormAction>>()
+                        .filter { it.kind is InputKind.Dispatch }
+                        .map { it.input }
+                        .toSet()
                 val unaccounted = dispatches - ended.toSet()
                 assertTrue(unaccounted.isEmpty(), "iteration $iteration: accepted inputs without an end: ${unaccounted.take(5)} of ${unaccounted.size}")
                 assertTrue(discarded.isNotEmpty(), "iteration $iteration: nothing was discarded, so the clears and the close did nothing")
@@ -923,12 +932,16 @@ class StoreProbeTest {
                 withTimeout(10_000) { store.state.first { it.count == total } }
             }
             store.close()
+            // close() initiates cancellation; the final completion trace arrives asynchronously.
             val traces =
-                buildList {
-                    while (true) {
-                        val received = recorded.tryReceive()
-                        if (received.isFailure) break
-                        add(received.getOrThrow())
+                withContext(Dispatchers.Default) {
+                    withTimeout(10_000) {
+                        buildList {
+                            do {
+                                val trace = recorded.receive()
+                                add(trace)
+                            } while (trace !== StoreTrace.StoreClosed)
+                        }
                     }
                 }
 
