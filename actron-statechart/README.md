@@ -709,6 +709,117 @@ tests.
   `enter {}`, so actron-test's `awaitIdle()` returns while an activity awaits its node's exit and
   while a timer waits: they are the chart's data, not launches to wait for.
 
+## State types shared by graph, UI and recordings
+
+`typedStateMachine` binds a sealed state value in the context to a flat graph. Define the
+variants once; separate StateId constants are not needed:
+
+```kotlin
+sealed interface Phase {
+    data object Idle : Phase
+    data object Loading : Phase
+    data class Results(val items: List<String>) : Phase
+}
+data class Context(val phase: Phase = Phase.Idle, val query: String = "")
+
+val machine = typedStateMachine<Context, Phase, Act, Command, Ev>(
+    id, version, initial = Phase.Idle,
+    readState = { it.phase },
+    writeState = { context, phase -> context.copy(phase = phase) },
+) {
+    state<Phase.Idle> {
+        on<Act.Search, Phase.Loading>(
+            reduce = { context, action -> context.copy(query = action.query) },
+        ) { _, _ -> Phase.Loading }
+    }
+    state<Phase.Loading> {
+        onEnter { command(Command.Fetch(context.query)) }
+        on<Act.Loaded, Phase.Results> { _, action -> Phase.Results(action.items) }
+        after<Phase.Idle>(8.seconds) { Phase.Idle }
+    }
+    state<Phase.Results>()
+}
+```
+
+The optional `reduce` updates shared context first; the final lambda constructs the destination
+state from that updated context. The DSL writes the state value before destination entry hooks
+run. `internal<Act>` can change shared data without exiting the state. An enforced invariant
+rolls back decisions that change the phase type without changing the graph, including mistakes
+in the binding or hooks. It also validates restored snapshots through `checkInvariants`.
+
+UI reads the same sealed value with an exhaustive `when`; normal machine snapshots already
+record it alongside the automatically derived graph configuration. No UI-specific state map
+or Time Travel adapter is required. Graph IDs use state class simple names, so names must be
+unique and stable. All targets and the initial state must be declared. Renaming a state type
+requires a definition version bump. Existing explicit-ID DSLs remain supported.
+
+## Typed parallel regions
+
+Use `parallelStateMachine` for a single machine with independent, simultaneously active regions:
+
+```kotlin
+parallelStateMachine<Context, Action, Command, Event>(id, version) {
+    region("Current", initial = Current.Idle,
+        readState = { it.current },
+        writeState = { context, state: Current -> context.copy(current = state) },
+    ) {
+        state<Current.Idle> { /* typed transitions */ }
+        state<Current.Loading> { /* entry command, answers and timeout */ }
+    }
+    region("Hourly", initial = Hourly.Idle,
+        readState = { it.hourly },
+        writeState = { context, state: Hourly -> context.copy(hourly = state) },
+    ) {
+        state<Hourly.Idle> { /* typed transitions */ }
+        state<Hourly.Loading> { /* independent command and timeout */ }
+    }
+}
+```
+
+A shared action can take transitions in both regions in a single decision. Reducers must
+preserve sibling data (use `copy`); guards see the pre-step snapshot and reducers are applied
+in graph order. Each region's loading activation owns its commands and timers, so retrying
+one region does not cancel the other. The existing parallel graph runtime handles conflict
+selection and cancellation; this DSL only builds its model and typed bindings. Per-region
+invariants check state/data agreement. Persisted IDs are qualified by region name, e.g.
+`Current.Loading` and `Hourly.Loading`. Region names must be unique and at least two regions
+are required. Rename types/regions only with a definition version bump.
+
+## State-local machine DSL
+
+For flat machines, `stateMachine` declares the graph and implementations together:
+
+```kotlin
+val machine = stateMachine<Context, Act, Command, Ev>(id, version, initial = idle) {
+    state(idle) {
+        on<Act.Submit>(loading,
+            guard = { context, action -> action.query.isNotBlank() },
+            reduce = { context, action -> context.copy(query = action.query) },
+        )
+    }
+    state(loading) {
+        onEnter { command(Command.Fetch(context.query)) }
+        on<Act.Loaded>(done) { context, action -> context.copy(items = action.items) }
+        internal<Act.Rename> { context, action -> context.copy(title = action.title) }
+        after(8.seconds, error) { context -> context.copy(message = "Timed out") }
+        onExit { /* pure cleanup; command cancellation is automatic */ }
+    }
+    state(done) {}
+    state(error) {}
+}
+```
+
+`on<T>` infers the action type in guards and reducers, and restricts T to the machine's
+action type. No application casts or guard/effect keys are needed. Transitions are considered
+in declaration order. `internal<T>` is an internal self-transition; it preserves timers and
+command ownership. External self-transitions restart them. Hooks and reducers are pure;
+`onEnter` describes commands, and the separate `CommandHandler` executes IO.
+
+The facade builds the existing `Machine`/`StateChartDefinition`, retaining validation,
+recording and replay semantics. Implementation keys are generated deterministically from
+transition declaration indices. Bump `DefinitionVersion` when changing the definition.
+The explicit chart API below remains available for hierarchical and parallel machines.
+
 ## Automatic workflow transitions and typed DSL
 
 The DSL builds the same immutable `StateChartDefinition` used by runtime, Mermaid, validation
