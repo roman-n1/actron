@@ -30,15 +30,21 @@ sealed interface ScenarioResult<C : Any, A : Action> {
     val scenario: MachineScenario<A>
     val snapshot: MachineSnapshot<C>
     val coverage: MachineCoverage
+
     fun onFailure(accept: (SequenceFailure<C, A>) -> Unit)
 
     data class Passed<C : Any, A : Action>(
-        override val scenario: MachineScenario<A>, override val snapshot: MachineSnapshot<C>, override val coverage: MachineCoverage,
+        override val scenario: MachineScenario<A>,
+        override val snapshot: MachineSnapshot<C>,
+        override val coverage: MachineCoverage,
     ) : ScenarioResult<C, A> {
         override fun onFailure(accept: (SequenceFailure<C, A>) -> Unit) = Unit
     }
+
     data class Failed<C : Any, A : Action>(
-        override val scenario: MachineScenario<A>, override val snapshot: MachineSnapshot<C>, override val coverage: MachineCoverage,
+        override val scenario: MachineScenario<A>,
+        override val snapshot: MachineSnapshot<C>,
+        override val coverage: MachineCoverage,
         val failure: SequenceFailure<C, A>,
     ) : ScenarioResult<C, A> {
         override fun onFailure(accept: (SequenceFailure<C, A>) -> Unit) = accept(failure)
@@ -60,17 +66,31 @@ data class TestPlanResult<C : Any, A : Action>(
     }
 }
 
-internal data class Selection(val indices: List<Int>, val attempts: Int, val optimal: Boolean)
+internal data class Selection(
+    val indices: List<Int>,
+    val attempts: Int,
+    val optimal: Boolean,
+)
 
 /** Bounded exact set cover, seeded by a complete greedy cover so budget exhaustion never drops coverage. */
-internal fun <T : Any> selectCoverage(candidates: List<Set<T>>, lengths: List<Int>, target: Set<T>, maxAttempts: Int): Selection {
+internal fun <T : Any> selectCoverage(
+    candidates: List<Set<T>>,
+    lengths: List<Int>,
+    target: Set<T>,
+    maxAttempts: Int,
+): Selection {
     if (target.isEmpty()) return Selection(emptyList(), 0, true)
     var remaining = target
     val greedy = mutableListOf<Int>()
     while (remaining.isNotEmpty()) {
-        val best = candidates.indices.maxWithOrNull(compareBy<Int>(
-            { (candidates[it] intersect remaining).size }, { -lengths[it] }, { -it },
-        )) ?: error("[Actron] No scenario covers $remaining")
+        val best =
+            candidates.indices.maxWithOrNull(
+                compareBy<Int>(
+                    { (candidates[it] intersect remaining).size },
+                    { -lengths[it] },
+                    { -it },
+                ),
+            ) ?: error("[Actron] No scenario covers $remaining")
         check(candidates[best].any { it in remaining }) { "[Actron] Scenario coverage is inconsistent" }
         greedy += best
         remaining = remaining - candidates[best]
@@ -79,8 +99,15 @@ internal fun <T : Any> selectCoverage(candidates: List<Set<T>>, lengths: List<In
     var attempts = 0
     var exhausted = false
     val visited = mutableMapOf<Set<T>, Int>()
-    fun search(missing: Set<T>, chosen: List<Int>) {
-        if (attempts >= maxAttempts) { exhausted = true; return }
+
+    fun search(
+        missing: Set<T>,
+        chosen: List<Int>,
+    ) {
+        if (attempts >= maxAttempts) {
+            exhausted = true
+            return
+        }
         attempts++
         if (missing.isEmpty()) {
             if (chosen.size < best.size) best = chosen
@@ -90,9 +117,14 @@ internal fun <T : Any> selectCoverage(candidates: List<Set<T>>, lengths: List<In
         if (missing in visited && visited.getValue(missing) <= chosen.size) return
         visited[missing] = chosen.size
         val next = missing.minBy { id -> candidates.count { id in it } }
-        val choices = candidates.indices.filter { next in candidates[it] }
-            .sortedWith(compareByDescending<Int> { (candidates[it] intersect missing).size }
-                .thenBy { lengths[it] }.thenBy { it })
+        val choices =
+            candidates.indices
+                .filter { next in candidates[it] }
+                .sortedWith(
+                    compareByDescending<Int> { (candidates[it] intersect missing).size }
+                        .thenBy { lengths[it] }
+                        .thenBy { it },
+                )
         for (index in choices) {
             search(missing - candidates[index], chosen + index)
             if (exhausted) return
@@ -124,15 +156,29 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.generateTe
     val target = report.coverage.transitions.covered intersect report.coverage.transitions.expected
     val candidates = report.coverageScenarios.filter { it.transitions.isNotEmpty() }
     val selection = selectCoverage(candidates.map { it.transitions }, candidates.map { it.scenario.inputs.size }, target, maxSelectionAttempts)
-    val selected = if (target.isEmpty()) listOf(report.scenarios.minByOrNull { it.inputs.size } ?: MachineScenario("initial", emptyList()))
-        else selection.indices.map { candidates[it].scenario }
-    return MachineTestPlan(id, version, selected, report.coverage.transitions.expected, report.coverage.transitions.missing,
-        report.failures, report.truncated, selection.optimal, selection.attempts)
+    val selected =
+        if (target.isEmpty()) {
+            listOf(report.scenarios.minByOrNull { it.inputs.size } ?: MachineScenario("initial", emptyList()))
+        } else {
+            selection.indices.map { candidates[it].scenario }
+        }
+    return MachineTestPlan(
+        id,
+        version,
+        selected,
+        report.coverage.transitions.expected,
+        report.coverage.transitions.missing,
+        report.failures,
+        report.truncated,
+        selection.optimal,
+        selection.attempts,
+    )
 }
 
 /** Runs actual inputs from the same initial data; checks invariants after each stable decision. Never executes returned intents. */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.runScenario(
-    initial: MachineSnapshot<C>, scenario: MachineScenario<A>,
+    initial: MachineSnapshot<C>,
+    scenario: MachineScenario<A>,
 ): ScenarioResult<C, A> {
     require(initial.definition == id && initial.version == version) { "[Actron] Scenario snapshot belongs to another machine or version" }
     val recorder = MachineCoverageRecorder(this)
@@ -157,7 +203,8 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.runScenari
 
 /** Replays each selected scenario independently, preserving payloads, command ids and virtual times. */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.runPlan(
-    initial: MachineSnapshot<C>, plan: MachineTestPlan<C, A>,
+    initial: MachineSnapshot<C>,
+    plan: MachineTestPlan<C, A>,
 ): TestPlanResult<C, A> {
     require(plan.definition == id && plan.version == version) { "[Actron] Test plan belongs to another machine or version" }
     require(plan.requiredTransitions.all { it.index in chart.transitions.indices }) { "[Actron] Plan requires an undeclared transition" }
@@ -169,10 +216,11 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.runPlan(
 /** IO-free model discovery alongside this driver's live tests. It does not mutate the live Store. */
 @actron.core.ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.generateTestPlan(
-    generator: MachineInputGenerator<C, A>, maxDepth: Int = 10, maxDecisions: Int = 10_000,
+    generator: MachineInputGenerator<C, A>,
+    maxDepth: Int = 10,
+    maxDecisions: Int = 10_000,
 ): MachineTestPlan<C, A> = machine.generateTestPlan(initialSnapshot, generator, maxDepth = maxDepth, maxDecisions = maxDecisions)
 
 /** Verifies a plan against independent pure snapshots; live command handlers and Store state are untouched. */
 @actron.core.ExperimentalActronApi
-fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.verifyPlan(plan: MachineTestPlan<C, A>): TestPlanResult<C, A> =
-    machine.runPlan(initialSnapshot, plan)
+fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.verifyPlan(plan: MachineTestPlan<C, A>): TestPlanResult<C, A> = machine.runPlan(initialSnapshot, plan)

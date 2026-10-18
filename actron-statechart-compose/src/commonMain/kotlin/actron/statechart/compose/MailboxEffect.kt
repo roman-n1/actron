@@ -1,12 +1,12 @@
 package actron.statechart.compose
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberUpdatedState
 import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.statechart.machine.Delivery
 import actron.statechart.machine.EffectMailbox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 
 /**
  * Subscribes this composition to a [MachineStore][actron.statechart.machine.MachineStore]'s
@@ -38,7 +38,10 @@ import actron.statechart.machine.EffectMailbox
  */
 @ExperimentalActronApi
 @Composable
-fun <E : Event> MailboxEffect(mailbox: EffectMailbox<E>, block: suspend (Delivery<E>) -> Unit) {
+fun <E : Event> MailboxEffect(
+    mailbox: EffectMailbox<E>,
+    block: suspend (Delivery<E>) -> Unit,
+) {
     val currentBlock = rememberUpdatedState(block)
     LaunchedEffect(mailbox) {
         mailbox.subscribe().collect { delivery -> currentBlock.value(delivery) }

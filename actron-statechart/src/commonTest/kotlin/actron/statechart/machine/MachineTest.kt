@@ -42,26 +42,42 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  */
 class MachineTest {
-
     sealed interface ListAction : Action {
-        data class Load(val query: String) : ListAction
-        data class Loaded(val items: List<String>) : ListAction
+        data class Load(
+            val query: String,
+        ) : ListAction
+
+        data class Loaded(
+            val items: List<String>,
+        ) : ListAction
+
         data object Failed : ListAction
+
         data object Refresh : ListAction
+
         data object Nothing : ListAction
     }
 
     sealed interface ListEvent : Event {
         data object ItemsShown : ListEvent
+
         data object GaveUp : ListEvent
     }
 
     sealed interface ListCommand {
         data object Connect : ListCommand
-        data class Fetch(val query: String, val attempt: Int) : ListCommand
+
+        data class Fetch(
+            val query: String,
+            val attempt: Int,
+        ) : ListCommand
     }
 
-    data class ListContext(val query: String = "", val items: List<String> = emptyList(), val attempts: Int = 0)
+    data class ListContext(
+        val query: String = "",
+        val items: List<String> = emptyList(),
+        val attempts: Int = 0,
+    )
 
     private val session = StateId("Session")
     private val idle = StateId("Idle")
@@ -74,45 +90,49 @@ class MachineTest {
     private val failed = ActionMatcher.of<ListAction.Failed>("Failed")
     private val refresh = ActionMatcher.of<ListAction.Refresh>("Refresh")
 
-    private val chart = StateChartDefinition(
-        initial = session,
-        states = listOf(
-            CompoundState(session, initial = idle),
-            AtomicState(idle, parent = session),
-            AtomicState(loading, parent = session),
-            AtomicState(content, parent = session),
-            AtomicState(error, parent = session),
-        ),
-        transitions = listOf(
-            Transition(idle, loading, load, effect = actron.statechart.EffectKey("rememberQuery")), // T0
-            Transition(loading, content, loaded, effect = actron.statechart.EffectKey("storeItems")), // T1
-            Transition(loading, loading, failed, guard = actron.statechart.GuardKey("canRetry"), effect = actron.statechart.EffectKey("countAttempt")), // T2
-            Transition(loading, error, failed), // T3
-            Transition(loading, error, Trigger.After(10.seconds)), // T4
-            Transition(error, loading, load, effect = actron.statechart.EffectKey("resetAttempts")), // T5
-            Transition(content, loading, refresh), // T6
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = session,
+            states =
+                listOf(
+                    CompoundState(session, initial = idle),
+                    AtomicState(idle, parent = session),
+                    AtomicState(loading, parent = session),
+                    AtomicState(content, parent = session),
+                    AtomicState(error, parent = session),
+                ),
+            transitions =
+                listOf(
+                    Transition(idle, loading, load, effect = actron.statechart.EffectKey("rememberQuery")), // T0
+                    Transition(loading, content, loaded, effect = actron.statechart.EffectKey("storeItems")), // T1
+                    Transition(loading, loading, failed, guard = actron.statechart.GuardKey("canRetry"), effect = actron.statechart.EffectKey("countAttempt")), // T2
+                    Transition(loading, error, failed), // T3
+                    Transition(loading, error, Trigger.After(10.seconds)), // T4
+                    Transition(error, loading, load, effect = actron.statechart.EffectKey("resetAttempts")), // T5
+                    Transition(content, loading, refresh), // T6
+                ),
+        )
 
     private val net = LaneId("net")
 
-    private fun machine(version: String = "1") = Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("list"), DefinitionVersion(version), chart) {
-        guard("canRetry") { snapshot, _ -> snapshot.context.attempts < 3 }
-        effect("rememberQuery") { context, action -> context.copy(query = (action as ListAction.Load).query) }
-        effect("storeItems") { context, action -> context.copy(items = (action as ListAction.Loaded).items) }
-        effect("countAttempt") { context, _ -> context.copy(attempts = context.attempts + 1) }
-        effect("resetAttempts") { context, _ -> context.copy(attempts = 0) }
-        onEnter(session) { command(ListCommand.Connect, net, ConcurrencyPolicy.Latest) }
-        onEnter(loading) { command(ListCommand.Fetch(context.query, context.attempts)) }
-        onEnter(content) { event(ListEvent.ItemsShown) }
-        onEnter(error) { event(ListEvent.GaveUp) }
-    }
+    private fun machine(version: String = "1") =
+        Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("list"), DefinitionVersion(version), chart) {
+            guard("canRetry") { snapshot, _ -> snapshot.context.attempts < 3 }
+            effect("rememberQuery") { context, action -> context.copy(query = (action as ListAction.Load).query) }
+            effect("storeItems") { context, action -> context.copy(items = (action as ListAction.Loaded).items) }
+            effect("countAttempt") { context, _ -> context.copy(attempts = context.attempts + 1) }
+            effect("resetAttempts") { context, _ -> context.copy(attempts = 0) }
+            onEnter(session) { command(ListCommand.Connect, net, ConcurrencyPolicy.Latest) }
+            onEnter(loading) { command(ListCommand.Fetch(context.query, context.attempts)) }
+            onEnter(content) { event(ListEvent.ItemsShown) }
+            onEnter(error) { event(ListEvent.GaveUp) }
+        }
 
     private val t0 = MachineTime.Zero
+
     private fun at(seconds: Int) = MachineTime(seconds.seconds)
 
-    private fun started(machine: Machine<ListContext, ListAction, ListCommand, ListEvent> = machine()): MachineSnapshot<ListContext> =
-        machine.decide(machine.initialSnapshot(ListContext()), MachineInput.Start(t0)).snapshot
+    private fun started(machine: Machine<ListContext, ListAction, ListCommand, ListEvent> = machine()): MachineSnapshot<ListContext> = machine.decide(machine.initialSnapshot(ListContext()), MachineInput.Start(t0)).snapshot
 
     private fun <C : Any, CMD : Any, E : Event> Decision<C, CMD, E>.handled(): Decision<C, CMD, E> = also { assertEquals(DecisionOutcome.Handled, it.outcome) }
 
@@ -204,14 +224,15 @@ class MachineTest {
 
     @Test
     fun equalBusinessData_isStillHandled_withANewRevision() {
-        val machine = Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("loop"), DefinitionVersion("1"), chart) {
-            guard("canRetry") { _, _ -> true }
-            effect("rememberQuery") { context, _ -> context }
-            effect("storeItems") { context, _ -> context }
-            effect("countAttempt") { context, _ -> context }
-            effect("resetAttempts") { context, _ -> context }
-            onEnter(loading) { command(ListCommand.Fetch("", 0)) }
-        }
+        val machine =
+            Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("loop"), DefinitionVersion("1"), chart) {
+                guard("canRetry") { _, _ -> true }
+                effect("rememberQuery") { context, _ -> context }
+                effect("storeItems") { context, _ -> context }
+                effect("countAttempt") { context, _ -> context }
+                effect("resetAttempts") { context, _ -> context }
+                onEnter(loading) { command(ListCommand.Fetch("", 0)) }
+            }
         val loadingSnapshot = machine.decide(started(machine), MachineInput.Dispatch(ListAction.Load("x"), t0)).snapshot
 
         val decision = machine.decide(loadingSnapshot, MachineInput.Dispatch(ListAction.Failed, at(1))).handled()
@@ -278,15 +299,17 @@ class MachineTest {
     fun commandFailed_deregistersIt_andStepsWithCommandFailure() {
         val failure = FailureDescriptor(type = "IOException")
         val fetchFailed = ActionMatcher.of<CommandFailure>("CommandFailure")
-        val reacting = StateChartDefinition(
-            initial = loading,
-            states = listOf(AtomicState(loading), AtomicState(error)),
-            transitions = listOf(Transition(loading, error, fetchFailed)),
-        )
-        val machine = Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("reacting"), DefinitionVersion("1"), reacting) {
-            onEnter(loading) { command(ListCommand.Fetch("q", 0)) }
-            onEnter(error) { event(ListEvent.GaveUp) }
-        }
+        val reacting =
+            StateChartDefinition(
+                initial = loading,
+                states = listOf(AtomicState(loading), AtomicState(error)),
+                transitions = listOf(Transition(loading, error, fetchFailed)),
+            )
+        val machine =
+            Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("reacting"), DefinitionVersion("1"), reacting) {
+                onEnter(loading) { command(ListCommand.Fetch("q", 0)) }
+                onEnter(error) { event(ListEvent.GaveUp) }
+            }
         val snapshot = started(machine)
 
         val decision = machine.decide(snapshot, MachineInput.CommandFailed(CommandId(1), failure, at(1))).handled()
@@ -324,14 +347,19 @@ class MachineTest {
 
     @Test
     fun timerWhoseGuardIsFalse_isSpentWithoutATransition() {
-        val guarded = StateChartDefinition(
-            initial = loading,
-            states = listOf(AtomicState(loading), AtomicState(error)),
-            transitions = listOf(Transition(loading, error, Trigger.After(1.seconds), guard = actron.statechart.GuardKey("never"))),
-        )
-        val machine = Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("guarded"), DefinitionVersion("1"), guarded) {
-            guard("never") { _, action -> assertIs<TimerFired>(action); false }
-        }
+        val guarded =
+            StateChartDefinition(
+                initial = loading,
+                states = listOf(AtomicState(loading), AtomicState(error)),
+                transitions = listOf(Transition(loading, error, Trigger.After(1.seconds), guard = actron.statechart.GuardKey("never"))),
+            )
+        val machine =
+            Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("guarded"), DefinitionVersion("1"), guarded) {
+                guard("never") { _, action ->
+                    assertIs<TimerFired>(action)
+                    false
+                }
+            }
         val snapshot = started(machine)
         assertEquals(1, snapshot.timers.size)
 
@@ -360,14 +388,15 @@ class MachineTest {
     @Test
     fun aThrowingGuard_failsTheDecision_andLeavesTheSnapshotUntouched() {
         val boom = IllegalStateException("boom")
-        val machine = Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("throwing"), DefinitionVersion("1"), chart) {
-            guard("canRetry") { _, _ -> throw boom }
-            effect("rememberQuery") { context, _ -> context }
-            effect("storeItems") { context, _ -> context }
-            effect("countAttempt") { context, _ -> context }
-            effect("resetAttempts") { context, _ -> context }
-            onEnter(loading) { command(ListCommand.Fetch("", 0)) }
-        }
+        val machine =
+            Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("throwing"), DefinitionVersion("1"), chart) {
+                guard("canRetry") { _, _ -> throw boom }
+                effect("rememberQuery") { context, _ -> context }
+                effect("storeItems") { context, _ -> context }
+                effect("countAttempt") { context, _ -> context }
+                effect("resetAttempts") { context, _ -> context }
+                onEnter(loading) { command(ListCommand.Fetch("", 0)) }
+            }
         val loadingSnapshot = machine.decide(started(machine), MachineInput.Dispatch(ListAction.Load("x"), t0)).snapshot
 
         val decision = machine.decide(loadingSnapshot, MachineInput.Dispatch(ListAction.Failed, at(1)))
@@ -381,17 +410,18 @@ class MachineTest {
 
     @Test
     fun aThrowingEnterRule_failsTheDecision_withoutPartialRegistrations() {
-        val machine = Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("throwing"), DefinitionVersion("1"), chart) {
-            guard("canRetry") { _, _ -> true }
-            effect("rememberQuery") { context, _ -> context }
-            effect("storeItems") { context, _ -> context }
-            effect("countAttempt") { context, _ -> context }
-            effect("resetAttempts") { context, _ -> context }
-            onEnter(loading) {
-                command(ListCommand.Fetch("", 0))
-                throw IllegalArgumentException("rule")
+        val machine =
+            Machine<ListContext, ListAction, ListCommand, ListEvent>(DefinitionId("throwing"), DefinitionVersion("1"), chart) {
+                guard("canRetry") { _, _ -> true }
+                effect("rememberQuery") { context, _ -> context }
+                effect("storeItems") { context, _ -> context }
+                effect("countAttempt") { context, _ -> context }
+                effect("resetAttempts") { context, _ -> context }
+                onEnter(loading) {
+                    command(ListCommand.Fetch("", 0))
+                    throw IllegalArgumentException("rule")
+                }
             }
-        }
         val snapshot = started(machine)
 
         val decision = machine.decide(snapshot, MachineInput.Dispatch(ListAction.Load("x"), t0))
@@ -404,16 +434,18 @@ class MachineTest {
     @Test
     fun decide_isDeterministic_andIdsComeFromTheSnapshot() {
         val machine = machine()
-        val inputs = listOf(
-            MachineInput.Start(t0),
-            MachineInput.Dispatch(ListAction.Load("cats"), at(1)),
-            MachineInput.CommandResult(CommandId(2), ListAction.Failed, at(2)),
-            MachineInput.CommandResult(CommandId(3), ListAction.Failed, at(3)),
-            MachineInput.CommandResult(CommandId(4), ListAction.Loaded(listOf("a")), at(4)),
-            MachineInput.Dispatch(ListAction.Refresh, at(5)),
-            MachineInput.TimerFired(TimerId(4), at(15)),
-            MachineInput.Dispatch(ListAction.Load("dogs"), at(16)),
-        )
+        val inputs =
+            listOf(
+                MachineInput.Start(t0),
+                MachineInput.Dispatch(ListAction.Load("cats"), at(1)),
+                MachineInput.CommandResult(CommandId(2), ListAction.Failed, at(2)),
+                MachineInput.CommandResult(CommandId(3), ListAction.Failed, at(3)),
+                MachineInput.CommandResult(CommandId(4), ListAction.Loaded(listOf("a")), at(4)),
+                MachineInput.Dispatch(ListAction.Refresh, at(5)),
+                MachineInput.TimerFired(TimerId(4), at(15)),
+                MachineInput.Dispatch(ListAction.Load("dogs"), at(16)),
+            )
+
         fun run(): List<Decision<ListContext, ListCommand, ListEvent>> {
             var snapshot = machine.initialSnapshot(ListContext())
             return inputs.map { input -> machine.decide(snapshot, input).also { snapshot = it.snapshot } }
@@ -447,13 +479,14 @@ class MachineTest {
 
     @Test
     fun actionHandler_updatesTheContext_withoutLeavingAnyNode_orCancellingAnything() {
-        val machine = machineWithHandlers {
-            onAction(session, nothing) {
-                context = context.copy(attempts = 42)
-                command(ListCommand.Fetch("side", 0))
-                event(ListEvent.ItemsShown)
+        val machine =
+            machineWithHandlers {
+                onAction(session, nothing) {
+                    context = context.copy(attempts = 42)
+                    command(ListCommand.Fetch("side", 0))
+                    event(ListEvent.ItemsShown)
+                }
             }
-        }
         val snapshot = started(machine)
 
         val decision = machine.decide(snapshot, MachineInput.Dispatch(ListAction.Nothing, at(1))).handled()
@@ -470,9 +503,10 @@ class MachineTest {
 
     @Test
     fun aTransition_winsOverAnActionHandler() {
-        val machine = machineWithHandlers {
-            onAction(session, load) { context = context.copy(attempts = 99) }
-        }
+        val machine =
+            machineWithHandlers {
+                onAction(session, load) { context = context.copy(attempts = 99) }
+            }
 
         val decision = machine.decide(started(machine), MachineInput.Dispatch(ListAction.Load("cats"), at(1))).handled()
 
@@ -482,10 +516,11 @@ class MachineTest {
 
     @Test
     fun theInnermostActiveNodeWithAMatchingHandler_wins() {
-        val machine = machineWithHandlers {
-            onAction(session, nothing) { context = context.copy(attempts = 1) }
-            onAction(idle, nothing) { context = context.copy(attempts = 2) }
-        }
+        val machine =
+            machineWithHandlers {
+                onAction(session, nothing) { context = context.copy(attempts = 1) }
+                onAction(idle, nothing) { context = context.copy(attempts = 2) }
+            }
 
         val decision = machine.decide(started(machine), MachineInput.Dispatch(ListAction.Nothing, at(1))).handled()
 
@@ -494,9 +529,10 @@ class MachineTest {
 
     @Test
     fun aHandlerOnAnInactiveNode_isNotConsulted() {
-        val machine = machineWithHandlers {
-            onAction(content, nothing) { context = context.copy(attempts = 7) }
-        }
+        val machine =
+            machineWithHandlers {
+                onAction(content, nothing) { context = context.copy(attempts = 7) }
+            }
 
         machine.decide(started(machine), MachineInput.Dispatch(ListAction.Nothing, at(1))).ignored(IgnoreReason.NoTransition)
     }

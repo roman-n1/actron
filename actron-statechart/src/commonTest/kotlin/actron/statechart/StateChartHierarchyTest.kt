@@ -36,23 +36,35 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartHierarchyTest {
-
     sealed interface ChatAction : Action {
         data object Open : ChatAction
+
         data object Close : ChatAction
+
         data object Type : ChatAction
+
         data object Send : ChatAction
+
         data object Disconnect : ChatAction
+
         data object Reconnect : ChatAction
+
         data object Refresh : ChatAction
+
         data object DeepLink : ChatAction
+
         data object Home : ChatAction
     }
 
     sealed interface ChatState : State {
         data object Idle : ChatState
+
         data object Reading : ChatState
-        data class Typing(val draft: String) : ChatState
+
+        data class Typing(
+            val draft: String,
+        ) : ChatState
+
         data object Offline : ChatState
     }
 
@@ -74,18 +86,20 @@ class StateChartHierarchyTest {
     private val deepLink = Transition(online, typing, ActionMatcher.of<ChatAction.DeepLink>("DeepLink"))
     private val reconnect = Transition(offline, online, ActionMatcher.of<ChatAction.Reconnect>("Reconnect"))
 
-    private val chart = StateChartDefinition(
-        initial = online,
-        states = listOf(
-            CompoundState(online, initial = idle),
-            AtomicState(idle, parent = online),
-            CompoundState(chat, initial = reading, parent = online),
-            AtomicState(reading, parent = chat),
-            AtomicState(typing, parent = chat),
-            AtomicState(offline),
-        ),
-        transitions = listOf(open, type, send, keepDraft, home, close, refresh, disconnect, deepLink, reconnect),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = online,
+            states =
+                listOf(
+                    CompoundState(online, initial = idle),
+                    AtomicState(idle, parent = online),
+                    CompoundState(chat, initial = reading, parent = online),
+                    AtomicState(reading, parent = chat),
+                    AtomicState(typing, parent = chat),
+                    AtomicState(offline),
+                ),
+            transitions = listOf(open, type, send, keepDraft, home, close, refresh, disconnect, deepLink, reconnect),
+        )
 
     private val stateIdOf: (ChatState) -> StateId = { state ->
         when (state) {
@@ -96,16 +110,21 @@ class StateChartHierarchyTest {
         }
     }
 
-    private val runtime = StateChartRuntime(
-        definition = chart,
-        stateIdOf = stateIdOf,
-        guards = mapOf("hasDraft" to { state, _ -> (state as ChatState.Typing).draft.isNotEmpty() }),
-    )
+    private val runtime =
+        StateChartRuntime(
+            definition = chart,
+            stateIdOf = stateIdOf,
+            guards = mapOf("hasDraft" to { state, _ -> (state as ChatState.Typing).draft.isNotEmpty() }),
+        )
 
     private fun configuration(vararg ids: String) = StateConfiguration(ids.map(::StateId).toSet())
 
-    private fun transitioned(transition: Transition, exited: List<StateId>, entered: List<StateId>, vararg active: String) =
-        StepResult.Transitioned(listOf(transition), exited, entered, configuration(*active))
+    private fun transitioned(
+        transition: Transition,
+        exited: List<StateId>,
+        entered: List<StateId>,
+        vararg active: String,
+    ) = StepResult.Transitioned(listOf(transition), exited, entered, configuration(*active))
 
     // region model
 
@@ -256,11 +275,12 @@ class StateChartHierarchyTest {
         val insideQ = Transition(b, b2, ping)
         val leaveP = Transition(p, p, pong)
         val leaveQ = Transition(q, q, pong)
-        val twoRoots = StateChartDefinition(
-            initial = p,
-            states = listOf(CompoundState(p, a), AtomicState(a, p), AtomicState(a2, p), CompoundState(q, b), AtomicState(b, q), AtomicState(b2, q)),
-            transitions = listOf(insideP, insideQ, leaveP, leaveQ),
-        )
+        val twoRoots =
+            StateChartDefinition(
+                initial = p,
+                states = listOf(CompoundState(p, a), AtomicState(a, p), AtomicState(a2, p), CompoundState(q, b), AtomicState(b, q), AtomicState(b2, q)),
+                transitions = listOf(insideP, insideQ, leaveP, leaveQ),
+            )
         val both = StateChartRuntime(twoRoots, { s: RandomState -> s.id })
         val start = StateConfiguration(setOf(p, a, q, b))
 
@@ -318,10 +338,11 @@ class StateChartHierarchyTest {
     @Test
     fun initialChildIsReachableAndAStateNobodyEntersIsNot() {
         val muted = StateId("Muted")
-        val lonely = chart.copy(
-            states = chart.states + AtomicState(muted, parent = chat),
-            transitions = chart.transitions + Transition(muted, offline, ActionMatcher("Go")),
-        )
+        val lonely =
+            chart.copy(
+                states = chart.states + AtomicState(muted, parent = chat),
+                transitions = chart.transitions + Transition(muted, offline, ActionMatcher("Go")),
+            )
         assertEquals(listOf(ValidationIssue.UnreachableState(muted)), lonely.validate())
         // Reachable only as the initial child of a compound target.
         val noTyping = chart.copy(transitions = listOf(open))
@@ -333,20 +354,22 @@ class StateChartHierarchyTest {
     fun malformedHierarchyIssuesAreReportedAfterTheInitialStateAndBeforeEndpoints() {
         val (a, b, c) = listOf("A", "B", "C").map(::StateId)
         val (ghost, empty, stray) = listOf("Ghost", "Empty", "Stray").map(::StateId)
-        val broken = StateChartDefinition(
-            initial = StateId("Nowhere"),
-            states = listOf(
-                AtomicState(stray, parent = idle),
-                AtomicState(ghost, parent = StateId("Missing")),
-                CompoundState(b, initial = c, parent = a),
-                CompoundState(a, initial = c, parent = b),
-                AtomicState(c, parent = a),
-                AtomicState(idle, parent = c),
-                CompoundState(empty, initial = ghost),
-                AtomicState(stray),
-            ),
-            transitions = listOf(Transition(a, StateId("Void"), ActionMatcher("Go"))),
-        )
+        val broken =
+            StateChartDefinition(
+                initial = StateId("Nowhere"),
+                states =
+                    listOf(
+                        AtomicState(stray, parent = idle),
+                        AtomicState(ghost, parent = StateId("Missing")),
+                        CompoundState(b, initial = c, parent = a),
+                        CompoundState(a, initial = c, parent = b),
+                        AtomicState(c, parent = a),
+                        AtomicState(idle, parent = c),
+                        CompoundState(empty, initial = ghost),
+                        AtomicState(stray),
+                    ),
+                transitions = listOf(Transition(a, StateId("Void"), ActionMatcher("Go"))),
+            )
 
         assertEquals(
             listOf(
@@ -410,11 +433,12 @@ class StateChartHierarchyTest {
         val signedIn = StateId("Signed in")
         val state = StateId("state")
         val ghost = StateId("not declared")
-        val chart = StateChartDefinition(
-            initial = signedIn,
-            states = listOf(CompoundState(signedIn, initial = state), AtomicState(state, parent = signedIn), AtomicState(StateId("Plain"), parent = signedIn)),
-            transitions = listOf(Transition(state, ghost, ActionMatcher("Go"))),
-        )
+        val chart =
+            StateChartDefinition(
+                initial = signedIn,
+                states = listOf(CompoundState(signedIn, initial = state), AtomicState(state, parent = signedIn), AtomicState(StateId("Plain"), parent = signedIn)),
+                transitions = listOf(Transition(state, ghost, ActionMatcher("Go"))),
+            )
 
         assertEquals(
             """
@@ -435,11 +459,12 @@ class StateChartHierarchyTest {
     @Test
     fun mermaidDrawsStatesWithABrokenParentAtTheTopLevel() {
         val (a, b, c) = listOf("A", "B", "C").map(::StateId)
-        val chart = StateChartDefinition(
-            initial = a,
-            states = listOf(CompoundState(a, initial = b, parent = b), CompoundState(b, initial = a, parent = a), AtomicState(c, parent = StateId("Ghost"))),
-            transitions = listOf(Transition(a, c, ActionMatcher("Go"))),
-        )
+        val chart =
+            StateChartDefinition(
+                initial = a,
+                states = listOf(CompoundState(a, initial = b, parent = b), CompoundState(b, initial = a, parent = a), AtomicState(c, parent = StateId("Ghost"))),
+                transitions = listOf(Transition(a, c, ActionMatcher("Go"))),
+            )
 
         assertEquals(
             """

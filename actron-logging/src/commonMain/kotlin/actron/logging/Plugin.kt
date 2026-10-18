@@ -34,21 +34,36 @@ fun <S : State, A : Action, E : Event> simpleLogging(
     severity: Logger.Severity = Logger.Severity.Debug,
     logger: Logger = DefaultLogger,
     dispatcher: CoroutineContext = EmptyCoroutineContext,
-): Plugin<S, A, E> {
-    return object : Plugin<S, A, E> {
-        override suspend fun onAction(scope: PluginScope<S, A>, state: S, action: A) {
+): Plugin<S, A, E> =
+    object : Plugin<S, A, E> {
+        override suspend fun onAction(
+            scope: PluginScope<S, A>,
+            state: S,
+            action: A,
+        ) {
             log(scope) { "Action: $action" }
         }
 
-        override suspend fun onEvent(scope: PluginScope<S, A>, state: S, event: E) {
+        override suspend fun onEvent(
+            scope: PluginScope<S, A>,
+            state: S,
+            event: E,
+        ) {
             log(scope) { "Event: $event" }
         }
 
-        override suspend fun onState(scope: PluginScope<S, A>, prevState: S, state: S) {
+        override suspend fun onState(
+            scope: PluginScope<S, A>,
+            prevState: S,
+            state: S,
+        ) {
             log(scope) { "State: $state <- $prevState" }
         }
 
-        private fun log(scope: PluginScope<S, A>, message: () -> String) {
+        private fun log(
+            scope: PluginScope<S, A>,
+            message: () -> String,
+        ) {
             if (dispatcher == EmptyCoroutineContext) {
                 try {
                     logger.log(severity = severity, tag = tag, message = message)
@@ -64,4 +79,3 @@ fun <S : State, A : Action, E : Event> simpleLogging(
             }
         }
     }
-}

@@ -32,45 +32,58 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartTimerPropertyTest {
-
     /** A random truth value per guard label and action, and per guard label for timers. */
-    private class GuardTable(random: Random) {
+    private class GuardTable(
+        random: Random,
+    ) {
         private val table = RandomCharts.guards.associateWith { RandomCharts.actions.associateWith { random.nextBoolean() } }
         private val timers = RandomCharts.guards.associateWith { random.nextBoolean() }
         val asked = mutableListOf<TimerFired>()
 
-        fun holds(label: String, action: RandomAction): Boolean = table.getValue(label).getValue(action)
+        fun holds(
+            label: String,
+            action: RandomAction,
+        ): Boolean = table.getValue(label).getValue(action)
 
         fun holdsForTimer(label: String): Boolean = timers.getValue(label)
 
-        fun implementations(): Map<String, (RandomState, Action) -> Boolean> = RandomCharts.guards.associateWith { label ->
-            { _: RandomState, action: Action ->
-                if (action is TimerFired) {
-                    asked += action
-                    holdsForTimer(label)
-                } else {
-                    holds(label, action as RandomAction)
+        fun implementations(): Map<String, (RandomState, Action) -> Boolean> =
+            RandomCharts.guards.associateWith { label ->
+                { _: RandomState, action: Action ->
+                    if (action is TimerFired) {
+                        asked += action
+                        holdsForTimer(label)
+                    } else {
+                        holds(label, action as RandomAction)
+                    }
                 }
             }
-        }
     }
 
     private fun HistoryConfiguration.asConfiguration() = StateConfiguration(active, history)
 
     private fun StateConfiguration.asReference() = HistoryConfiguration(active, history)
 
-    private fun ParallelReference.asResult(fired: ParallelDecision): StepResult = if (fired.transitions.isEmpty()) StepResult.Ignored else StepResult.Transitioned(
-        fired.transitions,
-        fired.exited,
-        fired.entered,
-        fired.after.asConfiguration(),
-        timersToStart = timersOf(fired.entered),
-        timersToCancel = timersOf(fired.exited),
-    )
+    private fun ParallelReference.asResult(fired: ParallelDecision): StepResult =
+        if (fired.transitions.isEmpty()) {
+            StepResult.Ignored
+        } else {
+            StepResult.Transitioned(
+                fired.transitions,
+                fired.exited,
+                fired.entered,
+                fired.after.asConfiguration(),
+                timersToStart = timersOf(fired.entered),
+                timersToCancel = timersOf(fired.exited),
+            )
+        }
 
     private fun <T : Any> List<T>.counts(): Map<T, Int> = groupingBy { it }.eachCount()
 
-    private fun runtimeFor(chart: StateChartDefinition, table: GuardTable) = StateChartRuntime(chart, { s: RandomState -> s.id }, table.implementations())
+    private fun runtimeFor(
+        chart: StateChartDefinition,
+        table: GuardTable,
+    ) = StateChartRuntime(chart, { s: RandomState -> s.id }, table.implementations())
 
     // region generator
 
@@ -100,13 +113,14 @@ class StateChartTimerPropertyTest {
     // region runtime
 
     @Test
-    fun initialTimersAreTheTimersOfTheInitialStatesOutermostFirst() = RandomCharts.forEachTimerChart { seed, random, chart ->
-        val runtime = runtimeFor(chart, GuardTable(random))
-        val reference = ParallelReference(chart)
-        val initial = reference.initialConfiguration().active.sortedWith(compareBy<StateId> { reference.depth(it) }.thenBy { reference.order(it) })
-        assertEquals(reference.timersOf(initial), runtime.initialTimers(), "seed $seed")
-        assertEquals(runtime.initialTimers(), runtime.activeTimers(runtime.initialConfiguration()), "seed $seed")
-    }
+    fun initialTimersAreTheTimersOfTheInitialStatesOutermostFirst() =
+        RandomCharts.forEachTimerChart { seed, random, chart ->
+            val runtime = runtimeFor(chart, GuardTable(random))
+            val reference = ParallelReference(chart)
+            val initial = reference.initialConfiguration().active.sortedWith(compareBy<StateId> { reference.depth(it) }.thenBy { reference.order(it) })
+            assertEquals(reference.timersOf(initial), runtime.initialTimers(), "seed $seed")
+            assertEquals(runtime.initialTimers(), runtime.activeTimers(runtime.initialConfiguration()), "seed $seed")
+        }
 
     @Test
     fun walksWithTimersAgreeWithTheReferenceAndKeepTheRunningTimersExact() {
@@ -171,31 +185,33 @@ class StateChartTimerPropertyTest {
     }
 
     @Test
-    fun timerFiresAloneEvenWhenAnActionWouldFireInOtherRegions() = RandomCharts.forEachTimerChart(100) { seed, random, chart ->
-        val table = GuardTable(random)
-        val runtime = runtimeFor(chart, table)
-        val configuration = runtime.initialConfiguration()
-        for (timer in runtime.activeTimers(configuration)) {
-            val result = runtime.fire(configuration, RandomState(timer.source), timer)
-            if (result is StepResult.Transitioned) {
-                assertEquals(listOf(timer), result.transitions, "seed $seed")
-                assertTrue(timer in result.timersToCancel, "seed $seed: the fired timer's source is exited")
+    fun timerFiresAloneEvenWhenAnActionWouldFireInOtherRegions() =
+        RandomCharts.forEachTimerChart(100) { seed, random, chart ->
+            val table = GuardTable(random)
+            val runtime = runtimeFor(chart, table)
+            val configuration = runtime.initialConfiguration()
+            for (timer in runtime.activeTimers(configuration)) {
+                val result = runtime.fire(configuration, RandomState(timer.source), timer)
+                if (result is StepResult.Transitioned) {
+                    assertEquals(listOf(timer), result.transitions, "seed $seed")
+                    assertTrue(timer in result.timersToCancel, "seed $seed: the fired timer's source is exited")
+                }
             }
         }
-    }
 
     @Test
-    fun fireRejectsWhatIsNotADeclaredTimer() = RandomCharts.forEachTimerChart(50) { seed, random, chart ->
-        val runtime = runtimeFor(chart, GuardTable(random))
-        val configuration = runtime.initialConfiguration()
-        chart.transitions.firstOrNull { !it.isTimer }?.let { t ->
-            val error = assertFailsWith<IllegalArgumentException>("seed $seed") { runtime.fire(configuration, RandomState(t.source), t) }
-            assertEquals("[Actron] Not a timer: $t", error.message)
+    fun fireRejectsWhatIsNotADeclaredTimer() =
+        RandomCharts.forEachTimerChart(50) { seed, random, chart ->
+            val runtime = runtimeFor(chart, GuardTable(random))
+            val configuration = runtime.initialConfiguration()
+            chart.transitions.firstOrNull { !it.isTimer }?.let { t ->
+                val error = assertFailsWith<IllegalArgumentException>("seed $seed") { runtime.fire(configuration, RandomState(t.source), t) }
+                assertEquals("[Actron] Not a timer: $t", error.message)
+            }
+            val undeclared = Transition(chart.initial, chart.initial, Trigger.After(RandomCharts.delays.last() * 7))
+            val error = assertFailsWith<IllegalArgumentException>("seed $seed") { runtime.fire(configuration, RandomState(chart.initial), undeclared) }
+            assertEquals("[Actron] Timer is not declared in the chart: $undeclared", error.message)
         }
-        val undeclared = Transition(chart.initial, chart.initial, Trigger.After(RandomCharts.delays.last() * 7))
-        val error = assertFailsWith<IllegalArgumentException>("seed $seed") { runtime.fire(configuration, RandomState(chart.initial), undeclared) }
-        assertEquals("[Actron] Timer is not declared in the chart: $undeclared", error.message)
-    }
 
     // endregion
 
@@ -212,28 +228,33 @@ class StateChartTimerPropertyTest {
             val issues = chart.validate()
             val declared = chart.states.map { it.id }.toSet()
             // Endpoint block: per transition, unknown source, unknown target, from history, non-positive delay.
-            val endpoints = chart.transitions.flatMap { t ->
-                listOfNotNull(
-                    ValidationIssue.UnknownTransitionSource(t).takeIf { t.source !in declared },
-                    ValidationIssue.UnknownTransitionTarget(t).takeIf { t.target !in declared },
-                    ValidationIssue.TransitionFromHistory(t).takeIf { chart.states.firstOrNull { it.id == t.source } is HistoryState },
-                    ValidationIssue.NonPositiveDelay(t).takeIf { t.trigger.let { tr -> tr is Trigger.After && tr.delay.inWholeNanoseconds <= 0 } },
-                )
-            }
-            val endpointKinds = issues.filter {
-                it is ValidationIssue.UnknownTransitionSource || it is ValidationIssue.UnknownTransitionTarget ||
-                    it is ValidationIssue.TransitionFromHistory || it is ValidationIssue.NonPositiveDelay
-            }
+            val endpoints =
+                chart.transitions.flatMap { t ->
+                    listOfNotNull(
+                        ValidationIssue.UnknownTransitionSource(t).takeIf { t.source !in declared },
+                        ValidationIssue.UnknownTransitionTarget(t).takeIf { t.target !in declared },
+                        ValidationIssue.TransitionFromHistory(t).takeIf { chart.states.firstOrNull { it.id == t.source } is HistoryState },
+                        ValidationIssue.NonPositiveDelay(t).takeIf { t.trigger.let { tr -> tr is Trigger.After && tr.delay.inWholeNanoseconds <= 0 } },
+                    )
+                }
+            val endpointKinds =
+                issues.filter {
+                    it is ValidationIssue.UnknownTransitionSource || it is ValidationIssue.UnknownTransitionTarget ||
+                        it is ValidationIssue.TransitionFromHistory || it is ValidationIssue.NonPositiveDelay
+                }
             assertEquals(endpoints, endpointKinds, "seed $seed")
             nonPositive += endpoints.count { it is ValidationIssue.NonPositiveDelay }
             fromHistory += endpoints.count { it is ValidationIssue.TransitionFromHistory && it.transition.isTimer }
             // Ambiguous timers: unguarded timers with one source and one delay, groups in order of first member.
             val keys = mutableListOf<Pair<StateId, Trigger>>()
             for (t in chart.transitions) if (t.isTimer && t.guard is GuardCondition.Unconditional && (t.source to t.trigger) !in keys) keys += t.source to t.trigger
-            val expected = buildList { for ((source, trigger) in keys) {
-                val group = chart.transitions.filter { it.source == source && it.trigger == trigger && it.guard is GuardCondition.Unconditional }
-                if (group.size > 1) add(ValidationIssue.AmbiguousTimers(source, (trigger as Trigger.After).delay, group))
-            } }
+            val expected =
+                buildList {
+                    for ((source, trigger) in keys) {
+                        val group = chart.transitions.filter { it.source == source && it.trigger == trigger && it.guard is GuardCondition.Unconditional }
+                        if (group.size > 1) add(ValidationIssue.AmbiguousTimers(source, (trigger as Trigger.After).delay, group))
+                    }
+                }
             assertEquals(expected, issues.filterIsInstance<ValidationIssue.AmbiguousTimers>(), "seed $seed")
             ambiguous += expected.size
             // They come right after the ambiguous action transitions, and ambiguity never lists a timer.
@@ -271,15 +292,17 @@ class StateChartTimerPropertyTest {
     // region mermaid
 
     @Test
-    fun mermaidLabelsEveryTimerWithItsDelayGuardAndEffect() = RandomCharts.forEachTimerChart { seed, _, chart ->
-        val lines = chart.toMermaid().lines()
-        val timerLines = lines.filter { " : after " in it }
-        assertEquals(chart.transitions.count { it.isTimer }, timerLines.size, "seed $seed")
-        val labels = chart.transitions.filter { it.isTimer }.map { t ->
-            "after ${(t.trigger as Trigger.After).delay}" + ((t.guard as? actron.statechart.GuardKey)?.name?.let { " [$it]" } ?: "") + ((t.effect as? actron.statechart.EffectKey)?.name?.let { " / $it" } ?: "")
+    fun mermaidLabelsEveryTimerWithItsDelayGuardAndEffect() =
+        RandomCharts.forEachTimerChart { seed, _, chart ->
+            val lines = chart.toMermaid().lines()
+            val timerLines = lines.filter { " : after " in it }
+            assertEquals(chart.transitions.count { it.isTimer }, timerLines.size, "seed $seed")
+            val labels =
+                chart.transitions.filter { it.isTimer }.map { t ->
+                    "after ${(t.trigger as Trigger.After).delay}" + ((t.guard as? actron.statechart.GuardKey)?.name?.let { " [$it]" } ?: "") + ((t.effect as? actron.statechart.EffectKey)?.name?.let { " / $it" } ?: "")
+                }
+            assertEquals(labels.sorted(), timerLines.map { it.substringAfter(" : ") }.sorted(), "seed $seed")
         }
-        assertEquals(labels.sorted(), timerLines.map { it.substringAfter(" : ") }.sorted(), "seed $seed")
-    }
 
     // endregion
 
@@ -318,32 +341,43 @@ class StateChartTimerPropertyTest {
      * steps with [StateChartRuntime.fire] on the same copy, whose timers keep their trigger. Also
      * checks [StateChartPath.triggers] and [StateChartPath.actions]. Returns the final configuration.
      */
-    private fun replay(seed: Int, chart: StateChartDefinition, reference: ParallelReference, path: StateChartPath): HistoryConfiguration {
+    private fun replay(
+        seed: Int,
+        chart: StateChartDefinition,
+        reference: ParallelReference,
+        path: StateChartPath,
+    ): HistoryConfiguration {
         assertEquals(path.transitions.map { it.trigger }, path.triggers, "seed $seed")
         assertEquals(path.transitions.filter { !it.isTimer }.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }, path.actions, "seed $seed")
         var configuration = reference.initialConfiguration()
         var enabledTransitions = emptySet<Transition>()
         val fire = ActionMatcher("Fire", Fire::class)
         val relabelled = chart.transitions.mapIndexed { i, t -> if (t.isTimer) t.copy(guard = actron.statechart.GuardKey("t$i")) else Transition(t.source, t.target, fire, actron.statechart.GuardKey("t$i")) }
-        val guards = chart.transitions.withIndex().associate { (i, original) ->
-            "t$i" to { _: RandomState, _: Action ->
-                original in enabledTransitions
+        val guards =
+            chart.transitions.withIndex().associate { (i, original) ->
+                "t$i" to { _: RandomState, _: Action ->
+                    original in enabledTransitions
+                }
             }
-        }
         val runtime = StateChartRuntime(chart.copy(transitions = relabelled), { s: RandomState -> s.id }, guards)
         path.transitions.forEachIndexed { i, t ->
             assertTrue(t.source in configuration.active, "seed $seed: ${t.source} is not active before step $i")
             val fired = reference.graphStep(configuration, t)
-            enabledTransitions = chart.transitions.filter { original ->
-                original == t || (original.trigger is actron.statechart.Trigger.OnAction && t.trigger is actron.statechart.Trigger.OnAction &&
-                    original.trigger.matcher == t.trigger.matcher &&
-                    reference.exitSet(configuration.active, original).none { it in reference.exitSet(configuration.active, t) })
-            }.toSet()
-            val stepped = if (t.isTimer) {
-                runtime.fire(configuration.asConfiguration(), RandomState(t.source), relabelled[chart.transitions.indexOf(t)])
-            } else {
-                runtime.step(configuration.asConfiguration(), RandomState(t.source), Fire)
-            }
+            enabledTransitions =
+                chart.transitions
+                    .filter { original ->
+                        original == t || (
+                            original.trigger is actron.statechart.Trigger.OnAction && t.trigger is actron.statechart.Trigger.OnAction &&
+                                original.trigger.matcher == t.trigger.matcher &&
+                                reference.exitSet(configuration.active, original).none { it in reference.exitSet(configuration.active, t) }
+                        )
+                    }.toSet()
+            val stepped =
+                if (t.isTimer) {
+                    runtime.fire(configuration.asConfiguration(), RandomState(t.source), relabelled[chart.transitions.indexOf(t)])
+                } else {
+                    runtime.step(configuration.asConfiguration(), RandomState(t.source), Fire)
+                }
             assertEquals(fired.after.asConfiguration(), (stepped as? StepResult.Transitioned)?.configuration, "seed $seed: step $i")
             configuration = fired.after
             assertEquals(reference.leaves(configuration.active), path.activeLeaves[i], "seed $seed: leaves after step $i")

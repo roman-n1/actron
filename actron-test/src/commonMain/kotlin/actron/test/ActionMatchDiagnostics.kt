@@ -62,11 +62,12 @@ class ActionMatchDiagnostics<S : State, A : Action> internal constructor(
     val matchedHandlers: List<ActionHandlerDescription> get() = matchedHandlerIndices.map { handlers[it] }
 
     override fun toString(): String {
-        val matched = if (matchedHandlerIndices.isEmpty()) {
-            "no handler matches"
-        } else {
-            matchedHandlers.joinToString(prefix = "selected ", separator = ", shadowed ")
-        }
+        val matched =
+            if (matchedHandlerIndices.isEmpty()) {
+                "no handler matches"
+            } else {
+                matchedHandlers.joinToString(prefix = "selected ", separator = ", shadowed ")
+            }
         return "ActionMatchDiagnostics(state=$state, action=$action: $matched)"
     }
 }

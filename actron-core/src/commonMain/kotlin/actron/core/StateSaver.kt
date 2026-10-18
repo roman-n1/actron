@@ -30,24 +30,25 @@ interface StateSaver<S : State> {
          * Creates a no-op implementation that never restores and never persists state.
          */
         @Suppress("FunctionName")
-        fun <S : State> Noop(): StateSaver<S> = object : StateSaver<S> {
-            override fun save(state: S) {}
-            override fun restore(initialState: S): S {
-                return initialState
+        fun <S : State> Noop(): StateSaver<S> =
+            object : StateSaver<S> {
+                override fun save(state: S) {}
+
+                override fun restore(initialState: S): S = initialState
             }
-        }
     }
 }
 
 /**
  * Creates a [StateSaver] from save and restore lambdas.
  */
-fun <S : State> StateSaver(save: (state: S) -> Unit, restore: (initialState: S) -> S) = object : StateSaver<S> {
+fun <S : State> StateSaver(
+    save: (state: S) -> Unit,
+    restore: (initialState: S) -> S,
+) = object : StateSaver<S> {
     override fun save(state: S) {
         save.invoke(state)
     }
 
-    override fun restore(initialState: S): S {
-        return restore.invoke(initialState)
-    }
+    override fun restore(initialState: S): S = restore.invoke(initialState)
 }

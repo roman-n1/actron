@@ -3,6 +3,8 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 plugins {
+    base
+    alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.composeMultiplatform) apply false
@@ -21,7 +23,8 @@ apiValidation {
     ignoredProjects += "behaviour-review" // internal CI artifact exporter
     ignoredProjects += "resource-soak" // device verification harness, not a published API
     ignoredProjects += "time-travel-example" // runnable debug application, not a published API
-    ignoredProjects += "weather-example" // embeddable inspector demo, not a published API
+    ignoredProjects += "weather-android" // runnable Android host
+    ignoredProjects += "weather-example" // weather application, not a published API
     ignoredProjects += "durable-effects-example" // application-owned persistence example
     ignoredProjects += "nullability-guard" // internal Kotlin syntax policy checker
     klib {
@@ -45,17 +48,20 @@ subprojects {
             inputs.files(nullabilityPluginJar, nullabilityStrictMarker)
             compilerOptions.freeCompilerArgs.addAll(
                 "-Xplugin=${nullabilityPluginJar.asFile.absolutePath}",
-                "-P", "plugin:actron-nullability:root=${rootProject.projectDir.absolutePath}",
-                "-P", "plugin:actron-nullability:enforce=$finishingNullabilityMigration",
+                "-P",
+                "plugin:actron-nullability:root=${rootProject.projectDir.absolutePath}",
+                "-P",
+                "plugin:actron-nullability:enforce=$finishingNullabilityMigration",
             )
         }
     }
 }
 gradle.projectsEvaluated {
-    val compilations = subprojects.filter { it.name != "nullability-guard" }.flatMap {
-        // IR executable linking introduces no additional authored declarations.
-        it.tasks.withType<KotlinCompilationTask<*>>().filter { task -> !task.name.contains("Executable") }
-    }
+    val compilations =
+        subprojects.filter { it.name != "nullability-guard" }.flatMap {
+            // IR executable linking introduces no additional authored declarations.
+            it.tasks.withType<KotlinCompilationTask<*>>().filter { task -> !task.name.contains("Executable") }
+        }
     tasks.named("checkNullability") { dependsOn(compilations) }
     project(":nullability-guard").tasks.named("finishMigration") { dependsOn(compilations) }
 }
@@ -63,7 +69,7 @@ gradle.projectsEvaluated {
 // The time-travel modules are debug tooling (handoff §11, §12): no production module may depend
 // on them, so an app that keeps them in a debug source set keeps them out of its release graph.
 // `checkDebugGraph` fails on a dependency in the wrong direction; CI runs it next to `apiCheck`.
-val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":time-travel-example", ":weather-example")
+val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":time-travel-example")
 // Collected once every project is evaluated, at configuration time, so the task's action holds
 // plain strings and the configuration cache can keep it.
 val debugGraphOffenders = mutableListOf<String>()
@@ -98,3 +104,5 @@ subprojects {
         }
     }
 }
+
+apply(from = "gradle/ktlint.gradle.kts")

@@ -21,9 +21,16 @@ internal class AdaptedPlugin<C : Any, A : Action, E : Event>(
     val plugin: Plugin<MachineSnapshot<C>, A, E>,
     private val store: MachineStore<C, A, *, E>,
 ) : Plugin<MachineSnapshot<C>, MachineInput<A>, E> {
-    override suspend fun onStart(scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>, state: MachineSnapshot<C>) = plugin.onStart(scope.adapted(), state)
+    override suspend fun onStart(
+        scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>,
+        state: MachineSnapshot<C>,
+    ) = plugin.onStart(scope.adapted(), state)
 
-    override suspend fun onAction(scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>, state: MachineSnapshot<C>, action: MachineInput<A>) {
+    override suspend fun onAction(
+        scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>,
+        state: MachineSnapshot<C>,
+        action: MachineInput<A>,
+    ) {
         when (action) {
             is MachineInput.Dispatch -> plugin.onAction(scope.adapted(), state, action.action)
             is MachineInput.External -> plugin.onAction(scope.adapted(), state, action.action)
@@ -32,10 +39,18 @@ internal class AdaptedPlugin<C : Any, A : Action, E : Event>(
         }
     }
 
-    override suspend fun onState(scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>, prevState: MachineSnapshot<C>, state: MachineSnapshot<C>) = plugin.onState(scope.adapted(), prevState, state)
+    override suspend fun onState(
+        scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>,
+        prevState: MachineSnapshot<C>,
+        state: MachineSnapshot<C>,
+    ) = plugin.onState(scope.adapted(), prevState, state)
 
     /** The executor's `onEvent`: [event] is an effect of the decision that committed [state]. */
-    suspend fun deliver(scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>, state: MachineSnapshot<C>, event: E) = plugin.onEvent(scope.adapted(), state, event)
+    suspend fun deliver(
+        scope: PluginScope<MachineSnapshot<C>, MachineInput<A>>,
+        state: MachineSnapshot<C>,
+        event: E,
+    ) = plugin.onEvent(scope.adapted(), state, event)
 
     private fun PluginScope<MachineSnapshot<C>, MachineInput<A>>.adapted(): PluginScope<MachineSnapshot<C>, A> = AdaptedPluginScope(this, store)
 }
@@ -47,7 +62,10 @@ private class AdaptedPluginScope<C : Any, A : Action>(
 ) : PluginScope<MachineSnapshot<C>, A> {
     override fun dispatch(action: A) = store.dispatch(action)
 
-    override fun launch(dispatcher: CoroutineContext, block: suspend PluginScope.LaunchScope<MachineSnapshot<C>, A>.() -> Unit) {
+    override fun launch(
+        dispatcher: CoroutineContext,
+        block: suspend PluginScope.LaunchScope<MachineSnapshot<C>, A>.() -> Unit,
+    ) {
         val target = store
         inner.launch(dispatcher) { AdaptedLaunchScope(this, target).block() }
     }

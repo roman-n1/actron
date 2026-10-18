@@ -51,13 +51,18 @@ sealed interface DecisionOutcome {
     /**
      * The input changed nothing; the snapshot is the same and nothing is registered.
      */
-    data class Ignored(val reason: IgnoreReason) : DecisionOutcome
+    data class Ignored(
+        val reason: IgnoreReason,
+    ) : DecisionOutcome
 
     /**
      * A guard, reducer or hook threw. Nothing is committed and nothing is registered; the
      * executor reports [cause] to the exception handler and the journal keeps [failure].
      */
-    class Failed(val failure: FailureDescriptor, val cause: Throwable) : DecisionOutcome {
+    class Failed(
+        val failure: FailureDescriptor,
+        val cause: Throwable,
+    ) : DecisionOutcome {
         override fun toString(): String = "Failed($failure)"
     }
 }
@@ -88,6 +93,7 @@ enum class IgnoreReason {
 sealed interface ConcurrencyPolicy {
     /** Runs independently of other commands, outside any named lane. */
     data object Independent : ConcurrencyPolicy
+
     /** A new command cancels the running one in the lane. */
     data object Latest : ConcurrencyPolicy
 
@@ -98,7 +104,9 @@ sealed interface ConcurrencyPolicy {
     data object DropIfRunning : ConcurrencyPolicy
 
     /** Up to [limit] commands run at once; further ones wait. */
-    data class Parallel(val limit: Int) : ConcurrencyPolicy {
+    data class Parallel(
+        val limit: Int,
+    ) : ConcurrencyPolicy {
         init {
             require(limit >= 1) { "[Actron] Parallel needs a limit of at least 1" }
         }
@@ -125,9 +133,17 @@ data class CommandRegistration<out CMD : Any>(
  * A timer to schedule: fire [MachineInput.TimerFired] with [id] when the clock reaches
  * [deadline], unless it was cancelled first.
  */
-data class TimerSchedule(val id: TimerId, val transition: TransitionId, val activation: ActivationId, val deadline: MachineTime)
+data class TimerSchedule(
+    val id: TimerId,
+    val transition: TransitionId,
+    val activation: ActivationId,
+    val deadline: MachineTime,
+)
 
 /**
  * An event to deliver, with an identity of its own.
  */
-data class EffectEnvelope<out E : Event>(val id: EffectId, val event: E)
+data class EffectEnvelope<out E : Event>(
+    val id: EffectId,
+    val event: E,
+)

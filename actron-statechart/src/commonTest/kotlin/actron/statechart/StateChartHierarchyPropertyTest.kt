@@ -37,19 +37,27 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartHierarchyPropertyTest {
-
     // region reference
 
     /** A random truth value per guard label and action, recording every call. */
-    private class GuardTable(random: Random) {
+    private class GuardTable(
+        random: Random,
+    ) {
         private val table = RandomCharts.guards.associateWith { RandomCharts.actions.associateWith { random.nextBoolean() } }
         val calls = mutableListOf<Pair<String, Action>>()
 
-        fun holds(label: String, action: RandomAction): Boolean = table.getValue(label).getValue(action)
+        fun holds(
+            label: String,
+            action: RandomAction,
+        ): Boolean = table.getValue(label).getValue(action)
 
-        fun implementations(): Map<String, (RandomState, Action) -> Boolean> = RandomCharts.guards.associateWith { label ->
-            { _: RandomState, action: Action -> calls += label to action; holds(label, action as RandomAction) }
-        }
+        fun implementations(): Map<String, (RandomState, Action) -> Boolean> =
+            RandomCharts.guards.associateWith { label ->
+                { _: RandomState, action: Action ->
+                    calls += label to action
+                    holds(label, action as RandomAction)
+                }
+            }
     }
 
     private fun HierarchyDecision.asResult(): StepResult = if (transitions.isEmpty()) StepResult.Ignored else StepResult.Transitioned(listOf(transition), exited, entered, StateConfiguration(after))
@@ -59,7 +67,12 @@ class StateChartHierarchyPropertyTest {
      * with one active child per active compound, listed outermost first; exited and entered are
      * ordered innermost-first and outermost-first and overlap only in nodes active before and after.
      */
-    private fun checkStep(seed: Int, chart: StateChartDefinition, before: StateConfiguration, result: StepResult.Transitioned) {
+    private fun checkStep(
+        seed: Int,
+        chart: StateChartDefinition,
+        before: StateConfiguration,
+        result: StepResult.Transitioned,
+    ) {
         val after = result.configuration
         checkConfiguration(seed, chart, after)
         assertEquals(1, result.transitions.size, "seed $seed")
@@ -90,7 +103,11 @@ class StateChartHierarchyPropertyTest {
         assertEquals(result.entered.distinct(), result.entered, "seed $seed")
     }
 
-    private fun checkConfiguration(seed: Int, chart: StateChartDefinition, configuration: StateConfiguration) {
+    private fun checkConfiguration(
+        seed: Int,
+        chart: StateChartDefinition,
+        configuration: StateConfiguration,
+    ) {
         val active = configuration.active
         assertEquals(1, active.count { chart.node(it)?.parent == StateParent.Root }, "seed $seed: $active")
         for (id in active) {
@@ -129,20 +146,22 @@ class StateChartHierarchyPropertyTest {
         assertTrue(compoundTargets >= 100, "only $compoundTargets charts with a compound target")
     }
 
-    private fun ValidationIssue.isHierarchyIssue() = this is ValidationIssue.UnknownParent || this is ValidationIssue.AtomicParent ||
-        this is ValidationIssue.ParentCycle || this is ValidationIssue.InitialNotChild || this is ValidationIssue.EmptyCompoundState
+    private fun ValidationIssue.isHierarchyIssue() =
+        this is ValidationIssue.UnknownParent || this is ValidationIssue.AtomicParent ||
+            this is ValidationIssue.ParentCycle || this is ValidationIssue.InitialNotChild || this is ValidationIssue.EmptyCompoundState
 
     // endregion
 
     // region runtime
 
     @Test
-    fun initialConfigurationEqualsTheReference() = RandomCharts.forEachHierarchicalChart { seed, random, chart ->
-        val runtime = StateChartRuntime(chart, { s: RandomState -> s.id }, GuardTable(random).implementations())
-        val initial = runtime.initialConfiguration()
-        assertEquals(HierarchyReference(chart).initialConfiguration(), initial.active, "seed $seed")
-        checkConfiguration(seed, chart, initial)
-    }
+    fun initialConfigurationEqualsTheReference() =
+        RandomCharts.forEachHierarchicalChart { seed, random, chart ->
+            val runtime = StateChartRuntime(chart, { s: RandomState -> s.id }, GuardTable(random).implementations())
+            val initial = runtime.initialConfiguration()
+            assertEquals(HierarchyReference(chart).initialConfiguration(), initial.active, "seed $seed")
+            checkConfiguration(seed, chart, initial)
+        }
 
     @Test
     fun randomWalksAgreeWithTheReferenceAndKeepTheInvariants() {
@@ -182,18 +201,19 @@ class StateChartHierarchyPropertyTest {
     }
 
     @Test
-    fun flatChartsGiveTheFlatResultThroughEveryOverload() = RandomCharts.forEachChart { seed, random, chart ->
-        val table = GuardTable(random)
-        val runtime = StateChartRuntime(chart, { s: RandomState -> s.id }, table.implementations())
-        assertEquals(StateConfiguration(setOf(chart.initial)), runtime.initialConfiguration(), "seed $seed")
-        for (id in chart.states.map { it.id }) {
-            for (action in RandomCharts.actions) {
-                val expected = chart.transitionsFrom(id).firstOrNull { HierarchyReference.matches(it.trigger, action) && (it.guard is GuardCondition.Unconditional || table.holds((it.guard as actron.statechart.GuardKey).name, action)) }?.let { StepResult.Transitioned(it) } ?: StepResult.Ignored
-                assertEquals(expected, runtime.step(RandomState(id), action), "seed $seed")
-                assertEquals(expected, runtime.step(StateConfiguration(setOf(id)), RandomState(id), action), "seed $seed")
+    fun flatChartsGiveTheFlatResultThroughEveryOverload() =
+        RandomCharts.forEachChart { seed, random, chart ->
+            val table = GuardTable(random)
+            val runtime = StateChartRuntime(chart, { s: RandomState -> s.id }, table.implementations())
+            assertEquals(StateConfiguration(setOf(chart.initial)), runtime.initialConfiguration(), "seed $seed")
+            for (id in chart.states.map { it.id }) {
+                for (action in RandomCharts.actions) {
+                    val expected = chart.transitionsFrom(id).firstOrNull { HierarchyReference.matches(it.trigger, action) && (it.guard is GuardCondition.Unconditional || table.holds((it.guard as actron.statechart.GuardKey).name, action)) }?.let { StepResult.Transitioned(it) } ?: StepResult.Ignored
+                    assertEquals(expected, runtime.step(RandomState(id), action), "seed $seed")
+                    assertEquals(expected, runtime.step(StateConfiguration(setOf(id)), RandomState(id), action), "seed $seed")
+                }
             }
         }
-    }
 
     @Test
     fun runtimeAcceptsExactlyTheWellFormedHierarchies() {
@@ -225,8 +245,11 @@ class StateChartHierarchyPropertyTest {
         val issues = mutableListOf<ValidationIssue>()
         for (node in nodes) {
             val parent = node.parent as? StateId ?: continue
-            if (parent !in first) issues += ValidationIssue.UnknownParent(node.id, parent)
-            else if (first[parent] is AtomicState) issues += ValidationIssue.AtomicParent(node.id, parent)
+            if (parent !in first) {
+                issues += ValidationIssue.UnknownParent(node.id, parent)
+            } else if (first[parent] is AtomicState) {
+                issues += ValidationIssue.AtomicParent(node.id, parent)
+            }
         }
         val onReportedCycle = mutableSetOf<StateId>()
         for (node in nodes) {
@@ -279,18 +302,23 @@ class StateChartHierarchyPropertyTest {
     }
 
     @Test
-    fun reachableStatesEqualTheReferenceOnWellFormedCharts() = RandomCharts.forEachHierarchicalChart { seed, _, chart ->
-        val reference = HierarchyReference(chart).nodeDistances()
-        assertEquals(reference.keys, chart.reachableStates(), "seed $seed")
-        assertEquals(
-            chart.states.map { it.id }.distinct().filter { it !in reference }.map { ValidationIssue.UnreachableState(it) },
-            chart.validate().filterIsInstance<ValidationIssue.UnreachableState>(),
-            "seed $seed",
-        )
-        // Breadth-first: distances along the returned order never decrease.
-        val order = chart.reachableStates().map { reference.getValue(it) }
-        assertEquals(order.sorted(), order, "seed $seed")
-    }
+    fun reachableStatesEqualTheReferenceOnWellFormedCharts() =
+        RandomCharts.forEachHierarchicalChart { seed, _, chart ->
+            val reference = HierarchyReference(chart).nodeDistances()
+            assertEquals(reference.keys, chart.reachableStates(), "seed $seed")
+            assertEquals(
+                chart.states
+                    .map { it.id }
+                    .distinct()
+                    .filter { it !in reference }
+                    .map { ValidationIssue.UnreachableState(it) },
+                chart.validate().filterIsInstance<ValidationIssue.UnreachableState>(),
+                "seed $seed",
+            )
+            // Breadth-first: distances along the returned order never decrease.
+            val order = chart.reachableStates().map { reference.getValue(it) }
+            assertEquals(order.sorted(), order, "seed $seed")
+        }
 
     @Test
     fun malformedChartsStillValidateExportAndSearchWithoutLooping() {
@@ -316,27 +344,32 @@ class StateChartHierarchyPropertyTest {
     // region paths
 
     @Test
-    fun shortestPathsHaveTheReferenceLengthAndReplayThroughTheReference() = RandomCharts.forEachHierarchicalChart { seed, _, chart ->
-        val reference = HierarchyReference(chart)
-        val distances = reference.nodeDistances()
-        val start = reference.leaf(reference.initialConfiguration())
-        for (id in RandomCharts.allIds) {
-            if (id !in distances) {
-                kotlin.test.assertFalse(chart.shortestPathTo(id) { error("Unexpected path: $it") }, "seed $seed: $id never becomes active")
-                continue
+    fun shortestPathsHaveTheReferenceLengthAndReplayThroughTheReference() =
+        RandomCharts.forEachHierarchicalChart { seed, _, chart ->
+            val reference = HierarchyReference(chart)
+            val distances = reference.nodeDistances()
+            val start = reference.leaf(reference.initialConfiguration())
+            for (id in RandomCharts.allIds) {
+                if (id !in distances) {
+                    kotlin.test.assertFalse(chart.shortestPathTo(id) { error("Unexpected path: $it") }, "seed $seed: $id never becomes active")
+                    continue
+                }
+                val path = chart.shortestPathTo(id)
+                val distance = distances.getValue(id)
+                assertNotNull(path, "seed $seed: $id")
+                assertEquals(distance, path.transitions.size, "seed $seed: $id")
+                assertEquals(start, path.start, "seed $seed")
+                val end = replay(seed, reference, path)
+                assertTrue(id in end, "seed $seed: $id not active at the end of $path")
             }
-            val path = chart.shortestPathTo(id)
-            val distance = distances.getValue(id)
-            assertNotNull(path, "seed $seed: $id")
-            assertEquals(distance, path.transitions.size, "seed $seed: $id")
-            assertEquals(start, path.start, "seed $seed")
-            val end = replay(seed, reference, path)
-            assertTrue(id in end, "seed $seed: $id not active at the end of $path")
         }
-    }
 
     /** Replays [path] with the reference; returns the final configuration. */
-    private fun replay(seed: Int, reference: HierarchyReference, path: StateChartPath): Set<StateId> {
+    private fun replay(
+        seed: Int,
+        reference: HierarchyReference,
+        path: StateChartPath,
+    ): Set<StateId> {
         var configuration = reference.initialConfiguration()
         path.transitions.forEachIndexed { i, t ->
             assertTrue(t.source in configuration, "seed $seed: ${t.source} is not active before step $i")
@@ -348,24 +381,25 @@ class StateChartHierarchyPropertyTest {
     }
 
     @Test
-    fun coveragePathsCoverEveryTransitionWhoseSourceCanBeActive() = RandomCharts.forEachHierarchicalChart { seed, _, chart ->
-        val reference = HierarchyReference(chart)
-        val reachable = reference.nodeDistances().keys
-        val paths = chart.transitionCoveragePaths()
-        assertEquals(chart.transitions.filter { it.source in reachable }.toSet(), paths.flatMap { it.transitions }.toSet(), "seed $seed")
-        for (path in paths) {
-            replay(seed, reference, path)
-            // Shortest path to the last transition's source, then that transition.
-            assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(path.transitions.last().source)).transitions, path.transitions.dropLast(1), "seed $seed")
-        }
-        for ((i, p) in paths.withIndex()) {
-            for ((j, q) in paths.withIndex()) {
-                if (i != j) assertTrue(q.transitions.size < p.transitions.size || q.transitions.subList(0, p.transitions.size) != p.transitions, "seed $seed")
+    fun coveragePathsCoverEveryTransitionWhoseSourceCanBeActive() =
+        RandomCharts.forEachHierarchicalChart { seed, _, chart ->
+            val reference = HierarchyReference(chart)
+            val reachable = reference.nodeDistances().keys
+            val paths = chart.transitionCoveragePaths()
+            assertEquals(chart.transitions.filter { it.source in reachable }.toSet(), paths.flatMap { it.transitions }.toSet(), "seed $seed")
+            for (path in paths) {
+                replay(seed, reference, path)
+                // Shortest path to the last transition's source, then that transition.
+                assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(path.transitions.last().source)).transitions, path.transitions.dropLast(1), "seed $seed")
             }
+            for ((i, p) in paths.withIndex()) {
+                for ((j, q) in paths.withIndex()) {
+                    if (i != j) assertTrue(q.transitions.size < p.transitions.size || q.transitions.subList(0, p.transitions.size) != p.transitions, "seed $seed")
+                }
+            }
+            val order = paths.map { chart.transitions.indexOf(it.transitions.last()) }
+            assertEquals(order.sorted().distinct(), order, "seed $seed")
         }
-        val order = paths.map { chart.transitions.indexOf(it.transitions.last()) }
-        assertEquals(order.sorted().distinct(), order, "seed $seed")
-    }
 
     // endregion
 
@@ -373,11 +407,17 @@ class StateChartHierarchyPropertyTest {
 
     private sealed interface BlockScope {
         data object Document : BlockScope
-        data class Nested(val ref: String) : BlockScope
+
+        data class Nested(
+            val ref: String,
+        ) : BlockScope
     }
 
-    private class Block(val scope: BlockScope) {
+    private class Block(
+        val scope: BlockScope,
+    ) {
         constructor(ref: String) : this(BlockScope.Nested(ref))
+
         val ref: String get() = (scope as BlockScope.Nested).ref
         val initialArrows = mutableListOf<String>()
         val initial: String get() = initialArrows.single()
@@ -392,7 +432,10 @@ class StateChartHierarchyPropertyTest {
     private val plainLine = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
 
     /** Parses the block structure; returns the top block and the label of every alias. */
-    private fun parseBlocks(seed: Int, text: String): Pair<Block, Map<String, String>> {
+    private fun parseBlocks(
+        seed: Int,
+        text: String,
+    ): Pair<Block, Map<String, String>> {
         val lines = text.lines()
         assertEquals("stateDiagram-v2", lines.first(), "seed $seed")
         val top = Block(BlockScope.Document)
@@ -412,17 +455,38 @@ class StateChartHierarchyPropertyTest {
                     assertTrue(block.initialArrows.isEmpty(), "seed $seed")
                     block.initialArrows += line.removePrefix("[*] --> ")
                 }
-                aliasedBlockLine.matches(line) -> kotlin.test.assertNotNull(aliasedBlockLine.matchEntire(line)).groupValues.let { (_, label, ref) ->
-                    labels[ref] = label
-                    Block(ref).also { block.blocks += it; stack.addLast(it) }
+
+                aliasedBlockLine.matches(line) -> {
+                    kotlin.test.assertNotNull(aliasedBlockLine.matchEntire(line)).groupValues.let { (_, label, ref) ->
+                        labels[ref] = label
+                        Block(ref).also {
+                            block.blocks += it
+                            stack.addLast(it)
+                        }
+                    }
                 }
-                plainBlockLine.matches(line) -> Block(kotlin.test.assertNotNull(plainBlockLine.matchEntire(line)).groupValues[1]).also { block.blocks += it; stack.addLast(it) }
-                declarationLine.matches(line) -> kotlin.test.assertNotNull(declarationLine.matchEntire(line)).groupValues.let { (_, label, ref) ->
-                    labels[ref] = label
-                    block.declared += ref
+
+                plainBlockLine.matches(line) -> {
+                    Block(kotlin.test.assertNotNull(plainBlockLine.matchEntire(line)).groupValues[1]).also {
+                        block.blocks += it
+                        stack.addLast(it)
+                    }
                 }
-                plainLine.matches(line) -> block.declared += line
-                else -> block.transitions += line
+
+                declarationLine.matches(line) -> {
+                    kotlin.test.assertNotNull(declarationLine.matchEntire(line)).groupValues.let { (_, label, ref) ->
+                        labels[ref] = label
+                        block.declared += ref
+                    }
+                }
+
+                plainLine.matches(line) -> {
+                    block.declared += line
+                }
+
+                else -> {
+                    block.transitions += line
+                }
             }
         }
         assertEquals(1, stack.size, "seed $seed: unbalanced braces")
@@ -433,11 +497,18 @@ class StateChartHierarchyPropertyTest {
 
     private val keywords = setOf("state", "note", "direction", "class", "classdef", "style", "scale", "hide", "end", "click", "acctitle", "accdescr")
 
-    private fun checkMermaidStructure(seed: Int, chart: StateChartDefinition, wellFormed: Boolean) {
+    private fun checkMermaidStructure(
+        seed: Int,
+        chart: StateChartDefinition,
+        wellFormed: Boolean,
+    ) {
         val (top, labels) = parseBlocks(seed, chart.toMermaid())
         val first = LinkedHashMap<StateId, StateNode>().also { map -> chart.states.forEach { if (it.id !in map) map[it.id] = it } }
-        val ids = (chart.states.map { it.id } + chart.initial + first.values.filterIsInstance<CompoundState>().map { it.initial } +
-            chart.transitions.flatMap { listOf(it.source, it.target) }).distinct()
+        val ids =
+            (
+                chart.states.map { it.id } + chart.initial + first.values.filterIsInstance<CompoundState>().map { it.initial } +
+                    chart.transitions.flatMap { listOf(it.source, it.target) }
+            ).distinct()
         val plain = ids.filter { Regex("[A-Za-z_][A-Za-z0-9_]*").matches(it.value) && it.value.lowercase() !in keywords }
         assertEquals(ids.size - plain.size, labels.size, "seed $seed: every other id is aliased once")
         assertTrue(labels.keys.none { alias -> plain.any { it.value == alias } || alias.lowercase() in keywords }, "seed $seed")
@@ -458,36 +529,42 @@ class StateChartHierarchyPropertyTest {
         // Transitions: each once, in declaration order within its block.
         val all = blocks.flatMap { b -> b.transitions.map { b.scope to it } }
         assertEquals(chart.transitions.size, all.size, "seed $seed")
+
         fun line(t: Transition) = "${refOf.getValue(t.source)} --> ${refOf.getValue(t.target)} : ${kotlin.test.assertNotNull((t.trigger as? actron.statechart.Trigger.OnAction)?.matcher).name}" + ((t.guard as? actron.statechart.GuardKey)?.name?.let { " [$it]" } ?: "")
         assertEquals(chart.transitions.map(::line).sorted(), all.map { it.second }.sorted(), "seed $seed")
         if (!wellFormed) return
 
         for (block in blocks) {
-            val parent: actron.statechart.StateParent = when (val scope = block.scope) {
-                BlockScope.Document -> actron.statechart.StateParent.Root
-                is BlockScope.Nested -> idOf.getValue(scope.ref)
-            }
+            val parent: actron.statechart.StateParent =
+                when (val scope = block.scope) {
+                    BlockScope.Document -> actron.statechart.StateParent.Root
+                    is BlockScope.Nested -> idOf.getValue(scope.ref)
+                }
             val children = first.values.filter { it.parent == parent }
             // Inside a compound every child is declared; at the top only aliased atomic ones are.
-            val expectedDeclared = children.filter { it !is CompoundState && (parent is StateId || refOf.getValue(it.id) != it.id.value) }.map { refOf.getValue(it.id) } +
-                (if (parent is actron.statechart.StateParent.Root) ids.filter { it !in first && it !in plain }.map { refOf.getValue(it) } else emptyList())
+            val expectedDeclared =
+                children.filter { it !is CompoundState && (parent is StateId || refOf.getValue(it.id) != it.id.value) }.map { refOf.getValue(it.id) } +
+                    (if (parent is actron.statechart.StateParent.Root) ids.filter { it !in first && it !in plain }.map { refOf.getValue(it) } else emptyList())
             assertEquals(expectedDeclared.sorted(), block.declared.sorted(), "seed $seed: block $parent")
             assertEquals(children.filterIsInstance<CompoundState>().map { refOf.getValue(it.id) }, block.blocks.map { it.ref }, "seed $seed")
             // A transition sits in the innermost common proper ancestor of its endpoints.
-            val expected = chart.transitions.filter { t ->
-                val targetAncestors = chart.ancestorsOf(t.target)
-                chart.ancestorsOf(t.source).filter { it in targetAncestors }.let { common ->
-                    (if (common.isEmpty()) actron.statechart.StateParent.Root else common.first()) == parent
-                }
-            }.map(::line)
+            val expected =
+                chart.transitions
+                    .filter { t ->
+                        val targetAncestors = chart.ancestorsOf(t.target)
+                        chart.ancestorsOf(t.source).filter { it in targetAncestors }.let { common ->
+                            (if (common.isEmpty()) actron.statechart.StateParent.Root else common.first()) == parent
+                        }
+                    }.map(::line)
             assertEquals(expected, block.transitions, "seed $seed: transitions of block $parent")
         }
     }
 
     @Test
-    fun mermaidNestsEveryStateInItsParentWithSafeAliases() = RandomCharts.forEachHierarchicalChart { seed, _, chart ->
-        checkMermaidStructure(seed, chart, wellFormed = true)
-    }
+    fun mermaidNestsEveryStateInItsParentWithSafeAliases() =
+        RandomCharts.forEachHierarchicalChart { seed, _, chart ->
+            checkMermaidStructure(seed, chart, wellFormed = true)
+        }
 
     // endregion
 }

@@ -11,18 +11,27 @@ sealed interface GuardCheck {
 
     data object Unconditional : GuardCheck {
         override val allows: Boolean = true
+
         override fun toString(): String = "always"
     }
+
     data object Allowed : GuardCheck {
         override val allows: Boolean = true
+
         override fun toString(): String = "true"
     }
+
     data object Rejected : GuardCheck {
         override val allows: Boolean = false
+
         override fun toString(): String = "false"
     }
-    data class Failed(val failure: FailureDescriptor) : GuardCheck {
+
+    data class Failed(
+        val failure: FailureDescriptor,
+    ) : GuardCheck {
         override val allows: Boolean = false
+
         override fun toString(): String = "failed"
     }
 }
@@ -113,7 +122,9 @@ sealed interface StepResult {
  *
  * @property timer The timer that fired
  */
-data class TimerFired(val timer: Transition) : Action
+data class TimerFired(
+    val timer: Transition,
+) : Action
 
 /**
  * Runs a [StateChartDefinition] one action at a time over Actron states of type [S].
@@ -184,9 +195,11 @@ class StateChartRuntime<S : State>(
 ) {
     init {
         require(definition.transitions.none { definition.nodeSatisfies(it.source) { node -> node is FinalState } }) { "[Actron] Final states cannot have outgoing transitions" }
-        require(definition.transitions.filter { it.trigger == Trigger.Completion }.all {
-            definition.nodeSatisfies(it.source) { node -> node is CompoundState || node is ParallelState }
-        }) { "[Actron] Completion transitions need a compound or parallel source" }
+        require(
+            definition.transitions.filter { it.trigger == Trigger.Completion }.all {
+                definition.nodeSatisfies(it.source) { node -> node is CompoundState || node is ParallelState }
+            },
+        ) { "[Actron] Completion transitions need a compound or parallel source" }
         val missing = buildList { definition.transitions.forEach { it.guard.withLabel { add(it) } } }.distinct().filter { it !in guards }
         require(missing.isEmpty()) { "[Actron] Missing guard implementations: ${missing.joinToString()}" }
         val malformed = definition.hierarchyIssues() + definition.historyIssues()
@@ -219,16 +232,22 @@ class StateChartRuntime<S : State>(
      * [state] is only passed to guards. [configuration] must come from [initialConfiguration], an
      * earlier step or [StateChartDefinition.configurationOf].
      */
-    fun step(configuration: StateConfiguration, state: S, action: Action): StepResult =
-        stepObserved(configuration, state, action) { _, _ -> }
+    fun step(
+        configuration: StateConfiguration,
+        state: S,
+        action: Action,
+    ): StepResult = stepObserved(configuration, state, action) { _, _ -> }
 
     internal fun stepObserved(
-        configuration: StateConfiguration, state: S, action: Action,
+        configuration: StateConfiguration,
+        state: S,
+        action: Action,
         observe: (Transition, GuardCheck) -> Unit,
     ): StepResult {
-        val taken = definition.selectTransitions(configuration) { transition ->
-            transition.matchesAction(action) && enabled(transition, state, action, observe)
-        }
+        val taken =
+            definition.selectTransitions(configuration) { transition ->
+                transition.matchesAction(action) && enabled(transition, state, action, observe)
+            }
         if (taken.isEmpty()) return StepResult.Ignored
         return transitioned(configuration, taken)
     }
@@ -245,11 +264,16 @@ class StateChartRuntime<S : State>(
      *
      * @throws IllegalArgumentException if [timer] is not a [Trigger.After] transition of [definition]
      */
-    fun fire(configuration: StateConfiguration, state: S, timer: Transition): StepResult =
-        fireObserved(configuration, state, timer) { _, _ -> }
+    fun fire(
+        configuration: StateConfiguration,
+        state: S,
+        timer: Transition,
+    ): StepResult = fireObserved(configuration, state, timer) { _, _ -> }
 
     internal fun fireObserved(
-        configuration: StateConfiguration, state: S, timer: Transition,
+        configuration: StateConfiguration,
+        state: S,
+        timer: Transition,
         observe: (Transition, GuardCheck) -> Unit,
     ): StepResult {
         require(timer.isTimer) { "[Actron] Not a timer: $timer" }
@@ -260,38 +284,52 @@ class StateChartRuntime<S : State>(
     }
 
     /** One automatic microstep: eventless transitions first, then completion transitions. */
-    fun automaticStep(configuration: StateConfiguration, state: S): StepResult = automaticObserved(configuration, state) { _, _ -> }
+    fun automaticStep(
+        configuration: StateConfiguration,
+        state: S,
+    ): StepResult = automaticObserved(configuration, state) { _, _ -> }
 
-    internal fun automaticObserved(configuration: StateConfiguration, state: S, observe: (Transition, GuardCheck) -> Unit): StepResult {
+    internal fun automaticObserved(
+        configuration: StateConfiguration,
+        state: S,
+        observe: (Transition, GuardCheck) -> Unit,
+    ): StepResult {
         for (completion in listOf(false, true)) {
             val trigger = if (completion) Trigger.Completion else Trigger.Eventless
             val action = AutomaticTransition(completion)
-            val taken = definition.selectTransitions(configuration) { transition ->
-                transition.trigger == trigger && (!completion || definition.isComplete(configuration, transition.source)) &&
-                    enabled(transition, state, action, observe)
-            }
+            val taken =
+                definition.selectTransitions(configuration) { transition ->
+                    transition.trigger == trigger && (!completion || definition.isComplete(configuration, transition.source)) &&
+                        enabled(transition, state, action, observe)
+                }
             if (taken.isNotEmpty()) return transitioned(configuration, taken)
         }
         return StepResult.Ignored
     }
 
     private fun enabled(
-        transition: Transition, state: S, action: Action,
+        transition: Transition,
+        state: S,
+        action: Action,
         observe: (Transition, GuardCheck) -> Unit,
     ): Boolean {
-        val result = try {
-            var checked: GuardCheck = GuardCheck.Unconditional
-            transition.guard.withLabel { checked = if (guards.getValue(it)(state, action)) GuardCheck.Allowed else GuardCheck.Rejected }
-            checked
-        } catch (error: Exception) {
-            observe(transition, GuardCheck.Failed(FailureDescriptor.of(error)))
-            throw error
-        }
+        val result =
+            try {
+                var checked: GuardCheck = GuardCheck.Unconditional
+                transition.guard.withLabel { checked = if (guards.getValue(it)(state, action)) GuardCheck.Allowed else GuardCheck.Rejected }
+                checked
+            } catch (error: Exception) {
+                observe(transition, GuardCheck.Failed(FailureDescriptor.of(error)))
+                throw error
+            }
         observe(transition, result)
         return result.allows
     }
 
-    private fun transitioned(configuration: StateConfiguration, taken: List<Transition>): StepResult.Transitioned {
+    private fun transitioned(
+        configuration: StateConfiguration,
+        taken: List<Transition>,
+    ): StepResult.Transitioned {
         val microstep = definition.microstep(configuration, taken)
         return StepResult.Transitioned(
             transitions = taken,
@@ -312,5 +350,8 @@ class StateChartRuntime<S : State>(
      * cannot describe the regions of a [ParallelState] either, so charts with parallel states need
      * the other overload too.
      */
-    fun step(state: S, action: Action): StepResult = step(definition.configurationOf(stateIdOf(state)), state, action)
+    fun step(
+        state: S,
+        action: Action,
+    ): StepResult = step(definition.configurationOf(stateIdOf(state)), state, action)
 }

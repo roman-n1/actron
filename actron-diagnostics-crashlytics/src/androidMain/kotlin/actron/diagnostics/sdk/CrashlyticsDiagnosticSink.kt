@@ -1,11 +1,13 @@
 package actron.diagnostics.sdk
 
+import actron.diagnostics.*
 import com.google.firebase.crashlytics.CustomKeysAndValues
 import com.google.firebase.crashlytics.FirebaseCrashlytics
-import actron.diagnostics.*
 
 /** Android adapter; caller supplies an initialized SDK. No automatic collection or user identifiers. */
-class CrashlyticsDiagnosticSink(private val crashlytics: FirebaseCrashlytics) : DiagnosticSink {
+class CrashlyticsDiagnosticSink(
+    private val crashlytics: FirebaseCrashlytics,
+) : DiagnosticSink {
     override fun emit(event: CausalTraceEvent) {
         crashlytics.log("Actron ${event.definition.value} ${event.inputKind} ${event.outcome}")
         event.withFailureType { failure ->

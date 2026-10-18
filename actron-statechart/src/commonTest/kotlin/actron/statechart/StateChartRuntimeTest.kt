@@ -19,18 +19,26 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartRuntimeTest {
-
     sealed interface FormAction : Action {
-        data class Submit(val text: String) : FormAction
+        data class Submit(
+            val text: String,
+        ) : FormAction
+
         data object Loaded : FormAction
+
         data object Retry : FormAction
     }
 
     sealed interface FormState : State {
         data object Idle : FormState
+
         data object Loading : FormState
+
         data object Ready : FormState
-        data class Error(val attempts: Int) : FormState
+
+        data class Error(
+            val attempts: Int,
+        ) : FormState
     }
 
     private val idle = StateId("Idle")
@@ -38,16 +46,18 @@ class StateChartRuntimeTest {
     private val ready = StateId("Ready")
     private val error = StateId("Error")
 
-    private val chart = StateChartDefinition(
-        initial = idle,
-        states = listOf(AtomicState(idle), AtomicState(loading), AtomicState(ready), AtomicState(error)),
-        transitions = listOf(
-            Transition(idle, loading, ActionMatcher.of<FormAction.Submit>("Submit"), guard = actron.statechart.GuardKey("isValid")),
-            Transition(idle, error, ActionMatcher.of<FormAction.Submit>("Submit")),
-            Transition(loading, ready, ActionMatcher.of<FormAction.Loaded>("Loaded")),
-            Transition(error, loading, ActionMatcher.of<FormAction.Retry>("Retry"), guard = actron.statechart.GuardKey("canRetry")),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = idle,
+            states = listOf(AtomicState(idle), AtomicState(loading), AtomicState(ready), AtomicState(error)),
+            transitions =
+                listOf(
+                    Transition(idle, loading, ActionMatcher.of<FormAction.Submit>("Submit"), guard = actron.statechart.GuardKey("isValid")),
+                    Transition(idle, error, ActionMatcher.of<FormAction.Submit>("Submit")),
+                    Transition(loading, ready, ActionMatcher.of<FormAction.Loaded>("Loaded")),
+                    Transition(error, loading, ActionMatcher.of<FormAction.Retry>("Retry"), guard = actron.statechart.GuardKey("canRetry")),
+                ),
+        )
 
     private val stateIdOf: (FormState) -> StateId = { state ->
         when (state) {
@@ -58,14 +68,16 @@ class StateChartRuntimeTest {
         }
     }
 
-    private val runtime = StateChartRuntime(
-        definition = chart,
-        stateIdOf = stateIdOf,
-        guards = mapOf(
-            "isValid" to { _, action -> (action as FormAction.Submit).text.isNotBlank() },
-            "canRetry" to { state, _ -> (state as FormState.Error).attempts < 3 },
-        ),
-    )
+    private val runtime =
+        StateChartRuntime(
+            definition = chart,
+            stateIdOf = stateIdOf,
+            guards =
+                mapOf(
+                    "isValid" to { _, action -> (action as FormAction.Submit).text.isNotBlank() },
+                    "canRetry" to { state, _ -> (state as FormState.Error).attempts < 3 },
+                ),
+        )
 
     @Test
     fun takesGuardedTransitionWhenGuardHolds() {
@@ -98,12 +110,13 @@ class StateChartRuntimeTest {
     fun followsAPathThroughTheChart() {
         val actions = listOf(FormAction.Submit(""), FormAction.Retry, FormAction.Loaded)
         val states = mapOf(idle to FormState.Idle, loading to FormState.Loading, ready to FormState.Ready, error to FormState.Error(1))
-        val path = actions.runningFold(chart.initial) { id, action ->
-            when (val result = runtime.step(states.getValue(id), action)) {
-                is StepResult.Transitioned -> result.target
-                StepResult.Ignored -> id
+        val path =
+            actions.runningFold(chart.initial) { id, action ->
+                when (val result = runtime.step(states.getValue(id), action)) {
+                    is StepResult.Transitioned -> result.target
+                    StepResult.Ignored -> id
+                }
             }
-        }
 
         assertEquals(listOf(idle, error, loading, ready), path)
     }

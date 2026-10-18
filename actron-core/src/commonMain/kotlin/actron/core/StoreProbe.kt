@@ -48,18 +48,24 @@ fun interface StoreProbe<S : State, A : Action, E : Event> {
 sealed interface InputAttribution {
     /** Add a correlation only when the producer can identify the originating input. */
     fun correlate(block: (InputId) -> Unit)
+
     fun describe(): String
 
     data object Unattributed : InputAttribution {
         override fun correlate(block: (InputId) -> Unit) = Unit
+
         override fun describe(): String = "unattributed"
     }
 }
 
 @JvmInline
-value class InputId(val value: Long) : InputAttribution {
+value class InputId(
+    val value: Long,
+) : InputAttribution {
     override fun correlate(block: (InputId) -> Unit) = block(this)
+
     override fun describe(): String = "#$value"
+
     override fun toString(): String = "#$value"
 }
 
@@ -78,14 +84,18 @@ sealed interface InputKind<out A : Action> {
     /**
      * An action passed to [Store.dispatch] or [StoreInternalApi.dispatchIf].
      */
-    data class Dispatch<out A : Action>(val action: A) : InputKind<A>
+    data class Dispatch<out A : Action>(
+        val action: A,
+    ) : InputKind<A>
 
     /**
      * A `transaction {}` requested from a launched coroutine.
      *
      * @property origin The input whose handler launched the coroutine, when known
      */
-    data class Transaction(val origin: InputAttribution) : InputKind<Nothing>
+    data class Transaction(
+        val origin: InputAttribution,
+    ) : InputKind<Nothing>
 
     /**
      * The `recover {}` pass for a launched coroutine that failed, run under the Store lock once
@@ -94,7 +104,10 @@ sealed interface InputKind<out A : Action> {
      * @property error The failure of the launch
      * @property origin The input whose handler launched the coroutine, when known
      */
-    data class Recovery(val error: Throwable, val origin: InputAttribution) : InputKind<Nothing>
+    data class Recovery(
+        val error: Throwable,
+        val origin: InputAttribution,
+    ) : InputKind<Nothing>
 }
 
 /**
@@ -115,13 +128,17 @@ sealed interface DiscardReason {
     data object Stale : DiscardReason
 
     /** The `isValid` predicate of [StoreInternalApi.dispatchIf] threw; [error] reaches the exception handler. */
-    data class Rejected(val error: Throwable) : DiscardReason
+    data class Rejected(
+        val error: Throwable,
+    ) : DiscardReason
 
     /**
      * The startup this dispatch triggered failed in a plugin's `onStart`, so the action was
      * dropped; the next dispatch or [Store.start] retries the startup.
      */
-    data class StartupFailed(val error: Throwable) : DiscardReason
+    data class StartupFailed(
+        val error: Throwable,
+    ) : DiscardReason
 
     /**
      * A transaction was skipped because, by the time it got the lock, its state had exited or the
@@ -136,7 +153,9 @@ sealed interface DiscardReason {
 @InternalActronApi
 sealed interface ProcessingOutcome {
     /** A handler ran and committed [commits] state snapshots (at least one). */
-    data class Handled(val commits: Int) : ProcessingOutcome {
+    data class Handled(
+        val commits: Int,
+    ) : ProcessingOutcome {
         init {
             require(commits >= 1) { "[Actron] Handled needs at least one commit; use Unchanged" }
         }
@@ -149,13 +168,18 @@ sealed interface ProcessingOutcome {
     data object Ignored : ProcessingOutcome
 
     /** A handler failed with [error] and a `recover {}` handled it, committing [commits] snapshots. */
-    data class Recovered(val error: Throwable, val commits: Int) : ProcessingOutcome
+    data class Recovered(
+        val error: Throwable,
+        val commits: Int,
+    ) : ProcessingOutcome
 
     /**
      * The processing failed with [error] and no `recover {}` handled it: the error reaches the
      * exception handler. State committed before the failure stays committed.
      */
-    data class Failed(val error: Throwable) : ProcessingOutcome
+    data class Failed(
+        val error: Throwable,
+    ) : ProcessingOutcome
 
     /** The Store closed while the input was being processed; nothing after that point was committed. */
     data object Cancelled : ProcessingOutcome
@@ -178,12 +202,18 @@ sealed interface StoreTrace<out S : State, out A : Action, out E : Event> {
      * The Store accepted [input]: it was enqueued (a dispatch), requested (a transaction) or
      * created (the startup, the recovery of a launch failure). Acceptance is not processing.
      */
-    data class InputAccepted<out A : Action>(val input: InputId, val kind: InputKind<A>) : StoreTrace<Nothing, A, Nothing>
+    data class InputAccepted<out A : Action>(
+        val input: InputId,
+        val kind: InputKind<A>,
+    ) : StoreTrace<Nothing, A, Nothing>
 
     /**
      * [input] will not be processed, for [reason]. No handler, hook or commit ran for it.
      */
-    data class InputDiscarded(val input: InputId, val reason: DiscardReason) : StoreTrace<Nothing, Nothing, Nothing>
+    data class InputDiscarded(
+        val input: InputId,
+        val reason: DiscardReason,
+    ) : StoreTrace<Nothing, Nothing, Nothing>
 
     /**
      * Processing of [input] began under the Store lock.
@@ -191,7 +221,10 @@ sealed interface StoreTrace<out S : State, out A : Action, out E : Event> {
      * @property ordinal The processing number of this Store: 1 for the first processed input, then
      * dense and increasing in processing order. A retried startup gets a new ordinal.
      */
-    data class ProcessingStarted(val input: InputId, val ordinal: Long) : StoreTrace<Nothing, Nothing, Nothing>
+    data class ProcessingStarted(
+        val input: InputId,
+        val ordinal: Long,
+    ) : StoreTrace<Nothing, Nothing, Nothing>
 
     /**
      * A new state snapshot was committed while processing [input]: it is already visible to
@@ -201,7 +234,12 @@ sealed interface StoreTrace<out S : State, out A : Action, out E : Event> {
      * @property revision The commit number of this Store: 1 for the first commit, then dense and
      * increasing. The restored or initial state a Store starts with has revision 0.
      */
-    data class StateCommitted<out S : State>(val input: InputId, val revision: Long, val previous: S, val state: S) : StoreTrace<S, Nothing, Nothing>
+    data class StateCommitted<out S : State>(
+        val input: InputId,
+        val revision: Long,
+        val previous: S,
+        val state: S,
+    ) : StoreTrace<S, Nothing, Nothing>
 
     /**
      * [event] was emitted to collectors; the plugins' `onEvent` runs after this trace.
@@ -209,7 +247,10 @@ sealed interface StoreTrace<out S : State, out A : Action, out E : Event> {
      * @property input The input being processed, or the input whose handler launched the coroutine
      * that emitted the event; [InputAttribution.Unattributed] when unknown
      */
-    data class EventEmitted<out E : Event>(val input: InputAttribution, val event: E) : StoreTrace<Nothing, Nothing, E>
+    data class EventEmitted<out E : Event>(
+        val input: InputAttribution,
+        val event: E,
+    ) : StoreTrace<Nothing, Nothing, E>
 
     /**
      * [error] is about to be passed to the Store's [ExceptionHandler]. It is recorded once per
@@ -219,12 +260,19 @@ sealed interface StoreTrace<out S : State, out A : Action, out E : Event> {
      * @property input The input being processed, or the input whose handler launched the failing
      * coroutine; [InputAttribution.Unattributed] when unknown, for example a failing [StateSaver.restore]
      */
-    data class FailureReported(val input: InputAttribution, val error: Throwable) : StoreTrace<Nothing, Nothing, Nothing>
+    data class FailureReported(
+        val input: InputAttribution,
+        val error: Throwable,
+    ) : StoreTrace<Nothing, Nothing, Nothing>
 
     /**
      * Processing of [input] ended with [outcome]; [ordinal] matches its [ProcessingStarted].
      */
-    data class ProcessingFinished(val input: InputId, val ordinal: Long, val outcome: ProcessingOutcome) : StoreTrace<Nothing, Nothing, Nothing>
+    data class ProcessingFinished(
+        val input: InputId,
+        val ordinal: Long,
+        val outcome: ProcessingOutcome,
+    ) : StoreTrace<Nothing, Nothing, Nothing>
 
     /**
      * The Store's root coroutine scope completed: [Store.close] was called or a parent scope was

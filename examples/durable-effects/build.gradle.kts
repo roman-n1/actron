@@ -15,7 +15,11 @@ kotlin {
     }
 }
 
-val mainCompilation = kotlin.targets.getByName("jvm").compilations.getByName("main")
+val mainCompilation =
+    kotlin.targets
+        .getByName("jvm")
+        .compilations
+        .getByName("main")
 tasks.register<JavaExec>("run") {
     group = "application"
     mainClass.set("actron.example.durable.MainKt")

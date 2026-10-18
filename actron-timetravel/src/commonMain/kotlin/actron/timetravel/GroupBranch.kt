@@ -8,11 +8,11 @@ import actron.observability.StoreInstanceId
 import actron.statechart.machine.BridgeMessage
 import actron.statechart.machine.CommandId
 import actron.statechart.machine.Decision
+import actron.statechart.machine.EventRoute
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MessageId
 import actron.statechart.machine.SourceId
 import actron.statechart.machine.SourceSnapshot
-import actron.statechart.machine.EventRoute
 import kotlin.time.Duration
 
 /**
@@ -36,9 +36,17 @@ class GroupBranch(
     val sources: Map<SourceId, SourceSnapshot> = emptyMap(),
 ) {
     /** A route of the local bridge: effects of [from] that [map] turns into actions of [to]. */
-    class Route(val from: StoreInstanceId, val to: StoreInstanceId, map: (Event, (Action) -> Unit) -> Unit) {
+    class Route(
+        val from: StoreInstanceId,
+        val to: StoreInstanceId,
+        map: (Event, (Action) -> Unit) -> Unit,
+    ) {
         private val mapping = EventRoute(map)
-        fun mapEvent(event: Event, carry: (Action) -> Unit): Boolean = mapping.mapEvent(event, carry)
+
+        fun mapEvent(
+            event: Event,
+            carry: (Action) -> Unit,
+        ): Boolean = mapping.mapEvent(event, carry)
     }
 
     private val deliveries = mutableListOf<BridgeMessage>()
@@ -50,28 +58,48 @@ class GroupBranch(
     fun snapshot(store: StoreInstanceId): MachineSnapshot<*> = branch(store).snapshot
 
     /** Decides [action] on [store]; returns every decision it caused, deliveries included. */
-    fun dispatch(store: StoreInstanceId, action: Action): List<Decision<*, *, *>> = produce(store) { it.dispatch(action) }
+    fun dispatch(
+        store: StoreInstanceId,
+        action: Action,
+    ): List<Decision<*, *, *>> = produce(store) { it.dispatch(action) }
 
     /** Feeds [action] to [store] as data of the source [source]; returns every decision it caused, deliveries included. */
-    fun feed(store: StoreInstanceId, source: SourceId, action: Action): List<Decision<*, *, *>> = produce(store) { it.feed(source, action) }
+    fun feed(
+        store: StoreInstanceId,
+        source: SourceId,
+        action: Action,
+    ): List<Decision<*, *, *>> = produce(store) { it.feed(source, action) }
 
     /** Answers the awaiting [command] of [store] with [result]; see [Branch.answer]. */
-    fun answer(store: StoreInstanceId, command: CommandId, result: Action): List<Decision<*, *, *>> = produce(store) { it.answer(command, result) }
+    fun answer(
+        store: StoreInstanceId,
+        command: CommandId,
+        result: Action,
+    ): List<Decision<*, *, *>> = produce(store) { it.answer(command, result) }
 
     /** Completes the awaiting [command] of [store]; see [Branch.complete]. */
-    fun complete(store: StoreInstanceId, command: CommandId): List<Decision<*, *, *>> = produce(store) { it.complete(command) }
+    fun complete(
+        store: StoreInstanceId,
+        command: CommandId,
+    ): List<Decision<*, *, *>> = produce(store) { it.complete(command) }
 
     /** Fails the awaiting [command] of [store]; see [Branch.fail]. */
-    fun fail(store: StoreInstanceId, command: CommandId, failure: FailureDescriptor): List<Decision<*, *, *>> = produce(store) { it.fail(command, failure) }
+    fun fail(
+        store: StoreInstanceId,
+        command: CommandId,
+        failure: FailureDescriptor,
+    ): List<Decision<*, *, *>> = produce(store) { it.fail(command, failure) }
 
     /**
      * Moves every member's clock forward by [duration], firing the timers that come due, member
      * by member in registration order; returns every decision, deliveries included.
      */
-    fun advance(duration: Duration): List<Decision<*, *, *>> =
-        members.keys.flatMap { store -> produce(store) { it.advance(duration) } }
+    fun advance(duration: Duration): List<Decision<*, *, *>> = members.keys.flatMap { store -> produce(store) { it.advance(duration) } }
 
-    private fun produce(store: StoreInstanceId, act: (Branch<Any, Action, Any, Event>) -> Unit): List<Decision<*, *, *>> {
+    private fun produce(
+        store: StoreInstanceId,
+        act: (Branch<Any, Action, Any, Event>) -> Unit,
+    ): List<Decision<*, *, *>> {
         val branch = branch(store)
         val before = branch.history.size
         act(branch)
@@ -80,7 +108,10 @@ class GroupBranch(
     }
 
     // Delivers the routed effects of [decisions], each delivery's own decisions routed in turn.
-    private fun route(from: StoreInstanceId, decisions: List<Decision<*, *, *>>): List<Decision<*, *, *>> {
+    private fun route(
+        from: StoreInstanceId,
+        decisions: List<Decision<*, *, *>>,
+    ): List<Decision<*, *, *>> {
         val caused = mutableListOf<Decision<*, *, *>>()
         for (decision in decisions) {
             if (!decision.isHandled) continue
@@ -101,6 +132,5 @@ class GroupBranch(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun branch(store: StoreInstanceId): Branch<Any, Action, Any, Event> =
-        requireNotNull(members[store]) { "[Actron] $store is not a member of this branch" } as Branch<Any, Action, Any, Event>
+    private fun branch(store: StoreInstanceId): Branch<Any, Action, Any, Event> = requireNotNull(members[store]) { "[Actron] $store is not a member of this branch" } as Branch<Any, Action, Any, Event>
 }

@@ -36,13 +36,20 @@ data class ReplayMismatch<C : Any, A : Action, CMD : Any, E : Event>(
 @ExperimentalActronApi
 sealed interface ReplayStep<C : Any, A : Action, CMD : Any, E : Event> {
     /** The cursor reached the checkpoint after the final recorded input. */
-    data class Finished<C : Any, A : Action, CMD : Any, E : Event>(val position: Int) : ReplayStep<C, A, CMD, E>
+    data class Finished<C : Any, A : Action, CMD : Any, E : Event>(
+        val position: Int,
+    ) : ReplayStep<C, A, CMD, E>
 
     /** The machine decided the recorded input as recorded; [decision] is what it decided. */
-    data class Matched<C : Any, A : Action, CMD : Any, E : Event>(val position: Int, val decision: Decision<C, CMD, E>) : ReplayStep<C, A, CMD, E>
+    data class Matched<C : Any, A : Action, CMD : Any, E : Event>(
+        val position: Int,
+        val decision: Decision<C, CMD, E>,
+    ) : ReplayStep<C, A, CMD, E>
 
     /** The machine decided differently; the session stays at the position. */
-    data class Diverged<C : Any, A : Action, CMD : Any, E : Event>(val mismatch: ReplayMismatch<C, A, CMD, E>) : ReplayStep<C, A, CMD, E>
+    data class Diverged<C : Any, A : Action, CMD : Any, E : Event>(
+        val mismatch: ReplayMismatch<C, A, CMD, E>,
+    ) : ReplayStep<C, A, CMD, E>
 }
 
 /**
@@ -100,7 +107,9 @@ class ReplaySession<C : Any, A : Action, CMD : Any, E : Event>(
         return if (differences.isEmpty()) {
             position++
             ReplayStep.Matched(position - 1, decision)
-        } else ReplayStep.Diverged(ReplayMismatch(position, step.input, step, decision, differences))
+        } else {
+            ReplayStep.Diverged(ReplayMismatch(position, step.input, step, decision, differences))
+        }
     }
 
     /**
@@ -126,7 +135,11 @@ class ReplaySession<C : Any, A : Action, CMD : Any, E : Event>(
      * Decides the recorded steps [from] until [to] again, from the recorded snapshot at [from],
      * and reports the first divergence through [onMismatch]. Returns true when reported; does not move.
      */
-    fun verify(from: Int = 0, to: Int = length, onMismatch: (ReplayMismatch<C, A, CMD, E>) -> Unit): Boolean {
+    fun verify(
+        from: Int = 0,
+        to: Int = length,
+        onMismatch: (ReplayMismatch<C, A, CMD, E>) -> Unit,
+    ): Boolean {
         require(from in 0..to && to <= length) { "[Actron] Range $from..$to is outside 0..$length" }
         var current = recording.snapshotAt(from)
         for (index in from until to) {
@@ -146,8 +159,7 @@ class ReplaySession<C : Any, A : Action, CMD : Any, E : Event>(
     fun checkInvariants(): List<actron.statechart.machine.InvariantViolation> = machine.checkInvariants(snapshot)
 
     /** Explains the next recorded input through one pure decision; does not move the cursor. */
-    fun explainNext(accept: (actron.statechart.machine.ExplainedDecision<C, CMD, E>) -> Unit): Boolean =
-        withNext { accept(machine.decideExplained(snapshot, it.input)) }
+    fun explainNext(accept: (actron.statechart.machine.ExplainedDecision<C, CMD, E>) -> Unit): Boolean = withNext { accept(machine.decideExplained(snapshot, it.input)) }
 
     /** The executor's state at [position]; see [Recording.checkpointAt]. */
     val checkpoint: ExecutorCheckpoint<C, CMD> get() = recording.checkpointAt(position)
@@ -159,7 +171,12 @@ class ReplaySession<C : Any, A : Action, CMD : Any, E : Event>(
      */
     fun branch(): Branch<C, A, CMD, E> = Branch(machine, checkpoint, recording)
 
-    private fun differences(index: Int, base: MachineSnapshot<C>, step: RecordedStep<C, A, CMD, E>, actual: Decision<C, CMD, E> = machine.decide(base, step.input)): List<String> {
+    private fun differences(
+        index: Int,
+        base: MachineSnapshot<C>,
+        step: RecordedStep<C, A, CMD, E>,
+        actual: Decision<C, CMD, E> = machine.decide(base, step.input),
+    ): List<String> {
         val differences = mutableListOf<String>()
         val input = step.input
         if (input is MachineInput.TimerFired) {
@@ -176,37 +193,49 @@ class ReplaySession<C : Any, A : Action, CMD : Any, E : Event>(
                     differences += compare(step.decision, actual)
                 }
             }
+
             is RecordedStep.Ignored -> {
                 val outcome = actual.outcome
-                if (outcome !is DecisionOutcome.Ignored) differences += "outcome: recorded Ignored(${step.reason}), now $outcome"
-                else if (outcome.reason != step.reason) differences += "ignore reason: recorded ${step.reason}, now ${outcome.reason}"
+                if (outcome !is DecisionOutcome.Ignored) {
+                    differences += "outcome: recorded Ignored(${step.reason}), now $outcome"
+                } else if (outcome.reason != step.reason) {
+                    differences += "ignore reason: recorded ${step.reason}, now ${outcome.reason}"
+                }
             }
+
             is RecordedStep.Failed -> {
                 val outcome = actual.outcome
-                if (outcome !is DecisionOutcome.Failed) differences += "outcome: recorded Failed(${step.failure.typeLabel}), now $outcome"
-                else if (!outcome.failure.sameType(step.failure)) differences += "failure: recorded ${step.failure.typeLabel}, now ${outcome.failure.typeLabel}"
+                if (outcome !is DecisionOutcome.Failed) {
+                    differences += "outcome: recorded Failed(${step.failure.typeLabel}), now $outcome"
+                } else if (!outcome.failure.sameType(step.failure)) {
+                    differences += "failure: recorded ${step.failure.typeLabel}, now ${outcome.failure.typeLabel}"
+                }
             }
         }
         return differences
     }
 
-    private fun compare(expected: Decision<C, CMD, E>, actual: Decision<C, CMD, E>): List<String> = buildList {
-        val e = expected.snapshot
-        val a = actual.snapshot
-        if (e.revision != a.revision) add("revision: recorded ${e.revision}, now ${a.revision}")
-        if (e.configuration != a.configuration) add("configuration: recorded ${e.configuration.active}, now ${a.configuration.active}")
-        if (e.context != a.context) add("context: recorded ${e.context}, now ${a.context}")
-        if (e.activations != a.activations) add("activations: recorded ${e.activations}, now ${a.activations}")
-        if (e.commands != a.commands) add("registered commands: recorded ${e.commands.keys}, now ${a.commands.keys}")
-        if (e.timers != a.timers) add("scheduled timers: recorded ${e.timers}, now ${a.timers}")
-        if (e.counters != a.counters) add("counters: recorded ${e.counters}, now ${a.counters}")
-        if (expected.transitions != actual.transitions) add("transitions: recorded ${expected.transitions}, now ${actual.transitions}")
-        if (expected.exited != actual.exited) add("exited: recorded ${expected.exited}, now ${actual.exited}")
-        if (expected.entered != actual.entered) add("entered: recorded ${expected.entered}, now ${actual.entered}")
-        if (expected.commands != actual.commands) add("commands: recorded ${expected.commands}, now ${actual.commands}")
-        if (expected.cancelledScopes != actual.cancelledScopes) add("cancelled scopes: recorded ${expected.cancelledScopes}, now ${actual.cancelledScopes}")
-        if (expected.timersScheduled != actual.timersScheduled) add("timers scheduled: recorded ${expected.timersScheduled}, now ${actual.timersScheduled}")
-        if (expected.timersCancelled != actual.timersCancelled) add("timers cancelled: recorded ${expected.timersCancelled}, now ${actual.timersCancelled}")
-        if (expected.effects != actual.effects) add("effects: recorded ${expected.effects}, now ${actual.effects}")
-    }
+    private fun compare(
+        expected: Decision<C, CMD, E>,
+        actual: Decision<C, CMD, E>,
+    ): List<String> =
+        buildList {
+            val e = expected.snapshot
+            val a = actual.snapshot
+            if (e.revision != a.revision) add("revision: recorded ${e.revision}, now ${a.revision}")
+            if (e.configuration != a.configuration) add("configuration: recorded ${e.configuration.active}, now ${a.configuration.active}")
+            if (e.context != a.context) add("context: recorded ${e.context}, now ${a.context}")
+            if (e.activations != a.activations) add("activations: recorded ${e.activations}, now ${a.activations}")
+            if (e.commands != a.commands) add("registered commands: recorded ${e.commands.keys}, now ${a.commands.keys}")
+            if (e.timers != a.timers) add("scheduled timers: recorded ${e.timers}, now ${a.timers}")
+            if (e.counters != a.counters) add("counters: recorded ${e.counters}, now ${a.counters}")
+            if (expected.transitions != actual.transitions) add("transitions: recorded ${expected.transitions}, now ${actual.transitions}")
+            if (expected.exited != actual.exited) add("exited: recorded ${expected.exited}, now ${actual.exited}")
+            if (expected.entered != actual.entered) add("entered: recorded ${expected.entered}, now ${actual.entered}")
+            if (expected.commands != actual.commands) add("commands: recorded ${expected.commands}, now ${actual.commands}")
+            if (expected.cancelledScopes != actual.cancelledScopes) add("cancelled scopes: recorded ${expected.cancelledScopes}, now ${actual.cancelledScopes}")
+            if (expected.timersScheduled != actual.timersScheduled) add("timers scheduled: recorded ${expected.timersScheduled}, now ${actual.timersScheduled}")
+            if (expected.timersCancelled != actual.timersCancelled) add("timers cancelled: recorded ${expected.timersCancelled}, now ${actual.timersCancelled}")
+            if (expected.effects != actual.effects) add("effects: recorded ${expected.effects}, now ${actual.effects}")
+        }
 }

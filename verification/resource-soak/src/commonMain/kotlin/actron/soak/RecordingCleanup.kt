@@ -26,5 +26,9 @@ internal suspend fun closeRecordingResources(
     }
 }
 
-internal suspend fun closeRecordingResources(session: RecordingSession, sink: JournalFileSink, writerOwner: Job, timeoutMillis: Long = 10_000) =
-    closeRecordingResources(session::close, sink, writerOwner, timeoutMillis)
+internal suspend fun closeRecordingResources(
+    session: RecordingSession,
+    sink: JournalFileSink,
+    writerOwner: Job,
+    timeoutMillis: Long = 10_000,
+) = closeRecordingResources(session::close, sink, writerOwner, timeoutMillis)

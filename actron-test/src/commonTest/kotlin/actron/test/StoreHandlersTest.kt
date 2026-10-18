@@ -18,23 +18,28 @@ import kotlin.test.assertEquals
  * ```
  */
 class StoreHandlersTest {
-
     sealed interface AppState : State {
         data object Loading : AppState
-        data class Main(val count: Int) : AppState
+
+        data class Main(
+            val count: Int,
+        ) : AppState
+
         data object Error : AppState
     }
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
+
         data object Fail : AppAction
+
         data object Reset : AppAction
     }
 
     sealed interface AppEvent : Event
 
-    private fun createStore(): Store<AppState, AppAction, AppEvent> {
-        return Store(AppState.Loading) {
+    private fun createStore(): Store<AppState, AppAction, AppEvent> =
+        Store(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
@@ -61,7 +66,6 @@ class StoreHandlersTest {
                 }
             }
         }
-    }
 
     @Test
     fun describesEveryHandlerKindInFirstMatchOrder() {

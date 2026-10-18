@@ -1,4 +1,5 @@
 @file:OptIn(actron.core.ExperimentalActronApi::class)
+
 package consumer
 
 import actron.core.ExceptionHandler
@@ -18,15 +19,16 @@ fun forbiddenMachineConfiguration(scope: CoroutineScope) =
         recover<IllegalStateException> {} // reject: recover
     }
 
-fun forbiddenChartRecovery(scope: CoroutineScope) = StateChartStore<Int, Increment, Ev>(definition, 0, scope.coroutineContext) {
-    store {
-        recover<IllegalStateException> {
-            configuration = TODO() // reject: configuration
-            timers = TODO() // reject: timers
-            nextState { TODO() } // reject: nextState
+fun forbiddenChartRecovery(scope: CoroutineScope) =
+    StateChartStore<Int, Increment, Ev>(definition, 0, scope.coroutineContext) {
+        store {
+            recover<IllegalStateException> {
+                configuration = TODO() // reject: configuration
+                timers = TODO() // reject: timers
+                nextState { TODO() } // reject: nextState
+            }
+        }
+        onEnter(counting) {
+            message(Ping) // reject: message
         }
     }
-    onEnter(counting) {
-        message(Ping) // reject: message
-    }
-}

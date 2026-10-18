@@ -5,7 +5,11 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+val serializationCompiler by configurations.creating
+
 dependencies {
+    serializationCompiler("org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable:${libs.versions.kotlin.get()}")
+    implementation(libs.serialization.json)
     implementation("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:${libs.versions.kotlin.get()}")
 }
@@ -23,7 +27,13 @@ val compilerTest by tasks.registering(JavaExec::class) {
     dependsOn(tasks.jar)
     classpath = checkerClasspath
     mainClass.set("actron.verification.CompilerGuardTest")
-    args(tasks.jar.flatMap { it.archiveFile }.get().asFile.absolutePath)
+    args(
+        tasks.jar
+            .flatMap { it.archiveFile }
+            .get()
+            .asFile.absolutePath,
+        serializationCompiler.singleFile.absolutePath,
+    )
 }
 
 tasks.register<JavaExec>("checkPolicy") {

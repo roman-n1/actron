@@ -2,6 +2,11 @@
 
 package actron.example.timetravel
 
+import actron.timetravel.GroupMismatch
+import actron.timetravel.compose.GroupTimeTravelControls
+import actron.timetravel.compose.InspectorScreen
+import actron.timetravel.compose.InspectorState
+import actron.timetravel.inspect.Inspector
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,26 +25,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import java.nio.file.Path
-import java.util.concurrent.atomic.AtomicInteger
-import actron.timetravel.GroupMismatch
-import actron.timetravel.compose.GroupTimeTravelControls
-import actron.timetravel.compose.InspectorScreen
-import actron.timetravel.compose.InspectorState
-import actron.timetravel.inspect.Inspector
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicInteger
 
 private sealed interface DemoPlayback {
     data object AwaitingRecording : DemoPlayback
+
     data class Opened(
         val recording: CheckoutDemo.Loaded,
         val controls: GroupTimeTravelControls,
@@ -54,9 +55,19 @@ fun main(args: Array<String>) {
             val calls = AtomicInteger()
             val recorded = CheckoutDemo.record(Path.of(args.getOrNull(1) ?: "build/time-travel-demo"), calls)
             val loaded = CheckoutDemo.load(recorded.directory)
-            check(loaded.replay(fixed = false).session.verify().isEmpty())
+            check(
+                loaded
+                    .replay(fixed = false)
+                    .session
+                    .verify()
+                    .isEmpty(),
+            )
             val controls = loaded.controls(fixed = true)
-            val mismatch = controls.replay.session.verify().filterIsInstance<GroupMismatch.Replay>().first()
+            val mismatch =
+                controls.replay.session
+                    .verify()
+                    .filterIsInstance<GroupMismatch.Replay>()
+                    .first()
             controls.replay.seek(mismatch.position)
             controls.replay.stepForward()
             check(controls.replay.movement is actron.timetravel.compose.GroupReplayMovement.Diverged)
@@ -89,7 +100,10 @@ internal fun DemoScreen(initialDirectory: Path = Path.of("build/time-travel-demo
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Record the synthetic checkout, then open the same files with the changed reducer.") }
 
-    fun show(run: CheckoutDemo.Loaded, fixed: Boolean) {
+    fun show(
+        run: CheckoutDemo.Loaded,
+        fixed: Boolean,
+    ) {
         val controls = run.controls(fixed)
         val inspector = InspectorState(Inspector(run.journal.events, run.recording.members))
         controls.replay.verify()
@@ -110,9 +124,13 @@ internal fun DemoScreen(initialDirectory: Path = Path.of("build/time-travel-demo
             try {
                 val run = withContext(Dispatchers.IO) { CheckoutDemo.load(Path.of(directory)) }
                 show(run, fixed)
-            } catch (e: CancellationException) { throw e
-            } catch (e: Exception) { message = e.message ?: "Could not open recording"
-            } finally { busy = false }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                message = e.message ?: "Could not open recording"
+            } finally {
+                busy = false
+            }
         }
     }
 
@@ -130,9 +148,13 @@ internal fun DemoScreen(initialDirectory: Path = Path.of("build/time-travel-demo
                             val run = withContext(Dispatchers.IO) { CheckoutDemo.load(recorded.directory) }
                             show(run, fixed = false)
                             message += " Live price handler ran ${recorded.commandCalls} time; all live Stores are now closed."
-                        } catch (e: CancellationException) { throw e
-                        } catch (e: Exception) { message = e.message ?: "Could not record scenario"
-                        } finally { busy = false }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            message = e.message ?: "Could not record scenario"
+                        } finally {
+                            busy = false
+                        }
                     }
                 }) { Text("1. Record checkout") }
                 Button(enabled = !busy, modifier = Modifier.testTag("demo-original"), onClick = { open(fixed = false) }) { Text("2. Open original") }

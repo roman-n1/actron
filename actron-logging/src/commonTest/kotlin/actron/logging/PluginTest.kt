@@ -12,33 +12,41 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LoggingPluginTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Test
-    fun loggingPlugin_shouldLogAction() = runTest(testDispatcher) {
-        val testLogger = TestLogger()
-        val plugin = simpleLogging<CounterState, CounterAction, Nothing>(logger = testLogger)
+    fun loggingPlugin_shouldLogAction() =
+        runTest(testDispatcher) {
+            val testLogger = TestLogger()
+            val plugin = simpleLogging<CounterState, CounterAction, Nothing>(logger = testLogger)
 
-        val store = createTestStore(CounterState(10), plugin)
+            val store = createTestStore(CounterState(10), plugin)
 
-        store.dispatch(CounterAction.Increment)
+            store.dispatch(CounterAction.Increment)
 
-        assertTrue(testLogger.logs.isNotEmpty())
-        assertTrue(testLogger.logs.any { it.contains("Action:") })
-    }
+            assertTrue(testLogger.logs.isNotEmpty())
+            assertTrue(testLogger.logs.any { it.contains("Action:") })
+        }
 }
 
-private data class CounterState(val count: Int) : State
+private data class CounterState(
+    val count: Int,
+) : State
 
 private sealed interface CounterAction : Action {
     data object Increment : CounterAction
+
     data object Decrement : CounterAction
 }
 
 private class TestLogger : Logger {
     val logs = mutableListOf<String>()
-    override fun log(severity: Logger.Severity, tag: String, message: () -> String) {
+
+    override fun log(
+        severity: Logger.Severity,
+        tag: String,
+        message: () -> String,
+    ) {
         logs.add(message())
     }
 }
@@ -46,8 +54,8 @@ private class TestLogger : Logger {
 private fun createTestStore(
     initialState: CounterState,
     plugin: Plugin<CounterState, CounterAction, Nothing>,
-): Store<CounterState, CounterAction, Nothing> {
-    return Store(initialState) {
+): Store<CounterState, CounterAction, Nothing> =
+    Store(initialState) {
         coroutineContext(Dispatchers.Unconfined)
         plugin(plugin)
         state<CounterState> {
@@ -59,4 +67,3 @@ private fun createTestStore(
             }
         }
     }
-}

@@ -13,14 +13,17 @@ import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StorePendingActionCancellationTest {
-
     sealed interface AppState : State {
-        data class Active(val value: Int = 0) : AppState
+        data class Active(
+            val value: Int = 0,
+        ) : AppState
     }
 
     sealed interface AppAction : Action {
         data object HoldAndCancel : AppAction
+
         data object LaunchTransactionAndCancel : AppAction
+
         data object Increment : AppAction
     }
 
@@ -30,8 +33,8 @@ class StorePendingActionCancellationTest {
         onHoldAndCancelCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
         onTransactionStarted: CompletableDeferred<Unit> = CompletableDeferred(),
         onTransactionCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
-    ): Store<AppState, AppAction, Nothing> {
-        return Store(AppState.Active()) {
+    ): Store<AppState, AppAction, Nothing> =
+        Store(AppState.Active()) {
             coroutineContext(testDispatcher)
             pendingActionPolicy(PendingActionPolicy.Keep)
 
@@ -61,53 +64,56 @@ class StorePendingActionCancellationTest {
                 }
             }
         }
-    }
 
     @Test
-    fun cancelPendingActions_inAction_skipsQueuedDispatches() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val actionStarted = CompletableDeferred<Unit>()
-        val actionCompleted = CompletableDeferred<Unit>()
-        val store = createTestStore(
-            testDispatcher = testDispatcher,
-            onHoldAndCancelStarted = actionStarted,
-            onHoldAndCancelCompleted = actionCompleted,
-        )
+    fun cancelPendingActions_inAction_skipsQueuedDispatches() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val actionStarted = CompletableDeferred<Unit>()
+            val actionCompleted = CompletableDeferred<Unit>()
+            val store =
+                createTestStore(
+                    testDispatcher = testDispatcher,
+                    onHoldAndCancelStarted = actionStarted,
+                    onHoldAndCancelCompleted = actionCompleted,
+                )
 
-        store.dispatch(AppAction.HoldAndCancel)
-        runCurrent()
-        actionStarted.await()
+            store.dispatch(AppAction.HoldAndCancel)
+            runCurrent()
+            actionStarted.await()
 
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
 
-        advanceUntilIdle()
+            advanceUntilIdle()
 
-        assertEquals(true, actionCompleted.isCompleted, "The running action should not cancel itself")
-        assertEquals(AppState.Active(value = 100), store.currentState)
-    }
+            assertEquals(true, actionCompleted.isCompleted, "The running action should not cancel itself")
+            assertEquals(AppState.Active(value = 100), store.currentState)
+        }
 
     @Test
-    fun cancelPendingActions_inTransaction_skipsQueuedDispatches() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val transactionStarted = CompletableDeferred<Unit>()
-        val transactionCompleted = CompletableDeferred<Unit>()
-        val store = createTestStore(
-            testDispatcher = testDispatcher,
-            onTransactionStarted = transactionStarted,
-            onTransactionCompleted = transactionCompleted,
-        )
+    fun cancelPendingActions_inTransaction_skipsQueuedDispatches() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val transactionStarted = CompletableDeferred<Unit>()
+            val transactionCompleted = CompletableDeferred<Unit>()
+            val store =
+                createTestStore(
+                    testDispatcher = testDispatcher,
+                    onTransactionStarted = transactionStarted,
+                    onTransactionCompleted = transactionCompleted,
+                )
 
-        store.dispatch(AppAction.LaunchTransactionAndCancel)
-        runCurrent()
-        transactionStarted.await()
+            store.dispatch(AppAction.LaunchTransactionAndCancel)
+            runCurrent()
+            transactionStarted.await()
 
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
 
-        advanceUntilIdle()
+            advanceUntilIdle()
 
-        assertEquals(true, transactionCompleted.isCompleted, "The running transaction should complete")
-        assertEquals(AppState.Active(value = 100), store.currentState)
-    }
+            assertEquals(true, transactionCompleted.isCompleted, "The running transaction should complete")
+            assertEquals(AppState.Active(value = 100), store.currentState)
+        }
 }

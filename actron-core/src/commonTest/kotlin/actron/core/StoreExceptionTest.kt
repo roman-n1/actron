@@ -9,16 +9,17 @@ import kotlin.test.assertNotNull
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class StoreExceptionTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
-    data class AppState(val value: Int) : State
+    data class AppState(
+        val value: Int,
+    ) : State
 
     private fun createTestStore(
         initialState: AppState,
         exceptionHandler: ExceptionHandler,
-    ): Store<AppState, Nothing, Nothing> {
-        return Store(initialState) {
+    ): Store<AppState, Nothing, Nothing> =
+        Store(initialState) {
             this.coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(exceptionHandler)
             state<AppState> {
@@ -27,41 +28,45 @@ class StoreExceptionTest {
                 }
             }
         }
-    }
 
     @Test
-    fun store_shouldUseExceptionHandlerOnError() = runTest(testDispatcher) {
-        val handledExceptionObservations = mutableListOf<Throwable>()
+    fun store_shouldUseExceptionHandlerOnError() =
+        runTest(testDispatcher) {
+            val handledExceptionObservations = mutableListOf<Throwable>()
 
-        val store = createTestStore(
-            initialState = AppState(0),
-            exceptionHandler = ExceptionHandler { error ->
-                handledExceptionObservations.add(error)
-            },
-        )
+            val store =
+                createTestStore(
+                    initialState = AppState(0),
+                    exceptionHandler =
+                        ExceptionHandler { error ->
+                            handledExceptionObservations.add(error)
+                        },
+                )
 
-        store.collectState { } // start Store
+            store.collectState { } // start Store
 
-        assertNotNull(handledExceptionObservations.single())
-    }
+            assertNotNull(handledExceptionObservations.single())
+        }
 
     @Suppress("DEPRECATION")
     @Test
-    fun deprecated_errorDslAlias_shouldStillRecover() = runTest(testDispatcher) {
-        val store: Store<AppState, Nothing, Nothing> = Store(AppState(0)) {
-            this.coroutineContext(Dispatchers.Unconfined)
-            state<AppState> {
-                enter {
-                    throw RuntimeException("error")
+    fun deprecated_errorDslAlias_shouldStillRecover() =
+        runTest(testDispatcher) {
+            val store: Store<AppState, Nothing, Nothing> =
+                Store(AppState(0)) {
+                    this.coroutineContext(Dispatchers.Unconfined)
+                    state<AppState> {
+                        enter {
+                            throw RuntimeException("error")
+                        }
+                        error<RuntimeException> {
+                            nextState { AppState(1) }
+                        }
+                    }
                 }
-                error<RuntimeException> {
-                    nextState { AppState(1) }
-                }
-            }
+
+            store.collectState { } // start Store
+
+            assertEquals(AppState(1), store.currentState)
         }
-
-        store.collectState { } // start Store
-
-        assertEquals(AppState(1), store.currentState)
-    }
 }

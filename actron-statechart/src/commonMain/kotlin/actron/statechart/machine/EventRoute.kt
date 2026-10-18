@@ -6,8 +6,13 @@ import actron.core.Event
 /** Maps an event by preparing one synchronous delivery, or deliberately filtering the event.
  * Delivery starts only after the mapper has returned successfully.
  */
-class EventRoute<in E : Event, out A : Action>(private val map: (E, (A) -> Unit) -> Unit) {
-    fun mapEvent(event: E, carry: (A) -> Unit): Boolean {
+class EventRoute<in E : Event, out A : Action>(
+    private val map: (E, (A) -> Unit) -> Unit,
+) {
+    fun mapEvent(
+        event: E,
+        carry: (A) -> Unit,
+    ): Boolean {
         var open = true
         var mapped = false
         var deliver: () -> Unit = {}

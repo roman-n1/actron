@@ -10,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/**
+/*
  * This test case was generated with assistance from Anthropic's Claude AI.
  */
 
@@ -30,12 +30,13 @@ import kotlin.test.assertIs
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ServiceWrapperUseCaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     interface MyService {
         fun register(listener: Listener)
+
         fun unRegister(listener: Listener)
+
         interface Listener {
             fun onCountUpdated(count: Int)
         }
@@ -58,36 +59,44 @@ class ServiceWrapperUseCaseTest {
         }
     }
 
-    class MyServiceMonitor(private val myService: MyService) {
-        val count: Flow<Int> = callbackFlow {
-            val listener = object : MyService.Listener {
-                override fun onCountUpdated(count: Int) {
-                    trySend(count)
+    class MyServiceMonitor(
+        private val myService: MyService,
+    ) {
+        val count: Flow<Int> =
+            callbackFlow {
+                val listener =
+                    object : MyService.Listener {
+                        override fun onCountUpdated(count: Int) {
+                            trySend(count)
+                        }
+                    }
+
+                myService.register(listener)
+
+                awaitClose {
+                    myService.unRegister(listener)
                 }
             }
-
-            myService.register(listener)
-
-            awaitClose {
-                myService.unRegister(listener)
-            }
-        }
     }
 
     sealed interface AppState : State {
         data object Idle : AppState
-        data class Running(val count: Int) : AppState
+
+        data class Running(
+            val count: Int,
+        ) : AppState
     }
 
     sealed interface AppAction : Action {
         data object Start : AppAction
+
         data object Stop : AppAction
     }
 
     private fun createTestStore(
         myServiceMonitor: MyServiceMonitor,
-    ): Store<AppState, AppAction, Nothing> {
-        return Store {
+    ): Store<AppState, AppAction, Nothing> =
+        Store {
             initialState(AppState.Idle)
             coroutineContext(Dispatchers.Unconfined)
 
@@ -113,37 +122,37 @@ class ServiceWrapperUseCaseTest {
                 }
             }
         }
-    }
 
     @Test
-    fun serviceWrapper_shouldStartAndHandleCallbacks() = runTest(testDispatcher) {
-        // Mock implementation of MyService
-        val mockService = MockMyService()
-        val serviceWrapper = MyServiceMonitor(mockService)
+    fun serviceWrapper_shouldStartAndHandleCallbacks() =
+        runTest(testDispatcher) {
+            // Mock implementation of MyService
+            val mockService = MockMyService()
+            val serviceWrapper = MyServiceMonitor(mockService)
 
-        // Create store with idle state
-        val store = createTestStore(serviceWrapper)
+            // Create store with idle state
+            val store = createTestStore(serviceWrapper)
 
-        // Initial state should be Idle
-        assertIs<AppState.Idle>(store.currentState)
+            // Initial state should be Idle
+            assertIs<AppState.Idle>(store.currentState)
 
-        // Start the service
-        store.dispatch(AppAction.Start)
+            // Start the service
+            store.dispatch(AppAction.Start)
 
-        // State should change to Running with count 0
-        assertIs<AppState.Running>(store.currentState)
-        assertEquals(0, (store.currentState as AppState.Running).count)
+            // State should change to Running with count 0
+            assertIs<AppState.Running>(store.currentState)
+            assertEquals(0, (store.currentState as AppState.Running).count)
 
-        // Trigger callback from service with count update
-        mockService.triggerCallbackForTest(5)
+            // Trigger callback from service with count update
+            mockService.triggerCallbackForTest(5)
 
-        // State should update with new count
-        assertEquals(5, (store.currentState as AppState.Running).count)
+            // State should update with new count
+            assertEquals(5, (store.currentState as AppState.Running).count)
 
-        // Stop the service
-        store.dispatch(AppAction.Stop)
+            // Stop the service
+            store.dispatch(AppAction.Stop)
 
-        // State should return to Idle
-        assertIs<AppState.Idle>(store.currentState)
-    }
+            // State should return to Idle
+            assertIs<AppState.Idle>(store.currentState)
+        }
 }

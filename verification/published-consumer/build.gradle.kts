@@ -20,14 +20,18 @@ tasks.register("verifyPublishedGraphs") {
     doLast {
         val productionNames = setOf("actron-core", "actron-compose", "actron-message", "actron-logging", "actron-observability", "actron-statechart", "actron-statechart-compose")
         val allNames = productionNames + setOf("actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-compose")
+
         fun modules(projectName: String): Set<String> {
             val configurationName = mapOf("jvm" to "jvmCompileClasspath", "android" to "androidCompileClasspath", "js" to "jsCompileClasspath", "wasm" to "wasmJsCompileClasspath", "ios" to "iosSimulatorArm64CompileKlibraries").getValue(target)
             val configuration = project(projectName).configurations.getByName(configurationName)
-            val components = configuration.incoming.resolutionResult.allComponents.map { it.id }
+            val components =
+                configuration.incoming.resolutionResult.allComponents
+                    .map { it.id }
             check(components.none { it is ProjectComponentIdentifier && it.projectPath != projectName }) { "Source project substitution in $projectName" }
-            val upstream = components.filterIsInstance<ModuleComponentIdentifier>().filter {
-                it.group == "io.github.koma-kt" || it.module.startsWith("koma-")
-            }
+            val upstream =
+                components.filterIsInstance<ModuleComponentIdentifier>().filter {
+                    it.group == "io.github.koma-kt" || it.module.startsWith("koma-")
+                }
             check(upstream.isEmpty()) { "Unsupported upstream Koma dependencies in $projectName: $upstream" }
             val actron = components.filterIsInstance<ModuleComponentIdentifier>().filter { it.group == forkGroup }
             check(actron.all { it.version == forkVersion }) { "Wrong fork version in $projectName: $actron" }
@@ -51,7 +55,8 @@ subprojects {
             inputs.files(nullabilityPolicyJar, actronRepository.resolve(".actron/nullability/strict"))
             compilerOptions.freeCompilerArgs.addAll(
                 "-Xplugin=${nullabilityPolicyJar.get().asFile.absolutePath}",
-                "-P", "plugin:actron-nullability:root=${actronRepository.absolutePath}",
+                "-P",
+                "plugin:actron-nullability:root=${actronRepository.absolutePath}",
             )
         }
     }

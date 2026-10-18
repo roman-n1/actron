@@ -5,7 +5,10 @@ plugins {
 }
 group = "io.github.roman-n1"
 version = "0.1.0"
-repositories { mavenCentral(); intellijPlatform { defaultRepositories() } }
+repositories {
+    mavenCentral()
+    intellijPlatform { defaultRepositories() }
+}
 dependencies {
     intellijPlatform {
         val localPath = providers.gradleProperty("actron.ide.path")
@@ -23,7 +26,10 @@ intellijPlatform {
         id = "io.github.roman-n1.actron"
         name = "Actron Behavioural Model"
         version = "0.1.0"
-        ideaVersion { sinceBuild = "253"; untilBuild.unset() }
+        ideaVersion {
+            sinceBuild = "253"
+            untilBuild.unset()
+        }
     }
 }
 tasks.test { systemProperty("java.awt.headless", "true") }
@@ -36,6 +42,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
     inputs.files(nullabilityPolicyJar, actronRepository.resolve(".actron/nullability/strict"))
     compilerOptions.freeCompilerArgs.addAll(
         "-Xplugin=${nullabilityPolicyJar.get().asFile.absolutePath}",
-        "-P", "plugin:actron-nullability:root=${actronRepository.absolutePath}",
+        "-P",
+        "plugin:actron-nullability:root=${actronRepository.absolutePath}",
     )
 }

@@ -19,7 +19,10 @@ sealed interface StateParent {
 }
 
 @JvmInline
-value class StateId(val value: String) : StateParent, HistoryFallback {
+value class StateId(
+    val value: String,
+) : StateParent,
+    HistoryFallback {
     init {
         require(value.isNotBlank()) { "[Actron] StateId must not be blank" }
     }
@@ -62,7 +65,10 @@ data class AtomicState(
 ) : StateNode
 
 /** A terminal leaf; entering it completes its compound parent. It has no outgoing transitions. */
-data class FinalState(override val id: StateId, override val parent: StateParent = StateParent.Root) : StateNode
+data class FinalState(
+    override val id: StateId,
+    override val parent: StateParent = StateParent.Root,
+) : StateNode
 
 /** External transitions exit/re-enter; internal self-transitions preserve the activation. */
 enum class TransitionKind { External, Internal }
@@ -153,6 +159,7 @@ data class ActionMatcher(
     val matching: ActionMatching = ActionMatching.ByName,
 ) {
     constructor(name: String, type: KClass<out Action>) : this(name, ActionMatching.ByType(type))
+
     init {
         require(name.isNotBlank()) { "[Actron] ActionMatcher name must not be blank" }
     }
@@ -164,9 +171,7 @@ data class ActionMatcher(
      *
      * The runtime and [validate] both use this definition.
      */
-    fun matches(action: Action): Boolean {
-        return matching.matches(action, name)
-    }
+    fun matches(action: Action): Boolean = matching.matches(action, name)
 
     companion object {
         /**
@@ -184,14 +189,25 @@ data class ActionMatcher(
 
 /** The recognition rule of an action matcher. */
 sealed interface ActionMatching {
-    fun matches(action: Action, name: String): Boolean
+    fun matches(
+        action: Action,
+        name: String,
+    ): Boolean
 
     data object ByName : ActionMatching {
-        override fun matches(action: Action, name: String): Boolean = action::class.simpleName == name
+        override fun matches(
+            action: Action,
+            name: String,
+        ): Boolean = action::class.simpleName == name
     }
 
-    data class ByType(val type: KClass<out Action>) : ActionMatching {
-        override fun matches(action: Action, name: String): Boolean = type.isInstance(action)
+    data class ByType(
+        val type: KClass<out Action>,
+    ) : ActionMatching {
+        override fun matches(
+            action: Action,
+            name: String,
+        ): Boolean = type.isInstance(action)
     }
 }
 
@@ -210,7 +226,9 @@ sealed interface Trigger {
     /**
      * The transition fires when an action matching [matcher] arrives (see [StateChartRuntime.step]).
      */
-    data class OnAction(val matcher: ActionMatcher) : Trigger
+    data class OnAction(
+        val matcher: ActionMatcher,
+    ) : Trigger
 
     /**
      * The transition is a timer: it fires [delay] after its source is entered, unless the source
@@ -223,7 +241,9 @@ sealed interface Trigger {
      *
      * @property delay How long the source must stay active; should be positive (see [validate])
      */
-    data class After(val delay: Duration) : Trigger
+    data class After(
+        val delay: Duration,
+    ) : Trigger
 }
 
 /**
@@ -268,10 +288,11 @@ data class Transition(
     ) : this(source, target, Trigger.OnAction(on), guard, effect, kind)
 
     /** Whether this action activates the transition's declared trigger. */
-    fun matchesAction(action: Action): Boolean = when (val declared = trigger) {
-        is Trigger.OnAction -> declared.matcher.matches(action)
-        else -> false
-    }
+    fun matchesAction(action: Action): Boolean =
+        when (val declared = trigger) {
+            is Trigger.OnAction -> declared.matcher.matches(action)
+            else -> false
+        }
 
     /** Visits the declared action matcher; other triggers perform no action-matcher operation. */
     fun withActionMatcher(visit: (ActionMatcher) -> Unit) {
@@ -287,10 +308,11 @@ data class Transition(
     }
 
     /** Display label of the declared trigger. */
-    val triggerLabel: String get() = when (val declared = trigger) {
-        is Trigger.OnAction -> declared.matcher.name
-        else -> declared.toString()
-    }
+    val triggerLabel: String get() =
+        when (val declared = trigger) {
+            is Trigger.OnAction -> declared.matcher.name
+            else -> declared.toString()
+        }
 
     /**
      * Whether this transition is a timer ([Trigger.After]).
@@ -339,7 +361,10 @@ data class StateChartDefinition(
     fun hasNode(id: StateId): Boolean = id in hierarchy.nodes
 
     /** Tests a declared node; an undeclared id does not satisfy any node predicate. */
-    fun nodeSatisfies(id: StateId, predicate: (StateNode) -> Boolean): Boolean = hasNode(id) && predicate(node(id))
+    fun nodeSatisfies(
+        id: StateId,
+        predicate: (StateNode) -> Boolean,
+    ): Boolean = hasNode(id) && predicate(node(id))
 
     /**
      * Returns the nodes whose parent is [parent], in declaration order, history states included;
@@ -358,13 +383,20 @@ data class StateChartDefinition(
     /**
      * Whether [id] is a proper descendant of [ancestor], that is [ancestor] is in [ancestorsOf].
      */
-    fun isDescendant(id: StateId, ancestor: StateId): Boolean = ancestor in hierarchy.ancestors(id)
+    fun isDescendant(
+        id: StateId,
+        ancestor: StateId,
+    ): Boolean = ancestor in hierarchy.ancestors(id)
 
     /** Every declared hierarchy lies below the implicit root. */
-    fun isDescendant(id: StateId, ancestor: StateParent): Boolean = when (ancestor) {
-        StateParent.Root -> true
-        is StateId -> isDescendant(id, ancestor)
-    }
+    fun isDescendant(
+        id: StateId,
+        ancestor: StateParent,
+    ): Boolean =
+        when (ancestor) {
+            StateParent.Root -> true
+            is StateId -> isDescendant(id, ancestor)
+        }
 
     /**
      * Returns the configuration in which [leaf] is the active leaf: [leaf] and its ancestors,
@@ -374,8 +406,7 @@ data class StateChartDefinition(
      * [ParallelState] one leaf does not describe the other regions; use the overload that takes
      * all active leaves.
      */
-    fun configurationOf(leaf: StateId): StateConfiguration =
-        StateConfiguration(active = (hierarchy.ancestors(leaf).asReversed() + leaf).toSet())
+    fun configurationOf(leaf: StateId): StateConfiguration = StateConfiguration(active = (hierarchy.ancestors(leaf).asReversed() + leaf).toSet())
 
     /**
      * Returns the configuration whose active leaves are [leaves]: each leaf after its ancestors,
@@ -383,14 +414,15 @@ data class StateChartDefinition(
      * [ParallelState]s, through its active leaves (one per active region), back to a chart
      * configuration. Nothing is entered below the leaves, and no missing region is filled in.
      */
-    fun configurationOf(leaves: Collection<StateId>): StateConfiguration =
-        StateConfiguration(active = leaves.flatMapTo(linkedSetOf()) { hierarchy.ancestors(it).asReversed() + it })
+    fun configurationOf(leaves: Collection<StateId>): StateConfiguration = StateConfiguration(active = leaves.flatMapTo(linkedSetOf()) { hierarchy.ancestors(it).asReversed() + it })
 }
 
 /**
  * Lookup tables for one definition, built on first use.
  */
-internal class HierarchyIndex(definition: StateChartDefinition) {
+internal class HierarchyIndex(
+    definition: StateChartDefinition,
+) {
     val nodes: Map<StateId, StateNode> = buildMap { definition.states.forEach { if (it.id !in this) put(it.id, it) } }
     val children: Map<StateParent, List<StateNode>> = nodes.values.groupBy { it.parent }
     val transitionsBySource: Map<StateId, List<Transition>> = definition.transitions.groupBy { it.source }
@@ -399,9 +431,10 @@ internal class HierarchyIndex(definition: StateChartDefinition) {
     val timersBySource: Map<StateId, List<Transition>> = definition.transitions.filter { it.isTimer }.groupBy { it.source }
 
     /** Regions of each parallel state: its children that are not history states, in declaration order. */
-    val regions: Map<StateId, List<StateId>> = nodes.values.filterIsInstance<ParallelState>().associate { p ->
-        p.id to children[p.id].orEmpty().filter { it !is HistoryState }.map { it.id }
-    }
+    val regions: Map<StateId, List<StateId>> =
+        nodes.values.filterIsInstance<ParallelState>().associate { p ->
+            p.id to children[p.id].orEmpty().filter { it !is HistoryState }.map { it.id }
+        }
 
     /** History states by the id of their parent, in declaration order. */
     val histories: Map<StateId, List<HistoryState>> = nodes.values.filterIsInstance<HistoryState>().groupBy { it.parent }
@@ -410,15 +443,16 @@ internal class HierarchyIndex(definition: StateChartDefinition) {
     val order: Map<StateId, Int> = nodes.keys.withIndex().associate { (i, id) -> id to i }
 
     /** Ancestors of every declared id, innermost first; computed eagerly so the index is immutable. */
-    private val ancestorsById: Map<StateId, List<StateId>> = nodes.keys.associateWith { id ->
-        val chain = mutableListOf<StateId>()
-        var current = nodes.getValue(id).parent
-        while (current is StateId && current != id && current !in chain && current in nodes) {
-            chain += current
-            current = nodes.getValue(current).parent
+    private val ancestorsById: Map<StateId, List<StateId>> =
+        nodes.keys.associateWith { id ->
+            val chain = mutableListOf<StateId>()
+            var current = nodes.getValue(id).parent
+            while (current is StateId && current != id && current !in chain && current in nodes) {
+                chain += current
+                current = nodes.getValue(current).parent
+            }
+            chain
         }
-        chain
-    }
 
     fun ancestors(id: StateId): List<StateId> = ancestorsById[id].orEmpty()
 }

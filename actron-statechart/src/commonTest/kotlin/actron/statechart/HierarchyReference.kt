@@ -8,8 +8,14 @@ import actron.core.ExperimentalActronApi
  * after it.
  */
 @OptIn(ExperimentalActronApi::class)
-internal class HierarchyDecision(val transitions: List<Transition>, val exited: List<StateId>, val entered: List<StateId>, val after: Set<StateId>) {
+internal class HierarchyDecision(
+    val transitions: List<Transition>,
+    val exited: List<StateId>,
+    val entered: List<StateId>,
+    val after: Set<StateId>,
+) {
     constructor(transition: Transition, exited: List<StateId>, entered: List<StateId>, after: Set<StateId>) : this(listOf(transition), exited, entered, after)
+
     val transition get() = transitions.single()
 }
 
@@ -20,7 +26,9 @@ internal class HierarchyDecision(val transitions: List<Transition>, val exited: 
  * well-formed charts built from [RandomAction]s.
  */
 @OptIn(ExperimentalActronApi::class)
-internal class HierarchyReference(val chart: StateChartDefinition) {
+internal class HierarchyReference(
+    val chart: StateChartDefinition,
+) {
     private val first = LinkedHashMap<StateId, StateNode>().also { map -> chart.states.forEach { if (it.id !in map) map[it.id] = it } }
 
     fun parent(id: StateId): StateParent = if (id in first) first.getValue(id).parent.let { if (it is StateId && it in first) it else StateParent.Root } else StateParent.Root
@@ -36,27 +44,42 @@ internal class HierarchyReference(val chart: StateChartDefinition) {
         return chain
     }
 
-    fun isProperAncestor(ancestor: StateId, of: StateId) = ancestor in chain(of).drop(1)
+    fun isProperAncestor(
+        ancestor: StateId,
+        of: StateId,
+    ) = ancestor in chain(of).drop(1)
 
     fun depth(id: StateId) = chain(id).size - 1
 
-    fun defaultEntry(id: StateId): List<StateId> = if (id !in first) emptyList() else when (val node = first.getValue(id)) {
-        is CompoundState -> listOf(node.initial) + defaultEntry(node.initial)
-        else -> emptyList()
-    }
+    fun defaultEntry(id: StateId): List<StateId> =
+        if (id !in first) {
+            emptyList()
+        } else {
+            when (val node = first.getValue(id)) {
+                is CompoundState -> listOf(node.initial) + defaultEntry(node.initial)
+                else -> emptyList()
+            }
+        }
 
     fun initialConfiguration(): Set<StateId> = (chain(chart.initial).reversed() + defaultEntry(chart.initial)).toSet()
 
     fun leaf(configuration: Set<StateId>): StateId = configuration.single { c -> configuration.none { it != c && parent(it) == c } }
 
-    fun fire(configuration: Set<StateId>, t: Transition): HierarchyDecision {
+    fun fire(
+        configuration: Set<StateId>,
+        t: Transition,
+    ): HierarchyDecision {
         val lcca: StateParent = chain(t.source).drop(1).firstOrNull { first[it] is CompoundState && isProperAncestor(it, t.target) } ?: StateParent.Root
         val exited = configuration.filter { lcca is StateParent.Root || isProperAncestor(lcca as StateId, it) }.sortedByDescending { depth(it) }
         val entered = chain(t.target).takeWhile { it != lcca }.reversed() + defaultEntry(t.target)
         return HierarchyDecision(t, exited, entered, configuration - exited.toSet() + entered)
     }
 
-    fun step(configuration: Set<StateId>, action: RandomAction, guard: (String, RandomAction) -> Boolean): HierarchyDecision {
+    fun step(
+        configuration: Set<StateId>,
+        action: RandomAction,
+        guard: (String, RandomAction) -> Boolean,
+    ): HierarchyDecision {
         for (node in chain(leaf(configuration))) {
             for (t in chart.transitions) {
                 if (t.source != node || !matches(t.trigger, action)) continue
@@ -68,7 +91,11 @@ internal class HierarchyReference(val chart: StateChartDefinition) {
     }
 
     /** Guard calls the runtime should make, in order: lazily, in priority order. */
-    fun expectedGuardCalls(configuration: Set<StateId>, action: RandomAction, guard: (String, RandomAction) -> Boolean): List<Pair<String, Action>> {
+    fun expectedGuardCalls(
+        configuration: Set<StateId>,
+        action: RandomAction,
+        guard: (String, RandomAction) -> Boolean,
+    ): List<Pair<String, Action>> {
         val calls = mutableListOf<Pair<String, Action>>()
         for (node in chain(leaf(configuration))) {
             for (t in chart.transitions) {
@@ -117,17 +144,25 @@ internal class HierarchyReference(val chart: StateChartDefinition) {
         private val simpleNames = mapOf(RandomAction.Ping to "Ping", RandomAction.Pong to "Pong", RandomAction.Reset to "Reset")
 
         /** Independent matcher semantics; non-action triggers never consume an action. */
-        fun matches(trigger: Trigger, action: RandomAction): Boolean {
+        fun matches(
+            trigger: Trigger,
+            action: RandomAction,
+        ): Boolean {
             if (trigger !is Trigger.OnAction) return false
             val matcher = trigger.matcher
             return when (val matching = matcher.matching) {
-                ActionMatching.ByName -> matcher.name == (simpleNames[action] ?: "Go")
-                is ActionMatching.ByType -> when (matching.type) {
-                    RandomAction::class -> true
-                    RandomAction.Go::class -> action is RandomAction.Go
-                    RandomAction.Ping::class -> action == RandomAction.Ping
-                    RandomAction.Pong::class -> action == RandomAction.Pong
-                    else -> error("unexpected matcher $matcher")
+                ActionMatching.ByName -> {
+                    matcher.name == (simpleNames[action] ?: "Go")
+                }
+
+                is ActionMatching.ByType -> {
+                    when (matching.type) {
+                        RandomAction::class -> true
+                        RandomAction.Go::class -> action is RandomAction.Go
+                        RandomAction.Ping::class -> action == RandomAction.Ping
+                        RandomAction.Pong::class -> action == RandomAction.Pong
+                        else -> error("unexpected matcher $matcher")
+                    }
                 }
             }
         }
@@ -136,12 +171,21 @@ internal class HierarchyReference(val chart: StateChartDefinition) {
 
 /** A configuration of [HistoryReference]: active nodes and what each history state remembers. */
 @OptIn(ExperimentalActronApi::class)
-internal data class HistoryConfiguration(val active: Set<StateId>, val history: Map<StateId, Set<StateId>> = emptyMap())
+internal data class HistoryConfiguration(
+    val active: Set<StateId>,
+    val history: Map<StateId, Set<StateId>> = emptyMap(),
+)
 
 /** One transition fired by [HistoryReference]. */
 @OptIn(ExperimentalActronApi::class)
-internal class HistoryDecision(val transitions: List<Transition>, val exited: List<StateId>, val entered: List<StateId>, val after: HistoryConfiguration) {
+internal class HistoryDecision(
+    val transitions: List<Transition>,
+    val exited: List<StateId>,
+    val entered: List<StateId>,
+    val after: HistoryConfiguration,
+) {
     constructor(transition: Transition, exited: List<StateId>, entered: List<StateId>, after: HistoryConfiguration) : this(listOf(transition), exited, entered, after)
+
     val transition get() = transitions.single()
 }
 
@@ -154,7 +198,9 @@ internal class HistoryDecision(val transitions: List<Transition>, val exited: Li
  * and its initial descendants. Only meant for well-formed charts.
  */
 @OptIn(ExperimentalActronApi::class)
-internal class HistoryReference(val chart: StateChartDefinition) {
+internal class HistoryReference(
+    val chart: StateChartDefinition,
+) {
     val tree = HierarchyReference(chart)
     private val nodes = chart.states.associateBy { it.id }
     private val histories = chart.states.filterIsInstance<HistoryState>()
@@ -164,29 +210,46 @@ internal class HistoryReference(val chart: StateChartDefinition) {
     fun leaf(configuration: HistoryConfiguration): StateId = tree.leaf(configuration.active)
 
     /** What [history] would remember if its parent were exited in [active]. */
-    fun record(history: HistoryState, active: Set<StateId>): Set<StateId> = if (history.deep) {
-        active.filter { tree.isProperAncestor(history.parent, it) && active.none { c -> tree.parent(c) == it } }.toSet()
-    } else {
-        active.filter { tree.parent(it) == history.parent }.toSet()
-    }
+    fun record(
+        history: HistoryState,
+        active: Set<StateId>,
+    ): Set<StateId> =
+        if (history.deep) {
+            active.filter { tree.isProperAncestor(history.parent, it) && active.none { c -> tree.parent(c) == it } }.toSet()
+        } else {
+            active.filter { tree.parent(it) == history.parent }.toSet()
+        }
 
-    fun fire(configuration: HistoryConfiguration, t: Transition): HistoryDecision {
+    fun fire(
+        configuration: HistoryConfiguration,
+        t: Transition,
+    ): HistoryDecision {
         val lcca: StateParent = tree.chain(t.source).drop(1).firstOrNull { nodes[it] is CompoundState && tree.isProperAncestor(it, t.target) } ?: StateParent.Root
         val exited = configuration.active.filter { lcca is StateParent.Root || tree.isProperAncestor(lcca as StateId, it) }.sortedByDescending { tree.depth(it) }
         val history = configuration.history.toMutableMap()
         for (x in exited) for (h in histories) if (h.parent == x) history[h.id] = record(h, configuration.active)
         val target = nodes.getValue(t.target)
-        val entered = if (target is HistoryState) {
-            val above = tree.chain(t.target).drop(1).takeWhile { it != lcca }.reversed()
-            val restore = history[target.id] ?: setOf((target.default as? StateId) ?: (nodes.getValue(target.parent) as CompoundState).initial)
-            above + restore.flatMap { r -> tree.chain(r).takeWhile { it != target.parent }.reversed() + tree.defaultEntry(r) }
-        } else {
-            tree.chain(t.target).takeWhile { it != lcca }.reversed() + tree.defaultEntry(t.target)
-        }
+        val entered =
+            if (target is HistoryState) {
+                val above =
+                    tree
+                        .chain(t.target)
+                        .drop(1)
+                        .takeWhile { it != lcca }
+                        .reversed()
+                val restore = history[target.id] ?: setOf((target.default as? StateId) ?: (nodes.getValue(target.parent) as CompoundState).initial)
+                above + restore.flatMap { r -> tree.chain(r).takeWhile { it != target.parent }.reversed() + tree.defaultEntry(r) }
+            } else {
+                tree.chain(t.target).takeWhile { it != lcca }.reversed() + tree.defaultEntry(t.target)
+            }
         return HistoryDecision(t, exited, entered, HistoryConfiguration(configuration.active - exited.toSet() + entered, history))
     }
 
-    fun step(configuration: HistoryConfiguration, action: RandomAction, guard: (String, RandomAction) -> Boolean): HistoryDecision {
+    fun step(
+        configuration: HistoryConfiguration,
+        action: RandomAction,
+        guard: (String, RandomAction) -> Boolean,
+    ): HistoryDecision {
         for (node in tree.chain(leaf(configuration))) {
             for (t in chart.transitions) {
                 if (t.source != node || !HierarchyReference.matches(t.trigger, action)) continue

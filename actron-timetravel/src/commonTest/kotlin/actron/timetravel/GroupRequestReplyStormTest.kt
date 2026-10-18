@@ -47,76 +47,86 @@ import kotlin.time.Duration.Companion.seconds
  * names the pick it replies to and no request names anything.
  */
 class GroupRequestReplyStormTest {
-
     @Test
-    fun everyReplyOfAStorm_followsItsRequest_inTheJournalAndInEveryCutsReplay() = runTest {
-        val executionScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val session = RecordingSession(backgroundScope, id = RuntimeSessionId("rr"), group = MachineGroupId("picker"))
-        val group = MachineGroup(session)
-        val recorder = GroupRecorder(group)
-        val pickerMember = group.member<PickerCtx, PickerAct, Fetch, PickerEv>(pickerId)
-        val rootMember = group.member<RootCtx, RootAct, Nothing, RootEv>(rootId)
-        val pickerStore = MachineStore(
-            GroupFixture.picker, PickerCtx(), CommandHandler<Fetch, PickerAct> { command, results ->
-                delay(Random.nextLong(0, 3).milliseconds)
-                results.result(PickerAct.Fetched(command.command.name))
-            },
-            executionScope, coroutineContext = Dispatchers.Default, observers = listOf(pickerMember, recorder.member(pickerId, GroupFixture.picker, PickerCtx())),
-        ) { exceptionHandler(ExceptionHandler.Ignore) }
-        val rootStore = MachineStore(
-            GroupFixture.rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, coroutineContext = Dispatchers.Default,
-            observers = listOf(rootMember, recorder.member(rootId, GroupFixture.rootMachine, RootCtx())),
-        ) { exceptionHandler(ExceptionHandler.Ignore) }
-        with(GroupFixture) { group.routeAsPair(pickerMember, rootMember) }
-        pickerMember.attach(pickerStore)
-        rootMember.attach(rootStore)
-        pickerStore.start()
-        rootStore.start()
-        val senders = 4
-        val perSender = 60
-        val cuts = mutableListOf<GroupCheckpoint>()
-        var failedCuts = 0
+    fun everyReplyOfAStorm_followsItsRequest_inTheJournalAndInEveryCutsReplay() =
+        runTest {
+            val executionScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val session = RecordingSession(backgroundScope, id = RuntimeSessionId("rr"), group = MachineGroupId("picker"))
+            val group = MachineGroup(session)
+            val recorder = GroupRecorder(group)
+            val pickerMember = group.member<PickerCtx, PickerAct, Fetch, PickerEv>(pickerId)
+            val rootMember = group.member<RootCtx, RootAct, Nothing, RootEv>(rootId)
+            val pickerStore =
+                MachineStore(
+                    GroupFixture.picker,
+                    PickerCtx(),
+                    CommandHandler<Fetch, PickerAct> { command, results ->
+                        delay(Random.nextLong(0, 3).milliseconds)
+                        results.result(PickerAct.Fetched(command.command.name))
+                    },
+                    executionScope,
+                    coroutineContext = Dispatchers.Default,
+                    observers = listOf(pickerMember, recorder.member(pickerId, GroupFixture.picker, PickerCtx())),
+                ) { exceptionHandler(ExceptionHandler.Ignore) }
+            val rootStore =
+                MachineStore(
+                    GroupFixture.rootMachine,
+                    RootCtx(),
+                    CommandHandler<Nothing, RootAct> { _, _ -> },
+                    executionScope,
+                    coroutineContext = Dispatchers.Default,
+                    observers = listOf(rootMember, recorder.member(rootId, GroupFixture.rootMachine, RootCtx())),
+                ) { exceptionHandler(ExceptionHandler.Ignore) }
+            with(GroupFixture) { group.routeAsPair(pickerMember, rootMember) }
+            pickerMember.attach(pickerStore)
+            rootMember.attach(rootStore)
+            pickerStore.start()
+            rootStore.start()
+            val senders = 4
+            val perSender = 60
+            val cuts = mutableListOf<GroupCheckpoint>()
+            var failedCuts = 0
 
-        withContext(Dispatchers.Default) {
-            coroutineScope {
-                repeat(senders) { sender ->
+            withContext(Dispatchers.Default) {
+                coroutineScope {
+                    repeat(senders) { sender ->
+                        launch {
+                            repeat(perSender) { index ->
+                                pickerStore.dispatch(PickerAct.Pick("$sender-$index"))
+                                if (index % 5 == 0) delay(1.milliseconds)
+                            }
+                        }
+                    }
                     launch {
-                        repeat(perSender) { index ->
-                            pickerStore.dispatch(PickerAct.Pick("$sender-$index"))
-                            if (index % 5 == 0) delay(1.milliseconds)
+                        repeat(30) {
+                            val cut = group.checkpoint(5.seconds)
+                            if (cut is actron.statechart.machine.GroupCut.Ready) cuts += cut.checkpoint else failedCuts++
+                            delay(Random.nextLong(0, 3).milliseconds)
                         }
                     }
                 }
-                launch {
-                    repeat(30) {
-                        val cut = group.checkpoint(5.seconds)
-                        if (cut is actron.statechart.machine.GroupCut.Ready) cuts += cut.checkpoint else failedCuts++
-                        delay(Random.nextLong(0, 3).milliseconds)
-                    }
+                withTimeout(30_000) {
+                    pickerStore.state.first { it.context.acks.size == senders * perSender }
                 }
             }
-            withTimeout(30_000) {
-                pickerStore.state.first { it.context.acks.size == senders * perSender }
-            }
-        }
-        val recording = recorder.recording()
-        pickerStore.close()
-        rootStore.close()
-        executionScope.cancel()
+            val recording = recorder.recording()
+            pickerStore.close()
+            rootStore.close()
+            executionScope.cancel()
 
-        assertEquals(0, failedCuts, "no cut timed out")
-        assertEquals(30, cuts.size)
-        assertEquals(emptyList(), GroupReplaySession(machines, recording).verify(), "the whole run replays, every reply after a request of the pair")
-        for ((index, cut) in cuts.withIndex()) {
-            assertEquals(emptyList(), GroupReplaySession(machines, recording.since(cut)).verify(), "cut $index with ${cut.inFlight.size} in flight")
+            assertEquals(0, failedCuts, "no cut timed out")
+            assertEquals(30, cuts.size)
+            assertEquals(emptyList(), GroupReplaySession(machines, recording).verify(), "the whole run replays, every reply after a request of the pair")
+            for ((index, cut) in cuts.withIndex()) {
+                assertEquals(emptyList(), GroupReplaySession(machines, recording.since(cut)).verify(), "cut $index with ${cut.inFlight.size} in flight")
+            }
+            val sent = session.records().map { it.entry }.filterIsInstance<JournalEntry.BridgeSent>()
+            val requests = sent.filter { it.to == rootId }
+            val replies = sent.filter { it.to == pickerId }
+            assertEquals(senders * perSender, requests.size)
+            assertEquals(senders * perSender, replies.size)
+            assertTrue(requests.all { it.cause == actron.observability.MessageCause.Unprompted }, "a request replies to nothing")
+            assertTrue(replies.all { (it.cause as? actron.observability.MessageRef)?.from == pickerId }, "every reply names the pick it was decided from")
+            assertEquals(requests.map { it.message }.toSet(), replies.map { it.cause }.filterIsInstance<actron.observability.MessageRef>().toSet(), "every pick was replied to, once")
         }
-        val sent = session.records().map { it.entry }.filterIsInstance<JournalEntry.BridgeSent>()
-        val requests = sent.filter { it.to == rootId }
-        val replies = sent.filter { it.to == pickerId }
-        assertEquals(senders * perSender, requests.size)
-        assertEquals(senders * perSender, replies.size)
-        assertTrue(requests.all { it.cause == actron.observability.MessageCause.Unprompted }, "a request replies to nothing")
-        assertTrue(replies.all { (it.cause as? actron.observability.MessageRef)?.from == pickerId }, "every reply names the pick it was decided from")
-        assertEquals(requests.map { it.message }.toSet(), replies.map { it.cause }.filterIsInstance<actron.observability.MessageRef>().toSet(), "every pick was replied to, once")
-    }
 }

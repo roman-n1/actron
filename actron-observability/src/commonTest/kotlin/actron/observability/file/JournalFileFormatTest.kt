@@ -2,9 +2,8 @@
 
 package actron.observability.file
 
-import actron.core.InputAttribution
-
 import actron.core.ExperimentalActronApi
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.ActivationRef
 import actron.observability.Capability
@@ -44,68 +43,90 @@ import kotlin.time.Duration.Companion.seconds
  * and never a wrong record.
  */
 class JournalFileFormatTest {
-
     private val session = RuntimeSessionId("s1")
     private val group = MachineGroupId("g")
     private val store = StoreInstanceId("store-a")
 
-    private fun record(seq: Long, entry: JournalEntry<*, *, *>, store: actron.observability.RecordSubject = this.store, ordinal: actron.observability.RecordOrdinal = StoreSeq(seq), elapsed: Duration = seq.milliseconds) =
-        JournalRecord(JOURNAL_FORMAT_VERSION, session, group, store, ExecutionMode.Live, GroupSeq(seq), ordinal, elapsed, entry)
+    private fun record(
+        seq: Long,
+        entry: JournalEntry<*, *, *>,
+        store: actron.observability.RecordSubject = this.store,
+        ordinal: actron.observability.RecordOrdinal = StoreSeq(seq),
+        elapsed: Duration = seq.milliseconds,
+    ) = JournalRecord(JOURNAL_FORMAT_VERSION, session, group, store, ExecutionMode.Live, GroupSeq(seq), ordinal, elapsed, entry)
 
-    private data class Loaded(val items: List<String>) : actron.core.Event
+    private data class Loaded(
+        val items: List<String>,
+    ) : actron.core.Event
 
     /** Every entry kind, every payload kind, failures with cause and suppressed, optional fields present and absent. */
-    private val all: List<JournalRecord<*, *, *>> = listOf(
-        record(1, JournalEntry.StoreRegistered(Capability.InspectOnly)),
-        record(2, JournalEntry.InputAccepted(InputId(1), InputDescriptor.Startup)),
-        record(3, JournalEntry.InputAccepted(InputId(2), InputDescriptor.Dispatch(Payload.Projected("Load", mapOf("q" to "cats", "n" to "3"))))),
-        record(4, JournalEntry.InputAccepted(InputId(3), InputDescriptor.Transaction(InputId(2)))),
-        record(5, JournalEntry.InputAccepted(InputId(4), InputDescriptor.Recovery(FailureDescriptor("IOException", "boom", FailureDescriptor("SocketException"), listOf(FailureDescriptor("Suppressed"))), InputAttribution.Unattributed))),
-        record(6, JournalEntry.InputDiscarded(InputId(4), DiscardDescriptor(DiscardKind.Rejected, FailureDescriptor("IllegalStateException")))),
-        record(7, JournalEntry.InputDiscarded(InputId(5), DiscardDescriptor(DiscardKind.StoreClosed))),
-        record(8, JournalEntry.ProcessingStarted(InputId(2), 1)),
-        record(9, JournalEntry.StateCommitted(InputId(2), 1, Payload.Omitted, Payload.Unavailable)),
-        record(10, JournalEntry.EventEmitted(InputAttribution.Unattributed, Payload.Retained(Loaded(listOf("tom", "felix"))))),
-        record(11, JournalEntry.FailureReported(InputId(2), FailureDescriptor.Unavailable)),
-        record(12, JournalEntry.ProcessingFinished(InputId(2), 1, OutcomeDescriptor(OutcomeKind.Recovered, 2, FailureDescriptor("X")), 812.microseconds)),
-        record(13, JournalEntry.ProcessingFinished(InputId(3), 2, OutcomeDescriptor(OutcomeKind.Unchanged), Duration.ZERO)),
-        record(14, JournalEntry.StoreClosed),
-        record(15, JournalEntry.InputRejected(Payload.Projected("Tap"), "pending=8 limit=8")),
-        record(
-            16,
-            JournalEntry.DecisionCommitted(
-                InputId(5), 3, listOf("Root", "Loading"), listOf(0, 2), listOf(ActivationRef("Idle", 2)), listOf(ActivationRef("Loading", 3)),
-                listOf(CommandRef(1, 3, "net", "Latest", Payload.Described("Fetch(cats)")), CommandRef(2, 3, actron.observability.CommandExecution.Independent, Payload.Omitted)),
-                listOf(2L), listOf(TimerRef(1, 3, 3, 10.seconds)), listOf(7L), 2,
+    private val all: List<JournalRecord<*, *, *>> =
+        listOf(
+            record(1, JournalEntry.StoreRegistered(Capability.InspectOnly)),
+            record(2, JournalEntry.InputAccepted(InputId(1), InputDescriptor.Startup)),
+            record(3, JournalEntry.InputAccepted(InputId(2), InputDescriptor.Dispatch(Payload.Projected("Load", mapOf("q" to "cats", "n" to "3"))))),
+            record(4, JournalEntry.InputAccepted(InputId(3), InputDescriptor.Transaction(InputId(2)))),
+            record(5, JournalEntry.InputAccepted(InputId(4), InputDescriptor.Recovery(FailureDescriptor("IOException", "boom", FailureDescriptor("SocketException"), listOf(FailureDescriptor("Suppressed"))), InputAttribution.Unattributed))),
+            record(6, JournalEntry.InputDiscarded(InputId(4), DiscardDescriptor(DiscardKind.Rejected, FailureDescriptor("IllegalStateException")))),
+            record(7, JournalEntry.InputDiscarded(InputId(5), DiscardDescriptor(DiscardKind.StoreClosed))),
+            record(8, JournalEntry.ProcessingStarted(InputId(2), 1)),
+            record(9, JournalEntry.StateCommitted(InputId(2), 1, Payload.Omitted, Payload.Unavailable)),
+            record(10, JournalEntry.EventEmitted(InputAttribution.Unattributed, Payload.Retained(Loaded(listOf("tom", "felix"))))),
+            record(11, JournalEntry.FailureReported(InputId(2), FailureDescriptor.Unavailable)),
+            record(12, JournalEntry.ProcessingFinished(InputId(2), 1, OutcomeDescriptor(OutcomeKind.Recovered, 2, FailureDescriptor("X")), 812.microseconds)),
+            record(13, JournalEntry.ProcessingFinished(InputId(3), 2, OutcomeDescriptor(OutcomeKind.Unchanged), Duration.ZERO)),
+            record(14, JournalEntry.StoreClosed),
+            record(15, JournalEntry.InputRejected(Payload.Projected("Tap"), "pending=8 limit=8")),
+            record(
+                16,
+                JournalEntry.DecisionCommitted(
+                    InputId(5),
+                    3,
+                    listOf("Root", "Loading"),
+                    listOf(0, 2),
+                    listOf(ActivationRef("Idle", 2)),
+                    listOf(ActivationRef("Loading", 3)),
+                    listOf(CommandRef(1, 3, "net", "Latest", Payload.Described("Fetch(cats)")), CommandRef(2, 3, actron.observability.CommandExecution.Independent, Payload.Omitted)),
+                    listOf(2L),
+                    listOf(TimerRef(1, 3, 3, 10.seconds)),
+                    listOf(7L),
+                    2,
+                ),
             ),
-        ),
-        record(17, JournalEntry.DecisionIgnored(InputAttribution.Unattributed, "NoTransition")),
-        record(18, JournalEntry.JournalGap(3), store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
-        record(19, JournalEntry.BridgeSent(InputId(5), MessageRef(store, 1), StoreInstanceId("root-1"), delivered = true, cause = MessageRef(StoreInstanceId("root-1"), 4))),
-        record(20, JournalEntry.BridgeSent(InputAttribution.Unattributed, MessageRef(store, 2), StoreInstanceId("nobody"), delivered = false)),
-        record(21, JournalEntry.BridgeReceived(InputId(6), MessageRef(StoreInstanceId("root-1"), 1))),
-        record(22, JournalEntry.EffectQueued(InputId(6), 4, "Retained", Payload.Projected("Navigate", mapOf("to" to "chat")))),
-        record(23, JournalEntry.EffectHandlingStarted(4, 2)),
-        record(24, JournalEntry.EffectAcknowledged(4)),
-        record(25, JournalEntry.EffectDiscarded(5, "Superseded")),
-        record(26, JournalEntry.ExternalReceived(InputId(7), "paging:chat-1")),
-        record(27, JournalEntry.CheckpointCreated(listOf(store, StoreInstanceId("root-1")), listOf("paging:chat-1"), 1), store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
-        record(28, JournalEntry.RecordingStopped, store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
-        record(29, JournalEntry.CommandsAbandoned("StoreClosed", listOf(3, 4), listOf(2))),
-        record(30, JournalEntry.BridgeDropped(MessageRef(StoreInstanceId("root-1"), 3), store, "StoreClosed")),
-    )
+            record(17, JournalEntry.DecisionIgnored(InputAttribution.Unattributed, "NoTransition")),
+            record(18, JournalEntry.JournalGap(3), store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
+            record(19, JournalEntry.BridgeSent(InputId(5), MessageRef(store, 1), StoreInstanceId("root-1"), delivered = true, cause = MessageRef(StoreInstanceId("root-1"), 4))),
+            record(20, JournalEntry.BridgeSent(InputAttribution.Unattributed, MessageRef(store, 2), StoreInstanceId("nobody"), delivered = false)),
+            record(21, JournalEntry.BridgeReceived(InputId(6), MessageRef(StoreInstanceId("root-1"), 1))),
+            record(22, JournalEntry.EffectQueued(InputId(6), 4, "Retained", Payload.Projected("Navigate", mapOf("to" to "chat")))),
+            record(23, JournalEntry.EffectHandlingStarted(4, 2)),
+            record(24, JournalEntry.EffectAcknowledged(4)),
+            record(25, JournalEntry.EffectDiscarded(5, "Superseded")),
+            record(26, JournalEntry.ExternalReceived(InputId(7), "paging:chat-1")),
+            record(27, JournalEntry.CheckpointCreated(listOf(store, StoreInstanceId("root-1")), listOf("paging:chat-1"), 1), store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
+            record(28, JournalEntry.RecordingStopped, store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
+            record(29, JournalEntry.CommandsAbandoned("StoreClosed", listOf(3, 4), listOf(2))),
+            record(30, JournalEntry.BridgeDropped(MessageRef(StoreInstanceId("root-1"), 3), store, "StoreClosed")),
+        )
 
     /** What the file keeps of [all]: a retained object becomes its text. */
-    private val expected: List<JournalRecord<*, *, *>> = all.map { record ->
-        val entry = record.entry
-        if (entry is JournalEntry.EventEmitted && entry.event is Payload.Retained) record.copy(entry = JournalEntry.EventEmitted(entry.input, Payload.Described(entry.event.value.toString()))) else record
-    }
+    private val expected: List<JournalRecord<*, *, *>> =
+        all.map { record ->
+            val entry = record.entry
+            if (entry is JournalEntry.EventEmitted && entry.event is Payload.Retained) record.copy(entry = JournalEntry.EventEmitted(entry.input, Payload.Described(entry.event.value.toString()))) else record
+        }
 
-    private fun segment(records: List<JournalRecord<*, *, *>> = all, finished: Boolean = true, index: Int = 0): ByteArray = ByteWriter().apply {
-        raw(JournalFileFormat.header(session, group, ExecutionMode.Live, index))
-        for (record in records) raw(JournalFileFormat.frame(record))
-        if (finished) raw(JournalFileFormat.END)
-    }.toByteArray()
+    private fun segment(
+        records: List<JournalRecord<*, *, *>> = all,
+        finished: Boolean = true,
+        index: Int = 0,
+    ): ByteArray =
+        ByteWriter()
+            .apply {
+                raw(JournalFileFormat.header(session, group, ExecutionMode.Live, index))
+                for (record in records) raw(JournalFileFormat.frame(record))
+                if (finished) raw(JournalFileFormat.END)
+            }.toByteArray()
 
     @Test
     fun everyEntryKind_roundTripsThroughASegment() {
@@ -129,12 +150,14 @@ class JournalFileFormatTest {
     @Test
     fun aSegmentOfAnEarlierRecordFormat_stillReads() {
         // Written by a writer of version 6: BridgeSent without its cause (added in 7).
-        val older = ByteWriter().apply {
-            raw(JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = 6))
-            raw(JournalFileFormat.frame(all[0], recordFormatVersion = 6))
-            raw(JournalFileFormat.frame(all[18], recordFormatVersion = 6))
-            raw(JournalFileFormat.END)
-        }.toByteArray()
+        val older =
+            ByteWriter()
+                .apply {
+                    raw(JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = 6))
+                    raw(JournalFileFormat.frame(all[0], recordFormatVersion = 6))
+                    raw(JournalFileFormat.frame(all[18], recordFormatVersion = 6))
+                    raw(JournalFileFormat.END)
+                }.toByteArray()
 
         val decoded = JournalFileFormat.decodeSegment("older", older)
 
@@ -146,11 +169,13 @@ class JournalFileFormatTest {
 
     @Test
     fun aNewerFormat_isRefused_notGuessed() {
-        val newerFile = ByteWriter().apply {
-            raw(JournalFileFormat.header(session, group, ExecutionMode.Replay, 4, fileFormatVersion = JOURNAL_FILE_FORMAT_VERSION + 1))
-            raw(JournalFileFormat.frame(all[0]))
-            raw(JournalFileFormat.END)
-        }.toByteArray()
+        val newerFile =
+            ByteWriter()
+                .apply {
+                    raw(JournalFileFormat.header(session, group, ExecutionMode.Replay, 4, fileFormatVersion = JOURNAL_FILE_FORMAT_VERSION + 1))
+                    raw(JournalFileFormat.frame(all[0]))
+                    raw(JournalFileFormat.END)
+                }.toByteArray()
         val decoded = JournalFileFormat.decodeSegment("s1-000004.journal", newerFile)
 
         assertEquals(SegmentMark.UnsupportedFormat("s1-000004.journal", JOURNAL_FILE_FORMAT_VERSION + 1, JOURNAL_FORMAT_VERSION), decoded.mark)
@@ -170,15 +195,24 @@ class JournalFileFormatTest {
             assertEquals(expected.take(decoded.records.size), decoded.records, "cut at $length")
             assertTrue(!decoded.finished, "cut at $length is not a finished segment")
             when (val mark = decoded.mark) {
-                is SegmentMark.Unfinished -> unfinishedCuts++
+                is SegmentMark.Unfinished -> {
+                    unfinishedCuts++
+                }
+
                 is SegmentMark.TruncatedTail -> {
                     truncatedCuts++
                     assertEquals(decoded.records.size, mark.recordsRead, "cut at $length")
                     // Zero trailing bytes: cut right after the magic, before the header frame began.
                     assertTrue(mark.trailingBytes in 0..bytes.size, "cut at $length: $mark")
                 }
-                is SegmentMark.NotASegment -> assertTrue(length < JournalFileFormat.MAGIC.size, "cut at $length")
-                else -> throw AssertionError("cut at $length: $mark")
+
+                is SegmentMark.NotASegment -> {
+                    assertTrue(length < JournalFileFormat.MAGIC.size, "cut at $length")
+                }
+
+                else -> {
+                    throw AssertionError("cut at $length: $mark")
+                }
             }
         }
         assertEquals(all.size + 1, unfinishedCuts, "one cut per frame boundary: after the header and after each record")

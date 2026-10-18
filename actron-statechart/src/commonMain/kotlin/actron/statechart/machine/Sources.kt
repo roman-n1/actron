@@ -8,7 +8,12 @@ import actron.core.ExperimentalActronApi
  * (a pagination engine: generation, the window, load states, placeholders, the pending focus;
  * never its caches), already safe to keep.
  */
-data class SourceSnapshot(val source: SourceId, val kind: String, val version: Int, val fields: Map<String, String>)
+data class SourceSnapshot(
+    val source: SourceId,
+    val kind: String,
+    val version: Int,
+    val fields: Map<String, String>,
+)
 
 /**
  * An external source of inputs attached to a [MachineGroup] (handoff §8, §10): a pagination
