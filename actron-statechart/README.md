@@ -844,6 +844,72 @@ runtime, invariants, Mermaid, diagnostics and recordings. Missing targets, missi
 duplicate names and hierarchical leaves without entry factories fail during construction.
 See [executable hierarchy tests](src/commonTest/kotlin/actron/statechart/machine/TypedHierarchyDslTest.kt).
 
+### Nested typed parallel states
+
+A compound can contain `parallel(Phase.Loading) { ... }`. The outer state binding holds
+`Phase.Loading`, while each region binds its own independent property in the same context:
+
+```kotlin
+compound<Phase.Active>(initial = Phase.Loading) {
+    history(deep = true)
+    on<Action.Pause, Phase.Paused>()
+    parallel(Phase.Loading) {
+        onDone<Phase.Done>()
+        region<CurrentRegion, RequestState>(RequestState.Loading,
+            readState = { it.current }, writeState = { c, state -> c.copy(current = state) },
+        ) {
+            state(RequestState.Loading) { on<Action.CurrentLoaded, RequestState.Done>() }
+            final(RequestState.Done)
+        }
+        region<ForecastRegion, RequestState>(RequestState.Loading,
+            readState = { it.forecast }, writeState = { c, state -> c.copy(forecast = state) },
+        ) {
+            state(RequestState.Loading) { on<Action.ForecastLoaded, RequestState.Done>() }
+            final(RequestState.Done)
+        }
+    }
+    final(Phase.Done)
+}
+```
+
+Region marker types supply namespaces without string keys. The outer value is written before
+region entries; inactive regions retain data without being required to have active graph nodes.
+Each region can itself contain compounds and parallel states. Completion waits for every region;
+leaving the parent cancels their work. Deep history restores region configurations, while shallow
+history re-enters their initial configurations. Business data remains current in both cases.
+
+### State-local typed invocation
+
+`typedInvokedMachine` builds a typed parent plus one scoped child using `InvokedMachine`:
+
+```kotlin
+typedInvokedMachine(
+    id = DefinitionId("location"), version = DefinitionVersion("1"),
+    initial = Phase.Idle, readState = { c: Context -> c.phase },
+    writeState = { c, phase -> c.copy(phase = phase) }, child = locationMachine,
+) { child ->
+    state(Phase.Idle) { on<Action.Open, Phase.Locating>() }
+    state(Phase.Locating) {
+        on<Action.Close, Phase.Idle>()
+        invoke(child,
+            context = { parent -> LocationContext(parent.context.city) },
+            toParent = { event, send ->
+                when (event) { is LocationEvent.Found -> send(Action.Close) }
+            },
+        )
+    }
+}
+```
+
+The child handle is typed and must be invoked in exactly one owner state. No owner ID, string
+routing key or action cast is required. The result is a **pure `InvokedMachine`**, with
+`InvocationSnapshot` and `InvocationInput`; it is not a `MachineStore`. Use the existing
+invocation execution contract: atomically commit a successful composite decision, then execute
+its parent/child commands and timers, qualifying child work by owner activation. Re-entry creates
+a new owner, stale child inputs are ignored, typed event routes drain atomically, and a failed
+child start rolls back the parent. This facade deliberately preserves the existing single-child
+composition contract; it does not implicitly start another Store or execute IO in DSL hooks.
+
 ## State-local machine DSL
 
 For flat machines, `stateMachine` declares the graph and implementations together:

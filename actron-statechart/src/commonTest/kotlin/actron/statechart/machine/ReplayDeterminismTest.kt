@@ -9,6 +9,8 @@ import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.InputId
 import actron.core.InternalActronApi
+import actron.core.StoreProbe
+import actron.core.StoreTrace
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.CompoundState
@@ -16,6 +18,7 @@ import actron.statechart.StateChartDefinition
 import actron.statechart.StateId
 import actron.statechart.Transition
 import actron.statechart.Trigger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -144,9 +147,11 @@ class ReplayDeterminismTest {
                         recorded.trySend(Recorded.Ignored(machineInput, reason))
                     }
                 }
+            val closed = CompletableDeferred<Unit>()
             val store =
                 MachineStore(machine, Ctx(), handler, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(recorder)) {
                     exceptionHandler(ExceptionHandler { handled.trySend(it) })
+                    probe(StoreProbe { if (it === StoreTrace.StoreClosed) closed.complete(Unit) })
                 }
             val ticks = senders * perSender / 2
 
@@ -163,8 +168,11 @@ class ReplayDeterminismTest {
                 }
                 withTimeout(20_000) { store.state.first { it.context.ticks == ticks && it.commands.isEmpty() && it.isActive(idle) } }
             }
-            val final = store.currentState
+            // StateFlow publishes before observer callbacks finish. Freeze the recording only
+            // after processing has ended, otherwise its final committed input may be missing.
             store.close()
+            withContext(Dispatchers.Default) { withTimeout(20_000) { closed.await() } }
+            val final = store.currentState
             executionScope.cancel()
             val run =
                 buildList {
