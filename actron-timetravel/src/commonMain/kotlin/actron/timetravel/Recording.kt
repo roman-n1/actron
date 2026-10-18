@@ -1,9 +1,8 @@
 package actron.timetravel
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.FailureDescriptor
 import actron.statechart.machine.Decision
@@ -24,13 +23,22 @@ sealed interface RecordedStep<C : Any, A : Action, CMD : Any, E : Event> {
     val input: MachineInput<A>
 
     /** The input was handled: [decision] holds the snapshot committed and every intent registered. */
-    data class Committed<C : Any, A : Action, CMD : Any, E : Event>(override val input: MachineInput<A>, val decision: Decision<C, CMD, E>) : RecordedStep<C, A, CMD, E>
+    data class Committed<C : Any, A : Action, CMD : Any, E : Event>(
+        override val input: MachineInput<A>,
+        val decision: Decision<C, CMD, E>,
+    ) : RecordedStep<C, A, CMD, E>
 
     /** The input changed nothing. */
-    data class Ignored<C : Any, A : Action, CMD : Any, E : Event>(override val input: MachineInput<A>, val reason: IgnoreReason) : RecordedStep<C, A, CMD, E>
+    data class Ignored<C : Any, A : Action, CMD : Any, E : Event>(
+        override val input: MachineInput<A>,
+        val reason: IgnoreReason,
+    ) : RecordedStep<C, A, CMD, E>
 
     /** A guard, reducer or rule threw; nothing was committed. */
-    data class Failed<C : Any, A : Action, CMD : Any, E : Event>(override val input: MachineInput<A>, val failure: FailureDescriptor) : RecordedStep<C, A, CMD, E>
+    data class Failed<C : Any, A : Action, CMD : Any, E : Event>(
+        override val input: MachineInput<A>,
+        val failure: FailureDescriptor,
+    ) : RecordedStep<C, A, CMD, E>
 }
 
 /**
@@ -112,8 +120,9 @@ class Recording<C : Any, A : Action, CMD : Any, E : Event>(
      * snapshot, or the checkpoint registers commands this run did not
      */
     fun since(checkpoint: ExecutorCheckpoint<C, CMD>): Recording<C, A, CMD, E> {
-        val position = (0..length).firstOrNull { snapshotAt(it) == checkpoint.snapshot }
-            ?: throw IllegalArgumentException("[Actron] The checkpoint at revision ${checkpoint.snapshot.revision} is not of this run")
+        val position =
+            (0..length).firstOrNull { snapshotAt(it) == checkpoint.snapshot }
+                ?: throw IllegalArgumentException("[Actron] The checkpoint at revision ${checkpoint.snapshot.revision} is not of this run")
         val recorded = checkpointAt(position).registrations
         require(checkpoint.registrations == recorded) {
             "[Actron] The checkpoint's commands ${checkpoint.registrations.keys} are not the run's at revision ${checkpoint.snapshot.revision}: ${recorded.keys}"
@@ -126,11 +135,12 @@ class Recording<C : Any, A : Action, CMD : Any, E : Event>(
      * and version, [Compatibility.InspectableOnly] for the same definition in another version
      * (the snapshots can be shown, not decided again), [Compatibility.Unsupported] otherwise.
      */
-    fun compatibilityWith(machine: Machine<C, A, CMD, E>): Compatibility = when {
-        machine.id != definition -> Compatibility.Unsupported("a recording of $definition cannot be replayed by ${machine.id}")
-        machine.version != version -> Compatibility.InspectableOnly("recorded by version $version, the machine is version ${machine.version}")
-        else -> Compatibility.Replayable
-    }
+    fun compatibilityWith(machine: Machine<C, A, CMD, E>): Compatibility =
+        when {
+            machine.id != definition -> Compatibility.Unsupported("a recording of $definition cannot be replayed by ${machine.id}")
+            machine.version != version -> Compatibility.InspectableOnly("recorded by version $version, the machine is version ${machine.version}")
+            else -> Compatibility.Replayable
+        }
 
     override fun toString(): String = "Recording($definition $version, from revision ${initial.revision}, ${steps.size} steps)"
 }
@@ -174,20 +184,31 @@ sealed interface Compatibility {
     data object Replayable : Compatibility
 
     /** The snapshots can be shown; the machine's behaviour differs, so it must not decide them. */
-    data class InspectableOnly(val reason: String) : Compatibility
+    data class InspectableOnly(
+        val reason: String,
+    ) : Compatibility
 
     /** The recording is of another machine. */
-    data class Unsupported(val reason: String) : Compatibility
+    data class Unsupported(
+        val reason: String,
+    ) : Compatibility
 }
 
 /** Whether the recorder observed the beginning it was configured to replay from. */
 sealed interface RecordingOrigin {
     fun withProblem(accept: (String) -> Unit): Boolean
+
     data object InitialSnapshot : RecordingOrigin {
         override fun withProblem(accept: (String) -> Unit): Boolean = false
     }
-    data class UnknownBeginning(val reason: String) : RecordingOrigin {
-        override fun withProblem(accept: (String) -> Unit): Boolean { accept(reason); return true }
+
+    data class UnknownBeginning(
+        val reason: String,
+    ) : RecordingOrigin {
+        override fun withProblem(accept: (String) -> Unit): Boolean {
+            accept(reason)
+            return true
+        }
     }
 }
 
@@ -220,7 +241,11 @@ class MachineRecorder<C : Any, A : Action, CMD : Any, E : Event>(
     var origin: RecordingOrigin = RecordingOrigin.InitialSnapshot
         private set
 
-    override fun onCommitted(input: InputAttribution, machineInput: MachineInput<A>, decision: Decision<C, CMD, E>) {
+    override fun onCommitted(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        decision: Decision<C, CMD, E>,
+    ) {
         locked {
             if (steps.isEmpty() && machineInput is MachineInput.Start) {
                 val expected = machine.decide(initial, machineInput)
@@ -232,11 +257,19 @@ class MachineRecorder<C : Any, A : Action, CMD : Any, E : Event>(
         }
     }
 
-    override fun onIgnored(input: InputAttribution, machineInput: MachineInput<A>, reason: IgnoreReason) {
+    override fun onIgnored(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        reason: IgnoreReason,
+    ) {
         locked { steps += RecordedStep.Ignored(machineInput, reason) }
     }
 
-    override fun onFailed(input: InputAttribution, machineInput: MachineInput<A>, failure: FailureDescriptor) {
+    override fun onFailed(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        failure: FailureDescriptor,
+    ) {
         locked { steps += RecordedStep.Failed(machineInput, failure) }
     }
 

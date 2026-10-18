@@ -16,8 +16,9 @@ import kotlin.test.assertEquals
  * close() now. JVM only: the handler spins on a flag to model a CPU-bound tail.
  */
 class StoreCloseJvmTest {
-
-    data class Box(val n: Int = 0) : State
+    data class Box(
+        val n: Int = 0,
+    ) : State
 
     data object Bump : Action
 
@@ -25,37 +26,39 @@ class StoreCloseJvmTest {
     private var release = false
 
     @Test
-    fun nothingCommitsAfterClose() = runTest {
-        val saved = mutableListOf<Box>()
-        val entered = CompletableDeferred<Unit>()
-        val store: Store<Box, Bump, Nothing> = Store(Box()) {
-            coroutineContext(Dispatchers.Default)
-            stateSaver(StateSaver(save = { synchronized(saved) { saved += it } }, restore = { it }))
-            state<Box> {
-                enter {
-                    launch {
-                        transaction {
-                            entered.complete(Unit)
-                            @Suppress("ControlFlowWithEmptyBody")
-                            while (!release) {}
-                            nextState { Box(1) }
+    fun nothingCommitsAfterClose() =
+        runTest {
+            val saved = mutableListOf<Box>()
+            val entered = CompletableDeferred<Unit>()
+            val store: Store<Box, Bump, Nothing> =
+                Store(Box()) {
+                    coroutineContext(Dispatchers.Default)
+                    stateSaver(StateSaver(save = { synchronized(saved) { saved += it } }, restore = { it }))
+                    state<Box> {
+                        enter {
+                            launch {
+                                transaction {
+                                    entered.complete(Unit)
+                                    @Suppress("ControlFlowWithEmptyBody")
+                                    while (!release) {}
+                                    nextState { Box(1) }
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        withContext(Dispatchers.Default) {
-            withTimeout(10_000) {
-                store.start()
-                entered.await()
-                store.close()
-                release = true
-                delay(300)
+            withContext(Dispatchers.Default) {
+                withTimeout(10_000) {
+                    store.start()
+                    entered.await()
+                    store.close()
+                    release = true
+                    delay(300)
+                }
             }
-        }
 
-        assertEquals(Box(0), store.currentState)
-        assertEquals(emptyList(), saved)
-    }
+            assertEquals(Box(0), store.currentState)
+            assertEquals(emptyList(), saved)
+        }
 }

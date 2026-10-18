@@ -14,18 +14,25 @@ data class BehaviouralDiff(
 ) {
     /** Known structural behaviour changed while the caller retained its old version. */
     val versionBumpRequired: Boolean get() = model.replayMayChange && from == to
+
     /** Even structurally compatible snapshots need an explicit version migration when versions differ. */
     val snapshotMigrationReviewRequired: Boolean get() = model.snapshotMigrationRequired || from != to
     val implementationsCompared: Boolean get() = false
 
-    fun describe(): String = buildString {
-        append("Definition ").append(definition.value).append(": ").append(from.value).append(" -> ").append(to.value)
-        val changes = model.describe()
-        if (changes.isNotEmpty()) append('\n').append(changes)
-        if (versionBumpRequired) append("\nDefinition version must change for the structural behaviour change")
-        if (snapshotMigrationReviewRequired) append("\nSnapshot version/configuration/work migration needs review")
-        append("\nGuard, reducer, hook and invariant implementations are not compared; review their changes explicitly")
-    }
+    fun describe(): String =
+        buildString {
+            append("Definition ")
+                .append(definition.value)
+                .append(": ")
+                .append(from.value)
+                .append(" -> ")
+                .append(to.value)
+            val changes = model.describe()
+            if (changes.isNotEmpty()) append('\n').append(changes)
+            if (versionBumpRequired) append("\nDefinition version must change for the structural behaviour change")
+            if (snapshotMigrationReviewRequired) append("\nSnapshot version/configuration/work migration needs review")
+            append("\nGuard, reducer, hook and invariant implementations are not compared; review their changes explicitly")
+        }
 }
 
 /** Compares model data without invoking guards, reducers, invariants or hooks, including across context-type migrations. */

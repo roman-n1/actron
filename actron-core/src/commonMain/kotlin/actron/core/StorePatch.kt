@@ -15,21 +15,49 @@ data class StorePatch<S : State, A : Action, E : Event>(
 
 /** Commands applied before a Store starts. An empty patch performs no configuration changes. */
 sealed interface StoreSetting<out S : State> {
-    data class InitialState<S : State>(val state: S) : StoreSetting<S>
-    data class ExecutionContext(val context: CoroutineContext) : StoreSetting<Nothing>
-    data class Persistence<S : State>(val saver: StateSaver<S>) : StoreSetting<S>
-    data class FailureHandler(val handler: ExceptionHandler) : StoreSetting<Nothing>
-    data class AutoStart(val policy: AutoStartPolicy) : StoreSetting<Nothing>
-    data class PendingActions(val policy: PendingActionPolicy) : StoreSetting<Nothing>
-    data class PluginExecution(val policy: PluginExecutionPolicy) : StoreSetting<Nothing>
+    data class InitialState<S : State>(
+        val state: S,
+    ) : StoreSetting<S>
+
+    data class ExecutionContext(
+        val context: CoroutineContext,
+    ) : StoreSetting<Nothing>
+
+    data class Persistence<S : State>(
+        val saver: StateSaver<S>,
+    ) : StoreSetting<S>
+
+    data class FailureHandler(
+        val handler: ExceptionHandler,
+    ) : StoreSetting<Nothing>
+
+    data class AutoStart(
+        val policy: AutoStartPolicy,
+    ) : StoreSetting<Nothing>
+
+    data class PendingActions(
+        val policy: PendingActionPolicy,
+    ) : StoreSetting<Nothing>
+
+    data class PluginExecution(
+        val policy: PluginExecutionPolicy,
+    ) : StoreSetting<Nothing>
 }
 
 sealed interface PluginPatch<S : State, A : Action, E : Event> {
-    data class Append<S : State, A : Action, E : Event>(val plugins: List<Plugin<S, A, E>>) : PluginPatch<S, A, E>
-    data class Replace<S : State, A : Action, E : Event>(val plugins: List<Plugin<S, A, E>>) : PluginPatch<S, A, E>
+    data class Append<S : State, A : Action, E : Event>(
+        val plugins: List<Plugin<S, A, E>>,
+    ) : PluginPatch<S, A, E>
+
+    data class Replace<S : State, A : Action, E : Event>(
+        val plugins: List<Plugin<S, A, E>>,
+    ) : PluginPatch<S, A, E>
+
     class Clear<S : State, A : Action, E : Event> : PluginPatch<S, A, E> {
         override fun equals(other: Any?): Boolean = other is Clear<*, *, *>
+
         override fun hashCode(): Int = 0
+
         override fun toString(): String = "Clear"
     }
 }
@@ -75,11 +103,17 @@ class StorePatchBuilder<S : State, A : Action, E : Event> {
         settings += StoreSetting.PluginExecution(policy)
     }
 
-    fun plugin(first: Plugin<S, A, E>, vararg rest: Plugin<S, A, E>) {
+    fun plugin(
+        first: Plugin<S, A, E>,
+        vararg rest: Plugin<S, A, E>,
+    ) {
         pluginPatches += PluginPatch.Append(plugins = listOf(first) + rest)
     }
 
-    fun replacePlugins(first: Plugin<S, A, E>, vararg rest: Plugin<S, A, E>) {
+    fun replacePlugins(
+        first: Plugin<S, A, E>,
+        vararg rest: Plugin<S, A, E>,
+    ) {
         pluginPatches += PluginPatch.Replace(plugins = listOf(first) + rest)
     }
 
@@ -92,16 +126,18 @@ class StorePatchBuilder<S : State, A : Action, E : Event> {
      * internal observation API for journals and inspectors, not an extension point.
      */
     @InternalActronApi
-    fun probe(first: StoreProbe<S, A, E>, vararg rest: StoreProbe<S, A, E>) {
+    fun probe(
+        first: StoreProbe<S, A, E>,
+        vararg rest: StoreProbe<S, A, E>,
+    ) {
         probePatches += first
         probePatches += rest
     }
 
-    fun build(): StorePatch<S, A, E> {
-        return StorePatch(
+    fun build(): StorePatch<S, A, E> =
+        StorePatch(
             settings = settings.toList(),
             pluginPatches = pluginPatches.toList(),
             probes = probePatches.toList(),
         )
-    }
 }

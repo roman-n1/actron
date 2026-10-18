@@ -8,9 +8,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class PayloadPolicyTest {
-
     /** An exception whose cause can be set after construction, to build a cycle in common code. */
-    private class Cyclic(message: String) : Exception(message) {
+    private class Cyclic(
+        message: String,
+    ) : Exception(message) {
         var next: Throwable = this
         override val cause: Throwable get() = next
     }
@@ -74,9 +75,10 @@ class PayloadPolicyTest {
     @Test
     fun metadataOnly_omitsEveryPayload() {
         val policy = PayloadPolicy.metadataOnly<actron.core.State, actron.core.Action, actron.core.Event>()
-        val state = object : actron.core.State {
-            override fun toString(): String = "secret"
-        }
+        val state =
+            object : actron.core.State {
+                override fun toString(): String = "secret"
+            }
 
         assertEquals(Payload.Omitted, policy.state(state))
         assertEquals(Payload.Omitted, policy.action(object : actron.core.Action {}))
@@ -87,9 +89,10 @@ class PayloadPolicyTest {
     @Test
     fun retainAll_keepsTheObjects() {
         val policy = PayloadPolicy.retainAll<actron.core.State, actron.core.Action, actron.core.Event>()
-        val state = object : actron.core.State {
-            override fun toString(): String = "visible"
-        }
+        val state =
+            object : actron.core.State {
+                override fun toString(): String = "visible"
+            }
 
         assertEquals(Payload.Retained(state), policy.state(state))
         assertEquals("visible", JournalFormat.payload(policy.state(state)))
@@ -107,6 +110,7 @@ class PayloadPolicyTest {
 // These projections require the attribute/cause that the test has established.
 private val FailureDescriptor.type: String get() = details.attributes.getValue("type")
 private val FailureDescriptor.message: String get() = details.attributes.getValue("message")
-private val FailureDescriptor.cause: FailureDescriptor get() = buildList<FailureDescriptor> {
-    withCause { add(it) }
-}.single()
+private val FailureDescriptor.cause: FailureDescriptor get() =
+    buildList<FailureDescriptor> {
+        withCause { add(it) }
+    }.single()

@@ -19,7 +19,10 @@ import kotlinx.coroutines.flow.update
  */
 @ExperimentalActronApi
 class ScriptedCommandHandler<CMD : Any, A : Action> : CommandHandler<CMD, A> {
-    private class Running<A : Action>(val sink: ResultSink<A>, val end: CompletableDeferred<Unit>)
+    private class Running<A : Action>(
+        val sink: ResultSink<A>,
+        val end: CompletableDeferred<Unit>,
+    )
 
     private val runningNow = MutableStateFlow<Map<CommandId, Running<A>>>(emptyMap())
     private val startedList = mutableListOf<CommandEnvelope<CMD>>()
@@ -34,7 +37,10 @@ class ScriptedCommandHandler<CMD : Any, A : Action> : CommandHandler<CMD, A> {
     /** The commands running now: started and neither answered to an end, completed, failed nor cancelled. */
     val running: List<CommandEnvelope<CMD>> get() = startedList.filter { it.id in runningNow.value.keys }
 
-    override suspend fun execute(command: CommandEnvelope<CMD>, results: ResultSink<A>) {
+    override suspend fun execute(
+        command: CommandEnvelope<CMD>,
+        results: ResultSink<A>,
+    ) {
         val end = CompletableDeferred<Unit>()
         startedList += command
         runningNow.update { it + (command.id to Running(results, end)) }
@@ -53,7 +59,10 @@ class ScriptedCommandHandler<CMD : Any, A : Action> : CommandHandler<CMD, A> {
      *
      * @throws IllegalArgumentException if [command] is not running
      */
-    fun answer(command: CommandId, result: A) {
+    fun answer(
+        command: CommandId,
+        result: A,
+    ) {
         requireNotNull(runningNow.value[command]) { "[Actron] c${command.value} is not running: ${runningNow.value.keys}" }.sink.result(result)
     }
 
@@ -71,7 +80,10 @@ class ScriptedCommandHandler<CMD : Any, A : Action> : CommandHandler<CMD, A> {
      *
      * @throws IllegalArgumentException if [command] is not running
      */
-    fun fail(command: CommandId, error: Throwable = IllegalStateException("failed by the test")) {
+    fun fail(
+        command: CommandId,
+        error: Throwable = IllegalStateException("failed by the test"),
+    ) {
         requireNotNull(runningNow.value[command]) { "[Actron] c${command.value} is not running: ${runningNow.value.keys}" }.end.completeExceptionally(error)
     }
 }

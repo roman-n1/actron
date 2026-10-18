@@ -9,48 +9,75 @@ import kotlin.time.Duration
  */
 sealed interface ValidationIssue {
     /** Final leaves cannot transition out. */
-    data class TransitionFromFinal(val transition: Transition) : ValidationIssue
+    data class TransitionFromFinal(
+        val transition: Transition,
+    ) : ValidationIssue
+
     /** Completion only belongs to compound or parallel states. */
-    data class InvalidCompletionSource(val transition: Transition) : ValidationIssue
+    data class InvalidCompletionSource(
+        val transition: Transition,
+    ) : ValidationIssue
+
     /** Automatic choices without guards depend on declaration order. */
-    data class AmbiguousAutomaticTransitions(val source: StateId, val trigger: Trigger, val transitions: List<Transition>) : ValidationIssue
+    data class AmbiguousAutomaticTransitions(
+        val source: StateId,
+        val trigger: Trigger,
+        val transitions: List<Transition>,
+    ) : ValidationIssue
 
     /**
      * Two or more states use the same [id].
      */
-    data class DuplicateStateId(val id: StateId) : ValidationIssue
+    data class DuplicateStateId(
+        val id: StateId,
+    ) : ValidationIssue
 
     /**
      * The initial state [id] is not declared.
      */
-    data class UnknownInitialState(val id: StateId) : ValidationIssue
+    data class UnknownInitialState(
+        val id: StateId,
+    ) : ValidationIssue
 
     /**
      * [transition] leaves a state that is not declared.
      */
-    data class UnknownTransitionSource(val transition: Transition) : ValidationIssue
+    data class UnknownTransitionSource(
+        val transition: Transition,
+    ) : ValidationIssue
 
     /**
      * [transition] enters a state that is not declared.
      */
-    data class UnknownTransitionTarget(val transition: Transition) : ValidationIssue
+    data class UnknownTransitionTarget(
+        val transition: Transition,
+    ) : ValidationIssue
 
     /**
      * State [id] declares [parent] as its parent, but no state [parent] is declared.
      */
-    data class UnknownParent(val id: StateId, val parent: StateId) : ValidationIssue
+    data class UnknownParent(
+        val id: StateId,
+        val parent: StateId,
+    ) : ValidationIssue
 
     /**
      * State [id] declares [parent] as its parent, but [parent] is an [AtomicState], which cannot
      * have children.
      */
-    data class AtomicParent(val id: StateId, val parent: StateId) : ValidationIssue
+    data class AtomicParent(
+        val id: StateId,
+        val parent: StateId,
+    ) : ValidationIssue
 
     /**
      * State [id] declares [parent] as its parent, but [parent] is a [HistoryState], which cannot
      * have children.
      */
-    data class HistoryParent(val id: StateId, val parent: StateId) : ValidationIssue
+    data class HistoryParent(
+        val id: StateId,
+        val parent: StateId,
+    ) : ValidationIssue
 
     /**
      * Following parents from [states] leads back to where it started, so these states are not
@@ -61,18 +88,25 @@ sealed interface ValidationIssue {
      * @property states The states of the cycle, starting with the first declared one, each
      * followed by its parent
      */
-    data class ParentCycle(val states: List<StateId>) : ValidationIssue
+    data class ParentCycle(
+        val states: List<StateId>,
+    ) : ValidationIssue
 
     /**
      * The initial state [initial] of compound state [id] is not one of its children (it may also
      * be undeclared).
      */
-    data class InitialNotChild(val id: StateId, val initial: StateId) : ValidationIssue
+    data class InitialNotChild(
+        val id: StateId,
+        val initial: StateId,
+    ) : ValidationIssue
 
     /**
      * Compound state [id] has no children.
      */
-    data class EmptyCompoundState(val id: StateId) : ValidationIssue
+    data class EmptyCompoundState(
+        val id: StateId,
+    ) : ValidationIssue
 
     /**
      * The initial state [initial] of compound state [id], or of the chart when [id] is [StateParent.Root], is a
@@ -80,7 +114,10 @@ sealed interface ValidationIssue {
      * the chart starts. A history state that is not a child of [id] is reported as
      * [InitialNotChild] instead.
      */
-    data class HistoryAsInitial(val id: StateParent, val initial: StateId) : ValidationIssue
+    data class HistoryAsInitial(
+        val id: StateParent,
+        val initial: StateId,
+    ) : ValidationIssue
 
     /**
      * The [HistoryState.default] of history state [id] cannot be entered from it: for a shallow
@@ -89,7 +126,10 @@ sealed interface ValidationIssue {
      * history's parent is a declared compound or parallel state; for a parallel parent the
      * children are its regions.
      */
-    data class InvalidHistoryDefault(val id: StateId, val default: StateId) : ValidationIssue
+    data class InvalidHistoryDefault(
+        val id: StateId,
+        val default: StateId,
+    ) : ValidationIssue
 
     /**
      * Parallel state [id] has fewer than two regions, so it is not really parallel: with one
@@ -99,25 +139,34 @@ sealed interface ValidationIssue {
      * @property regions The regions it has (its children that are not history states), in
      * declaration order
      */
-    data class TooFewRegions(val id: StateId, val regions: List<StateId>) : ValidationIssue
+    data class TooFewRegions(
+        val id: StateId,
+        val regions: List<StateId>,
+    ) : ValidationIssue
 
     /**
      * [transition] leaves a [HistoryState]. A history state is never active, so the transition
      * never fires.
      */
-    data class TransitionFromHistory(val transition: Transition) : ValidationIssue
+    data class TransitionFromHistory(
+        val transition: Transition,
+    ) : ValidationIssue
 
     /**
      * Timer [transition] has a delay that is zero or negative. A timer should wait for a positive
      * time; what a caller does with such a delay (fire at once, or never) is up to the caller.
      */
-    data class NonPositiveDelay(val transition: Transition) : ValidationIssue
+    data class NonPositiveDelay(
+        val transition: Transition,
+    ) : ValidationIssue
 
     /**
      * State [id] never becomes active, starting from the initial configuration. History states are
      * never active and are never reported.
      */
-    data class UnreachableState(val id: StateId) : ValidationIssue
+    data class UnreachableState(
+        val id: StateId,
+    ) : ValidationIssue
 
     /**
      * More than one transition without a guard leaves [source] on the same action, so the choice
@@ -193,7 +242,9 @@ fun StateChartDefinition.validate(sampleActions: List<Action> = emptyList()): Li
     val ids = states.map { it.id }
     val declared = ids.toSet()
 
-    ids.groupingBy { it }.eachCount()
+    ids
+        .groupingBy { it }
+        .eachCount()
         .filterValues { it > 1 }
         .keys
         .forEach { issues += ValidationIssue.DuplicateStateId(it) }
@@ -222,7 +273,8 @@ fun StateChartDefinition.validate(sampleActions: List<Action> = emptyList()): Li
 
     if (initial in declared) {
         val reachable = reachableStates()
-        ids.distinct()
+        ids
+            .distinct()
             .filter { it !in reachable && node(it) !is HistoryState }
             .forEach { issues += ValidationIssue.UnreachableState(it) }
     }
@@ -241,8 +293,10 @@ fun StateChartDefinition.validate(sampleActions: List<Action> = emptyList()): Li
         .filterValues { it.size > 1 }
         .forEach { (key, group) -> issues += ValidationIssue.AmbiguousTimers(key.first, key.second, group) }
 
-    withoutGuard.filter { it.trigger == Trigger.Eventless || it.trigger == Trigger.Completion }
-        .groupBy { it.source to it.trigger }.filterValues { it.size > 1 }
+    withoutGuard
+        .filter { it.trigger == Trigger.Eventless || it.trigger == Trigger.Completion }
+        .groupBy { it.source to it.trigger }
+        .filterValues { it.size > 1 }
         .forEach { (key, group) -> issues += ValidationIssue.AmbiguousAutomaticTransitions(key.first, key.second, group) }
 
     val samples = sampleActions.distinct()
@@ -271,7 +325,9 @@ internal fun StateChartDefinition.endpointIssues(): List<ValidationIssue> {
     val issues = mutableListOf<ValidationIssue>()
     val ids = states.map { it.id }
     val declared = ids.toSet()
-    ids.groupingBy { it }.eachCount()
+    ids
+        .groupingBy { it }
+        .eachCount()
         .filterValues { it > 1 }
         .keys
         .forEach { issues += ValidationIssue.DuplicateStateId(it) }
@@ -296,17 +352,24 @@ internal fun StateChartDefinition.endpointIssues(): List<ValidationIssue> {
 internal fun StateChartDefinition.instantTimerCycles(): List<List<Transition>> {
     val instant = transitions.withIndex().filter { (_, t) -> t.trigger is Trigger.After && !t.trigger.delay.isPositive() }
     if (instant.isEmpty()) return emptyList()
+
     // A node is an instant timer that has just been started in a configuration; an edge leads to
     // the timers its firing starts, in the configuration the firing produces.
-    data class Node(val configuration: StateConfiguration, val timer: Int)
+    data class Node(
+        val configuration: StateConfiguration,
+        val timer: Int,
+    )
     val next = mutableMapOf<Node, List<Node>>()
-    fun successors(node: Node): List<Node> = next.getOrPut(node) {
-        val step = microstep(node.configuration, listOf(transitions[node.timer]))
-        instant.filter { (_, u) -> u.source in step.entered }.map { Node(step.configuration, it.index) }
-    }
-    val nodes = configurationGraph.reachable.flatMap { configuration ->
-        instant.filter { (_, t) -> t.source in configuration.active }.map { Node(configuration, it.index) }
-    }
+
+    fun successors(node: Node): List<Node> =
+        next.getOrPut(node) {
+            val step = microstep(node.configuration, listOf(transitions[node.timer]))
+            instant.filter { (_, u) -> u.source in step.entered }.map { Node(step.configuration, it.index) }
+        }
+    val nodes =
+        configurationGraph.reachable.flatMap { configuration ->
+            instant.filter { (_, t) -> t.source in configuration.active }.map { Node(configuration, it.index) }
+        }
     val cycles = mutableListOf<List<Int>>()
     for (start in nodes) {
         // Shortest cycle through start, found breadth-first.
@@ -368,16 +431,23 @@ internal fun StateChartDefinition.pruneInvalidHistory(configuration: StateConfig
     return if (history.size == configuration.history.size) configuration else StateConfiguration(configuration.active, history)
 }
 
-private fun StateChartDefinition.isConsistentHistoryRecord(id: StateId, remembered: Set<StateId>): Boolean {
+private fun StateChartDefinition.isConsistentHistoryRecord(
+    id: StateId,
+    remembered: Set<StateId>,
+): Boolean {
     if (!hasNode(id)) return false
     val history = node(id)
     if (history !is HistoryState) return false
     if (remembered.isEmpty() || remembered.any { !nodeSatisfies(it) { node -> node !is HistoryState } || !isDescendant(it, history.parent) }) return false
     return if (!history.deep) {
-        if (!hasNode(history.parent)) false else when (val parent = node(history.parent)) {
-            is CompoundState -> remembered.size == 1 && node(remembered.single()).parent == parent.id
-            is ParallelState -> remembered == hierarchy.regions.getValue(parent.id).toSet()
-            else -> false
+        if (!hasNode(history.parent)) {
+            false
+        } else {
+            when (val parent = node(history.parent)) {
+                is CompoundState -> remembered.size == 1 && node(remembered.single()).parent == parent.id
+                is ParallelState -> remembered == hierarchy.regions.getValue(parent.id).toSet()
+                else -> false
+            }
         }
     } else {
         val restored = configurationOf(remembered).active.filterTo(linkedSetOf()) { it == history.parent || isDescendant(it, history.parent) }
@@ -386,19 +456,23 @@ private fun StateChartDefinition.isConsistentHistoryRecord(id: StateId, remember
 }
 
 /** Checks a whole configuration, or just the subtree belonging to one history parent. */
-private fun StateChartDefinition.hasConsistentActiveNodes(active: Set<StateId>, root: StateParent = StateParent.Root): Boolean {
+private fun StateChartDefinition.hasConsistentActiveNodes(
+    active: Set<StateId>,
+    root: StateParent = StateParent.Root,
+): Boolean {
     if (root is StateId && root !in active) return false
     for (id in active) {
         if (!hasNode(id)) return false
         val node = node(id)
         val parent = node.parent
         if (id != root && parent is StateId && parent !in active) return false
-        val consistent = when (node) {
-            is AtomicState, is FinalState -> true
-            is CompoundState -> childrenOf(id).count { it.id in active } == 1
-            is ParallelState -> hierarchy.regions[id].orEmpty().all { it in active }
-            is HistoryState -> false
-        }
+        val consistent =
+            when (node) {
+                is AtomicState, is FinalState -> true
+                is CompoundState -> childrenOf(id).count { it.id in active } == 1
+                is ParallelState -> hierarchy.regions[id].orEmpty().all { it in active }
+                is HistoryState -> false
+            }
         if (!consistent) return false
     }
     return root is StateId || childrenOf().count { it.id in active } == 1
@@ -463,8 +537,11 @@ internal fun StateChartDefinition.historyIssues(): List<ValidationIssue> {
         if (node !is HistoryState || !nodeSatisfies(node.parent) { it is CompoundState || it is ParallelState }) continue
         val default = node.default
         if (default !is StateId) continue
-        val valid = nodeSatisfies(default) { target -> target !is HistoryState &&
-            if (node.deep) isDescendant(default, node.parent) else target.parent == node.parent }
+        val valid =
+            nodeSatisfies(default) { target ->
+                target !is HistoryState &&
+                    if (node.deep) isDescendant(default, node.parent) else target.parent == node.parent
+            }
         if (!valid) issues += ValidationIssue.InvalidHistoryDefault(node.id, default)
     }
     return issues

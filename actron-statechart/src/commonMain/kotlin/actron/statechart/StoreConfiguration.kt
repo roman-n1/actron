@@ -1,11 +1,11 @@
 package actron.statechart
 
 import actron.core.Action
+import actron.core.ActronStoreDsl
 import actron.core.AutoStartPolicy
 import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.InternalActronApi
-import actron.core.ActronStoreDsl
 import actron.core.Plugin
 import actron.core.PluginExecutionPolicy
 import actron.core.State
@@ -28,19 +28,31 @@ open class StoreConfiguration<S : State, A : Action, E : Event> internal constru
 ) {
     /** Sets the Store processing context. Command execution retains the MachineStore's own scope. */
     fun coroutineContext(context: CoroutineContext) = delegate.coroutineContext(context)
+
     /** Sets application-owned snapshot persistence; see the adapter's restoration contract. */
     fun stateSaver(saver: StateSaver<S>) = delegate.stateSaver(saver)
+
     /** Handles failures which have not been recovered by the chart. Machines report failures here. */
     fun exceptionHandler(handler: ExceptionHandler) = delegate.exceptionHandler(handler)
+
     /** Selects which implicit triggers start the Store; explicit start is always available. */
     fun autoStartPolicy(policy: AutoStartPolicy) = delegate.autoStartPolicy(policy)
+
     /** Selects plugin execution order. All matching hooks finish before processing continues. */
     fun pluginExecutionPolicy(policy: PluginExecutionPolicy) = delegate.pluginExecutionPolicy(policy)
+
     /** Appends plugins observing the adapter's committed snapshots and inputs. */
-    fun plugin(first: Plugin<S, A, E>, vararg rest: Plugin<S, A, E>) = delegate.plugin(first, *rest)
+    fun plugin(
+        first: Plugin<S, A, E>,
+        vararg rest: Plugin<S, A, E>,
+    ) = delegate.plugin(first, *rest)
+
     /** Appends internal processing-boundary observers for journals and inspectors. */
     @InternalActronApi
-    fun probe(first: StoreProbe<S, A, E>, vararg rest: StoreProbe<S, A, E>) = delegate.probe(first, *rest)
+    fun probe(
+        first: StoreProbe<S, A, E>,
+        vararg rest: StoreProbe<S, A, E>,
+    ) = delegate.probe(first, *rest)
 }
 
 /** Recovery of chart data without access to configuration, timers, or arbitrary state writes. */
@@ -48,10 +60,13 @@ open class StoreConfiguration<S : State, A : Action, E : Event> internal constru
 interface ChartRecoveryScope<C : Any, E : Event, T : Exception> {
     /** The underlying handler scope, for extensions such as `store.message(...)`. */
     val store: StoreScope
+
     /** The failure being handled. */
     val error: T
+
     /** Working context; committed once if this recovery handler completes successfully. */
     var context: C
+
     /** Emits an event immediately, before recovery commits. */
     suspend fun event(event: E)
 }
@@ -73,12 +88,14 @@ class ChartStoreConfiguration<C : Any, A : Action, E : Event> internal construct
         delegate.state<ChartState<C>> {
             recover<T>(dispatcher) {
                 val underlying = this
-                val scope = object : ChartRecoveryScope<C, E, T> {
-                    override val store: StoreScope = underlying
-                    override val error: T = underlying.error
-                    override var context: C = underlying.state.context
-                    override suspend fun event(event: E) = underlying.event(event)
-                }
+                val scope =
+                    object : ChartRecoveryScope<C, E, T> {
+                        override val store: StoreScope = underlying
+                        override val error: T = underlying.error
+                        override var context: C = underlying.state.context
+
+                        override suspend fun event(event: E) = underlying.event(event)
+                    }
                 scope.block()
                 nextState { state.copy(context = scope.context) }
             }

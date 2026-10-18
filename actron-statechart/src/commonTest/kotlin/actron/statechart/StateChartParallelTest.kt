@@ -56,19 +56,29 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartParallelTest {
-
     sealed interface MessengerAction : Action {
         data object Connect : MessengerAction
+
         data object Resume : MessengerAction
+
         data object Reopen : MessengerAction
+
         data object Drop : MessengerAction
+
         data object Restore : MessengerAction
+
         data object GiveUp : MessengerAction
+
         data object Sync : MessengerAction
+
         data object Synced : MessengerAction
+
         data object Open : MessengerAction
+
         data object Escape : MessengerAction
+
         data object Resync : MessengerAction
+
         data object Logout : MessengerAction
     }
 
@@ -80,7 +90,12 @@ class StateChartParallelTest {
 
     sealed interface MessengerState : State {
         data object Offline : MessengerState
-        data class Online(val link: Link, val sync: Syncing, val screen: Screen) : MessengerState
+
+        data class Online(
+            val link: Link,
+            val sync: Syncing,
+            val screen: Screen,
+        ) : MessengerState
     }
 
     sealed interface MessengerEvent : Event
@@ -119,47 +134,70 @@ class StateChartParallelTest {
     private val logout = Transition(online, offline, on<MessengerAction.Logout>("Logout"))
     private val escape = Transition(online, offline, on<MessengerAction.Escape>("Escape"))
 
-    private val chart = StateChartDefinition(
-        initial = offline,
-        states = listOf(
-            AtomicState(offline),
-            ParallelState(online),
-            HistoryState(onlineHistory, parent = online, deep = true),
-            CompoundState(connection, initial = connected, parent = online),
-            AtomicState(connected, parent = connection),
-            AtomicState(reconnecting, parent = connection),
-            CompoundState(sync, initial = idle, parent = online),
-            AtomicState(idle, parent = sync),
-            AtomicState(syncing, parent = sync),
-            AtomicState(paused, parent = sync),
-            CompoundState(chat, initial = inbox, parent = online),
-            HistoryState(chatHistory, parent = chat),
-            AtomicState(inbox, parent = chat),
-            AtomicState(conversation, parent = chat),
-        ),
-        transitions = listOf(
-            connect, resume, reopen, drop, restore, giveUp, startSync, synced, pause, unpause, abandon, open, close, resync, logout, escape,
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = offline,
+            states =
+                listOf(
+                    AtomicState(offline),
+                    ParallelState(online),
+                    HistoryState(onlineHistory, parent = online, deep = true),
+                    CompoundState(connection, initial = connected, parent = online),
+                    AtomicState(connected, parent = connection),
+                    AtomicState(reconnecting, parent = connection),
+                    CompoundState(sync, initial = idle, parent = online),
+                    AtomicState(idle, parent = sync),
+                    AtomicState(syncing, parent = sync),
+                    AtomicState(paused, parent = sync),
+                    CompoundState(chat, initial = inbox, parent = online),
+                    HistoryState(chatHistory, parent = chat),
+                    AtomicState(inbox, parent = chat),
+                    AtomicState(conversation, parent = chat),
+                ),
+            transitions =
+                listOf(
+                    connect,
+                    resume,
+                    reopen,
+                    drop,
+                    restore,
+                    giveUp,
+                    startSync,
+                    synced,
+                    pause,
+                    unpause,
+                    abandon,
+                    open,
+                    close,
+                    resync,
+                    logout,
+                    escape,
+                ),
+        )
 
     private val activeLeavesOf: (MessengerState) -> Set<StateId> = { state ->
         when (state) {
-            MessengerState.Offline -> setOf(offline)
-            is MessengerState.Online -> setOf(
-                when (state.link) {
-                    Link.Connected -> connected
-                    Link.Reconnecting -> reconnecting
-                },
-                when (state.sync) {
-                    Syncing.Idle -> idle
-                    Syncing.Syncing -> syncing
-                    Syncing.Paused -> paused
-                },
-                when (state.screen) {
-                    Screen.Inbox -> inbox
-                    Screen.Conversation -> conversation
-                },
-            )
+            MessengerState.Offline -> {
+                setOf(offline)
+            }
+
+            is MessengerState.Online -> {
+                setOf(
+                    when (state.link) {
+                        Link.Connected -> connected
+                        Link.Reconnecting -> reconnecting
+                    },
+                    when (state.sync) {
+                        Syncing.Idle -> idle
+                        Syncing.Syncing -> syncing
+                        Syncing.Paused -> paused
+                    },
+                    when (state.screen) {
+                        Screen.Inbox -> inbox
+                        Screen.Conversation -> conversation
+                    },
+                )
+            }
         }
     }
 
@@ -174,7 +212,10 @@ class StateChartParallelTest {
     }
 
     /** Steps from [configuration] with [actions]; returns every result. The chart has no guards. */
-    private fun walk(configuration: StateConfiguration, vararg actions: MessengerAction): List<StepResult.Transitioned> {
+    private fun walk(
+        configuration: StateConfiguration,
+        vararg actions: MessengerAction,
+    ): List<StepResult.Transitioned> {
         var current = configuration
         return actions.map { action ->
             (runtime.step(current, MessengerState.Offline, action) as StepResult.Transitioned).also { current = it.configuration }
@@ -284,19 +325,30 @@ class StateChartParallelTest {
         val back = ActionMatcher.of<Small.Back>("Back")
         val deepBack = ActionMatcher.of<Small.DeepBack>("DeepBack")
         val leave = ActionMatcher.of<Small.Leave>("Leave")
-        val twoRegions = StateChartDefinition(
-            initial = p,
-            states = listOf(
-                ParallelState(p), HistoryState(h, parent = p, default = b), HistoryState(d, parent = p, deep = true),
-                CompoundState(a, initial = a1, parent = p), AtomicState(a1, a), AtomicState(a2, a),
-                CompoundState(b, initial = b1, parent = p), AtomicState(b1, b), AtomicState(b2, b),
-                AtomicState(out),
-            ),
-            transitions = listOf(Transition(a1, a2, go), Transition(b1, b2, go), Transition(p, out, leave), Transition(out, h, back), Transition(out, d, deepBack)),
-        )
+        val twoRegions =
+            StateChartDefinition(
+                initial = p,
+                states =
+                    listOf(
+                        ParallelState(p),
+                        HistoryState(h, parent = p, default = b),
+                        HistoryState(d, parent = p, deep = true),
+                        CompoundState(a, initial = a1, parent = p),
+                        AtomicState(a1, a),
+                        AtomicState(a2, a),
+                        CompoundState(b, initial = b1, parent = p),
+                        AtomicState(b1, b),
+                        AtomicState(b2, b),
+                        AtomicState(out),
+                    ),
+                transitions = listOf(Transition(a1, a2, go), Transition(b1, b2, go), Transition(p, out, leave), Transition(out, h, back), Transition(out, d, deepBack)),
+            )
         val runtime = StateChartRuntime(twoRegions, { _: MessengerState -> p })
-        fun step(configuration: StateConfiguration, action: Small) =
-            runtime.step(configuration, MessengerState.Offline, action) as StepResult.Transitioned
+
+        fun step(
+            configuration: StateConfiguration,
+            action: Small,
+        ) = runtime.step(configuration, MessengerState.Offline, action) as StepResult.Transitioned
         val start = runtime.initialConfiguration()
         assertEquals(setOf(p, a, b, a1, b1), start.active)
         // A shallow history with a default region that nothing has recorded yet: B, and A initially.
@@ -312,8 +364,11 @@ class StateChartParallelTest {
 
     sealed interface Small : Action {
         data object Go : Small
+
         data object Back : Small
+
         data object DeepBack : Small
+
         data object Leave : Small
     }
 
@@ -328,11 +383,13 @@ class StateChartParallelTest {
 
     @Test
     fun parallelStateWithFewerThanTwoRegionsIsAWarningTheRuntimeAccepts() {
-        val lonely = chart.copy(
-            states = chart.states.filter { n -> chart.ancestorsOf(n.id).none { it == connection || it == sync } && n.id != connection && n.id != sync } +
-                ParallelState(StateId("Empty"), parent = chat) +
-                HistoryState(StateId("BadDefault"), parent = online, default = inbox),
-        )
+        val lonely =
+            chart.copy(
+                states =
+                    chart.states.filter { n -> chart.ancestorsOf(n.id).none { it == connection || it == sync } && n.id != connection && n.id != sync } +
+                        ParallelState(StateId("Empty"), parent = chat) +
+                        HistoryState(StateId("BadDefault"), parent = online, default = inbox),
+            )
         val issues = lonely.validate()
         assertEquals(
             listOf(
@@ -358,7 +415,8 @@ class StateChartParallelTest {
 
     @Test
     fun mermaidDrawsRegionsInSectionsAndTransitionsBetweenThemOutside() {
-        val expected = """
+        val expected =
+            """
             stateDiagram-v2
                 [*] --> Offline
                 state Online {
@@ -399,25 +457,28 @@ class StateChartParallelTest {
                 Conversation --> Syncing : Resync
                 Online --> Offline : Logout
                 Online --> Offline : Escape
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(expected, chart.toMermaid())
     }
 
     @Test
     fun mermaidDrawsAtomicAndNestedParallelRegionsAndAParallelStateWithoutChildren() {
-        val odd = StateChartDefinition(
-            initial = StateId("P"),
-            states = listOf(
-                ParallelState(StateId("P")),
-                AtomicState(StateId("Beacon"), parent = StateId("P")),
-                ParallelState(StateId("inner p"), parent = StateId("P")),
-                AtomicState(StateId("x"), parent = StateId("inner p")),
-                AtomicState(StateId("y"), parent = StateId("inner p")),
-                ParallelState(StateId("Bare")),
-            ),
-            transitions = listOf(Transition(StateId("x"), StateId("y"), ActionMatcher("Go")), Transition(StateId("P"), StateId("Bare"), ActionMatcher("Stop"))),
-        )
-        val expected = """
+        val odd =
+            StateChartDefinition(
+                initial = StateId("P"),
+                states =
+                    listOf(
+                        ParallelState(StateId("P")),
+                        AtomicState(StateId("Beacon"), parent = StateId("P")),
+                        ParallelState(StateId("inner p"), parent = StateId("P")),
+                        AtomicState(StateId("x"), parent = StateId("inner p")),
+                        AtomicState(StateId("y"), parent = StateId("inner p")),
+                        ParallelState(StateId("Bare")),
+                    ),
+                transitions = listOf(Transition(StateId("x"), StateId("y"), ActionMatcher("Go")), Transition(StateId("P"), StateId("Bare"), ActionMatcher("Stop"))),
+            )
+        val expected =
+            """
             stateDiagram-v2
                 [*] --> P
                 state P {
@@ -431,7 +492,7 @@ class StateChartParallelTest {
                 }
                 x --> y : Go
                 P --> Bare : Stop
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(expected, odd.toMermaid())
     }
 
@@ -456,7 +517,13 @@ class StateChartParallelTest {
         // Replayed on the runtime, one action per transition, it ends in the same leaves.
         var configuration = runtime.initialConfiguration()
         for (action in listOf(MessengerAction.Connect, MessengerAction.Sync, MessengerAction.Drop)) configuration = walk(configuration, action).single().configuration
-        assertEquals(kotlin.test.assertNotNull(path).activeLeaves.last(), chart.activeLeaves(configuration))
+        assertEquals(
+            kotlin.test
+                .assertNotNull(path)
+                .activeLeaves
+                .last(),
+            chart.activeLeaves(configuration),
+        )
         val coverage = chart.transitionCoveragePaths()
         assertEquals(chart.transitions.toSet(), coverage.flatMap { it.transitions }.toSet())
         assertTrue(coverage.all { it.activeLeaves.size == it.transitions.size && it.leaves == it.activeLeaves.map { l -> l.first() } })
@@ -480,88 +547,104 @@ class StateChartParallelTest {
      * A Store written by hand; with [forgetful], Resync moves Connection and Sync but leaves the chat
      * open; Connect opens [firstScreen].
      */
-    private fun createStore(forgetful: Boolean, firstScreen: Screen = Screen.Inbox): Store<MessengerState, MessengerAction, MessengerEvent> = Store(MessengerState.Offline) {
-        coroutineContext(Dispatchers.Unconfined)
-        state<MessengerState.Offline> {
-            action<MessengerAction.Connect> { nextState { MessengerState.Online(Link.Connected, Syncing.Idle, firstScreen) } }
+    private fun createStore(
+        forgetful: Boolean,
+        firstScreen: Screen = Screen.Inbox,
+    ): Store<MessengerState, MessengerAction, MessengerEvent> =
+        Store(MessengerState.Offline) {
+            coroutineContext(Dispatchers.Unconfined)
+            state<MessengerState.Offline> {
+                action<MessengerAction.Connect> { nextState { MessengerState.Online(Link.Connected, Syncing.Idle, firstScreen) } }
+            }
+            state<MessengerState.Online> {
+                action<MessengerAction.Drop> {
+                    nextState { state.copy(link = Link.Reconnecting, sync = if (state.sync == Syncing.Syncing) Syncing.Paused else state.sync) }
+                }
+                action<MessengerAction.Sync> { if (state.sync == Syncing.Idle) nextState { state.copy(sync = Syncing.Syncing) } }
+                action<MessengerAction.Open> { nextState { state.copy(screen = Screen.Conversation) } }
+                action<MessengerAction.Escape> {
+                    nextState { if (state.screen == Screen.Conversation) state.copy(screen = Screen.Inbox) else MessengerState.Offline }
+                }
+                action<MessengerAction.Resync> {
+                    nextState { MessengerState.Online(Link.Connected, Syncing.Syncing, if (forgetful) state.screen else Screen.Inbox) }
+                }
+                action<MessengerAction.Logout> { nextState { MessengerState.Offline } }
+            }
         }
-        state<MessengerState.Online> {
-            action<MessengerAction.Drop> {
-                nextState { state.copy(link = Link.Reconnecting, sync = if (state.sync == Syncing.Syncing) Syncing.Paused else state.sync) }
-            }
-            action<MessengerAction.Sync> { if (state.sync == Syncing.Idle) nextState { state.copy(sync = Syncing.Syncing) } }
-            action<MessengerAction.Open> { nextState { state.copy(screen = Screen.Conversation) } }
-            action<MessengerAction.Escape> {
-                nextState { if (state.screen == Screen.Conversation) state.copy(screen = Screen.Inbox) else MessengerState.Offline }
-            }
-            action<MessengerAction.Resync> {
-                nextState { MessengerState.Online(Link.Connected, Syncing.Syncing, if (forgetful) state.screen else Screen.Inbox) }
-            }
-            action<MessengerAction.Logout> { nextState { MessengerState.Offline } }
-        }
-    }
 
-    private val script = listOf(
-        MessengerAction.Connect, MessengerAction.Sync, MessengerAction.Drop, MessengerAction.Open, MessengerAction.Escape,
-        MessengerAction.Open, MessengerAction.Resync, MessengerAction.Logout,
-    )
-
-    @Test
-    fun storeThatMovesEveryRegionAsTheChartSaysConforms() = runTest {
-        val conformance = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart, activeLeavesOf)
-        val store = createStore(forgetful = false).patch { plugin(conformance) }
-        script.forEach { store.dispatchAndAwait(it) }
-        assertEquals(MessengerState.Offline, store.currentState)
-        assertEquals(emptyList(), conformance.violations)
-        // Drop changed two regions: both transitions are covered, in declaration order of the old leaves.
-        assertEquals(listOf(connect, startSync, drop, pause, open, close, resync, logout), conformance.coveredTransitions.toList())
-    }
-
-    @Test
-    fun storeThatKeepsARegionTheChartResetsIsReported() = runTest {
-        val conformance = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart, activeLeavesOf)
-        val store = createStore(forgetful = true).patch { plugin(conformance) }
-        script.forEach { store.dispatchAndAwait(it) }
-        // Resync exits and re-enters Online, so the chat must be back in the inbox. The two regions
-        // that did move look like Restore, not Resync.
-        assertEquals(
-            listOf(
-                ConformanceViolation.UnexpectedTrigger(reconnecting, connected, MessengerAction.Resync),
-                ConformanceViolation.UnexpectedTrigger(paused, syncing, MessengerAction.Resync),
-            ),
-            conformance.violations,
+    private val script =
+        listOf(
+            MessengerAction.Connect,
+            MessengerAction.Sync,
+            MessengerAction.Drop,
+            MessengerAction.Open,
+            MessengerAction.Escape,
+            MessengerAction.Open,
+            MessengerAction.Resync,
+            MessengerAction.Logout,
         )
-    }
 
     @Test
-    fun newLeafThatNothingExplainsIsReportedFromTheClosestOldLeaf() = runTest {
-        // The Store reports Online with only two regions' leaves, then adds the third one.
-        val two = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart) { s ->
-            activeLeavesOf(s).let { leaves -> if (s is MessengerState.Online && s.screen == Screen.Conversation) leaves else leaves - inbox }
+    fun storeThatMovesEveryRegionAsTheChartSaysConforms() =
+        runTest {
+            val conformance = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart, activeLeavesOf)
+            val store = createStore(forgetful = false).patch { plugin(conformance) }
+            script.forEach { store.dispatchAndAwait(it) }
+            assertEquals(MessengerState.Offline, store.currentState)
+            assertEquals(emptyList(), conformance.violations)
+            // Drop changed two regions: both transitions are covered, in declaration order of the old leaves.
+            assertEquals(listOf(connect, startSync, drop, pause, open, close, resync, logout), conformance.coveredTransitions.toList())
         }
-        val store = createStore(forgetful = false).patch { plugin(two) }
-        listOf(MessengerAction.Connect, MessengerAction.Open, MessengerAction.Escape).forEach { store.dispatchAndAwait(it) }
-        // Connected and Idle are equally close (both share Online with it); the first declared is named.
-        // Then a leaf disappears without a new one: it is reported with the closest remaining leaf.
-        assertEquals(
-            listOf(
-                ConformanceViolation.UndeclaredTransition(connected, conversation, MessengerAction.Open),
-                ConformanceViolation.UndeclaredTransition(conversation, connected, MessengerAction.Escape),
-            ),
-            two.violations,
-        )
-    }
 
     @Test
-    fun changeOnlyAnotherTransitionExplainsIsAnUnexpectedTrigger() = runTest {
-        // Connect must enter the inbox; only Resume, through the deep history the plugin has not
-        // seen record anything, could enter the conversation.
-        val conformance = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart, activeLeavesOf)
-        val store = createStore(forgetful = false, firstScreen = Screen.Conversation).patch { plugin(conformance) }
-        store.dispatchAndAwait(MessengerAction.Connect)
-        // Offline shares no ancestor with any new leaf, so the first new leaf is named.
-        assertEquals(listOf(ConformanceViolation.UnexpectedTrigger(offline, connected, MessengerAction.Connect)), conformance.violations)
-    }
+    fun storeThatKeepsARegionTheChartResetsIsReported() =
+        runTest {
+            val conformance = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart, activeLeavesOf)
+            val store = createStore(forgetful = true).patch { plugin(conformance) }
+            script.forEach { store.dispatchAndAwait(it) }
+            // Resync exits and re-enters Online, so the chat must be back in the inbox. The two regions
+            // that did move look like Restore, not Resync.
+            assertEquals(
+                listOf(
+                    ConformanceViolation.UnexpectedTrigger(reconnecting, connected, MessengerAction.Resync),
+                    ConformanceViolation.UnexpectedTrigger(paused, syncing, MessengerAction.Resync),
+                ),
+                conformance.violations,
+            )
+        }
+
+    @Test
+    fun newLeafThatNothingExplainsIsReportedFromTheClosestOldLeaf() =
+        runTest {
+            // The Store reports Online with only two regions' leaves, then adds the third one.
+            val two =
+                StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart) { s ->
+                    activeLeavesOf(s).let { leaves -> if (s is MessengerState.Online && s.screen == Screen.Conversation) leaves else leaves - inbox }
+                }
+            val store = createStore(forgetful = false).patch { plugin(two) }
+            listOf(MessengerAction.Connect, MessengerAction.Open, MessengerAction.Escape).forEach { store.dispatchAndAwait(it) }
+            // Connected and Idle are equally close (both share Online with it); the first declared is named.
+            // Then a leaf disappears without a new one: it is reported with the closest remaining leaf.
+            assertEquals(
+                listOf(
+                    ConformanceViolation.UndeclaredTransition(connected, conversation, MessengerAction.Open),
+                    ConformanceViolation.UndeclaredTransition(conversation, connected, MessengerAction.Escape),
+                ),
+                two.violations,
+            )
+        }
+
+    @Test
+    fun changeOnlyAnotherTransitionExplainsIsAnUnexpectedTrigger() =
+        runTest {
+            // Connect must enter the inbox; only Resume, through the deep history the plugin has not
+            // seen record anything, could enter the conversation.
+            val conformance = StateChartConformance.withActiveLeaves<MessengerState, MessengerAction, MessengerEvent>(chart, activeLeavesOf)
+            val store = createStore(forgetful = false, firstScreen = Screen.Conversation).patch { plugin(conformance) }
+            store.dispatchAndAwait(MessengerAction.Connect)
+            // Offline shares no ancestor with any new leaf, so the first new leaf is named.
+            assertEquals(listOf(ConformanceViolation.UnexpectedTrigger(offline, connected, MessengerAction.Connect)), conformance.violations)
+        }
 
     // endregion
 }

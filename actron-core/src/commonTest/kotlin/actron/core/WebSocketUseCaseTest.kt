@@ -10,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/**
+/*
  * This test case was generated with assistance from Anthropic's Claude AI.
  */
 
@@ -40,7 +40,6 @@ import kotlin.test.assertIs
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class WebSocketUseCaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     // Domain models
@@ -53,14 +52,20 @@ class WebSocketUseCaseTest {
     // WebSocket service interfaces
     interface WebSocketService {
         fun connect()
+
         fun disconnect()
+
         val connectionEvents: Flow<ConnectionEvent>
         val messages: Flow<WebSocketMessage>
 
         sealed interface ConnectionEvent {
             data object Connected : ConnectionEvent
+
             data object Disconnected : ConnectionEvent
-            data class Error(val throwable: Throwable) : ConnectionEvent
+
+            data class Error(
+                val throwable: Throwable,
+            ) : ConnectionEvent
         }
     }
 
@@ -107,16 +112,21 @@ class WebSocketUseCaseTest {
             val messages: List<WebSocketMessage> = emptyList(),
         ) : AppState
 
-        data class Error(val error: Throwable) : AppState
+        data class Error(
+            val error: Throwable,
+        ) : AppState
 
         enum class ConnectionStatus {
-            CONNECTING, CONNECTED, DISCONNECTING
+            CONNECTING,
+            CONNECTED,
+            DISCONNECTING,
         }
     }
 
     // Actron Action definitions
     sealed interface AppAction : Action {
         data object Connect : AppAction
+
         data object Disconnect : AppAction
     }
 
@@ -201,110 +211,113 @@ class WebSocketUseCaseTest {
     }
 
     @Test
-    fun webSocket_shouldConnectAndHandleMessages() = runTest(testDispatcher) {
-        // Mock implementation of WebSocket service
-        val mockWebSocket = MockWebSocketService()
+    fun webSocket_shouldConnectAndHandleMessages() =
+        runTest(testDispatcher) {
+            // Mock implementation of WebSocket service
+            val mockWebSocket = MockWebSocketService()
 
-        // Create store with disconnected state
-        val store = createTestStore(mockWebSocket)
+            // Create store with disconnected state
+            val store = createTestStore(mockWebSocket)
 
-        // Initial state should be Disconnected
-        assertIs<AppState.Disconnected>(store.currentState)
+            // Initial state should be Disconnected
+            assertIs<AppState.Disconnected>(store.currentState)
 
-        // Connect to WebSocket
-        store.dispatch(AppAction.Connect)
+            // Connect to WebSocket
+            store.dispatch(AppAction.Connect)
 
-        // State should change to Connected with CONNECTING status
-        val connectingState = store.currentState
-        assertIs<AppState.Connected>(connectingState)
-        assertEquals(AppState.ConnectionStatus.CONNECTING, connectingState.connectionStatus)
+            // State should change to Connected with CONNECTING status
+            val connectingState = store.currentState
+            assertIs<AppState.Connected>(connectingState)
+            assertEquals(AppState.ConnectionStatus.CONNECTING, connectingState.connectionStatus)
 
-        // Simulate connection success
-        mockWebSocket.simulateConnectionEstablished()
+            // Simulate connection success
+            mockWebSocket.simulateConnectionEstablished()
 
-        // State should change to Connected with CONNECTED status
-        val connectedState = store.currentState
-        assertIs<AppState.Connected>(connectedState)
-        assertEquals(AppState.ConnectionStatus.CONNECTED, connectedState.connectionStatus)
+            // State should change to Connected with CONNECTED status
+            val connectedState = store.currentState
+            assertIs<AppState.Connected>(connectedState)
+            assertEquals(AppState.ConnectionStatus.CONNECTED, connectedState.connectionStatus)
 
-        // Simulate receiving a message
-        val testMessage = WebSocketMessage("test-id", "Test message", 1234567890L) // Using fixed timestamp for test
-        mockWebSocket.simulateMessageReceived(testMessage)
+            // Simulate receiving a message
+            val testMessage = WebSocketMessage("test-id", "Test message", 1234567890L) // Using fixed timestamp for test
+            mockWebSocket.simulateMessageReceived(testMessage)
 
-        // State should update with the latest message
-        val stateWithMessage = store.currentState
-        assertIs<AppState.Connected>(stateWithMessage)
-        assertEquals(testMessage, stateWithMessage.messages.last())
-        assertEquals(AppState.ConnectionStatus.CONNECTED, stateWithMessage.connectionStatus)
+            // State should update with the latest message
+            val stateWithMessage = store.currentState
+            assertIs<AppState.Connected>(stateWithMessage)
+            assertEquals(testMessage, stateWithMessage.messages.last())
+            assertEquals(AppState.ConnectionStatus.CONNECTED, stateWithMessage.connectionStatus)
 
-        // Disconnect
-        store.dispatch(AppAction.Disconnect)
+            // Disconnect
+            store.dispatch(AppAction.Disconnect)
 
-        // State should first change to DISCONNECTING
-        val disconnectingState = store.currentState
-        assertIs<AppState.Connected>(disconnectingState)
-        assertEquals(AppState.ConnectionStatus.DISCONNECTING, disconnectingState.connectionStatus)
+            // State should first change to DISCONNECTING
+            val disconnectingState = store.currentState
+            assertIs<AppState.Connected>(disconnectingState)
+            assertEquals(AppState.ConnectionStatus.DISCONNECTING, disconnectingState.connectionStatus)
 
-        // After the disconnect event is processed, state should return to Disconnected
-        mockWebSocket.simulateConnectionClosed()
+            // After the disconnect event is processed, state should return to Disconnected
+            mockWebSocket.simulateConnectionClosed()
 
-        // State should return to Disconnected
-        assertIs<AppState.Disconnected>(store.currentState)
-    }
-
-    @Test
-    fun webSocket_shouldHandleConnectionFailures() = runTest(testDispatcher) {
-        // Mock implementation of WebSocket service
-        val mockWebSocket = MockWebSocketService()
-
-        // Create store with disconnected state
-        val store = createTestStore(mockWebSocket)
-
-        // Connect to WebSocket
-        store.dispatch(AppAction.Connect)
-
-        // Verify we're in CONNECTING status
-        val connectingState = store.currentState
-        assertIs<AppState.Connected>(connectingState)
-        assertEquals(AppState.ConnectionStatus.CONNECTING, connectingState.connectionStatus)
-
-        // Simulate connection failure
-        val error = Exception("Connection refused")
-        mockWebSocket.simulateConnectionError(error)
-
-        // State should change to Error
-        val errorState = store.currentState
-        assertIs<AppState.Error>(errorState)
-        assertEquals(error, errorState.error)
-    }
+            // State should return to Disconnected
+            assertIs<AppState.Disconnected>(store.currentState)
+        }
 
     @Test
-    fun webSocket_shouldHandleDisconnectDuringConnecting() = runTest(testDispatcher) {
-        // Mock implementation of WebSocket service
-        val mockWebSocket = MockWebSocketService()
+    fun webSocket_shouldHandleConnectionFailures() =
+        runTest(testDispatcher) {
+            // Mock implementation of WebSocket service
+            val mockWebSocket = MockWebSocketService()
 
-        // Create store with disconnected state
-        val store = createTestStore(mockWebSocket)
+            // Create store with disconnected state
+            val store = createTestStore(mockWebSocket)
 
-        // Connect to WebSocket
-        store.dispatch(AppAction.Connect)
+            // Connect to WebSocket
+            store.dispatch(AppAction.Connect)
 
-        // Verify we're in CONNECTING status
-        val connectingState = store.currentState
-        assertIs<AppState.Connected>(connectingState)
-        assertEquals(AppState.ConnectionStatus.CONNECTING, connectingState.connectionStatus)
+            // Verify we're in CONNECTING status
+            val connectingState = store.currentState
+            assertIs<AppState.Connected>(connectingState)
+            assertEquals(AppState.ConnectionStatus.CONNECTING, connectingState.connectionStatus)
 
-        // Disconnect while still connecting
-        store.dispatch(AppAction.Disconnect)
+            // Simulate connection failure
+            val error = Exception("Connection refused")
+            mockWebSocket.simulateConnectionError(error)
 
-        // State should first change to DISCONNECTING
-        val disconnectingState = store.currentState
-        assertIs<AppState.Connected>(disconnectingState)
-        assertEquals(AppState.ConnectionStatus.DISCONNECTING, disconnectingState.connectionStatus)
+            // State should change to Error
+            val errorState = store.currentState
+            assertIs<AppState.Error>(errorState)
+            assertEquals(error, errorState.error)
+        }
 
-        // After the disconnect event is processed, state should return to Disconnected
-        mockWebSocket.simulateConnectionClosed()
+    @Test
+    fun webSocket_shouldHandleDisconnectDuringConnecting() =
+        runTest(testDispatcher) {
+            // Mock implementation of WebSocket service
+            val mockWebSocket = MockWebSocketService()
 
-        assertIs<AppState.Disconnected>(store.currentState)
-    }
+            // Create store with disconnected state
+            val store = createTestStore(mockWebSocket)
+
+            // Connect to WebSocket
+            store.dispatch(AppAction.Connect)
+
+            // Verify we're in CONNECTING status
+            val connectingState = store.currentState
+            assertIs<AppState.Connected>(connectingState)
+            assertEquals(AppState.ConnectionStatus.CONNECTING, connectingState.connectionStatus)
+
+            // Disconnect while still connecting
+            store.dispatch(AppAction.Disconnect)
+
+            // State should first change to DISCONNECTING
+            val disconnectingState = store.currentState
+            assertIs<AppState.Connected>(disconnectingState)
+            assertEquals(AppState.ConnectionStatus.DISCONNECTING, disconnectingState.connectionStatus)
+
+            // After the disconnect event is processed, state should return to Disconnected
+            mockWebSocket.simulateConnectionClosed()
+
+            assertIs<AppState.Disconnected>(store.currentState)
+        }
 }

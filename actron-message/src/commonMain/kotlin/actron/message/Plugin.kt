@@ -9,8 +9,8 @@ import actron.core.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.isActive
 
 /**
  * Creates a plugin that subscribes to Actron's shared message bus when the Store starts.
@@ -29,9 +29,12 @@ import kotlinx.coroutines.flow.onSubscription
  * @param block Function to process received messages with [PluginLaunchScope] as receiver
  * @return Plugin that processes shared messages
  */
-fun <S : State, A : Action, E : Event> receiveMessages(block: suspend PluginLaunchScope<S, A>.(message: Message) -> Unit): Plugin<S, A, E> {
-    return object : Plugin<S, A, E> {
-        override suspend fun onStart(scope: PluginScope<S, A>, state: S) {
+fun <S : State, A : Action, E : Event> receiveMessages(block: suspend PluginLaunchScope<S, A>.(message: Message) -> Unit): Plugin<S, A, E> =
+    object : Plugin<S, A, E> {
+        override suspend fun onStart(
+            scope: PluginScope<S, A>,
+            state: S,
+        ) {
             val subscribed = CompletableDeferred<Unit>()
             scope.launch {
                 MessageHub.messages
@@ -53,4 +56,3 @@ fun <S : State, A : Action, E : Event> receiveMessages(block: suspend PluginLaun
             subscribed.await()
         }
     }
-}

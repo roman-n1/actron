@@ -14,31 +14,44 @@ import kotlin.test.assertEquals
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class StoreConcurrentTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     sealed interface AppState : State {
-        data class Initial(val count: Int) : AppState
-        data class Processing(val count: Int) : AppState
-        data class Result(val count: Int) : AppState
+        data class Initial(
+            val count: Int,
+        ) : AppState
+
+        data class Processing(
+            val count: Int,
+        ) : AppState
+
+        data class Result(
+            val count: Int,
+        ) : AppState
     }
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
+
         data object Decrement : AppAction
+
         data object DelayedIncrement : AppAction
+
         data object RequestResult : AppAction
     }
 
     sealed interface AppEvent : Event {
         data object Processing : AppEvent
-        data class Completed(val finalCount: Int) : AppEvent
+
+        data class Completed(
+            val finalCount: Int,
+        ) : AppEvent
     }
 
     private fun createTestStore(
         initialState: AppState,
-    ): Store<AppState, AppAction, AppEvent> {
-        return Store(initialState) {
+    ): Store<AppState, AppAction, AppEvent> =
+        Store(initialState) {
             coroutineContext(Dispatchers.Unconfined)
 
             state<AppState.Initial> {
@@ -86,66 +99,69 @@ class StoreConcurrentTest {
                 }
             }
         }
-    }
 
     @Test
-    fun concurrentActions_shouldHandleRaceConditions() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Initial(0))
+    fun concurrentActions_shouldHandleRaceConditions() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Initial(0))
 
-        // Launch multiple concurrent actions
-        val jobs = List(10) { index ->
-            launch {
-                if (index % 2 == 0) {
-                    store.dispatch(AppAction.Increment)
-                } else {
-                    store.dispatch(AppAction.Decrement)
+            // Launch multiple concurrent actions
+            val jobs =
+                List(10) { index ->
+                    launch {
+                        if (index % 2 == 0) {
+                            store.dispatch(AppAction.Increment)
+                        } else {
+                            store.dispatch(AppAction.Decrement)
+                        }
+                    }
                 }
+
+            jobs.forEach { it.join() }
+
+            // Verify final state of counter
+            when (val finalState = store.currentState) {
+                is AppState.Initial -> assertEquals(0, finalState.count)
+                is AppState.Result -> assertEquals(0, finalState.count)
+                else -> throw AssertionError("Unexpected state type: ${finalState::class.simpleName}")
             }
         }
 
-        jobs.forEach { it.join() }
-
-        // Verify final state of counter
-        when (val finalState = store.currentState) {
-            is AppState.Initial -> assertEquals(0, finalState.count)
-            is AppState.Result -> assertEquals(0, finalState.count)
-            else -> throw AssertionError("Unexpected state type: ${finalState::class.simpleName}")
-        }
-    }
-
     @Test
-    fun concurrentStateChanges_shouldPreserveMutexLocking() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Initial(0))
+    fun concurrentStateChanges_shouldPreserveMutexLocking() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Initial(0))
 
-        // Track emitted events to verify ordering
-        val events = mutableListOf<AppEvent>()
-        store.collectEvent { event ->
-            events.add(event)
+            // Track emitted events to verify ordering
+            val events = mutableListOf<AppEvent>()
+            store.collectEvent { event ->
+                events.add(event)
+            }
+
+            // First action triggers a state change with a delay
+            val delayedJob =
+                launch {
+                    store.dispatch(AppAction.DelayedIncrement)
+                }
+
+            // Give time for first dispatch to be processed
+            kotlinx.coroutines.yield()
+
+            // Second action should wait for the first to complete
+            store.dispatch(AppAction.RequestResult)
+
+            delayedJob.join()
+
+            // Allow events to be collected
+            kotlinx.coroutines.yield()
+
+            // Verify event emission - we should at least have the Processing event
+            assertEquals(1, events.size, "Should have at least the Processing event")
+            assertEquals(AppEvent.Processing, events[0])
+
+            // If the completed event was emitted, check its value
+            if (events.size > 1) {
+                assertEquals(AppEvent.Completed(1), events[1])
+            }
         }
-
-        // First action triggers a state change with a delay
-        val delayedJob = launch {
-            store.dispatch(AppAction.DelayedIncrement)
-        }
-
-        // Give time for first dispatch to be processed
-        kotlinx.coroutines.yield()
-
-        // Second action should wait for the first to complete
-        store.dispatch(AppAction.RequestResult)
-
-        delayedJob.join()
-
-        // Allow events to be collected
-        kotlinx.coroutines.yield()
-
-        // Verify event emission - we should at least have the Processing event
-        assertEquals(1, events.size, "Should have at least the Processing event")
-        assertEquals(AppEvent.Processing, events[0])
-
-        // If the completed event was emitted, check its value
-        if (events.size > 1) {
-            assertEquals(AppEvent.Completed(1), events[1])
-        }
-    }
 }

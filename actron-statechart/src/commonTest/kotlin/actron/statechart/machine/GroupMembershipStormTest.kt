@@ -56,123 +56,139 @@ import kotlin.time.TestTimeSource
  * ```
  */
 class GroupMembershipStormTest {
-
-    data class PickerCtx(val picks: List<String> = emptyList())
+    data class PickerCtx(
+        val picks: List<String> = emptyList(),
+    )
 
     sealed interface PickerAct : Action {
-        data class Pick(val name: String) : PickerAct
+        data class Pick(
+            val name: String,
+        ) : PickerAct
     }
 
     sealed interface PickerEv : Event {
-        data class Picked(val name: String) : PickerEv
+        data class Picked(
+            val name: String,
+        ) : PickerEv
     }
 
-    data class RootCtx(val names: List<String> = emptyList())
+    data class RootCtx(
+        val names: List<String> = emptyList(),
+    )
 
     sealed interface RootAct : Action {
-        data class Apply(val name: String) : RootAct
+        data class Apply(
+            val name: String,
+        ) : RootAct
     }
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
+
     private fun chart(matcher: ActionMatcher) = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, matcher, effect = actron.statechart.EffectKey("remember"))))
 
-    private val picker = Machine<PickerCtx, PickerAct, Nothing, PickerEv>(DefinitionId("picker"), DefinitionVersion("1"), chart(ActionMatcher.of<PickerAct.Pick>("Pick"))) {
-        effect("remember") { c, a -> c.copy(picks = c.picks + (a as PickerAct.Pick).name) }
-        onEnter(idle) { if (context.picks.isNotEmpty()) event(PickerEv.Picked(context.picks.last())) }
-    }
+    private val picker =
+        Machine<PickerCtx, PickerAct, Nothing, PickerEv>(DefinitionId("picker"), DefinitionVersion("1"), chart(ActionMatcher.of<PickerAct.Pick>("Pick"))) {
+            effect("remember") { c, a -> c.copy(picks = c.picks + (a as PickerAct.Pick).name) }
+            onEnter(idle) { if (context.picks.isNotEmpty()) event(PickerEv.Picked(context.picks.last())) }
+        }
 
-    private val rootMachine = Machine<RootCtx, RootAct, Nothing, Nothing>(DefinitionId("root"), DefinitionVersion("1"), chart(ActionMatcher.of<RootAct.Apply>("Apply"))) {
-        effect("remember") { c, a -> c.copy(names = c.names + (a as RootAct.Apply).name) }
-    }
+    private val rootMachine =
+        Machine<RootCtx, RootAct, Nothing, Nothing>(DefinitionId("root"), DefinitionVersion("1"), chart(ActionMatcher.of<RootAct.Apply>("Apply"))) {
+            effect("remember") { c, a -> c.copy(names = c.names + (a as RootAct.Apply).name) }
+        }
 
     private val pickerId = StoreInstanceId("picker-1")
     private val rootId = StoreInstanceId("root-1")
 
     @Test
-    fun aReceiverThatClosesAndComesBack_underAStorm_takesOrDropsEveryDeliveredMessage_exactlyOnce() = runTest {
-        val executionScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val session = RecordingSession(backgroundScope, id = RuntimeSessionId("storm"), group = MachineGroupId("g"), timeSource = TestTimeSource())
-        val group = MachineGroup(session)
-        val pickerMember = group.member<PickerCtx, PickerAct, Nothing, PickerEv>(pickerId)
-        val rootMember = group.member<RootCtx, RootAct, Nothing, Nothing>(rootId)
-        group.route(pickerMember, rootMember) { picked: PickerEv, carry -> (picked as? PickerEv.Picked)?.let { carry(RootAct.Apply(it.name)) } }
-        val pickerStore = MachineStore(picker, PickerCtx(), CommandHandler<Nothing, PickerAct> { _, _ -> }, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(pickerMember)) {
-            exceptionHandler(ExceptionHandler.Ignore)
-        }
-        pickerMember.attach(pickerStore)
-        pickerStore.start()
-        val roots = mutableListOf<MachineStore<RootCtx, RootAct, Nothing, Nothing>>()
-        val closedRoots = mutableListOf<CompletableDeferred<Unit>>()
-        fun newRoot() {
-            val closed = CompletableDeferred<Unit>()
-            closedRoots += closed
-            val store = MachineStore(rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(rootMember)) {
-                exceptionHandler(ExceptionHandler.Ignore)
-                probe(StoreProbe { if (it === StoreTrace.StoreClosed) closed.complete(Unit) })
-            }
-            rootMember.attach(store)
-            store.start()
-            roots += store
-        }
-        newRoot()
-        val senders = 4
-        val perSender = 60
-        val recreations = 20
-        var cuts = 0
-        var failedCuts = 0
+    fun aReceiverThatClosesAndComesBack_underAStorm_takesOrDropsEveryDeliveredMessage_exactlyOnce() =
+        runTest {
+            val executionScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val session = RecordingSession(backgroundScope, id = RuntimeSessionId("storm"), group = MachineGroupId("g"), timeSource = TestTimeSource())
+            val group = MachineGroup(session)
+            val pickerMember = group.member<PickerCtx, PickerAct, Nothing, PickerEv>(pickerId)
+            val rootMember = group.member<RootCtx, RootAct, Nothing, Nothing>(rootId)
+            group.route(pickerMember, rootMember) { picked: PickerEv, carry -> (picked as? PickerEv.Picked)?.let { carry(RootAct.Apply(it.name)) } }
+            val pickerStore =
+                MachineStore(picker, PickerCtx(), CommandHandler<Nothing, PickerAct> { _, _ -> }, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(pickerMember)) {
+                    exceptionHandler(ExceptionHandler.Ignore)
+                }
+            pickerMember.attach(pickerStore)
+            pickerStore.start()
+            val roots = mutableListOf<MachineStore<RootCtx, RootAct, Nothing, Nothing>>()
+            val closedRoots = mutableListOf<CompletableDeferred<Unit>>()
 
-        withContext(Dispatchers.Default) {
-            coroutineScope {
-                repeat(senders) { sender ->
+            fun newRoot() {
+                val closed = CompletableDeferred<Unit>()
+                closedRoots += closed
+                val store =
+                    MachineStore(rootMachine, RootCtx(), CommandHandler<Nothing, RootAct> { _, _ -> }, executionScope, coroutineContext = Dispatchers.Default, observers = listOf(rootMember)) {
+                        exceptionHandler(ExceptionHandler.Ignore)
+                        probe(StoreProbe { if (it === StoreTrace.StoreClosed) closed.complete(Unit) })
+                    }
+                rootMember.attach(store)
+                store.start()
+                roots += store
+            }
+            newRoot()
+            val senders = 4
+            val perSender = 60
+            val recreations = 20
+            var cuts = 0
+            var failedCuts = 0
+
+            withContext(Dispatchers.Default) {
+                coroutineScope {
+                    repeat(senders) { sender ->
+                        launch {
+                            repeat(perSender) { index ->
+                                pickerStore.dispatch(PickerAct.Pick("$sender-$index"))
+                                if (index % 5 == 0) delay(1.milliseconds)
+                            }
+                        }
+                    }
                     launch {
-                        repeat(perSender) { index ->
-                            pickerStore.dispatch(PickerAct.Pick("$sender-$index"))
-                            if (index % 5 == 0) delay(1.milliseconds)
+                        repeat(recreations) { round ->
+                            delay(Random.nextLong(0, 4).milliseconds)
+                            val current = roots.last()
+                            // Every other time the member leaves first, and its store decides what
+                            // it holds meanwhile; otherwise the store closes while attached.
+                            if (round % 2 == 0) rootMember.detach()
+                            current.close()
+                            newRoot()
+                        }
+                    }
+                    launch {
+                        repeat(10) {
+                            if (group.checkpoint(5.seconds) !is actron.statechart.machine.GroupCut.Ready) failedCuts++ else cuts++
+                            delay(Random.nextLong(0, 3).milliseconds)
                         }
                     }
                 }
-                launch {
-                    repeat(recreations) { round ->
-                        delay(Random.nextLong(0, 4).milliseconds)
-                        val current = roots.last()
-                        // Every other time the member leaves first, and its store decides what
-                        // it holds meanwhile; otherwise the store closes while attached.
-                        if (round % 2 == 0) rootMember.detach()
-                        current.close()
-                        newRoot()
-                    }
-                }
-                launch {
-                    repeat(10) {
-                        if (group.checkpoint(5.seconds) !is actron.statechart.machine.GroupCut.Ready) failedCuts++ else cuts++
-                        delay(Random.nextLong(0, 3).milliseconds)
-                    }
-                }
+                pickerStore.awaitIdle(30.seconds)
+                roots.last().awaitIdle(30.seconds)
+                // Old stores may still be finishing their last observer after close returned.
+                for (closed in closedRoots.dropLast(1)) closed.await()
             }
-            pickerStore.awaitIdle(30.seconds)
-            roots.last().awaitIdle(30.seconds)
-            // Old stores may still be finishing their last observer after close returned.
-            for (closed in closedRoots.dropLast(1)) closed.await()
-        }
 
-        val entries = session.records().map { it.entry }
-        val sent = entries.filterIsInstance<JournalEntry.BridgeSent>()
-        val delivered = sent.filter { it.delivered }.map { it.message }
-        val received = entries.filterIsInstance<JournalEntry.BridgeReceived>().map { it.message }
-        val dropped = entries.filterIsInstance<JournalEntry.BridgeDropped>().map { it.message }
-        assertEquals(senders * perSender, sent.size, "every pick was sent once")
-        assertEquals(delivered.size, received.size + dropped.size, "every delivered message was received or dropped, once: ${received.size} received, ${dropped.size} dropped")
-        assertEquals(delivered.toSet(), (received + dropped).toSet())
-        assertEquals(received.size, received.toSet().size, "no message received twice")
-        assertEquals(dropped.size, dropped.toSet().size, "no message dropped twice")
-        assertTrue(received.none { it in dropped }, "no message both received and dropped")
-        assertTrue(group.inFlight.isEmpty(), "left in flight: ${group.inFlight}")
-        assertEquals(received.size, roots.sumOf { it.currentState.context.names.size }, "what the stores hold is what the group counts as received")
-        assertEquals(10, cuts + failedCuts)
-        println("received ${received.size}, dropped ${dropped.size}, undelivered ${sent.size - delivered.size}, cuts $cuts, failed cuts $failedCuts")
-        for (store in roots) store.close()
-        pickerStore.close()
-        executionScope.cancel()
-    }
+            val entries = session.records().map { it.entry }
+            val sent = entries.filterIsInstance<JournalEntry.BridgeSent>()
+            val delivered = sent.filter { it.delivered }.map { it.message }
+            val received = entries.filterIsInstance<JournalEntry.BridgeReceived>().map { it.message }
+            val dropped = entries.filterIsInstance<JournalEntry.BridgeDropped>().map { it.message }
+            assertEquals(senders * perSender, sent.size, "every pick was sent once")
+            assertEquals(delivered.size, received.size + dropped.size, "every delivered message was received or dropped, once: ${received.size} received, ${dropped.size} dropped")
+            assertEquals(delivered.toSet(), (received + dropped).toSet())
+            assertEquals(received.size, received.toSet().size, "no message received twice")
+            assertEquals(dropped.size, dropped.toSet().size, "no message dropped twice")
+            assertTrue(received.none { it in dropped }, "no message both received and dropped")
+            assertTrue(group.inFlight.isEmpty(), "left in flight: ${group.inFlight}")
+            assertEquals(received.size, roots.sumOf { it.currentState.context.names.size }, "what the stores hold is what the group counts as received")
+            assertEquals(10, cuts + failedCuts)
+            println("received ${received.size}, dropped ${dropped.size}, undelivered ${sent.size - delivered.size}, cuts $cuts, failed cuts $failedCuts")
+            for (store in roots) store.close()
+            pickerStore.close()
+            executionScope.cancel()
+        }
 }

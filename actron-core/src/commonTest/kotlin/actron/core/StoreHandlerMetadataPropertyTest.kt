@@ -23,15 +23,15 @@ import kotlin.test.assertTrue
  * ```
  */
 class StoreHandlerMetadataPropertyTest {
-
     private fun Store<RtState, RtAction, RtEvent>.api() = this as StoreInternalApi<RtState, RtAction, RtEvent>
 
-    private fun StoreHandlerMetadata.of(kind: HandlerKind): List<HandlerMetadata> = when (kind) {
-        HandlerKind.ENTER -> enter
-        HandlerKind.ACTION -> action
-        HandlerKind.EXIT -> exit
-        HandlerKind.RECOVER -> recover
-    }
+    private fun StoreHandlerMetadata.of(kind: HandlerKind): List<HandlerMetadata> =
+        when (kind) {
+            HandlerKind.ENTER -> enter
+            HandlerKind.ACTION -> action
+            HandlerKind.EXIT -> exit
+            HandlerKind.RECOVER -> recover
+        }
 
     @Test
     fun metadataMirrorsThePlannedHandlersOfEveryKind() {
@@ -68,50 +68,58 @@ class StoreHandlerMetadataPropertyTest {
     }
 
     @Test
-    fun eachCallReturnsAFreshEqualSnapshotWithoutStartingTheStore() = runTest {
-        val log = mutableListOf<Int>()
-        val program = RoutingProgram.random(Random(99), maxBlocks = 12)
-        val store = buildRtStore(program, RtState.B, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
+    fun eachCallReturnsAFreshEqualSnapshotWithoutStartingTheStore() =
+        runTest {
+            val log = mutableListOf<Int>()
+            val program = RoutingProgram.random(Random(99), maxBlocks = 12)
+            val store = buildRtStore(program, RtState.B, log) { coroutineContext(StandardTestDispatcher(testScheduler)) }
 
-        val first = store.api().handlerMetadata()
-        val second = store.api().handlerMetadata()
+            val first = store.api().handlerMetadata()
+            val second = store.api().handlerMetadata()
 
-        assertNotSame(first, second)
-        for (kind in HandlerKind.entries) {
-            assertEquals(first.of(kind).map { Triple(it.index, it.stateType, it.inputType) }, second.of(kind).map { Triple(it.index, it.stateType, it.inputType) })
+            assertNotSame(first, second)
+            for (kind in HandlerKind.entries) {
+                assertEquals(first.of(kind).map { Triple(it.index, it.stateType, it.inputType) }, second.of(kind).map { Triple(it.index, it.stateType, it.inputType) })
+            }
+            assertTrue(log.isEmpty())
+            store.patchForTest { initialState(RtState.Sub.Y) } // would throw if started or state read
+            store.close()
         }
-        assertTrue(log.isEmpty())
-        store.patchForTest { initialState(RtState.Sub.Y) } // would throw if started or state read
-        store.close()
-    }
 
     @Test
-    fun metadataIsAvailableWhileAHandlerHoldsTheStore() = runTest {
-        val storePublication = kotlinx.coroutines.CompletableDeferred<Store<RtState, RtAction, RtEvent>>()
-        val fromInsideObservations = mutableListOf<StoreHandlerMetadata>()
-        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-        val store: Store<RtState, RtAction, RtEvent> = Store(RtState.A(0)) {
-            coroutineContext(StandardTestDispatcher(testScheduler))
-            state<RtState.A> {
-                action<RtAction.P> {
-                    fromInsideObservations.add(storePublication.getCompleted().api().handlerMetadata())
-                    delay(5_000)
+    fun metadataIsAvailableWhileAHandlerHoldsTheStore() =
+        runTest {
+            val storePublication = kotlinx.coroutines.CompletableDeferred<Store<RtState, RtAction, RtEvent>>()
+            val fromInsideObservations = mutableListOf<StoreHandlerMetadata>()
+
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            val store: Store<RtState, RtAction, RtEvent> =
+                Store(RtState.A(0)) {
+                    coroutineContext(StandardTestDispatcher(testScheduler))
+                    state<RtState.A> {
+                        action<RtAction.P> {
+                            fromInsideObservations.add(storePublication.getCompleted().api().handlerMetadata())
+                            delay(5_000)
+                        }
+                        recover<CustomBoom> { }
+                    }
                 }
-                recover<CustomBoom> { }
-            }
+            storePublication.complete(store)
+
+            store.dispatch(RtAction.P())
+            testScheduler.advanceTimeBy(1)
+            val t = currentTime
+            val outside = store.api().handlerMetadata()
+
+            assertEquals(t, currentTime)
+            assertEquals(listOf(RtAction.P::class), outside.action.map { it.inputType })
+            assertEquals(
+                listOf(CustomBoom::class),
+                kotlin.test
+                    .assertNotNull(fromInsideObservations.single())
+                    .recover
+                    .map { it.inputType },
+            )
+            store.close()
         }
-        storePublication.complete(store)
-
-
-
-        store.dispatch(RtAction.P())
-        testScheduler.advanceTimeBy(1)
-        val t = currentTime
-        val outside = store.api().handlerMetadata()
-
-        assertEquals(t, currentTime)
-        assertEquals(listOf(RtAction.P::class), outside.action.map { it.inputType })
-        assertEquals(listOf(CustomBoom::class), kotlin.test.assertNotNull(fromInsideObservations.single()).recover.map { it.inputType })
-        store.close()
-    }
 }

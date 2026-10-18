@@ -1,5 +1,7 @@
 package actron.timetravel.compose
 
+import actron.statechart.*
+import actron.statechart.machine.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -15,8 +17,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import actron.statechart.*
-import actron.statechart.machine.*
 
 /**
  * Interactive diagram over read-only model/snapshot data. Select a node or transition to inspect
@@ -54,8 +54,9 @@ fun <C : Any> StateChartPanel(
                         var selected = selection == ChartSelection.Transition(id)
                         inspection.withExplanation { explanation -> if (explanation.candidates.any { it.transition == id && it.disposition == CandidateDisposition.Selected }) selected = true }
                         val color = if (selected) highlight else outline
-                        if (from == to) drawCircle(color, 26.dp.toPx(), from + Offset(55.dp.toPx(), -12.dp.toPx()), style = Stroke(2.dp.toPx()))
-                        else {
+                        if (from == to) {
+                            drawCircle(color, 26.dp.toPx(), from + Offset(55.dp.toPx(), -12.dp.toPx()), style = Stroke(2.dp.toPx()))
+                        } else {
                             val vector = to - from
                             val length = vector.getDistance()
                             val direction = vector / length
@@ -76,14 +77,33 @@ fun <C : Any> StateChartPanel(
                     val active = snapshot.isActive(node.id)
                     val wasActive = node.id in previousActive
                     Surface(
-                        color = when { active -> MaterialTheme.colorScheme.primaryContainer; wasActive -> MaterialTheme.colorScheme.tertiaryContainer; else -> MaterialTheme.colorScheme.surfaceVariant },
+                        color =
+                            when {
+                                active -> MaterialTheme.colorScheme.primaryContainer
+                                wasActive -> MaterialTheme.colorScheme.tertiaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
                         shape = MaterialTheme.shapes.small,
-                        modifier = Modifier.offset((x * 190 + 18).dp, (y * 96 + 18).dp).width(158.dp).height(60.dp)
-                            .clickable { selection = ChartSelection.Node(node.id) }.testTag("chart-node-${node.id.value}"),
+                        modifier =
+                            Modifier
+                                .offset((x * 190 + 18).dp, (y * 96 + 18).dp)
+                                .width(158.dp)
+                                .height(60.dp)
+                                .clickable { selection = ChartSelection.Node(node.id) }
+                                .testTag("chart-node-${node.id.value}"),
                     ) {
                         Column(Modifier.padding(8.dp)) {
                             Text(node.id.value, maxLines = 1)
-                            Text(if (active) "active" else if (wasActive) "previous" else "inactive", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                if (active) {
+                                    "active"
+                                } else if (wasActive) {
+                                    "previous"
+                                } else {
+                                    "inactive"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                            )
                         }
                     }
                 }
@@ -107,7 +127,12 @@ fun <C : Any> StateChartPanel(
             val transition = chart.transitions[id.index]
             var disposition = "no evaluation recorded"
             inspection.withExplanation { explanation ->
-                for (candidate in explanation.candidates) if (candidate.transition == id) { disposition = candidate.disposition.toString(); break }
+                for (candidate in explanation.candidates) {
+                    if (candidate.transition == id) {
+                        disposition = candidate.disposition.toString()
+                        break
+                    }
+                }
             }
             Text("$id · ${transition.kind} · $disposition", modifier = Modifier.testTag("chart-detail"))
             if (inspection is ChartInspection.Decided) for (guard in inspection.explanation.guards) if (guard.transition == id) Text("${guard.label} = ${guard.result}")
@@ -117,6 +142,12 @@ fun <C : Any> StateChartPanel(
 
 private sealed interface ChartSelection {
     data object Overview : ChartSelection
-    data class Node(val id: StateId) : ChartSelection
-    data class Transition(val id: TransitionId) : ChartSelection
+
+    data class Node(
+        val id: StateId,
+    ) : ChartSelection
+
+    data class Transition(
+        val id: TransitionId,
+    ) : ChartSelection
 }

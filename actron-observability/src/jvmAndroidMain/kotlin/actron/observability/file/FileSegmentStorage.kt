@@ -7,7 +7,9 @@ import java.io.FileOutputStream
 /**
  * Segments as files of [directory], created when absent.
  */
-actual class FileSegmentStorage actual constructor(directory: String) : SegmentStorage {
+actual class FileSegmentStorage actual constructor(
+    directory: String,
+) : SegmentStorage {
     private val directory = File(directory)
 
     init {
@@ -15,7 +17,9 @@ actual class FileSegmentStorage actual constructor(directory: String) : SegmentS
     }
 
     actual override fun list(): List<SegmentInfo> =
-        directory.listFiles()?.filter { file: File -> file.isFile }
+        directory
+            .listFiles()
+            ?.filter { file: File -> file.isFile }
             ?.map { file: File -> SegmentInfo(file.name, file.length(), file.lastModified()) } ?: emptyList()
 
     actual override fun read(name: String): ByteArray = File(directory, name).readBytes()
@@ -24,13 +28,14 @@ actual class FileSegmentStorage actual constructor(directory: String) : SegmentS
         File(directory, name).delete()
     }
 
-    actual override fun append(name: String): SegmentOutput = object : SegmentOutput {
-        private val stream = BufferedOutputStream(FileOutputStream(File(directory, name), true))
+    actual override fun append(name: String): SegmentOutput =
+        object : SegmentOutput {
+            private val stream = BufferedOutputStream(FileOutputStream(File(directory, name), true))
 
-        override fun write(bytes: ByteArray) = stream.write(bytes)
+            override fun write(bytes: ByteArray) = stream.write(bytes)
 
-        override fun flush() = stream.flush()
+            override fun flush() = stream.flush()
 
-        override fun close() = stream.close()
-    }
+            override fun close() = stream.close()
+        }
 }

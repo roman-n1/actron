@@ -50,16 +50,21 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartParallelPropertyTest {
-
     /** A random truth value per guard label and action. */
-    private class GuardTable(random: Random) {
+    private class GuardTable(
+        random: Random,
+    ) {
         private val table = RandomCharts.guards.associateWith { RandomCharts.actions.associateWith { random.nextBoolean() } }
 
-        fun holds(label: String, action: RandomAction): Boolean = table.getValue(label).getValue(action)
+        fun holds(
+            label: String,
+            action: RandomAction,
+        ): Boolean = table.getValue(label).getValue(action)
 
-        fun implementations(): Map<String, (RandomState, Action) -> Boolean> = RandomCharts.guards.associateWith { label ->
-            { _: RandomState, action: Action -> holds(label, action as RandomAction) }
-        }
+        fun implementations(): Map<String, (RandomState, Action) -> Boolean> =
+            RandomCharts.guards.associateWith { label ->
+                { _: RandomState, action: Action -> holds(label, action as RandomAction) }
+            }
     }
 
     private fun HistoryConfiguration.asConfiguration() = StateConfiguration(active, history)
@@ -68,28 +73,41 @@ class StateChartParallelPropertyTest {
 
     private fun ParallelDecision.asResult(): StepResult = if (transitions.isEmpty()) StepResult.Ignored else StepResult.Transitioned(transitions, exited, entered, after.asConfiguration())
 
-    private fun ValidationIssue.isStructural() = this is ValidationIssue.UnknownParent || this is ValidationIssue.AtomicParent ||
-        this is ValidationIssue.HistoryParent || this is ValidationIssue.ParentCycle || this is ValidationIssue.InitialNotChild ||
-        this is ValidationIssue.EmptyCompoundState || this is ValidationIssue.HistoryAsInitial || this is ValidationIssue.InvalidHistoryDefault
+    private fun ValidationIssue.isStructural() =
+        this is ValidationIssue.UnknownParent || this is ValidationIssue.AtomicParent ||
+            this is ValidationIssue.HistoryParent || this is ValidationIssue.ParentCycle || this is ValidationIssue.InitialNotChild ||
+            this is ValidationIssue.EmptyCompoundState || this is ValidationIssue.HistoryAsInitial || this is ValidationIssue.InvalidHistoryDefault
 
     /**
      * Every active node's parent is active; an active compound state has exactly one active child,
      * an active parallel state all its regions; no history state is active.
      */
-    private fun checkLegal(seed: Int, chart: StateChartDefinition, active: Set<StateId>) {
+    private fun checkLegal(
+        seed: Int,
+        chart: StateChartDefinition,
+        active: Set<StateId>,
+    ) {
         for (id in active) {
             val node = chart.node(id) ?: error("seed $seed: $id undeclared")
             assertTrue(node !is HistoryState, "seed $seed: $id active")
             (node.parent as? StateId)?.let { assertTrue(it in active, "seed $seed: $id active without its parent $it") }
             val activeChildren = chart.childrenOf(id).filter { it.id in active }
             when (node) {
-                is CompoundState -> assertEquals(1, activeChildren.size, "seed $seed: $id has active children $activeChildren")
-                is ParallelState -> assertEquals(
-                    chart.childrenOf(id).filter { it !is HistoryState }.map { it.id },
-                    activeChildren.map { it.id },
-                    "seed $seed: parallel $id",
-                )
-                else -> assertTrue(activeChildren.isEmpty(), "seed $seed")
+                is CompoundState -> {
+                    assertEquals(1, activeChildren.size, "seed $seed: $id has active children $activeChildren")
+                }
+
+                is ParallelState -> {
+                    assertEquals(
+                        chart.childrenOf(id).filter { it !is HistoryState }.map { it.id },
+                        activeChildren.map { it.id },
+                        "seed $seed: parallel $id",
+                    )
+                }
+
+                else -> {
+                    assertTrue(activeChildren.isEmpty(), "seed $seed")
+                }
             }
         }
     }
@@ -147,22 +165,24 @@ class StateChartParallelPropertyTest {
                 if (result !is StepResult.Transitioned) return@repeat
                 steps++
                 if (result.transitions.size > 1) together++
-                val picks = buildList {
-                    for (leaf in leaves) {
-                        val candidates = chart.candidatesFor(leaf).toList()
-                        val index = candidates.indexOfFirst { t ->
-                            val trigger = t.trigger
-                            val guard = t.guard
-                            trigger is actron.statechart.Trigger.OnAction && trigger.matcher.matches(action) &&
-                                (guard is actron.statechart.GuardCondition.Unconditional || guard is actron.statechart.GuardKey && table.holds(guard.name, action))
+                val picks =
+                    buildList {
+                        for (leaf in leaves) {
+                            val candidates = chart.candidatesFor(leaf).toList()
+                            val index =
+                                candidates.indexOfFirst { t ->
+                                    val trigger = t.trigger
+                                    val guard = t.guard
+                                    trigger is actron.statechart.Trigger.OnAction && trigger.matcher.matches(action) &&
+                                        (guard is actron.statechart.GuardCondition.Unconditional || (guard is actron.statechart.GuardKey && table.holds(guard.name, action)))
+                                }
+                            if (index >= 0) add(candidates[index])
                         }
-                        if (index >= 0) add(candidates[index])
-                    }
-                }.distinct()
+                    }.distinct()
                 if (picks.size > result.transitions.size) conflicts++
                 if (result.transitions.any { t -> (chart.node(t.target) as? HistoryState)?.let { chart.node(it.parent) is ParallelState } == true }) restores++
                 // Taken transitions never conflict: their exit sets are disjoint.
-                val exitSets = result.transitions.map { t -> configuration.active.filter { a -> chart.domainOf(t).let { d -> d is actron.statechart.StateParent.Root || d is StateId && chart.isDescendant(a, d) } }.toSet() }
+                val exitSets = result.transitions.map { t -> configuration.active.filter { a -> chart.domainOf(t).let { d -> d is actron.statechart.StateParent.Root || (d is StateId && chart.isDescendant(a, d)) } }.toSet() }
                 for (i in exitSets.indices) for (j in i + 1 until exitSets.size) assertTrue(exitSets[i].none { it in exitSets[j] }, "seed $seed")
                 // Exit innermost first, entry outermost first; exited nodes not re-entered are inactive; entered ones active.
                 val exitDepths = result.exited.map { chart.ancestorsOf(it).size }
@@ -219,10 +239,13 @@ class StateChartParallelPropertyTest {
             val chart = RandomCharts.malformedParallel(random, RandomCharts.withHistory(random, RandomCharts.parallelChart(random)))
             val first = LinkedHashMap<StateId, StateNode>()
             chart.states.forEach { if (it.id !in first) first[it.id] = it }
-            val expected = buildList { for (p in first.values.filterIsInstance<ParallelState>()) {
-                val regions = first.values.filter { it.parent == p.id && it !is HistoryState }.map { it.id }
-                if (regions.size < 2) add(ValidationIssue.TooFewRegions(p.id, regions))
-            } }
+            val expected =
+                buildList {
+                    for (p in first.values.filterIsInstance<ParallelState>()) {
+                        val regions = first.values.filter { it.parent == p.id && it !is HistoryState }.map { it.id }
+                        if (regions.size < 2) add(ValidationIssue.TooFewRegions(p.id, regions))
+                    }
+                }
             val issues = chart.validate()
             assertEquals(expected, issues.filterIsInstance<ValidationIssue.TooFewRegions>(), "seed $seed")
             tooFew += expected.size
@@ -273,7 +296,10 @@ class StateChartParallelPropertyTest {
             val order = chart.reachableStates().map { distances.getValue(it) }
             assertEquals(order.sorted(), order, "seed $seed")
             assertEquals(
-                chart.states.map { it.id }.filter { it !in distances && chart.node(it) !is HistoryState }.map { ValidationIssue.UnreachableState(it) },
+                chart.states
+                    .map { it.id }
+                    .filter { it !in distances && chart.node(it) !is HistoryState }
+                    .map { ValidationIssue.UnreachableState(it) },
                 chart.validate().filterIsInstance<ValidationIssue.UnreachableState>(),
                 "seed $seed",
             )
@@ -300,28 +326,38 @@ class StateChartParallelPropertyTest {
      * enable exactly what an action matching the trigger's matcher, and nothing else, would with
      * every guard true, minus what conflicts with the trigger. Returns the final configuration.
      */
-    private fun replay(seed: Int, chart: StateChartDefinition, reference: ParallelReference, path: StateChartPath): HistoryConfiguration {
+    private fun replay(
+        seed: Int,
+        chart: StateChartDefinition,
+        reference: ParallelReference,
+        path: StateChartPath,
+    ): HistoryConfiguration {
         var configuration = reference.initialConfiguration()
         assertEquals(reference.leaves(configuration.active), path.startLeaves, "seed $seed")
         assertEquals(path.startLeaves.first(), path.start, "seed $seed")
         var enabledTransitions = emptySet<Transition>()
         val fire = ActionMatcher("Fire", Fire::class)
         val relabelled = chart.copy(transitions = chart.transitions.mapIndexed { i, t -> Transition(t.source, t.target, fire, actron.statechart.GuardKey("t$i")) })
-        val guards = chart.transitions.withIndex().associate { (i, original) ->
-            "t$i" to { _: RandomState, _: Action ->
-                original in enabledTransitions
+        val guards =
+            chart.transitions.withIndex().associate { (i, original) ->
+                "t$i" to { _: RandomState, _: Action ->
+                    original in enabledTransitions
+                }
             }
-        }
         val runtime = StateChartRuntime(relabelled, { s: RandomState -> s.id }, guards)
         path.transitions.forEachIndexed { i, t ->
             assertTrue(t.source in configuration.active, "seed $seed: ${t.source} is not active before step $i")
             val fired = reference.graphStep(configuration, t)
             assertTrue(t in fired.transitions, "seed $seed")
-            enabledTransitions = chart.transitions.filter { original ->
-                original == t || (original.trigger is actron.statechart.Trigger.OnAction && t.trigger is actron.statechart.Trigger.OnAction &&
-                    original.trigger.matcher == t.trigger.matcher &&
-                    reference.exitSet(configuration.active, original).none { it in reference.exitSet(configuration.active, t) })
-            }.toSet()
+            enabledTransitions =
+                chart.transitions
+                    .filter { original ->
+                        original == t || (
+                            original.trigger is actron.statechart.Trigger.OnAction && t.trigger is actron.statechart.Trigger.OnAction &&
+                                original.trigger.matcher == t.trigger.matcher &&
+                                reference.exitSet(configuration.active, original).none { it in reference.exitSet(configuration.active, t) }
+                        )
+                    }.toSet()
             val stepped = runtime.step(configuration.asConfiguration(), RandomState(t.source), Fire)
             assertEquals(fired.after.asConfiguration(), (stepped as? StepResult.Transitioned)?.configuration, "seed $seed: step $i")
             configuration = fired.after
@@ -335,13 +371,14 @@ class StateChartParallelPropertyTest {
     private data object Fire : Action
 
     @Test
-    fun coveragePathsCoverEveryTransitionWhoseSourceCanBeActiveAndReplay() = RandomCharts.forEachParallelChart(150) { seed, _, chart ->
-        val reference = ParallelReference(chart)
-        val reachable = reference.nodeDistances().keys
-        val paths = chart.transitionCoveragePaths()
-        assertEquals(chart.transitions.filter { it.source in reachable }.toSet(), paths.flatMap { it.transitions }.toSet(), "seed $seed")
-        for (path in paths) replay(seed, chart, reference, path)
-    }
+    fun coveragePathsCoverEveryTransitionWhoseSourceCanBeActiveAndReplay() =
+        RandomCharts.forEachParallelChart(150) { seed, _, chart ->
+            val reference = ParallelReference(chart)
+            val reachable = reference.nodeDistances().keys
+            val paths = chart.transitionCoveragePaths()
+            assertEquals(chart.transitions.filter { it.source in reachable }.toSet(), paths.flatMap { it.transitions }.toSet(), "seed $seed")
+            for (path in paths) replay(seed, chart, reference, path)
+        }
 
     // endregion
 
@@ -351,57 +388,71 @@ class StateChartParallelPropertyTest {
     private val labelled = Regex("^ *state \"([^\"]*)\" as ([A-Za-z_][A-Za-z0-9_]*)(?: \\{)?$")
 
     @Test
-    fun mermaidDrawsEachRegionInItsOwnSectionOfTheParallelBlock() = RandomCharts.forEachParallelChart { seed, _, chart ->
-        val text = chart.toMermaid()
-        val lines = text.lines()
-        val refOf = mutableMapOf<String, String>()
-        for (line in lines) labelled.matchEntire(line)?.let { m -> if (!m.groupValues[1].startsWith("[H")) refOf[m.groupValues[1].replace("'", "\"")] = m.groupValues[2] }
-        fun ref(id: StateId) = refOf[id.value] ?: id.value
-        // For each block: its sections, each the refs drawn directly in it (a nested block counts as its ref).
-        val sections = mutableMapOf<String, MutableList<MutableList<String>>>()
-        val stack = ArrayDeque<String>()
-        for (line in lines.drop(1)) {
-            val trimmed = line.trim()
-            val block = { checkNotNull(blockLine.matchEntire(line)) }
-            when {
-                blockLine.matches(line) -> {
-                    stack.lastOrNull()?.let { sections.getValue(it).last() += block().groupValues[2] }
-                    stack.addLast(block().groupValues[2])
-                    sections[block().groupValues[2]] = mutableListOf(mutableListOf())
+    fun mermaidDrawsEachRegionInItsOwnSectionOfTheParallelBlock() =
+        RandomCharts.forEachParallelChart { seed, _, chart ->
+            val text = chart.toMermaid()
+            val lines = text.lines()
+            val refOf = mutableMapOf<String, String>()
+            for (line in lines) labelled.matchEntire(line)?.let { m -> if (!m.groupValues[1].startsWith("[H")) refOf[m.groupValues[1].replace("'", "\"")] = m.groupValues[2] }
+
+            fun ref(id: StateId) = refOf[id.value] ?: id.value
+            // For each block: its sections, each the refs drawn directly in it (a nested block counts as its ref).
+            val sections = mutableMapOf<String, MutableList<MutableList<String>>>()
+            val stack = ArrayDeque<String>()
+            for (line in lines.drop(1)) {
+                val trimmed = line.trim()
+                val block = { checkNotNull(blockLine.matchEntire(line)) }
+                when {
+                    blockLine.matches(line) -> {
+                        stack.lastOrNull()?.let { sections.getValue(it).last() += block().groupValues[2] }
+                        stack.addLast(block().groupValues[2])
+                        sections[block().groupValues[2]] = mutableListOf(mutableListOf())
+                    }
+
+                    trimmed == "}" -> {
+                        stack.removeLast()
+                    }
+
+                    trimmed == "--" -> {
+                        sections.getValue(stack.last()) += mutableListOf<String>()
+                    }
+
+                    " --> " in trimmed -> {
+                        Unit
+                    }
+
+                    else -> {
+                        stack.lastOrNull()?.let { owner ->
+                            val drawn = labelled.matchEntire(line)?.groupValues?.get(2) ?: trimmed
+                            sections.getValue(owner).last() += drawn
+                        }
+                    }
                 }
-                trimmed == "}" -> stack.removeLast()
-                trimmed == "--" -> sections.getValue(stack.last()) += mutableListOf<String>()
-                " --> " in trimmed -> Unit
-                else -> stack.lastOrNull()?.let { owner ->
-                    val drawn = labelled.matchEntire(line)?.groupValues?.get(2) ?: trimmed
-                    sections.getValue(owner).last() += drawn
+            }
+            for (parallel in chart.states.filterIsInstance<ParallelState>()) {
+                val regions = chart.childrenOf(parallel.id).filter { it !is HistoryState }
+                val drawn = sections.getValue(ref(parallel.id))
+                assertEquals(regions.size, drawn.size, "seed $seed: sections of ${parallel.id}\n$text")
+                val histories = chart.childrenOf(parallel.id).filterIsInstance<HistoryState>()
+                drawn.forEachIndexed { i, section ->
+                    // The region first, then (first section only) the parallel state's history states.
+                    assertEquals(ref(regions[i].id), section.first(), "seed $seed\n$text")
+                    assertEquals(if (i == 0) 1 + histories.size else 1, section.size, "seed $seed\n$text")
+                }
+            }
+            // No transition is written inside a parallel block, and none is lost.
+            val edges = lines.count { " --> " in it && !it.trim().startsWith("[*]") }
+            assertEquals(chart.transitions.size + chart.states.count { it is HistoryState && it.default is StateId }, edges, "seed $seed")
+            stack.clear()
+            for (line in lines.drop(1)) {
+                blockLine.matchEntire(line)?.let { stack.addLast(it.groupValues[2]) }
+                if (line.trim() == "}") stack.removeLast()
+                if (" --> " in line && !line.trim().startsWith("[*]")) {
+                    val owner = stack.lastOrNull() ?: continue
+                    assertTrue(chart.states.none { it is ParallelState && ref(it.id) == owner }, "seed $seed: $line in parallel $owner")
                 }
             }
         }
-        for (parallel in chart.states.filterIsInstance<ParallelState>()) {
-            val regions = chart.childrenOf(parallel.id).filter { it !is HistoryState }
-            val drawn = sections.getValue(ref(parallel.id))
-            assertEquals(regions.size, drawn.size, "seed $seed: sections of ${parallel.id}\n$text")
-            val histories = chart.childrenOf(parallel.id).filterIsInstance<HistoryState>()
-            drawn.forEachIndexed { i, section ->
-                // The region first, then (first section only) the parallel state's history states.
-                assertEquals(ref(regions[i].id), section.first(), "seed $seed\n$text")
-                assertEquals(if (i == 0) 1 + histories.size else 1, section.size, "seed $seed\n$text")
-            }
-        }
-        // No transition is written inside a parallel block, and none is lost.
-        val edges = lines.count { " --> " in it && !it.trim().startsWith("[*]") }
-        assertEquals(chart.transitions.size + chart.states.count { it is HistoryState && it.default is StateId }, edges, "seed $seed")
-        stack.clear()
-        for (line in lines.drop(1)) {
-            blockLine.matchEntire(line)?.let { stack.addLast(it.groupValues[2]) }
-            if (line.trim() == "}") stack.removeLast()
-            if (" --> " in line && !line.trim().startsWith("[*]")) {
-                val owner = stack.lastOrNull() ?: continue
-                assertTrue(chart.states.none { it is ParallelState && ref(it.id) == owner }, "seed $seed: $line in parallel $owner")
-            }
-        }
-    }
 
     // endregion
 
@@ -409,22 +460,35 @@ class StateChartParallelPropertyTest {
 
     private sealed interface NoEvent : Event
 
-    private data class Leaves(val leaves: Set<StateId>) : State
+    private data class Leaves(
+        val leaves: Set<StateId>,
+    ) : State
 
-    private val guards: Map<String, (Leaves, Action) -> Boolean> = mapOf(
-        "even" to { _, a -> a is RandomAction.Go && a.n % 2 == 0 },
-        "positive" to { _, a -> a is RandomAction.Go && a.n > 0 },
-        "never" to { _, _ -> false },
-        "always" to { _, _ -> true },
-    )
+    private val guards: Map<String, (Leaves, Action) -> Boolean> =
+        mapOf(
+            "even" to { _, a -> a is RandomAction.Go && a.n % 2 == 0 },
+            "positive" to { _, a -> a is RandomAction.Go && a.n > 0 },
+            "never" to { _, _ -> false },
+            "always" to { _, _ -> true },
+        )
 
     /** A Store that keeps the configuration and follows the runtime; at [wrongAt] it swaps [wrong]'s first leaf for its second instead. */
     private sealed interface WalkPlan {
         data object Declared : WalkPlan
-        data class Mutation(val index: Int, val from: StateId, val to: StateId) : WalkPlan
+
+        data class Mutation(
+            val index: Int,
+            val from: StateId,
+            val to: StateId,
+        ) : WalkPlan
     }
 
-    private fun storeFor(chart: StateChartDefinition, plan: WalkPlan, taken: MutableSet<Transition>, scope: TestScope): Store<Leaves, RandomAction, NoEvent> {
+    private fun storeFor(
+        chart: StateChartDefinition,
+        plan: WalkPlan,
+        taken: MutableSet<Transition>,
+        scope: TestScope,
+    ): Store<Leaves, RandomAction, NoEvent> {
         val runtime = StateChartRuntime(chart, { s: Leaves -> s.leaves.first() }, guards)
         var configuration = runtime.initialConfiguration()
         var index = 0
@@ -456,119 +520,130 @@ class StateChartParallelPropertyTest {
      * state such a transition targets are skipped: the plugin's own record of that history may
      * differ from the runtime's (it sees no self-loops), and with none it accepts any restore.
      */
-    private fun unenterable(chart: StateChartDefinition, reference: ParallelReference, configuration: HistoryConfiguration): List<Pair<StateId, StateId>> = buildList {
-        for (leaf in reference.leaves(configuration.active)) {
-            val parent = reference.parent(leaf) as? StateId ?: continue
-            if (chart.node(parent) !is CompoundState) continue
-            val exiting = chart.transitions.filter { it.source in configuration.active && leaf in reference.exitSet(configuration.active, it) }
-            val siblings = chart.states.filter { it is AtomicState && it.parent == parent && it.id != leaf }.filter { w ->
-                exiting.none { t ->
-                    val target = chart.node(t.target)
-                    (target is HistoryState && reference.inside(w.id, target.parent)) || w.id in reference.fire(configuration, listOf(t)).entered
-                }
-            }
-            for (sibling in siblings) add(leaf to sibling.id)
-        }
-    }
-
-    @Test
-    fun storesFollowingRandomParallelChartsConformAndOneWrongRegionIsReported() = runTest {
-        var multi = 0
-        var mutants = 0
-        var covered = 0
-        for (seed in RandomCharts.seeds.take(150)) {
-            val random = Random(seed)
-            val chart = RandomCharts.withHistory(random, RandomCharts.parallelChart(random))
-            val runtime = StateChartRuntime(chart, { s: Leaves -> s.leaves.first() }, guards)
-            val reference = ParallelReference(chart)
-            // A walk of actions, and where along it one region could jump somewhere undeclared.
-            var configuration = runtime.initialConfiguration()
-            val actions = mutableListOf<RandomAction>()
-            val mutations = mutableListOf<WalkPlan.Mutation>()
-            repeat(random.nextInt(0, 31)) { i ->
-                val action = RandomCharts.actions.random(random)
-                if (mutations.isEmpty() && random.nextBoolean()) {
-                    val candidates = unenterable(chart, reference, HistoryConfiguration(configuration.active, configuration.history))
-                    if (candidates.isNotEmpty()) {
-                        val (from, to) = candidates.first()
-                        mutations += WalkPlan.Mutation(i, from, to)
-                    }
-                }
-                actions += action
-                (runtime.step(configuration, Leaves(emptySet()), action) as? StepResult.Transitioned)?.let {
-                    if (it.transitions.size > 1) multi++
-                    configuration = it.configuration
-                }
-            }
-            for (plan in listOf(WalkPlan.Declared) + mutations) {
-                val mutated = plan is WalkPlan.Mutation
-                val taken = mutableSetOf<Transition>()
-                val conformance = StateChartConformance.withActiveLeaves<Leaves, RandomAction, NoEvent>(chart) { it.leaves }
-                val store = storeFor(chart, plan, taken, this).patch { plugin(conformance) }
-                store.startAndAwait()
-                for (action in actions) store.dispatchAndAwait(action)
-                if (mutated) {
-                    mutants++
-                    val mutation = plan as WalkPlan.Mutation
-                    val from = mutation.from
-                    val to = mutation.to
-                    assertEquals(ConformanceViolation.UndeclaredTransition(from, to, actions[mutation.index]), conformance.violations.firstOrNull(), "seed $seed")
-                } else {
-                    assertEquals(emptyList(), conformance.violations, "seed $seed: the runtime itself must conform")
-                    // Leaf changes are credited to transitions the runtime took; self-loops are credited
-                    // by action with guards ignored (see StateChartConformance), so only by matcher.
-                    for (t in conformance.coveredTransitions) {
-                        assertTrue(t in taken || actions.any { (t.trigger as? actron.statechart.Trigger.OnAction)?.matcher?.matches(it) == true }, "seed $seed: covered $t")
-                    }
-                    covered += conformance.coveredTransitions.count { it in taken }
-                    assertEquals(configuration.active, chart.configurationOf(store.currentState.leaves).active, "seed $seed")
-                }
-                store.close()
-            }
-        }
-        assertTrue(multi >= 60, "only $multi steps in several regions")
-        assertTrue(mutants >= 30, "only $mutants mutants")
-        assertTrue(covered >= 200, "only $covered covered transitions")
-    }
-
-    @Test
-    fun oneLeafMappingAndActiveLeavesMappingAgreeOnChartsWithoutParallelStates() = runTest {
-        for (seed in RandomCharts.seeds.take(60)) {
-            val random = Random(seed)
-            val chart = RandomCharts.withHistory(random, RandomCharts.hierarchicalChart(random))
-            val runtime = StateChartRuntime(chart, { s: Leaves -> s.leaves.single() }, guards)
-            val actions = List(random.nextInt(0, 25)) { RandomCharts.actions.random(random) }
-            val reports = listOf(
-                StateChartConformance<Leaves, RandomAction, NoEvent>(chart) { it.leaves.single() },
-                StateChartConformance.withActiveLeaves<Leaves, RandomAction, NoEvent>(chart) { it.leaves },
-            ).map { conformance ->
-                // A Store that follows the runtime but sometimes jumps to a random leaf.
-                var configuration = runtime.initialConfiguration()
-                val jumps = Random(seed)
-                val atomic = chart.states.filterIsInstance<AtomicState>().map { it.id }
-                val store = Store<Leaves, RandomAction, NoEvent>(Leaves(chart.activeLeaves(configuration).toSet())) {
-                    coroutineContext(StandardTestDispatcher(testScheduler))
-                    pendingActionPolicy(PendingActionPolicy.Keep)
-                    state<Leaves> {
-                        action<RandomAction> {
-                            configuration = if (jumps.nextInt(6) == 0) {
-                                chart.configurationOf(atomic.random(jumps)).copy(history = configuration.history)
-                            } else {
-                                (runtime.step(configuration, state, action) as? StepResult.Transitioned)?.configuration ?: configuration
-                            }
-                            val leaves = chart.activeLeaves(configuration).toSet()
-                            if (leaves != state.leaves) nextState { Leaves(leaves) }
+    private fun unenterable(
+        chart: StateChartDefinition,
+        reference: ParallelReference,
+        configuration: HistoryConfiguration,
+    ): List<Pair<StateId, StateId>> =
+        buildList {
+            for (leaf in reference.leaves(configuration.active)) {
+                val parent = reference.parent(leaf) as? StateId ?: continue
+                if (chart.node(parent) !is CompoundState) continue
+                val exiting = chart.transitions.filter { it.source in configuration.active && leaf in reference.exitSet(configuration.active, it) }
+                val siblings =
+                    chart.states.filter { it is AtomicState && it.parent == parent && it.id != leaf }.filter { w ->
+                        exiting.none { t ->
+                            val target = chart.node(t.target)
+                            (target is HistoryState && reference.inside(w.id, target.parent)) || w.id in reference.fire(configuration, listOf(t)).entered
                         }
                     }
-                }.patch { plugin(conformance) }
-                store.startAndAwait()
-                for (action in actions) store.dispatchAndAwait(action)
-                store.close()
-                conformance.violations to conformance.coveredTransitions
+                for (sibling in siblings) add(leaf to sibling.id)
             }
-            assertEquals(reports[0], reports[1], "seed $seed")
         }
-    }
+
+    @Test
+    fun storesFollowingRandomParallelChartsConformAndOneWrongRegionIsReported() =
+        runTest {
+            var multi = 0
+            var mutants = 0
+            var covered = 0
+            for (seed in RandomCharts.seeds.take(150)) {
+                val random = Random(seed)
+                val chart = RandomCharts.withHistory(random, RandomCharts.parallelChart(random))
+                val runtime = StateChartRuntime(chart, { s: Leaves -> s.leaves.first() }, guards)
+                val reference = ParallelReference(chart)
+                // A walk of actions, and where along it one region could jump somewhere undeclared.
+                var configuration = runtime.initialConfiguration()
+                val actions = mutableListOf<RandomAction>()
+                val mutations = mutableListOf<WalkPlan.Mutation>()
+                repeat(random.nextInt(0, 31)) { i ->
+                    val action = RandomCharts.actions.random(random)
+                    if (mutations.isEmpty() && random.nextBoolean()) {
+                        val candidates = unenterable(chart, reference, HistoryConfiguration(configuration.active, configuration.history))
+                        if (candidates.isNotEmpty()) {
+                            val (from, to) = candidates.first()
+                            mutations += WalkPlan.Mutation(i, from, to)
+                        }
+                    }
+                    actions += action
+                    (runtime.step(configuration, Leaves(emptySet()), action) as? StepResult.Transitioned)?.let {
+                        if (it.transitions.size > 1) multi++
+                        configuration = it.configuration
+                    }
+                }
+                for (plan in listOf(WalkPlan.Declared) + mutations) {
+                    val mutated = plan is WalkPlan.Mutation
+                    val taken = mutableSetOf<Transition>()
+                    val conformance = StateChartConformance.withActiveLeaves<Leaves, RandomAction, NoEvent>(chart) { it.leaves }
+                    val store = storeFor(chart, plan, taken, this).patch { plugin(conformance) }
+                    store.startAndAwait()
+                    for (action in actions) store.dispatchAndAwait(action)
+                    if (mutated) {
+                        mutants++
+                        val mutation = plan as WalkPlan.Mutation
+                        val from = mutation.from
+                        val to = mutation.to
+                        assertEquals(ConformanceViolation.UndeclaredTransition(from, to, actions[mutation.index]), conformance.violations.firstOrNull(), "seed $seed")
+                    } else {
+                        assertEquals(emptyList(), conformance.violations, "seed $seed: the runtime itself must conform")
+                        // Leaf changes are credited to transitions the runtime took; self-loops are credited
+                        // by action with guards ignored (see StateChartConformance), so only by matcher.
+                        for (t in conformance.coveredTransitions) {
+                            assertTrue(t in taken || actions.any { (t.trigger as? actron.statechart.Trigger.OnAction)?.matcher?.matches(it) == true }, "seed $seed: covered $t")
+                        }
+                        covered += conformance.coveredTransitions.count { it in taken }
+                        assertEquals(configuration.active, chart.configurationOf(store.currentState.leaves).active, "seed $seed")
+                    }
+                    store.close()
+                }
+            }
+            assertTrue(multi >= 60, "only $multi steps in several regions")
+            assertTrue(mutants >= 30, "only $mutants mutants")
+            assertTrue(covered >= 200, "only $covered covered transitions")
+        }
+
+    @Test
+    fun oneLeafMappingAndActiveLeavesMappingAgreeOnChartsWithoutParallelStates() =
+        runTest {
+            for (seed in RandomCharts.seeds.take(60)) {
+                val random = Random(seed)
+                val chart = RandomCharts.withHistory(random, RandomCharts.hierarchicalChart(random))
+                val runtime = StateChartRuntime(chart, { s: Leaves -> s.leaves.single() }, guards)
+                val actions = List(random.nextInt(0, 25)) { RandomCharts.actions.random(random) }
+                val reports =
+                    listOf(
+                        StateChartConformance<Leaves, RandomAction, NoEvent>(chart) { it.leaves.single() },
+                        StateChartConformance.withActiveLeaves<Leaves, RandomAction, NoEvent>(chart) { it.leaves },
+                    ).map { conformance ->
+                        // A Store that follows the runtime but sometimes jumps to a random leaf.
+                        var configuration = runtime.initialConfiguration()
+                        val jumps = Random(seed)
+                        val atomic = chart.states.filterIsInstance<AtomicState>().map { it.id }
+                        val store =
+                            Store<Leaves, RandomAction, NoEvent>(Leaves(chart.activeLeaves(configuration).toSet())) {
+                                coroutineContext(StandardTestDispatcher(testScheduler))
+                                pendingActionPolicy(PendingActionPolicy.Keep)
+                                state<Leaves> {
+                                    action<RandomAction> {
+                                        configuration =
+                                            if (jumps.nextInt(6) == 0) {
+                                                chart.configurationOf(atomic.random(jumps)).copy(history = configuration.history)
+                                            } else {
+                                                (runtime.step(configuration, state, action) as? StepResult.Transitioned)?.configuration ?: configuration
+                                            }
+                                        val leaves = chart.activeLeaves(configuration).toSet()
+                                        if (leaves != state.leaves) nextState { Leaves(leaves) }
+                                    }
+                                }
+                            }.patch { plugin(conformance) }
+                        store.startAndAwait()
+                        for (action in actions) store.dispatchAndAwait(action)
+                        store.close()
+                        conformance.violations to conformance.coveredTransitions
+                    }
+                assertEquals(reports[0], reports[1], "seed $seed")
+            }
+        }
 
     // endregion
 }

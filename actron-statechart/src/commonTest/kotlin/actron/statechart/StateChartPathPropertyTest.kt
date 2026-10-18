@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalActronApi::class)
 class StateChartPathPropertyTest {
-
     private fun referenceDistances(chart: StateChartDefinition): Map<StateId, Int> {
         val distance = mutableMapOf(chart.initial to 0)
         repeat(chart.transitions.size + 1) {
@@ -66,125 +65,145 @@ class StateChartPathPropertyTest {
         assertTrue(deep >= 100, "only $deep charts with a state 3+ steps away")
     }
 
-    private fun candidateIds(chart: StateChartDefinition) =
-        (RandomCharts.allIds + chart.states.map { it.id } + chart.transitions.map { it.target }).distinct()
+    private fun candidateIds(chart: StateChartDefinition) = (RandomCharts.allIds + chart.states.map { it.id } + chart.transitions.map { it.target }).distinct()
 
     @Test
-    fun shortestPathLengthEqualsReferenceDistanceAndNullMeansUnreachable() = forEachChart { seed, _, chart ->
-        val distances = referenceDistances(chart)
-        for (id in candidateIds(chart)) {
-            if (id !in distances) {
-                kotlin.test.assertFalse(chart.shortestPathTo(id) { error("Unexpected reachable path: $it") }, "seed $seed: $id is unreachable")
-            } else {
-                val path = chart.shortestPathTo(id)
-                val distance = distances.getValue(id)
-                assertNotNull(path, "seed $seed: $id is reachable")
-                assertEquals(distance, path.transitions.size, "seed $seed: $id")
+    fun shortestPathLengthEqualsReferenceDistanceAndNullMeansUnreachable() =
+        forEachChart { seed, _, chart ->
+            val distances = referenceDistances(chart)
+            for (id in candidateIds(chart)) {
+                if (id !in distances) {
+                    kotlin.test.assertFalse(chart.shortestPathTo(id) { error("Unexpected reachable path: $it") }, "seed $seed: $id is unreachable")
+                } else {
+                    val path = chart.shortestPathTo(id)
+                    val distance = distances.getValue(id)
+                    assertNotNull(path, "seed $seed: $id is reachable")
+                    assertEquals(distance, path.transitions.size, "seed $seed: $id")
+                    assertEquals(chart.initial, path.start, "seed $seed")
+                    assertEquals(id, path.end, "seed $seed")
+                    assertTrue(chart.transitions.containsAll(path.transitions), "seed $seed")
+                    assertEquals(path.transitions.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }, path.actions, "seed $seed")
+                }
+            }
+            assertEquals(chart.reachableStates(), distances.keys, "seed $seed")
+        }
+
+    @Test
+    fun shortestPathsFormATree() =
+        forEachChart { seed, _, chart ->
+            // Dropping the last step of a shortest path gives the shortest path to its source, so all
+            // paths share prefixes and never visit a state twice.
+            for (id in chart.reachableStates()) {
+                val path = kotlin.test.assertNotNull(chart.shortestPathTo(id))
+                val visited = listOf(path.start) + path.transitions.map { it.target }
+                assertEquals(visited.distinct(), visited, "seed $seed: $path revisits a state")
+                val last = path.transitions.lastOrNull() ?: continue
+                assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(last.source)).transitions, path.transitions.dropLast(1), "seed $seed")
+            }
+        }
+
+    @Test
+    fun shortestPathPrefersTheEarliestDeclaredEdgeFromTheSameParent() =
+        forEachChart { seed, _, chart ->
+            for (id in chart.reachableStates()) {
+                val last =
+                    kotlin.test
+                        .assertNotNull(chart.shortestPathTo(id))
+                        .transitions
+                        .lastOrNull() ?: continue
+                // No earlier-declared transition from the same source reaches the same target.
+                val first = chart.transitionsFrom(last.source).first { it.target == id }
+                assertEquals(first, last, "seed $seed")
+            }
+        }
+
+    @Test
+    fun coveragePathsCoverExactlyTheTransitionsLeavingReachableStates() =
+        forEachChart { seed, _, chart ->
+            val reachable = referenceDistances(chart).keys
+            val paths = chart.transitionCoveragePaths()
+            val covered = paths.flatMap { it.transitions }.toSet()
+            assertEquals(chart.transitions.filter { it.source in reachable }.toSet(), covered, "seed $seed")
+            assertTrue(chart.transitions.filter { it.source !in reachable }.none { it in covered }, "seed $seed")
+        }
+
+    @Test
+    fun coveragePathsAreConnectedPrefixFreeAndIrredundant() =
+        forEachChart { seed, _, chart ->
+            val paths = chart.transitionCoveragePaths()
+            for (path in paths) {
                 assertEquals(chart.initial, path.start, "seed $seed")
-                assertEquals(id, path.end, "seed $seed")
-                assertTrue(chart.transitions.containsAll(path.transitions), "seed $seed")
-                assertEquals(path.transitions.map { (it.trigger as actron.statechart.Trigger.OnAction).matcher }, path.actions, "seed $seed")
+                assertTrue(path.transitions.isNotEmpty(), "seed $seed")
+                // Re-validate connectivity independently of the constructor.
+                path.transitions.fold(chart.initial) { at, t ->
+                    assertEquals(at, t.source, "seed $seed")
+                    t.target
+                }
+                // Every path is a shortest path to the last source, plus that last transition.
+                val last = path.transitions.last()
+                assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(last.source)).transitions, path.transitions.dropLast(1), "seed $seed")
+            }
+            for ((i, p) in paths.withIndex()) {
+                for ((j, q) in paths.withIndex()) {
+                    if (i == j) continue
+                    val isPrefix = p.transitions.size <= q.transitions.size && q.transitions.subList(0, p.transitions.size) == p.transitions
+                    assertTrue(!isPrefix, "seed $seed: path $i is a prefix of path $j")
+                }
+            }
+            // Removing any path loses its last transition.
+            for ((i, p) in paths.withIndex()) {
+                val others = paths.filterIndexed { j, _ -> j != i }.flatMap { it.transitions }.toSet()
+                assertTrue(p.transitions.last() !in others, "seed $seed: path $i is redundant")
             }
         }
-        assertEquals(chart.reachableStates(), distances.keys, "seed $seed")
-    }
 
     @Test
-    fun shortestPathsFormATree() = forEachChart { seed, _, chart ->
-        // Dropping the last step of a shortest path gives the shortest path to its source, so all
-        // paths share prefixes and never visit a state twice.
-        for (id in chart.reachableStates()) {
-            val path = kotlin.test.assertNotNull(chart.shortestPathTo(id))
-            val visited = listOf(path.start) + path.transitions.map { it.target }
-            assertEquals(visited.distinct(), visited, "seed $seed: $path revisits a state")
-            val last = path.transitions.lastOrNull() ?: continue
-            assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(last.source)).transitions, path.transitions.dropLast(1), "seed $seed")
+    fun coveragePathsComeInDeclarationOrderOfTheirLastTransition() =
+        forEachChart { seed, _, chart ->
+            val order = chart.transitionCoveragePaths().map { chart.transitions.indexOf(it.transitions.last()) }
+            assertEquals(order.sorted(), order, "seed $seed")
+            assertEquals(order.distinct(), order, "seed $seed")
         }
-    }
 
     @Test
-    fun shortestPathPrefersTheEarliestDeclaredEdgeFromTheSameParent() = forEachChart { seed, _, chart ->
-        for (id in chart.reachableStates()) {
-            val last = kotlin.test.assertNotNull(chart.shortestPathTo(id)).transitions.lastOrNull() ?: continue
-            // No earlier-declared transition from the same source reaches the same target.
-            val first = chart.transitionsFrom(last.source).first { it.target == id }
-            assertEquals(first, last, "seed $seed")
+    fun coveragePathCountIsTheNumberOfLeavesOfTheCoverageTree() =
+        forEachChart { seed, _, chart ->
+            // Candidates are "tree path to source + transition"; only those that no other candidate
+            // extends survive. Count them independently via tree edges.
+            val reachable = referenceDistances(chart).keys
+            val candidates = chart.transitions.filter { it.source in reachable }.distinct()
+            val treeEdges =
+                reachable
+                    .map { chart.shortestPathTo(it).transitions }
+                    .filter { it.isNotEmpty() }
+                    .map { it.last() }
+                    .toSet()
+            // A candidate is extended iff it is a tree edge whose target has an outgoing transition.
+            val leaves = candidates.count { t -> !(t in treeEdges && chart.transitionsFrom(t.target).isNotEmpty()) }
+            assertEquals(leaves, chart.transitionCoveragePaths().size, "seed $seed")
         }
-    }
 
     @Test
-    fun coveragePathsCoverExactlyTheTransitionsLeavingReachableStates() = forEachChart { seed, _, chart ->
-        val reachable = referenceDistances(chart).keys
-        val paths = chart.transitionCoveragePaths()
-        val covered = paths.flatMap { it.transitions }.toSet()
-        assertEquals(chart.transitions.filter { it.source in reachable }.toSet(), covered, "seed $seed")
-        assertTrue(chart.transitions.filter { it.source !in reachable }.none { it in covered }, "seed $seed")
-    }
+    fun resultsAreDeterministicAndIndependentOfUnreachableParts() =
+        forEachChart { seed, random, chart ->
+            val paths = chart.transitionCoveragePaths()
+            assertEquals(paths, chart.transitionCoveragePaths(), "seed $seed")
+            assertEquals(paths, chart.copy(transitions = chart.transitions.toList()).transitionCoveragePaths(), "seed $seed")
 
-    @Test
-    fun coveragePathsAreConnectedPrefixFreeAndIrredundant() = forEachChart { seed, _, chart ->
-        val paths = chart.transitionCoveragePaths()
-        for (path in paths) {
-            assertEquals(chart.initial, path.start, "seed $seed")
-            assertTrue(path.transitions.isNotEmpty(), "seed $seed")
-            // Re-validate connectivity independently of the constructor.
-            path.transitions.fold(chart.initial) { at, t -> assertEquals(at, t.source, "seed $seed"); t.target }
-            // Every path is a shortest path to the last source, plus that last transition.
-            val last = path.transitions.last()
-            assertEquals(kotlin.test.assertNotNull(chart.shortestPathTo(last.source)).transitions, path.transitions.dropLast(1), "seed $seed")
-        }
-        for ((i, p) in paths.withIndex()) {
-            for ((j, q) in paths.withIndex()) {
-                if (i == j) continue
-                val isPrefix = p.transitions.size <= q.transitions.size && q.transitions.subList(0, p.transitions.size) == p.transitions
-                assertTrue(!isPrefix, "seed $seed: path $i is a prefix of path $j")
+            // Adding transitions that leave an unreachable island changes nothing.
+            val island = StateId("island ${random.nextInt(10)}")
+            val withIsland =
+                chart.copy(
+                    states = chart.states + AtomicState(island),
+                    transitions = chart.transitions.flatMap { listOf(Transition(island, it.source, it.trigger), it) },
+                )
+            assertEquals(paths, withIsland.transitionCoveragePaths(), "seed $seed")
+            for (id in candidateIds(chart)) {
+                val originalPaths = buildList<StateChartPath> { chart.shortestPathTo(id) { add(it) } }
+                val extendedPaths = buildList<StateChartPath> { withIsland.shortestPathTo(id) { add(it) } }
+                assertEquals(originalPaths, extendedPaths, "seed $seed")
             }
         }
-        // Removing any path loses its last transition.
-        for ((i, p) in paths.withIndex()) {
-            val others = paths.filterIndexed { j, _ -> j != i }.flatMap { it.transitions }.toSet()
-            assertTrue(p.transitions.last() !in others, "seed $seed: path $i is redundant")
-        }
-    }
-
-    @Test
-    fun coveragePathsComeInDeclarationOrderOfTheirLastTransition() = forEachChart { seed, _, chart ->
-        val order = chart.transitionCoveragePaths().map { chart.transitions.indexOf(it.transitions.last()) }
-        assertEquals(order.sorted(), order, "seed $seed")
-        assertEquals(order.distinct(), order, "seed $seed")
-    }
-
-    @Test
-    fun coveragePathCountIsTheNumberOfLeavesOfTheCoverageTree() = forEachChart { seed, _, chart ->
-        // Candidates are "tree path to source + transition"; only those that no other candidate
-        // extends survive. Count them independently via tree edges.
-        val reachable = referenceDistances(chart).keys
-        val candidates = chart.transitions.filter { it.source in reachable }.distinct()
-        val treeEdges = reachable.map { chart.shortestPathTo(it).transitions }.filter { it.isNotEmpty() }.map { it.last() }.toSet()
-        // A candidate is extended iff it is a tree edge whose target has an outgoing transition.
-        val leaves = candidates.count { t -> !(t in treeEdges && chart.transitionsFrom(t.target).isNotEmpty()) }
-        assertEquals(leaves, chart.transitionCoveragePaths().size, "seed $seed")
-    }
-
-    @Test
-    fun resultsAreDeterministicAndIndependentOfUnreachableParts() = forEachChart { seed, random, chart ->
-        val paths = chart.transitionCoveragePaths()
-        assertEquals(paths, chart.transitionCoveragePaths(), "seed $seed")
-        assertEquals(paths, chart.copy(transitions = chart.transitions.toList()).transitionCoveragePaths(), "seed $seed")
-
-        // Adding transitions that leave an unreachable island changes nothing.
-        val island = StateId("island ${random.nextInt(10)}")
-        val withIsland = chart.copy(
-            states = chart.states + AtomicState(island),
-            transitions = chart.transitions.flatMap { listOf(Transition(island, it.source, it.trigger), it) },
-        )
-        assertEquals(paths, withIsland.transitionCoveragePaths(), "seed $seed")
-        for (id in candidateIds(chart)) {
-            val originalPaths = buildList<StateChartPath> { chart.shortestPathTo(id) { add(it) } }
-            val extendedPaths = buildList<StateChartPath> { withIsland.shortestPathTo(id) { add(it) } }
-            assertEquals(originalPaths, extendedPaths, "seed $seed")
-        }
-    }
 
     @Test
     fun pathConstructorAcceptsExactlyTheConnectedSequences() {
@@ -218,11 +237,12 @@ class StateChartPathPropertyTest {
         val go = ActionMatcher("Go")
         val toC1 = Transition(init, c1, go)
         val c1ToX = Transition(c1, x, go)
-        val chart = StateChartDefinition(
-            initial = init,
-            states = listOf(init, c1, c3, y, x).map(::AtomicState),
-            transitions = listOf(toC1, Transition(init, c3, go), Transition(c3, y, go), Transition(y, x, go), c1ToX),
-        )
+        val chart =
+            StateChartDefinition(
+                initial = init,
+                states = listOf(init, c1, c3, y, x).map(::AtomicState),
+                transitions = listOf(toC1, Transition(init, c3, go), Transition(c3, y, go), Transition(y, x, go), c1ToX),
+            )
 
         assertEquals(listOf(toC1, c1ToX), chart.shortestPathTo(x)?.transitions)
     }

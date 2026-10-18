@@ -116,7 +116,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param first The first plugin instance to add
      * @param rest Additional plugin instances to add
      */
-    fun plugin(first: Plugin<S, A, E>, vararg rest: Plugin<S, A, E>) {
+    fun plugin(
+        first: Plugin<S, A, E>,
+        vararg rest: Plugin<S, A, E>,
+    ) {
         storePlugins.add(first)
         storePlugins.addAll(rest)
     }
@@ -131,7 +134,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param rest Additional probes to add
      */
     @InternalActronApi
-    fun probe(first: StoreProbe<S, A, E>, vararg rest: StoreProbe<S, A, E>) {
+    fun probe(
+        first: StoreProbe<S, A, E>,
+        vararg rest: StoreProbe<S, A, E>,
+    ) {
         storeProbes.add(first)
         storeProbes.addAll(rest)
     }
@@ -157,32 +163,43 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
 
     private val onEnter: suspend EnterScope<S, E, S>.() -> Unit = {
         for (handler in this@StoreBuilder.registeredEnterHandlers) {
-            if (handler.predicate(state)) { handler.handler.invoke(this); break }
+            if (handler.predicate(state)) {
+                handler.handler.invoke(this)
+                break
+            }
         }
     }
 
     private val onAction: suspend ActionScope<S, A, E, S>.() -> Unit = {
         for (handler in this@StoreBuilder.registeredActionHandlers) {
-            if (handler.predicate(state, action)) { handler.handler.invoke(this); break }
+            if (handler.predicate(state, action)) {
+                handler.handler.invoke(this)
+                break
+            }
         }
     }
 
     private val onExit: suspend ExitScope<S, E, S>.() -> Unit = {
         for (handler in this@StoreBuilder.registeredExitHandlers) {
-            if (handler.predicate(state)) { handler.handler.invoke(this); break }
+            if (handler.predicate(state)) {
+                handler.handler.invoke(this)
+                break
+            }
         }
     }
 
-    private val onError: suspend RecoverScope<S, E, S, Exception>.() -> Unit = handle@ {
+    private val onError: suspend RecoverScope<S, E, S, Exception>.() -> Unit = handle@{
         for (handler in this@StoreBuilder.registeredErrorHandlers) {
-            if (handler.predicate(state, error)) { handler.handler.invoke(this); return@handle }
+            if (handler.predicate(state, error)) {
+                handler.handler.invoke(this)
+                return@handle
+            }
         }
         throw error
     }
 
     @ActronStoreDsl
     class StateHandlerConfig<S : State, A : Action, E : Event, S2 : S> {
-
         @PublishedApi
         internal class ThreadedHandler<P : Any, SC : StoreScope>(
             private val dispatcher: CoroutineContext,
@@ -191,8 +208,11 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
             val inputType: KClass<*>,
         ) {
             suspend operator fun invoke(scope: SC) {
-                if (dispatcher == EmptyCoroutineContext) handler(scope)
-                else withContext(dispatcher) { handler(scope) }
+                if (dispatcher == EmptyCoroutineContext) {
+                    handler(scope)
+                } else {
+                    withContext(dispatcher) { handler(scope) }
+                }
             }
         }
 
@@ -217,7 +237,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
          * @param dispatcher Execution context override for executing the enter handler
          * @param block The handler function that will be executed when entering this state
          */
-        fun enter(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend EnterScope<S, E, S2>.() -> Unit) {
+        fun enter(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            block: suspend EnterScope<S, E, S2>.() -> Unit,
+        ) {
             stateEnterHandlers.add(ThreadedHandler(dispatcher, Unit, block, Unit::class))
         }
 
@@ -231,7 +254,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
          * @param dispatcher Execution context override for executing the action handler
          * @param block The handler function that processes the action and updates the state
          */
-        inline fun <reified A2 : A> action(dispatcher: CoroutineContext = EmptyCoroutineContext, noinline block: suspend ActionScope<S, A2, E, S2>.() -> Unit) {
+        inline fun <reified A2 : A> action(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            noinline block: suspend ActionScope<S, A2, E, S2>.() -> Unit,
+        ) {
             stateActionHandlers.add(
                 ThreadedHandler(
                     dispatcher = dispatcher,
@@ -254,7 +280,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
          * @param dispatcher Execution context override for executing the exit handler
          * @param block The handler function that will be executed when exiting this state
          */
-        fun exit(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend ExitScope<S, E, S2>.() -> Unit) {
+        fun exit(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            block: suspend ExitScope<S, E, S2>.() -> Unit,
+        ) {
             stateExitHandlers.add(ThreadedHandler(dispatcher, Unit, block, Unit::class))
         }
 
@@ -268,7 +297,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
          * @param dispatcher Execution context override for executing the recover handler
          * @param block The handler function that processes the exception and updates the state
          */
-        inline fun <reified T : Exception> recover(dispatcher: CoroutineContext = EmptyCoroutineContext, noinline block: suspend RecoverScope<S, E, S2, T>.() -> Unit) {
+        inline fun <reified T : Exception> recover(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            noinline block: suspend RecoverScope<S, E, S2, T>.() -> Unit,
+        ) {
             stateErrorHandlers.add(
                 ThreadedHandler(
                     dispatcher = dispatcher,
@@ -289,7 +321,10 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
             message = "Use recover<T>(dispatcher, block)",
             replaceWith = ReplaceWith("recover<T>(dispatcher, block)"),
         )
-        inline fun <reified T : Exception> error(dispatcher: CoroutineContext = EmptyCoroutineContext, noinline block: suspend RecoverScope<S, E, S2, T>.() -> Unit) {
+        inline fun <reified T : Exception> error(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            noinline block: suspend RecoverScope<S, E, S2, T>.() -> Unit,
+        ) {
             recover(dispatcher, block)
         }
     }
@@ -380,13 +415,14 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
             override val validateRecoveredState: (S, S) -> Unit = { previous, recovered ->
                 recoveryValidators.forEach { it(previous, recovered) }
             }
-            override val handlerRegistry: HandlerRegistry<S, A> = HandlerRegistry(
-                enter = registeredEnterHandlers.map { it.matcher },
-                action = registeredActionHandlers.map { it.matcher },
-                exit = registeredExitHandlers.map { it.matcher },
-                recover = registeredErrorHandlers.map { it.matcher },
-                actionPredicates = registeredActionHandlers.map { it.predicate },
-            )
+            override val handlerRegistry: HandlerRegistry<S, A> =
+                HandlerRegistry(
+                    enter = registeredEnterHandlers.map { it.matcher },
+                    action = registeredActionHandlers.map { it.matcher },
+                    exit = registeredExitHandlers.map { it.matcher },
+                    recover = registeredErrorHandlers.map { it.matcher },
+                    actionPredicates = registeredActionHandlers.map { it.predicate },
+                )
         }
     }
 }
@@ -396,16 +432,19 @@ fun <S : State, A : Action, E : Event> Store(
     initialState: S,
     context: CoroutineContext = Dispatchers.Default,
     builder: StoreBuilder<S, A, E>.() -> Unit,
-): Store<S, A, E> = Store<S, A, E>(context) {
-    initialState(initialState)
-    builder()
-}
+): Store<S, A, E> =
+    Store<S, A, E>(context) {
+        initialState(initialState)
+        builder()
+    }
 
 /** Creates a Store whose initial state is supplied by [builder]. */
 fun <S : State, A : Action, E : Event> Store(
     context: CoroutineContext = Dispatchers.Default,
     builder: StoreBuilder<S, A, E>.() -> Unit,
-): Store<S, A, E> = StoreBuilder<S, A, E>().apply {
-    coroutineContext(context)
-    builder()
-}.build()
+): Store<S, A, E> =
+    StoreBuilder<S, A, E>()
+        .apply {
+            coroutineContext(context)
+            builder()
+        }.build()

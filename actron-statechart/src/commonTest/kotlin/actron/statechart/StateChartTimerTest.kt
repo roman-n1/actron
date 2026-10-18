@@ -57,14 +57,19 @@ import kotlin.time.Duration.Companion.seconds
  */
 @OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
 class StateChartTimerTest {
-
     sealed interface MessengerAction : Action {
         data object Connect : MessengerAction
+
         data object Drop : MessengerAction
+
         data object Restore : MessengerAction
+
         data object Retry : MessengerAction
+
         data object KeyPress : MessengerAction
+
         data object Send : MessengerAction
+
         data object Logout : MessengerAction
     }
 
@@ -72,7 +77,12 @@ class StateChartTimerTest {
 
     sealed interface MessengerState : State {
         data object Offline : MessengerState
-        data class Online(val link: Link, val typing: Boolean = false, val retriesLeft: Int = 0) : MessengerState
+
+        data class Online(
+            val link: Link,
+            val typing: Boolean = false,
+            val retriesLeft: Int = 0,
+        ) : MessengerState
     }
 
     sealed interface MessengerEvent : Event
@@ -101,22 +111,36 @@ class StateChartTimerTest {
     private val sessionTimeout = Transition(online, offline, Trigger.After(30.minutes))
     private val logout = Transition(online, offline, on<MessengerAction.Logout>("Logout"))
 
-    private val chart = StateChartDefinition(
-        initial = offline,
-        states = listOf(
-            AtomicState(offline),
-            ParallelState(online),
-            CompoundState(connection, initial = connected, parent = online),
-            AtomicState(connected, parent = connection),
-            AtomicState(reconnecting, parent = connection),
-            CompoundState(composer, initial = idle, parent = online),
-            AtomicState(idle, parent = composer),
-            AtomicState(typing, parent = composer),
-        ),
-        transitions = listOf(
-            connect, heartbeat, drop, restore, retry, keyPress, keepTyping, typingTimeout, send, giveUp, sessionTimeout, logout,
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            initial = offline,
+            states =
+                listOf(
+                    AtomicState(offline),
+                    ParallelState(online),
+                    CompoundState(connection, initial = connected, parent = online),
+                    AtomicState(connected, parent = connection),
+                    AtomicState(reconnecting, parent = connection),
+                    CompoundState(composer, initial = idle, parent = online),
+                    AtomicState(idle, parent = composer),
+                    AtomicState(typing, parent = composer),
+                ),
+            transitions =
+                listOf(
+                    connect,
+                    heartbeat,
+                    drop,
+                    restore,
+                    retry,
+                    keyPress,
+                    keepTyping,
+                    typingTimeout,
+                    send,
+                    giveUp,
+                    sessionTimeout,
+                    logout,
+                ),
+        )
 
     private val activeLeavesOf: (MessengerState) -> Set<StateId> = { state ->
         when (state) {
@@ -128,27 +152,33 @@ class StateChartTimerTest {
     /** What the guard was asked with, in order. */
     private val guardCalls = mutableListOf<Pair<MessengerState, Action>>()
 
-    private val runtime = StateChartRuntime(
-        chart,
-        { s: MessengerState -> activeLeavesOf(s).first() },
-        guards = mapOf(
-            "outOfRetries" to { state, action ->
-                guardCalls += state to action
-                state is MessengerState.Online && state.retriesLeft == 0
-            },
-        ),
-    )
+    private val runtime =
+        StateChartRuntime(
+            chart,
+            { s: MessengerState -> activeLeavesOf(s).first() },
+            guards =
+                mapOf(
+                    "outOfRetries" to { state, action ->
+                        guardCalls += state to action
+                        state is MessengerState.Online && state.retriesLeft == 0
+                    },
+                ),
+        )
 
     private val noRetries = MessengerState.Online(Link.Reconnecting)
 
-    private fun step(configuration: StateConfiguration, action: MessengerAction) =
-        runtime.step(configuration, noRetries, action) as StepResult.Transitioned
+    private fun step(
+        configuration: StateConfiguration,
+        action: MessengerAction,
+    ) = runtime.step(configuration, noRetries, action) as StepResult.Transitioned
 
-    private fun fire(configuration: StateConfiguration, timer: Transition, state: MessengerState = noRetries) =
-        runtime.fire(configuration, state, timer)
+    private fun fire(
+        configuration: StateConfiguration,
+        timer: Transition,
+        state: MessengerState = noRetries,
+    ) = runtime.fire(configuration, state, timer)
 
-    private fun online(vararg actions: MessengerAction): StateConfiguration =
-        (listOf(MessengerAction.Connect) + actions).fold(runtime.initialConfiguration()) { c, a -> step(c, a).configuration }
+    private fun online(vararg actions: MessengerAction): StateConfiguration = (listOf(MessengerAction.Connect) + actions).fold(runtime.initialConfiguration()) { c, a -> step(c, a).configuration }
 
     // region runtime
 
@@ -288,10 +318,11 @@ class StateChartTimerTest {
         val negative = Transition(idle, typing, Trigger.After((-1).seconds))
         val fromHistory = Transition(history, idle, Trigger.After(1.seconds))
         val twin = Transition(typing, offline, Trigger.After(3.seconds))
-        val broken = chart.copy(
-            states = chart.states + HistoryState(history, parent = composer),
-            transitions = chart.transitions + zero + negative + fromHistory + twin,
-        )
+        val broken =
+            chart.copy(
+                states = chart.states + HistoryState(history, parent = composer),
+                transitions = chart.transitions + zero + negative + fromHistory + twin,
+            )
         assertEquals(
             listOf(
                 ValidationIssue.NonPositiveDelay(zero),
@@ -431,42 +462,45 @@ class StateChartTimerTest {
     }
 
     @Test
-    fun changeNoActionExplainsIsCreditedToATimer() = runTest {
-        val conformance = conformance()
-        val store = createStore().patch { plugin(conformance) }
-        store.dispatchAndAwait(MessengerAction.Connect)
-        store.dispatchAndAwait(MessengerAction.Drop)
-        store.dispatchAndAwait(MessengerAction.Send) // not typing: no change, but it is the latest action
-        advance(5.seconds)
-        assertEquals(MessengerState.Offline, store.currentState)
-        assertEquals(emptyList(), conformance.violations)
-        assertEquals(listOf(connect, drop, giveUp), conformance.coveredTransitions.toList())
-        store.close()
-    }
+    fun changeNoActionExplainsIsCreditedToATimer() =
+        runTest {
+            val conformance = conformance()
+            val store = createStore().patch { plugin(conformance) }
+            store.dispatchAndAwait(MessengerAction.Connect)
+            store.dispatchAndAwait(MessengerAction.Drop)
+            store.dispatchAndAwait(MessengerAction.Send) // not typing: no change, but it is the latest action
+            advance(5.seconds)
+            assertEquals(MessengerState.Offline, store.currentState)
+            assertEquals(emptyList(), conformance.violations)
+            assertEquals(listOf(connect, drop, giveUp), conformance.coveredTransitions.toList())
+            store.close()
+        }
 
     @Test
-    fun changeATimerExplainsLeavesTheActionForTheNextChange() = runTest {
-        val conformance = conformance()
-        val store = createStore().patch { plugin(conformance) }
-        listOf(MessengerAction.Connect, MessengerAction.Drop, MessengerAction.KeyPress, MessengerAction.Retry).forEach { store.dispatchAndAwait(it) }
-        advance(3.seconds) // the typing timer: Retry does not explain it, the timer does
-        advance(1.seconds) // Retry's reconnect: still attributed to Retry, not to Restore
-        assertEquals(MessengerState.Online(Link.Connected), store.currentState)
-        assertEquals(emptyList(), conformance.violations)
-        assertEquals(listOf(connect, drop, keyPress, typingTimeout, retry), conformance.coveredTransitions.toList())
-        store.close()
-    }
+    fun changeATimerExplainsLeavesTheActionForTheNextChange() =
+        runTest {
+            val conformance = conformance()
+            val store = createStore().patch { plugin(conformance) }
+            listOf(MessengerAction.Connect, MessengerAction.Drop, MessengerAction.KeyPress, MessengerAction.Retry).forEach { store.dispatchAndAwait(it) }
+            advance(3.seconds) // the typing timer: Retry does not explain it, the timer does
+            advance(1.seconds) // Retry's reconnect: still attributed to Retry, not to Restore
+            assertEquals(MessengerState.Online(Link.Connected), store.currentState)
+            assertEquals(emptyList(), conformance.violations)
+            assertEquals(listOf(connect, drop, keyPress, typingTimeout, retry), conformance.coveredTransitions.toList())
+            store.close()
+        }
 
     @Test
-    fun changeNeitherAnActionNorATimerExplainsIsReported() = runTest {
-        val conformance = conformance()
-        val store = createStore(restoresItself = true).patch { plugin(conformance) }
-        listOf(MessengerAction.Connect, MessengerAction.Drop, MessengerAction.Send).forEach { store.dispatchAndAwait(it) }
-        advance(5.seconds)
-        // The chart gives up after 5 seconds; restoring the link needs Restore or Retry.
-        assertEquals(listOf(ConformanceViolation.UnexpectedTrigger(reconnecting, connected, MessengerAction.Send)), conformance.violations)
-        store.close()
-    }
+    fun changeNeitherAnActionNorATimerExplainsIsReported() =
+        runTest {
+            val conformance = conformance()
+            val store = createStore(restoresItself = true).patch { plugin(conformance) }
+            listOf(MessengerAction.Connect, MessengerAction.Drop, MessengerAction.Send).forEach { store.dispatchAndAwait(it) }
+            advance(5.seconds)
+            // The chart gives up after 5 seconds; restoring the link needs Restore or Retry.
+            assertEquals(listOf(ConformanceViolation.UnexpectedTrigger(reconnecting, connected, MessengerAction.Send)), conformance.violations)
+            store.close()
+        }
 
     // endregion
 }

@@ -50,7 +50,6 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  */
 class BranchControlsTest {
-
     @Test
     fun anExperimentRestoresAwaitingCommandsAndTimers_withoutChangingTheReplayCheckpoint() {
         val initial = machine.initialSnapshot(Ctx())
@@ -58,10 +57,16 @@ class BranchControlsTest {
         val started = machine.decide(initial, start)
         val load = MachineInput.Dispatch(Act.Load, MachineTime.Zero)
         val loading = machine.decide(started.snapshot, load)
-        val recording = Recording(machine.id, machine.version, initial, listOf(
-            RecordedStep.Committed<Ctx, Act, Fetch, Nothing>(start, started),
-            RecordedStep.Committed<Ctx, Act, Fetch, Nothing>(load, loading),
-        ))
+        val recording =
+            Recording(
+                machine.id,
+                machine.version,
+                initial,
+                listOf(
+                    RecordedStep.Committed<Ctx, Act, Fetch, Nothing>(start, started),
+                    RecordedStep.Committed<Ctx, Act, Fetch, Nothing>(load, loading),
+                ),
+            )
         val replay = GroupReplayControls(GroupReplaySession(mapOf(store to machine), GroupRecording(mapOf(store to recording), listOf(GroupStep(store, 0), GroupStep(store, 1)))))
         replay.seek(2)
         val checkpoint = replay.checkpoint(store)
@@ -85,10 +90,13 @@ class BranchControlsTest {
         assertEquals(checkpoint, replay.checkpoint(store))
     }
 
-    data class Ctx(val loaded: Int = 0)
+    data class Ctx(
+        val loaded: Int = 0,
+    )
 
     sealed interface Act : Action {
         data object Load : Act
+
         data object Loaded : Act
     }
 
@@ -100,20 +108,22 @@ class BranchControlsTest {
     private val idle = StateId("Idle")
     private val loading = StateId("Loading")
     private val content = StateId("Content")
-    private val chart = StateChartDefinition(
-        root,
-        listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root), AtomicState(content, parent = root)),
-        listOf(
-            Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
-            Transition(loading, content, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("count")),
-            Transition(loading, idle, Trigger.After(10.seconds)),
-            Transition(content, loading, ActionMatcher.of<Act.Load>("Load")),
-        ),
-    )
-    private val machine = Machine<Ctx, Act, Fetch, Nothing>(DefinitionId("branchy"), DefinitionVersion("1"), chart) {
-        effect("count") { c, _ -> c.copy(loaded = c.loaded + 1) }
-        onEnter(loading) { command(Fetch, LaneId("load"), ConcurrencyPolicy.Latest) }
-    }
+    private val chart =
+        StateChartDefinition(
+            root,
+            listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root), AtomicState(content, parent = root)),
+            listOf(
+                Transition(idle, loading, ActionMatcher.of<Act.Load>("Load")),
+                Transition(loading, content, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("count")),
+                Transition(loading, idle, Trigger.After(10.seconds)),
+                Transition(content, loading, ActionMatcher.of<Act.Load>("Load")),
+            ),
+        )
+    private val machine =
+        Machine<Ctx, Act, Fetch, Nothing>(DefinitionId("branchy"), DefinitionVersion("1"), chart) {
+            effect("count") { c, _ -> c.copy(loaded = c.loaded + 1) }
+            onEnter(loading) { command(Fetch, LaneId("load"), ConcurrencyPolicy.Latest) }
+        }
     private val store = StoreInstanceId("s")
 
     private fun controls(): BranchControls {
@@ -123,7 +133,8 @@ class BranchControlsTest {
         val session = ReplaySession(machine, recording).also { it.seek(1) }
         val branch = GroupBranch(mapOf(store to session.branch()), emptyList())
         return BranchControls(
-            branch, mapOf(store to machine),
+            branch,
+            mapOf(store to machine),
             listOf(BranchInput.Dispatch(store, "Load", Act.Load), BranchInput.Answer(store, "Loaded", Act.Loaded)),
         )
     }

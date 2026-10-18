@@ -19,9 +19,10 @@ class MemoryAssessmentTest {
     }
 
     @Test fun aLeakInOneRecordingModeStillExceedsTheUnchangedBudget() {
-        val samples = (0 until 9).flatMap { index ->
-            listOf(sample(index * 2, false, 8 * mib), sample(index * 2 + 1, true, (40 + if (index >= 5) 12 else 0) * mib))
-        }
+        val samples =
+            (0 until 9).flatMap { index ->
+                listOf(sample(index * 2, false, 8 * mib), sample(index * 2 + 1, true, (40 + if (index >= 5) 12 else 0) * mib))
+            }
         val growth = buildList<Map<String, MemoryGrowth>> { assertTrue(memoryGrowthByMode(samples) { add(it) }) }.single()
         assertEquals(0L, growth.getValue("recording-off").heapBytes)
         assertEquals(12 * mib, growth.getValue("recording-on").heapBytes)
@@ -34,8 +35,13 @@ class MemoryAssessmentTest {
         kotlin.test.assertFalse(memoryGrowthByMode(List(18) { sample(it, false, 8 * mib) }) { error("Insufficient samples were evaluated") })
     }
 
-    private fun sample(index: Int, recording: Boolean, heap: Long) = Sample(
-        startedMillis = index * 1000L, elapsedMillis = index * 1000L + 900,
+    private fun sample(
+        index: Int,
+        recording: Boolean,
+        heap: Long,
+    ) = Sample(
+        startedMillis = index * 1000L,
+        elapsedMillis = index * 1000L + 900,
         result = BatchResult(index, recording, 100, 0, 10, 20, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0),
         memory = MemorySample(heap, heap, heap, 20),
     )

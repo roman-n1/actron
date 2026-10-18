@@ -4,18 +4,18 @@ import actron.core.Action
 import actron.core.Event
 import actron.observability.StoreInstanceId
 import actron.observability.file.Framing
-import actron.observability.file.SegmentMark
 import actron.observability.file.SegmentEnding
-import actron.observability.file.beforeHeader
+import actron.observability.file.SegmentMark
 import actron.observability.file.SegmentStorage
+import actron.observability.file.beforeHeader
 import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.DefinitionVersion
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.timetravel.RECORDING_FORMAT_VERSION
 import actron.timetravel.RecordedStep
 import actron.timetravel.RecordingCodec
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -45,20 +45,27 @@ object RecordingFileFormat {
     private const val TAG_CHECKPOINT = 2
     private const val TAG_STEP = 3
 
-    private val json = Json {
-        encodeDefaults = false
-        explicitNulls = false
-        ignoreUnknownKeys = false
-    }
+    private val json =
+        Json {
+            encodeDefaults = false
+            explicitNulls = false
+            ignoreUnknownKeys = false
+        }
 
     /** `<store>-<index, six digits>.recording`. */
-    fun segmentName(store: StoreInstanceId, index: Int): String {
+    fun segmentName(
+        store: StoreInstanceId,
+        index: Int,
+    ): String {
         require(index >= 0) { "[Actron] A segment index is not negative" }
         return "${store.value}-${index.toString().padStart(6, '0')}$EXTENSION"
     }
 
     /** Reports the store and index once; false for a name that is not a segment. */
-    fun parseSegmentName(name: String, accept: (StoreInstanceId, Int) -> Unit): Boolean {
+    fun parseSegmentName(
+        name: String,
+        accept: (StoreInstanceId, Int) -> Unit,
+    ): Boolean {
         if (!name.endsWith(EXTENSION)) return false
         val stem = name.removeSuffix(EXTENSION)
         val dash = stem.lastIndexOf('-')
@@ -68,17 +75,36 @@ object RecordingFileFormat {
         return true
     }
 
-    internal fun namedSegments(storage: SegmentStorage, owner: StoreInstanceId): List<Pair<Int, String>> = buildList {
-        for (info in storage.list()) parseSegmentName(info.name) { id, index ->
-            if (id == owner) add(index to info.name)
+    internal fun namedSegments(
+        storage: SegmentStorage,
+        owner: StoreInstanceId,
+    ): List<Pair<Int, String>> =
+        buildList {
+            for (info in storage.list()) {
+                parseSegmentName(info.name) { id, index ->
+                    if (id == owner) add(index to info.name)
+                }
+            }
         }
-    }
 
     /** The bytes a segment begins with: the magic and the header frame. */
-    fun header(definition: DefinitionId, version: DefinitionVersion, store: StoreInstanceId, index: Int, firstStep: Int): ByteArray =
-        header(definition, version, store, index, firstStep, RECORDING_FILE_FORMAT_VERSION, RECORDING_FORMAT_VERSION)
+    fun header(
+        definition: DefinitionId,
+        version: DefinitionVersion,
+        store: StoreInstanceId,
+        index: Int,
+        firstStep: Int,
+    ): ByteArray = header(definition, version, store, index, firstStep, RECORDING_FILE_FORMAT_VERSION, RECORDING_FORMAT_VERSION)
 
-    internal fun header(definition: DefinitionId, version: DefinitionVersion, store: StoreInstanceId, index: Int, firstStep: Int, fileFormatVersion: Int, recordingFormatVersion: Int): ByteArray {
+    internal fun header(
+        definition: DefinitionId,
+        version: DefinitionVersion,
+        store: StoreInstanceId,
+        index: Int,
+        firstStep: Int,
+        fileFormatVersion: Int,
+        recordingFormatVersion: Int,
+    ): ByteArray {
         val wire = RecordingHeaderWire(fileFormatVersion, recordingFormatVersion, definition.value, version.value, store.value, index, firstStep)
         return MAGIC + Framing.frame(tagged(TAG_HEADER, json.encodeToString(RecordingHeaderWire.serializer(), wire)))
     }
@@ -93,23 +119,28 @@ object RecordingFileFormat {
      * Reads [bytes] as the segment [name] with [codec]: the header, the checkpoint it begins
      * with, the steps that could be read, and what stopped the reading. Never throws on damage.
      */
-    fun <C : Any, A : Action, CMD : Any, E : Event> decodeSegment(name: String, bytes: ByteArray, codec: RecordingCodec<C, A, CMD, E>): DecodedRecordingSegment<C, A, CMD, E> {
+    fun <C : Any, A : Action, CMD : Any, E : Event> decodeSegment(
+        name: String,
+        bytes: ByteArray,
+        codec: RecordingCodec<C, A, CMD, E>,
+    ): DecodedRecordingSegment<C, A, CMD, E> {
         val read = Framing.read(name, bytes, MAGIC)
         val frames = read.frames
         if (frames.isEmpty()) {
             val mark = read.ending.beforeHeader(name, MAGIC.size)
             return DecodedRecordingSegment.Unreadable(mark)
         }
-        val header = try {
-            val text = untag(frames[0].payload, TAG_HEADER, "header")
-            json.decodeFromString(RecordingHeaderWire.serializer(), text).let {
-                RecordingSegmentHeader(it.formatVersion, it.recordingFormat, DefinitionId(it.definition), DefinitionVersion(it.version), StoreInstanceId(it.store), it.index, it.firstStep)
+        val header =
+            try {
+                val text = untag(frames[0].payload, TAG_HEADER, "header")
+                json.decodeFromString(RecordingHeaderWire.serializer(), text).let {
+                    RecordingSegmentHeader(it.formatVersion, it.recordingFormat, DefinitionId(it.definition), DefinitionVersion(it.version), StoreInstanceId(it.store), it.index, it.firstStep)
+                }
+            } catch (e: SerializationException) {
+                return DecodedRecordingSegment.Unreadable(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}"))
+            } catch (e: IllegalArgumentException) {
+                return DecodedRecordingSegment.Unreadable(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}"))
             }
-        } catch (e: SerializationException) {
-            return DecodedRecordingSegment.Unreadable(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}"))
-        } catch (e: IllegalArgumentException) {
-            return DecodedRecordingSegment.Unreadable(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}"))
-        }
         if (header.fileFormatVersion > RECORDING_FILE_FORMAT_VERSION || header.recordingFormatVersion > RECORDING_FORMAT_VERSION) {
             return DecodedRecordingSegment.HeaderOnly(header, SegmentMark.UnsupportedFormat(name, header.fileFormatVersion, header.recordingFormatVersion))
         }
@@ -118,34 +149,51 @@ object RecordingFileFormat {
             read.ending.withIssue { if (it is SegmentMark.TruncatedTail) issue = it.copy(recordsRead = 0) }
             return DecodedRecordingSegment.HeaderOnly(header, issue)
         }
-        val start = try {
-            codec.decodeCheckpoint(untag(frames[1].payload, TAG_CHECKPOINT, "checkpoint"), header.definition, header.version)
-        } catch (e: IllegalArgumentException) {
-            return DecodedRecordingSegment.HeaderOnly(header, SegmentMark.Corrupt(name, frames[1].offset, 0, "checkpoint: ${e.message}"))
-        }
+        val start =
+            try {
+                codec.decodeCheckpoint(untag(frames[1].payload, TAG_CHECKPOINT, "checkpoint"), header.definition, header.version)
+            } catch (e: IllegalArgumentException) {
+                return DecodedRecordingSegment.HeaderOnly(header, SegmentMark.Corrupt(name, frames[1].offset, 0, "checkpoint: ${e.message}"))
+            }
         val steps = mutableListOf<RecordedStep<C, A, CMD, E>>()
         for (frame in frames.drop(2)) {
-            val step = try {
-                codec.decodeStep(untag(frame.payload, TAG_STEP, "step"), header.definition, header.version)
-            } catch (e: IllegalArgumentException) {
-                return DecodedRecordingSegment.Readable(header, start, steps, SegmentEnding.Stopped(SegmentMark.Corrupt(name, frame.offset, steps.size, "step ${steps.size}: ${e.message}")))
-            }
+            val step =
+                try {
+                    codec.decodeStep(untag(frame.payload, TAG_STEP, "step"), header.definition, header.version)
+                } catch (e: IllegalArgumentException) {
+                    return DecodedRecordingSegment.Readable(header, start, steps, SegmentEnding.Stopped(SegmentMark.Corrupt(name, frame.offset, steps.size, "step ${steps.size}: ${e.message}")))
+                }
             steps += step
         }
         // The framing counted the header and the checkpoint among its frames; steps do not.
         return DecodedRecordingSegment.Readable(header, start, steps, read.ending.countRecords(steps.size))
     }
 
-    private fun tagged(tag: Int, text: String): ByteArray = byteArrayOf(tag.toByte()) + text.encodeToByteArray()
+    private fun tagged(
+        tag: Int,
+        text: String,
+    ): ByteArray = byteArrayOf(tag.toByte()) + text.encodeToByteArray()
 
-    private fun untag(payload: ByteArray, tag: Int, what: String): String {
+    private fun untag(
+        payload: ByteArray,
+        tag: Int,
+        what: String,
+    ): String {
         require(payload.isNotEmpty() && payload[0].toInt() == tag) { "not a $what frame (tag ${payload.firstOrNull()})" }
         return payload.decodeToString(1)
     }
 }
 
 @Serializable
-internal class RecordingHeaderWire(val formatVersion: Int, val recordingFormat: Int, val definition: String, val version: String, val store: String, val index: Int, val firstStep: Int)
+internal class RecordingHeaderWire(
+    val formatVersion: Int,
+    val recordingFormat: Int,
+    val definition: String,
+    val version: String,
+    val store: String,
+    val index: Int,
+    val firstStep: Int,
+)
 
 /** What the header of a recording segment says; [firstStep] is the index in the whole run of the segment's first step. */
 data class RecordingSegmentHeader(
@@ -168,14 +216,21 @@ sealed class DecodedRecordingSegment<C : Any, A : Action, CMD : Any, E : Event> 
     abstract val ending: SegmentEnding
     val finished: Boolean get() = ending.finished
 
-    data class Unreadable<C : Any, A : Action, CMD : Any, E : Event>(val issue: SegmentMark) : DecodedRecordingSegment<C, A, CMD, E>() {
+    data class Unreadable<C : Any, A : Action, CMD : Any, E : Event>(
+        val issue: SegmentMark,
+    ) : DecodedRecordingSegment<C, A, CMD, E>() {
         override val steps: List<RecordedStep<C, A, CMD, E>> get() = emptyList()
         override val ending: SegmentEnding get() = SegmentEnding.Stopped(issue)
     }
-    data class HeaderOnly<C : Any, A : Action, CMD : Any, E : Event>(val header: RecordingSegmentHeader, val issue: SegmentMark) : DecodedRecordingSegment<C, A, CMD, E>() {
+
+    data class HeaderOnly<C : Any, A : Action, CMD : Any, E : Event>(
+        val header: RecordingSegmentHeader,
+        val issue: SegmentMark,
+    ) : DecodedRecordingSegment<C, A, CMD, E>() {
         override val steps: List<RecordedStep<C, A, CMD, E>> get() = emptyList()
         override val ending: SegmentEnding get() = SegmentEnding.Stopped(issue)
     }
+
     data class Readable<C : Any, A : Action, CMD : Any, E : Event>(
         val header: RecordingSegmentHeader,
         val start: ExecutorCheckpoint<C, CMD>,

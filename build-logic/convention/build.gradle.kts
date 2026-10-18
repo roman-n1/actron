@@ -48,6 +48,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
     inputs.files(nullabilityPolicyJar, actronRepository.resolve(".actron/nullability/strict"))
     compilerOptions.freeCompilerArgs.addAll(
         "-Xplugin=${nullabilityPolicyJar.get().asFile.absolutePath}",
-        "-P", "plugin:actron-nullability:root=${actronRepository.absolutePath}",
+        "-P",
+        "plugin:actron-nullability:root=${actronRepository.absolutePath}",
     )
 }

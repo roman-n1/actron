@@ -22,16 +22,17 @@ interface MachineClock {
          * A live clock: [MachineTime.Zero] when created, then [timeSource]'s elapsed time; waits
          * with [delay].
          */
-        fun monotonic(timeSource: TimeSource = TimeSource.Monotonic): MachineClock = object : MachineClock {
-            private val start = timeSource.markNow()
+        fun monotonic(timeSource: TimeSource = TimeSource.Monotonic): MachineClock =
+            object : MachineClock {
+                private val start = timeSource.markNow()
 
-            override fun now(): MachineTime = MachineTime(start.elapsedNow())
+                override fun now(): MachineTime = MachineTime(start.elapsedNow())
 
-            override suspend fun delayUntil(deadline: MachineTime) {
-                val remaining = deadline - now()
-                if (remaining.isPositive()) delay(remaining)
+                override suspend fun delayUntil(deadline: MachineTime) {
+                    val remaining = deadline - now()
+                    if (remaining.isPositive()) delay(remaining)
+                }
             }
-        }
     }
 }
 
@@ -43,7 +44,12 @@ interface MachineClock {
  * @property scope The activation the command belongs to; the handler is cancelled when it exits
  * @property lane The lane, when the command runs under a [ConcurrencyPolicy]
  */
-data class CommandEnvelope<out CMD : Any>(val id: CommandId, val command: CMD, val scope: ActivationId, val lane: CommandLane = CommandLane.Independent)
+data class CommandEnvelope<out CMD : Any>(
+    val id: CommandId,
+    val command: CMD,
+    val scope: ActivationId,
+    val lane: CommandLane = CommandLane.Independent,
+)
 
 /**
  * Where a [CommandHandler] sends what it produced. Each result becomes a
@@ -70,5 +76,8 @@ fun interface ResultSink<in A : Action> {
  * The handler never sets a state: it returns inputs, and the machine decides.
  */
 fun interface CommandHandler<in CMD : Any, out A : Action> {
-    suspend fun execute(command: CommandEnvelope<CMD>, results: ResultSink<A>)
+    suspend fun execute(
+        command: CommandEnvelope<CMD>,
+        results: ResultSink<A>,
+    )
 }

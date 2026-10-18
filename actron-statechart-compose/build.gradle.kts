@@ -14,8 +14,14 @@ version = libs.versions.actron.get()
 kotlin {
     android {
         namespace = "actron.statechart.compose"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
 
         // The tests compose (a Recomposer on the test dispatcher); the Android runtime of Compose
         // calls android.os.Trace and android.util.Log, stubs in the host test's android.jar that
@@ -65,7 +71,10 @@ kotlin {
 configurations.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "org.jetbrains.compose.ui") {
-            useVersion(libs.versions.compose.multiplatform.get())
+            useVersion(
+                libs.versions.compose.multiplatform
+                    .get(),
+            )
         }
     }
 }

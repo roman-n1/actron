@@ -18,7 +18,12 @@ fun interface Logger {
     )
 
     /** Emits a failure with its exception; custom loggers receive the stack trace as text. */
-    fun log(severity: Severity, tag: String, throwable: Throwable, message: () -> String) {
+    fun log(
+        severity: Severity,
+        tag: String,
+        throwable: Throwable,
+        message: () -> String,
+    ) {
         log(severity, tag) { "${message()}\n${throwable.stackTraceToString()}" }
     }
 

@@ -9,14 +9,34 @@ import kotlin.test.*
 
 class BehaviouralArtifactsTest {
     private data object Go : Action
-    private val idle = StateId("idle"); private val done = StateId("done")
-    private fun machine(version: String, condition: GuardCondition = GuardCondition.Unconditional) = Machine<Unit, Action, Nothing, Event>(DefinitionId("review"), DefinitionVersion(version),
-        StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, ActionMatcher.of<Go>("go"), condition)))) {
+
+    private val idle = StateId("idle")
+    private val done = StateId("done")
+
+    private fun machine(
+        version: String,
+        condition: GuardCondition = GuardCondition.Unconditional,
+    ) = Machine<Unit, Action, Nothing, Event>(
+        DefinitionId("review"),
+        DefinitionVersion(version),
+        StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, ActionMatcher.of<Go>("go"), condition))),
+    ) {
         if (condition is GuardKey) guard(condition.name) { _, _ -> false }
     }
-    private fun coverage(machine: Machine<Unit, Action, Nothing, Event>, covered: Boolean): MachineCoverage =
-        machine.runScenario(machine.initialSnapshot(Unit), MachineScenario("case", listOf(MachineInput.Start(MachineTime.Zero)) +
-            if (covered) listOf(MachineInput.Dispatch(Go, MachineTime.Zero)) else emptyList())).coverage
+
+    private fun coverage(
+        machine: Machine<Unit, Action, Nothing, Event>,
+        covered: Boolean,
+    ): MachineCoverage =
+        machine
+            .runScenario(
+                machine.initialSnapshot(Unit),
+                MachineScenario(
+                    "case",
+                    listOf(MachineInput.Start(MachineTime.Zero)) +
+                        if (covered) listOf(MachineInput.Dispatch(Go, MachineTime.Zero)) else emptyList(),
+                ),
+            ).coverage
 
     @Test fun ciArtifactsRoundTripAndRevealCoverageRegressionWithoutPayloads() {
         val machine = machine("1")
@@ -32,7 +52,8 @@ class BehaviouralArtifactsTest {
     }
 
     @Test fun changedGuardWithSameVersionRequiresBumpAndUncoveredNewDeclarationIsReported() {
-        val before = machine("1"); val after = machine("1", GuardKey("blocked"))
+        val before = machine("1")
+        val after = machine("1", GuardKey("blocked"))
         val files = behaviouralReviewArtifacts(before.behaviouralSnapshot(coverage(before, true)), after.behaviouralSnapshot(coverage(after, false)))
         assertTrue(files.getValue("behaviour.diff").contains("VERSION BUMP REQUIRED"))
         assertTrue(files.getValue("coverage.diff").contains("NEW UNCOVERED"))
@@ -46,11 +67,13 @@ class BehaviouralArtifactsTest {
     @Test fun objectPropertyOrderingDoesNotChangeBehaviourOrInventCoverageRegression() {
         val machine = machine("1")
         val before = machine.behaviouralSnapshot(coverage(machine, true))
-        fun reorder(element: JsonElement): JsonElement = when (element) {
-            is JsonObject -> JsonObject(element.entries.reversed().associate { it.key to reorder(it.value) })
-            is JsonArray -> JsonArray(element.map(::reorder))
-            else -> element
-        }
+
+        fun reorder(element: JsonElement): JsonElement =
+            when (element) {
+                is JsonObject -> JsonObject(element.entries.reversed().associate { it.key to reorder(it.value) })
+                is JsonArray -> JsonArray(element.map(::reorder))
+                else -> element
+            }
         val after = BehaviouralSnapshot.fromJson(reorder(Json.parseToJsonElement(before.toJson())).toString())
         val files = behaviouralReviewArtifacts(before, after)
         assertFalse(files.getValue("behaviour.diff").contains("VERSION BUMP REQUIRED"))

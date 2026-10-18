@@ -1,4 +1,5 @@
 @file:OptIn(actron.core.ExperimentalActronApi::class)
+
 package actron.statechart.test
 
 import actron.core.Action
@@ -9,14 +10,22 @@ import kotlin.test.*
 import kotlin.time.Duration.Companion.seconds
 
 class CompetitiveTargetsTest {
-    private data class Go(val allowed: Boolean) : Action
+    private data class Go(
+        val allowed: Boolean,
+    ) : Action
+
     private val idle = StateId("idle")
     private val done = StateId("done")
     private val go = ActionMatcher.of<Go>("go")
-    private fun machine() = Machine<Unit, Action, Nothing, Event>(DefinitionId("targets"), DefinitionVersion("1"),
-        StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed"))))) {
-        guard("allowed") { _, action -> (action as Go).allowed }
-    }
+
+    private fun machine() =
+        Machine<Unit, Action, Nothing, Event>(
+            DefinitionId("targets"),
+            DefinitionVersion("1"),
+            StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("allowed")))),
+        ) {
+            guard("allowed") { _, action -> (action as Go).allowed }
+        }
 
     @Test fun falseBranchIsNotLostWhenTwoPrefixesHaveEqualTransitionCoverage() {
         val machine = machine()
@@ -26,7 +35,10 @@ class CompetitiveTargetsTest {
         assertEquals(1, plan.plan.scenarios.size, "One false then true prefix covers both branches")
         machine.runPlan(machine.initialSnapshot(Unit), plan).assertSuccess()
         val report = machine.explore(machine.initialSnapshot(Unit), generator, ExplorationStrategy.Cover(CoverageTarget.AllGuardOutcomes))
-        assertTrue(report.coverage.guards.missing.isEmpty())
+        assertTrue(
+            report.coverage.guards.missing
+                .isEmpty(),
+        )
         assertTrue(report.coverage.describeGuards(machine.chart).contains("allowed false: COVERED"))
     }
 
@@ -43,13 +55,20 @@ class CompetitiveTargetsTest {
     }
 
     @Test fun generatorsMatchActualSubtypesRespectConstraintsAndPreserveTimerDeadlines() {
-        val machine = Machine<Unit, Action, Nothing, Event>(DefinitionId("generator"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, Trigger.After(5.seconds))))) {
-            onAction(idle, ActionMatcher.of<Action>("any")) { }
-        }
+        val machine =
+            Machine<Unit, Action, Nothing, Event>(
+                DefinitionId("generator"),
+                DefinitionVersion("1"),
+                StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, Trigger.After(5.seconds)))),
+            ) {
+                onAction(idle, ActionMatcher.of<Action>("any")) { }
+            }
         val snapshot = machine.decide(machine.initialSnapshot(Unit), MachineInput.Start(MachineTime.Zero)).snapshot
-        val generator = machine.inputGenerator(listOf(actionGenerator<Unit, Go>("different-label") { _, _ -> listOf(Go(false), Go(true)) }),
-            constraint = { _, action -> (action as Go).allowed })
+        val generator =
+            machine.inputGenerator(
+                listOf(actionGenerator<Unit, Go>("different-label") { _, _ -> listOf(Go(false), Go(true)) }),
+                constraint = { _, action -> (action as Go).allowed },
+            )
         val inputs = generator.inputs(snapshot, MachineTime.Zero)
         assertEquals(Go(true), (inputs.first() as MachineInput.Dispatch).action)
         assertEquals(MachineTime.Zero + 5.seconds, inputs.last().now)
@@ -58,9 +77,15 @@ class CompetitiveTargetsTest {
     }
 
     @Test fun errorPathsAreExplicitAndHistoryPathsTargetPseudoNodesWithoutCountingThemAsActive() {
-        val root = StateId("root"); val history = StateId("history"); val error = StateId("error")
-        val chart = StateChartDefinition(root, listOf(CompoundState(root, idle), AtomicState(idle, root), HistoryState(history, root), AtomicState(error)), listOf(
-            Transition(idle, error, go), Transition(error, history, go)))
+        val root = StateId("root")
+        val history = StateId("history")
+        val error = StateId("error")
+        val chart =
+            StateChartDefinition(
+                root,
+                listOf(CompoundState(root, idle), AtomicState(idle, root), HistoryState(history, root), AtomicState(error)),
+                listOf(Transition(idle, error, go), Transition(error, history, go)),
+            )
         assertEquals(setOf(TransitionId(0)), chart.requirements(CoverageTarget.AllErrorPaths(setOf(error))).transitions)
         assertEquals(setOf(TransitionId(1)), chart.requirements(CoverageTarget.AllHistoryPaths).transitions)
         assertFalse(history in chart.requirements(CoverageTarget.AllStates).states)

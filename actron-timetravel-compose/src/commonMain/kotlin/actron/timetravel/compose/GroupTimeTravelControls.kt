@@ -1,5 +1,7 @@
 package actron.timetravel.compose
 
+import actron.core.ExperimentalActronApi
+import actron.timetravel.GroupBranch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -13,8 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import actron.core.ExperimentalActronApi
-import actron.timetravel.GroupBranch
 
 /**
  * Moves between group replay and an isolated experiment from its current checkpoint.
@@ -52,13 +52,20 @@ class GroupTimeTravelControls(
 @ExperimentalActronApi
 sealed interface GroupTravel {
     data object Replaying : GroupTravel
-    data class Experiment(val position: Int, val branch: BranchControls) : GroupTravel
+
+    data class Experiment(
+        val position: Int,
+        val branch: BranchControls,
+    ) : GroupTravel
 }
 
 /** Makes the experiment's origin explicit and gives it a route back to recorded history. */
 @ExperimentalActronApi
 @Composable
-fun GroupTimeTravelBar(controls: GroupTimeTravelControls, modifier: Modifier = Modifier) {
+fun GroupTimeTravelBar(
+    controls: GroupTimeTravelControls,
+    modifier: Modifier = Modifier,
+) {
     Row(modifier = modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val travel = controls.travel
         if (travel is GroupTravel.Replaying) {

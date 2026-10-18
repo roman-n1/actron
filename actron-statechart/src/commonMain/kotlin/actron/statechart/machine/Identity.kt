@@ -10,7 +10,9 @@ import kotlin.time.Duration
  * The logical machine a [Machine] implements, stable across versions of its behaviour.
  */
 @JvmInline
-value class DefinitionId(val value: String) {
+value class DefinitionId(
+    val value: String,
+) {
     init {
         require(value.isNotBlank()) { "[Actron] DefinitionId must not be blank" }
     }
@@ -24,7 +26,9 @@ value class DefinitionId(val value: String) {
  * only decided by the version that produced it.
  */
 @JvmInline
-value class DefinitionVersion(val value: String) {
+value class DefinitionVersion(
+    val value: String,
+) {
     init {
         require(value.isNotBlank()) { "[Actron] DefinitionVersion must not be blank" }
     }
@@ -37,7 +41,9 @@ value class DefinitionVersion(val value: String) {
  * work and timers belong to a particular stay in the node and not to the node itself.
  */
 @JvmInline
-value class ActivationId(val value: Long) {
+value class ActivationId(
+    val value: Long,
+) {
     override fun toString(): String = "a$value"
 }
 
@@ -45,7 +51,9 @@ value class ActivationId(val value: Long) {
  * One registered command.
  */
 @JvmInline
-value class CommandId(val value: Long) {
+value class CommandId(
+    val value: Long,
+) {
     override fun toString(): String = "c$value"
 }
 
@@ -54,7 +62,9 @@ value class CommandId(val value: Long) {
  * of its source.
  */
 @JvmInline
-value class TimerId(val value: Long) {
+value class TimerId(
+    val value: Long,
+) {
     override fun toString(): String = "t$value"
 }
 
@@ -62,7 +72,9 @@ value class TimerId(val value: Long) {
  * One event the machine asked to deliver (the handoff's UI effect).
  */
 @JvmInline
-value class EffectId(val value: Long) {
+value class EffectId(
+    val value: Long,
+) {
     override fun toString(): String = "e$value"
 }
 
@@ -71,7 +83,9 @@ value class EffectId(val value: Long) {
  * stable within a [DefinitionVersion].
  */
 @JvmInline
-value class TransitionId(val index: Int) {
+value class TransitionId(
+    val index: Int,
+) {
     override fun toString(): String = "T$index"
 }
 
@@ -80,7 +94,9 @@ value class TransitionId(val index: Int) {
  * Lanes are local to one Store instance.
  */
 @JvmInline
-value class LaneId(val value: String) : CommandLane {
+value class LaneId(
+    val value: String,
+) : CommandLane {
     init {
         require(value.isNotBlank()) { "[Actron] LaneId must not be blank" }
     }
@@ -99,7 +115,9 @@ sealed interface CommandLane {
  * the machine, so deciding is a pure function.
  */
 @JvmInline
-value class MachineTime(val sinceStart: Duration) : Comparable<MachineTime> {
+value class MachineTime(
+    val sinceStart: Duration,
+) : Comparable<MachineTime> {
     operator fun plus(duration: Duration): MachineTime = MachineTime(sinceStart + duration)
 
     operator fun minus(other: MachineTime): Duration = sinceStart - other.sinceStart
@@ -118,7 +136,10 @@ value class MachineTime(val sinceStart: Duration) : Comparable<MachineTime> {
  * was routed from. The same effect gives the same message in a replay, so the id is a correlation
  * reference that a replay checks against, never a second live delivery.
  */
-data class MessageId(val from: StoreInstanceId, val effect: EffectId) {
+data class MessageId(
+    val from: StoreInstanceId,
+    val effect: EffectId,
+) {
     /** The journal's form of this id. */
     fun toRef(): MessageRef = MessageRef(from, effect.value)
 
@@ -131,7 +152,9 @@ data class MessageId(val from: StoreInstanceId, val effect: EffectId) {
  * cut ([ExternalSource]).
  */
 @JvmInline
-value class SourceId(val value: String) {
+value class SourceId(
+    val value: String,
+) {
     init {
         require(value.isNotBlank()) { "[Actron] SourceId must not be blank" }
     }

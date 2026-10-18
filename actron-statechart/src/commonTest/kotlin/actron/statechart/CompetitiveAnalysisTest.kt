@@ -7,7 +7,10 @@ import kotlin.test.*
 
 class CompetitiveAnalysisTest {
     private data object Go : Action
-    private val idle = StateId("idle"); private val done = StateId("done"); private val orphan = StateId("orphan")
+
+    private val idle = StateId("idle")
+    private val done = StateId("done")
+    private val orphan = StateId("orphan")
     private val go = ActionMatcher.of<Go>("go")
 
     @Test fun incompleteStructuralSearchDoesNotProveUnreachabilityAndFinalsAreNotDeadEnds() {
@@ -24,8 +27,12 @@ class CompetitiveAnalysisTest {
 
     @Test fun queriesAndImpactRespectHierarchyAndTransitionOrder() {
         val root = StateId("root")
-        val before = StateChartDefinition(root, listOf(CompoundState(root, idle), AtomicState(idle, root), AtomicState(done, root)),
-            listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("g"), effect = actron.statechart.EffectKey("e"))))
+        val before =
+            StateChartDefinition(
+                root,
+                listOf(CompoundState(root, idle), AtomicState(idle, root), AtomicState(done, root)),
+                listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("g"), effect = actron.statechart.EffectKey("e"))),
+            )
         assertTrue(before.query(TransitionQuery(sources = { it == root })).isEmpty())
         assertEquals(listOf(0), before.query(TransitionQuery(sources = { it == root }, includeDescendants = true, guard = { it == GuardKey("g") })).map { it.index })
         val impact = before.impactTo(before.copy(transitions = listOf(before.transitions.single().copy(guard = actron.statechart.GuardKey("g2")))))
@@ -41,11 +48,18 @@ class CompetitiveAnalysisTest {
 
     @Test fun selectionExplanationKeepsRollbackSeparateAndInvalidConfigurationInvokesNoGuard() {
         var guards = 0
-        val machine = Machine<Unit, Action, Nothing, Event>(DefinitionId("why"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("g"), effect = actron.statechart.EffectKey("e"))))) {
-            guard("g") { _, _ -> guards++; true }
-            effect("e") { _, _ -> error("rollback") }
-        }
+        val machine =
+            Machine<Unit, Action, Nothing, Event>(
+                DefinitionId("why"),
+                DefinitionVersion("1"),
+                StateChartDefinition(idle, listOf(AtomicState(idle), FinalState(done)), listOf(Transition(idle, done, go, guard = actron.statechart.GuardKey("g"), effect = actron.statechart.EffectKey("e")))),
+            ) {
+                guard("g") { _, _ ->
+                    guards++
+                    true
+                }
+                effect("e") { _, _ -> error("rollback") }
+            }
         val base = machine.decide(machine.initialSnapshot(Unit), MachineInput.Start(MachineTime.Zero)).snapshot
         assertTrue(machine.whyNot(base.copy(configuration = StateConfiguration(setOf(orphan))), Go) is ActionExplanation.InvalidConfiguration)
         assertEquals(0, guards)
@@ -58,11 +72,15 @@ class CompetitiveAnalysisTest {
     }
 
     @Test fun earlierAutomaticSelectionRemainsVisibleWhenItsGuardFailsOnTheNextMicrostep() {
-        val machine = Machine<Int, Action, Nothing, Event>(DefinitionId("repeated-guard"), DefinitionVersion("1"),
-            StateChartDefinition(idle, listOf(AtomicState(idle)), listOf(Transition(idle, idle, Trigger.Eventless, guard = actron.statechart.GuardKey("once"), effect = actron.statechart.EffectKey("increment"), kind = TransitionKind.Internal)))) {
-            guard("once") { snapshot, _ -> if (snapshot.context == 1) error("second attempt") else true }
-            effect("increment") { context, _ -> context + 1 }
-        }
+        val machine =
+            Machine<Int, Action, Nothing, Event>(
+                DefinitionId("repeated-guard"),
+                DefinitionVersion("1"),
+                StateChartDefinition(idle, listOf(AtomicState(idle)), listOf(Transition(idle, idle, Trigger.Eventless, guard = actron.statechart.GuardKey("once"), effect = actron.statechart.EffectKey("increment"), kind = TransitionKind.Internal))),
+            ) {
+                guard("once") { snapshot, _ -> if (snapshot.context == 1) error("second attempt") else true }
+                effect("increment") { context, _ -> context + 1 }
+            }
         val actual = machine.decideExplained(machine.initialSnapshot(0), MachineInput.Start(MachineTime.Zero))
         val explanation = machine.whyThisTransition(actual, TransitionId(0))
         assertTrue(explanation.selectedInAttempt)

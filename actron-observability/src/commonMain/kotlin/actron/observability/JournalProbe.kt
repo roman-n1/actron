@@ -55,69 +55,94 @@ internal class JournalProbe<S : State, A : Action, E : Event>(
     private var processingElapsed: () -> Duration = { Duration.ZERO }
 
     override fun record(trace: StoreTrace<S, A, E>) {
-        val entry: JournalEntry<S, A, E> = when (trace) {
-            is StoreTrace.InputAccepted -> JournalEntry.InputAccepted(trace.input, describe(trace.kind))
-            is StoreTrace.InputDiscarded -> JournalEntry.InputDiscarded(trace.input, describe(trace.reason))
-            is StoreTrace.ProcessingStarted -> {
-                val startedAt = session.now()
-                processingElapsed = startedAt::elapsedNow
-                JournalEntry.ProcessingStarted(trace.input, trace.ordinal)
+        val entry: JournalEntry<S, A, E> =
+            when (trace) {
+                is StoreTrace.InputAccepted -> {
+                    JournalEntry.InputAccepted(trace.input, describe(trace.kind))
+                }
+
+                is StoreTrace.InputDiscarded -> {
+                    JournalEntry.InputDiscarded(trace.input, describe(trace.reason))
+                }
+
+                is StoreTrace.ProcessingStarted -> {
+                    val startedAt = session.now()
+                    processingElapsed = startedAt::elapsedNow
+                    JournalEntry.ProcessingStarted(trace.input, trace.ordinal)
+                }
+
+                is StoreTrace.StateCommitted -> {
+                    JournalEntry.StateCommitted(
+                        input = trace.input,
+                        revision = trace.revision,
+                        previous = guarded { policy.state(trace.previous) },
+                        state = guarded { policy.state(trace.state) },
+                    )
+                }
+
+                is StoreTrace.EventEmitted -> {
+                    JournalEntry.EventEmitted(trace.input, guarded { policy.event(trace.event) })
+                }
+
+                is StoreTrace.FailureReported -> {
+                    JournalEntry.FailureReported(trace.input, failure(trace.error))
+                }
+
+                is StoreTrace.ProcessingFinished -> {
+                    val duration = processingElapsed()
+                    processingElapsed = { Duration.ZERO }
+                    JournalEntry.ProcessingFinished(trace.input, trace.ordinal, describe(trace.outcome), duration)
+                }
+
+                StoreTrace.StoreClosed -> {
+                    JournalEntry.StoreClosed
+                }
             }
-            is StoreTrace.StateCommitted -> JournalEntry.StateCommitted(
-                input = trace.input,
-                revision = trace.revision,
-                previous = guarded { policy.state(trace.previous) },
-                state = guarded { policy.state(trace.state) },
-            )
-            is StoreTrace.EventEmitted -> JournalEntry.EventEmitted(trace.input, guarded { policy.event(trace.event) })
-            is StoreTrace.FailureReported -> JournalEntry.FailureReported(trace.input, failure(trace.error))
-            is StoreTrace.ProcessingFinished -> {
-                val duration = processingElapsed()
-                processingElapsed = { Duration.ZERO }
-                JournalEntry.ProcessingFinished(trace.input, trace.ordinal, describe(trace.outcome), duration)
-            }
-            StoreTrace.StoreClosed -> JournalEntry.StoreClosed
-        }
         session.publish(store, entry)
     }
 
-    private fun describe(kind: InputKind<A>): InputDescriptor<A> = when (kind) {
-        InputKind.Startup -> InputDescriptor.Startup
-        is InputKind.Dispatch -> InputDescriptor.Dispatch(guarded { policy.action(kind.action) })
-        is InputKind.Transaction -> InputDescriptor.Transaction(kind.origin)
-        is InputKind.Recovery -> InputDescriptor.Recovery(failure(kind.error), kind.origin)
-    }
+    private fun describe(kind: InputKind<A>): InputDescriptor<A> =
+        when (kind) {
+            InputKind.Startup -> InputDescriptor.Startup
+            is InputKind.Dispatch -> InputDescriptor.Dispatch(guarded { policy.action(kind.action) })
+            is InputKind.Transaction -> InputDescriptor.Transaction(kind.origin)
+            is InputKind.Recovery -> InputDescriptor.Recovery(failure(kind.error), kind.origin)
+        }
 
-    private fun describe(reason: DiscardReason): DiscardDescriptor = when (reason) {
-        DiscardReason.StoreClosed -> DiscardDescriptor(DiscardKind.StoreClosed)
-        DiscardReason.ClearedOnStateExit -> DiscardDescriptor(DiscardKind.ClearedOnStateExit)
-        DiscardReason.ClearedExplicitly -> DiscardDescriptor(DiscardKind.ClearedExplicitly)
-        DiscardReason.Stale -> DiscardDescriptor(DiscardKind.Stale)
-        is DiscardReason.Rejected -> DiscardDescriptor(DiscardKind.Rejected, failure(reason.error))
-        is DiscardReason.StartupFailed -> DiscardDescriptor(DiscardKind.StartupFailed, failure(reason.error))
-        DiscardReason.LaunchInactive -> DiscardDescriptor(DiscardKind.LaunchInactive)
-    }
+    private fun describe(reason: DiscardReason): DiscardDescriptor =
+        when (reason) {
+            DiscardReason.StoreClosed -> DiscardDescriptor(DiscardKind.StoreClosed)
+            DiscardReason.ClearedOnStateExit -> DiscardDescriptor(DiscardKind.ClearedOnStateExit)
+            DiscardReason.ClearedExplicitly -> DiscardDescriptor(DiscardKind.ClearedExplicitly)
+            DiscardReason.Stale -> DiscardDescriptor(DiscardKind.Stale)
+            is DiscardReason.Rejected -> DiscardDescriptor(DiscardKind.Rejected, failure(reason.error))
+            is DiscardReason.StartupFailed -> DiscardDescriptor(DiscardKind.StartupFailed, failure(reason.error))
+            DiscardReason.LaunchInactive -> DiscardDescriptor(DiscardKind.LaunchInactive)
+        }
 
-    private fun describe(outcome: ProcessingOutcome): OutcomeDescriptor = when (outcome) {
-        is ProcessingOutcome.Handled -> OutcomeDescriptor(OutcomeKind.Handled, commits = outcome.commits)
-        ProcessingOutcome.Unchanged -> OutcomeDescriptor(OutcomeKind.Unchanged)
-        ProcessingOutcome.Ignored -> OutcomeDescriptor(OutcomeKind.Ignored)
-        is ProcessingOutcome.Recovered -> OutcomeDescriptor(OutcomeKind.Recovered, commits = outcome.commits, failure = failure(outcome.error))
-        is ProcessingOutcome.Failed -> OutcomeDescriptor(OutcomeKind.Failed, failure = failure(outcome.error))
-        ProcessingOutcome.Cancelled -> OutcomeDescriptor(OutcomeKind.Cancelled)
-    }
+    private fun describe(outcome: ProcessingOutcome): OutcomeDescriptor =
+        when (outcome) {
+            is ProcessingOutcome.Handled -> OutcomeDescriptor(OutcomeKind.Handled, commits = outcome.commits)
+            ProcessingOutcome.Unchanged -> OutcomeDescriptor(OutcomeKind.Unchanged)
+            ProcessingOutcome.Ignored -> OutcomeDescriptor(OutcomeKind.Ignored)
+            is ProcessingOutcome.Recovered -> OutcomeDescriptor(OutcomeKind.Recovered, commits = outcome.commits, failure = failure(outcome.error))
+            is ProcessingOutcome.Failed -> OutcomeDescriptor(OutcomeKind.Failed, failure = failure(outcome.error))
+            ProcessingOutcome.Cancelled -> OutcomeDescriptor(OutcomeKind.Cancelled)
+        }
 
-    private fun failure(error: Throwable): FailureDescriptor = try {
-        policy.failure(error)
-    } catch (e: Exception) {
-        session.reportPolicyFailure(store, e)
-        FailureDescriptor.Unavailable
-    }
+    private fun failure(error: Throwable): FailureDescriptor =
+        try {
+            policy.failure(error)
+        } catch (e: Exception) {
+            session.reportPolicyFailure(store, e)
+            FailureDescriptor.Unavailable
+        }
 
-    private inline fun <T : Any> guarded(describe: () -> Payload<T>): Payload<T> = try {
-        describe()
-    } catch (e: Exception) {
-        session.reportPolicyFailure(store, e)
-        Payload.Unavailable
-    }
+    private inline fun <T : Any> guarded(describe: () -> Payload<T>): Payload<T> =
+        try {
+            describe()
+        } catch (e: Exception) {
+            session.reportPolicyFailure(store, e)
+            Payload.Unavailable
+        }
 }

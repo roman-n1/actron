@@ -14,8 +14,9 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StorePluginExecutionPolicyTest {
-
-    data class AppState(val count: Int = 0) : State
+    data class AppState(
+        val count: Int = 0,
+    ) : State
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
@@ -30,137 +31,144 @@ class StorePluginExecutionPolicyTest {
         setupPolicy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent,
         patch: StorePatchBuilder<AppState, AppAction, Nothing>.() -> Unit = {},
     ): Store<AppState, AppAction, Nothing> {
-        val store = Store<AppState, AppAction, Nothing>(initialState = AppState()) {
-            coroutineContext(testDispatcher)
-            pluginExecutionPolicy(setupPolicy)
+        val store =
+            Store<AppState, AppAction, Nothing>(initialState = AppState()) {
+                coroutineContext(testDispatcher)
+                pluginExecutionPolicy(setupPolicy)
 
-            plugin(
-                Plugin(
-                    onAction = { _, _ ->
-                        records += "first:start"
-                        firstPluginStarted.complete(Unit)
-                        firstPluginCanFinish.await()
-                        records += "first:end"
-                    },
-                ),
-                Plugin(
-                    onAction = { _, _ ->
-                        records += "second:start"
-                        secondPluginStarted.complete(Unit)
-                        records += "second:end"
-                    },
-                ),
-            )
+                plugin(
+                    Plugin(
+                        onAction = { _, _ ->
+                            records += "first:start"
+                            firstPluginStarted.complete(Unit)
+                            firstPluginCanFinish.await()
+                            records += "first:end"
+                        },
+                    ),
+                    Plugin(
+                        onAction = { _, _ ->
+                            records += "second:start"
+                            secondPluginStarted.complete(Unit)
+                            records += "second:end"
+                        },
+                    ),
+                )
 
-            state<AppState> {
-                action<AppAction.Increment> {
-                    nextState { state.copy(count = state.count + 1) }
+                state<AppState> {
+                    action<AppAction.Increment> {
+                        nextState { state.copy(count = state.count + 1) }
+                    }
                 }
             }
-        }
         store.patchForTest(patch)
         return store
     }
 
     @Test
-    fun concurrent_isDefaultAndAllowsOtherPluginsToRunWhileOneIsSuspended() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val records = mutableListOf<String>()
-        val firstPluginStarted = CompletableDeferred<Unit>()
-        val secondPluginStarted = CompletableDeferred<Unit>()
-        val firstPluginCanFinish = CompletableDeferred<Unit>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            records = records,
-            firstPluginStarted = firstPluginStarted,
-            secondPluginStarted = secondPluginStarted,
-            firstPluginCanFinish = firstPluginCanFinish,
-        )
+    fun concurrent_isDefaultAndAllowsOtherPluginsToRunWhileOneIsSuspended() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val records = mutableListOf<String>()
+            val firstPluginStarted = CompletableDeferred<Unit>()
+            val secondPluginStarted = CompletableDeferred<Unit>()
+            val firstPluginCanFinish = CompletableDeferred<Unit>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    records = records,
+                    firstPluginStarted = firstPluginStarted,
+                    secondPluginStarted = secondPluginStarted,
+                    firstPluginCanFinish = firstPluginCanFinish,
+                )
 
-        store.dispatch(AppAction.Increment)
-        runCurrent()
+            store.dispatch(AppAction.Increment)
+            runCurrent()
 
-        assertTrue(firstPluginStarted.isCompleted)
-        assertTrue(secondPluginStarted.isCompleted)
-        assertEquals(
-            listOf("first:start", "second:start", "second:end"),
-            records,
-        )
+            assertTrue(firstPluginStarted.isCompleted)
+            assertTrue(secondPluginStarted.isCompleted)
+            assertEquals(
+                listOf("first:start", "second:start", "second:end"),
+                records,
+            )
 
-        firstPluginCanFinish.complete(Unit)
-        advanceUntilIdle()
+            firstPluginCanFinish.complete(Unit)
+            advanceUntilIdle()
 
-        assertEquals(
-            listOf("first:start", "second:start", "second:end", "first:end"),
-            records,
-        )
-        assertEquals(AppState(count = 1), store.currentState)
-    }
-
-    @Test
-    fun inRegistrationOrder_waitsForPreviousPluginToFinishBeforeStartingNextOne() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val records = mutableListOf<String>()
-        val firstPluginStarted = CompletableDeferred<Unit>()
-        val secondPluginStarted = CompletableDeferred<Unit>()
-        val firstPluginCanFinish = CompletableDeferred<Unit>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            records = records,
-            firstPluginStarted = firstPluginStarted,
-            secondPluginStarted = secondPluginStarted,
-            firstPluginCanFinish = firstPluginCanFinish,
-            setupPolicy = PluginExecutionPolicy.InRegistrationOrder,
-        )
-
-        store.dispatch(AppAction.Increment)
-        runCurrent()
-
-        assertTrue(firstPluginStarted.isCompleted)
-        assertFalse(secondPluginStarted.isCompleted)
-        assertEquals(listOf("first:start"), records)
-
-        firstPluginCanFinish.complete(Unit)
-        advanceUntilIdle()
-
-        assertEquals(
-            listOf("first:start", "first:end", "second:start", "second:end"),
-            records,
-        )
-        assertEquals(AppState(count = 1), store.currentState)
-    }
+            assertEquals(
+                listOf("first:start", "second:start", "second:end", "first:end"),
+                records,
+            )
+            assertEquals(AppState(count = 1), store.currentState)
+        }
 
     @Test
-    fun patch_shouldOverridePluginExecutionPolicy() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val records = mutableListOf<String>()
-        val firstPluginStarted = CompletableDeferred<Unit>()
-        val secondPluginStarted = CompletableDeferred<Unit>()
-        val firstPluginCanFinish = CompletableDeferred<Unit>()
-        val store = createStore(
-            testDispatcher = testDispatcher,
-            records = records,
-            firstPluginStarted = firstPluginStarted,
-            secondPluginStarted = secondPluginStarted,
-            firstPluginCanFinish = firstPluginCanFinish,
-            setupPolicy = PluginExecutionPolicy.Concurrent,
-            patch = { pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder) },
-        )
+    fun inRegistrationOrder_waitsForPreviousPluginToFinishBeforeStartingNextOne() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val records = mutableListOf<String>()
+            val firstPluginStarted = CompletableDeferred<Unit>()
+            val secondPluginStarted = CompletableDeferred<Unit>()
+            val firstPluginCanFinish = CompletableDeferred<Unit>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    records = records,
+                    firstPluginStarted = firstPluginStarted,
+                    secondPluginStarted = secondPluginStarted,
+                    firstPluginCanFinish = firstPluginCanFinish,
+                    setupPolicy = PluginExecutionPolicy.InRegistrationOrder,
+                )
 
-        store.dispatch(AppAction.Increment)
-        runCurrent()
+            store.dispatch(AppAction.Increment)
+            runCurrent()
 
-        assertTrue(firstPluginStarted.isCompleted)
-        assertFalse(secondPluginStarted.isCompleted)
-        assertEquals(listOf("first:start"), records)
+            assertTrue(firstPluginStarted.isCompleted)
+            assertFalse(secondPluginStarted.isCompleted)
+            assertEquals(listOf("first:start"), records)
 
-        firstPluginCanFinish.complete(Unit)
-        advanceUntilIdle()
+            firstPluginCanFinish.complete(Unit)
+            advanceUntilIdle()
 
-        assertEquals(
-            listOf("first:start", "first:end", "second:start", "second:end"),
-            records,
-        )
-        assertEquals(AppState(count = 1), store.currentState)
-    }
+            assertEquals(
+                listOf("first:start", "first:end", "second:start", "second:end"),
+                records,
+            )
+            assertEquals(AppState(count = 1), store.currentState)
+        }
+
+    @Test
+    fun patch_shouldOverridePluginExecutionPolicy() =
+        runTest {
+            val testDispatcher = StandardTestDispatcher(testScheduler)
+            val records = mutableListOf<String>()
+            val firstPluginStarted = CompletableDeferred<Unit>()
+            val secondPluginStarted = CompletableDeferred<Unit>()
+            val firstPluginCanFinish = CompletableDeferred<Unit>()
+            val store =
+                createStore(
+                    testDispatcher = testDispatcher,
+                    records = records,
+                    firstPluginStarted = firstPluginStarted,
+                    secondPluginStarted = secondPluginStarted,
+                    firstPluginCanFinish = firstPluginCanFinish,
+                    setupPolicy = PluginExecutionPolicy.Concurrent,
+                    patch = { pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder) },
+                )
+
+            store.dispatch(AppAction.Increment)
+            runCurrent()
+
+            assertTrue(firstPluginStarted.isCompleted)
+            assertFalse(secondPluginStarted.isCompleted)
+            assertEquals(listOf("first:start"), records)
+
+            firstPluginCanFinish.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("first:start", "first:end", "second:start", "second:end"),
+                records,
+            )
+            assertEquals(AppState(count = 1), store.currentState)
+        }
 }

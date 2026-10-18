@@ -1,10 +1,11 @@
 package actron.observability.file
 
-
 /**
  * No file system here: use [InMemorySegmentStorage], or a [SegmentStorage] over the platform's own storage.
  */
-actual class FileSegmentStorage actual constructor(directory: String) : SegmentStorage {
+actual class FileSegmentStorage actual constructor(
+    directory: String,
+) : SegmentStorage {
     init {
         throw UnsupportedOperationException("[Actron] FileSegmentStorage needs a file system; this platform has none. Use InMemorySegmentStorage or a SegmentStorage of your own.")
     }

@@ -2,12 +2,6 @@
 
 package actron.statechart
 
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import java.io.File
-import java.net.URLClassLoader
-import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
@@ -40,6 +34,12 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.File
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -57,67 +57,77 @@ import kotlin.time.Duration.Companion.seconds
  */
 class PersistentRestoreJvmTest {
     @Test
-    fun chartRestoresFromAnotherProcessAndRestartsActivitiesAndTheFullTimerDelay() = withFile { file ->
-        process("chart-write", file)
-        assertTrue(file.length() > 0)
-        process("chart-read", file)
-    }
+    fun chartRestoresFromAnotherProcessAndRestartsActivitiesAndTheFullTimerDelay() =
+        withFile { file ->
+            process("chart-write", file)
+            assertTrue(file.length() > 0)
+            process("chart-read", file)
+        }
 
     @Test
-    fun chartDefinitionUpdateFallsBackToNewInitialNodesAndKeepsPersistedContext() = withFile { file ->
-        process("chart-write", file)
-        process("chart-upgrade", file)
-    }
+    fun chartDefinitionUpdateFallsBackToNewInitialNodesAndKeepsPersistedContext() =
+        withFile { file ->
+            process("chart-write", file)
+            process("chart-upgrade", file)
+        }
 
     @Test
-    fun machineRestoresContextWithoutResumingOldCommandsOrTimerDeadlines() = withFile { file ->
-        process("machine-write", file)
-        process("machine-read", file)
-    }
+    fun machineRestoresContextWithoutResumingOldCommandsOrTimerDeadlines() =
+        withFile { file ->
+            process("machine-write", file)
+            process("machine-read", file)
+        }
 
     @Test
-    fun machineDefinitionUpdateUsesNewVersionInitialNodesAndStartupCommands() = withFile { file ->
-        process("machine-write", file)
-        process("machine-upgrade", file)
-    }
+    fun machineDefinitionUpdateUsesNewVersionInitialNodesAndStartupCommands() =
+        withFile { file ->
+            process("machine-write", file)
+            process("machine-upgrade", file)
+        }
 
     @Test
-    fun chartRestoresTheLastCommitAfterProcessDeathWithoutStoreCleanup() = withFile { file ->
-        process("chart-write-abrupt", file)
-        process("chart-read", file)
-    }
+    fun chartRestoresTheLastCommitAfterProcessDeathWithoutStoreCleanup() =
+        withFile { file ->
+            process("chart-write-abrupt", file)
+            process("chart-read", file)
+        }
 
     @Test
-    fun machineRestartsFromSavedContextAfterProcessDeathWithPendingWork() = withFile { file ->
-        process("machine-write-abrupt", file)
-        process("machine-read", file)
-    }
+    fun machineRestartsFromSavedContextAfterProcessDeathWithPendingWork() =
+        withFile { file ->
+            process("machine-write-abrupt", file)
+            process("machine-read", file)
+        }
 
     @Test
-    fun truncatedSavedStateReportsTheDecodeFailureAndStartsFresh() = withFile { file ->
-        process("chart-write", file)
-        file.writeBytes(file.readBytes().take(7).toByteArray())
-        process("chart-invalid", file)
-    }
+    fun truncatedSavedStateReportsTheDecodeFailureAndStartsFresh() =
+        withFile { file ->
+            process("chart-write", file)
+            file.writeBytes(file.readBytes().take(7).toByteArray())
+            process("chart-invalid", file)
+        }
 
     @Test
-    fun unsupportedApplicationSchemaReportsTheFailureAndStartsFresh() = withFile { file ->
-        DataOutputStream(file.outputStream()).use { it.writeInt(99) }
-        process("chart-invalid", file)
-    }
+    fun unsupportedApplicationSchemaReportsTheFailureAndStartsFresh() =
+        withFile { file ->
+            DataOutputStream(file.outputStream()).use { it.writeInt(99) }
+            process("chart-invalid", file)
+        }
 
     @Test
-    fun invalidMachinePersistenceReportsTheFailureAndStartsFresh() = withFile { file ->
-        file.writeText("not a snapshot")
-        process("machine-invalid", file)
-    }
+    fun invalidMachinePersistenceReportsTheFailureAndStartsFresh() =
+        withFile { file ->
+            file.writeText("not a snapshot")
+            process("machine-invalid", file)
+        }
 
     @Test
-    fun absentSavedFileUsesTheDeclaredInitialState() = withFile { file ->
-        process("chart-fresh", file)
-        file.delete()
-        process("machine-fresh", file)
-    }
+    fun absentSavedFileUsesTheDeclaredInitialState() =
+        withFile { file ->
+            process("chart-fresh", file)
+            file.delete()
+            process("machine-fresh", file)
+        }
 
     private fun withFile(test: (File) -> Unit) {
         val directory = checkNotNull(Files.createTempDirectory("actron-restore-").toFile())
@@ -128,22 +138,32 @@ class PersistentRestoreJvmTest {
         }
     }
 
-    private fun process(phase: String, file: File) {
+    private fun process(
+        phase: String,
+        file: File,
+    ) {
         // Support both an ordinary JVM runtime and Gradle workers with a separate test loader.
-        val loaderPaths = buildList<String> {
-            var loader = checkNotNull(javaClass.classLoader)
-            while (true) {
-                if (loader is URLClassLoader) for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
-                loader = loader.parent ?: break
+        val loaderPaths =
+            buildList<String> {
+                var loader = checkNotNull(javaClass.classLoader)
+                while (true) {
+                    if (loader is URLClassLoader) for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                    loader = loader.parent ?: break
+                }
             }
-        }
         val classpath = checkNotNull((loaderPaths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct())
         val output = File(file.parentFile, "$phase.log")
-        val child = checkNotNull(ProcessBuilder(
-            File(System.getProperty("java.home"), "bin/java").path,
-            "-cp", classpath.joinToString(File.pathSeparator),
-            PersistentRestoreProcess::class.java.name, phase, file.path,
-        ).redirectErrorStream(true).redirectOutput(output).start())
+        val child =
+            checkNotNull(
+                ProcessBuilder(
+                    File(System.getProperty("java.home"), "bin/java").path,
+                    "-cp",
+                    classpath.joinToString(File.pathSeparator),
+                    PersistentRestoreProcess::class.java.name,
+                    phase,
+                    file.path,
+                ).redirectErrorStream(true).redirectOutput(output).start(),
+            )
         try {
             assertTrue(child.waitFor(30, TimeUnit.SECONDS), "Child timed out: $phase\n${output.readText()}")
             assertEquals(0, child.exitValue(), "Child failed: $phase\n${output.readText()}")
@@ -157,7 +177,9 @@ class PersistentRestoreJvmTest {
 /** Executed by the child JVM; assertions fail the child exit code. */
 object PersistentRestoreProcess {
     private data object Begin : Action
+
     private data object UnusedEvent : Event
+
     private val idle = StateId("Idle")
     private val waiting = StateId("Waiting")
     private val done = StateId("Done")
@@ -171,36 +193,51 @@ object PersistentRestoreProcess {
         println("OK $phase")
     }
 
-    private fun chart(phase: String, file: File) = runTest {
+    private fun chart(
+        phase: String,
+        file: File,
+    ) = runTest {
         val upgraded = phase == "chart-upgrade"
         val initial = if (upgraded) ready else idle
-        val definition = if (upgraded) {
-            StateChartDefinition(ready, listOf(AtomicState(ready)), emptyList())
-        } else {
-            StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(waiting), AtomicState(done)), listOf(
-                Transition(idle, waiting, ActionMatcher.of<Begin>("begin"), effect = actron.statechart.EffectKey("remember")),
-                Transition(waiting, done, Trigger.After(5.seconds)),
-            ))
-        }
+        val definition =
+            if (upgraded) {
+                StateChartDefinition(ready, listOf(AtomicState(ready)), emptyList())
+            } else {
+                StateChartDefinition(
+                    idle,
+                    listOf(AtomicState(idle), AtomicState(waiting), AtomicState(done)),
+                    listOf(
+                        Transition(idle, waiting, ActionMatcher.of<Begin>("begin"), effect = actron.statechart.EffectKey("remember")),
+                        Transition(waiting, done, Trigger.After(5.seconds)),
+                    ),
+                )
+            }
         val enters = mutableListOf<StateId>()
         var activities = 0
         var launches = 0
         val failures = mutableListOf<Throwable>()
-        val store = StateChartStore<Int, Begin, UnusedEvent>(definition, 0, StandardTestDispatcher(testScheduler)) {
-            if (!upgraded) {
-                effect("remember") { _, _ -> 42 }
-                onEnter(waiting) {
-                    enters += waiting
-                    launch { launches++; awaitCancellation() }
+        val store =
+            StateChartStore<Int, Begin, UnusedEvent>(definition, 0, StandardTestDispatcher(testScheduler)) {
+                if (!upgraded) {
+                    effect("remember") { _, _ -> 42 }
+                    onEnter(waiting) {
+                        enters += waiting
+                        launch {
+                            launches++
+                            awaitCancellation()
+                        }
+                    }
+                    activity(waiting) {
+                        activities++
+                        awaitCancellation()
+                    }
                 }
-                activity(waiting) { activities++; awaitCancellation() }
+                onEnter(initial) { enters += initial }
+                store {
+                    stateSaver(DiskSaver(file, DataOutputStream::chartState, DataInputStream::chartState))
+                    exceptionHandler(ExceptionHandler { failures += it })
+                }
             }
-            onEnter(initial) { enters += initial }
-            store {
-                stateSaver(DiskSaver(file, DataOutputStream::chartState, DataInputStream::chartState))
-                exceptionHandler(ExceptionHandler { failures += it })
-            }
-        }
         try {
             store.startAndAwait()
             runCurrent()
@@ -214,10 +251,14 @@ object PersistentRestoreProcess {
                     assertEquals(42, store.currentState.context)
                     assertEquals(1, activities)
                     assertEquals(1, launches)
-                    assertTrue(store.currentState.timers.running.isNotEmpty())
+                    assertTrue(
+                        store.currentState.timers.running
+                            .isNotEmpty(),
+                    )
                     assertEquals(store.currentState, DiskSaver(file, DataOutputStream::chartState, DataInputStream::chartState).restore(store.currentState))
                     if (phase.endsWith("-abrupt")) haltAfterCommit(phase)
                 }
+
                 "chart-read" -> {
                     assertEquals(42, store.currentState.context)
                     assertTrue(store.currentState.isActive(waiting))
@@ -234,18 +275,26 @@ object PersistentRestoreProcess {
                     runCurrent()
                     assertTrue(store.currentState.isActive(done), "Timer restarts with full delay")
                 }
+
                 "chart-upgrade" -> {
                     assertTrue(store.currentState.isActive(ready))
                     assertEquals(42, store.currentState.context)
                     assertEquals(listOf(ready), enters, "Incompatible configuration enters new initial nodes")
-                    assertTrue(store.currentState.timers.running.isEmpty())
+                    assertTrue(
+                        store.currentState.timers.running
+                            .isEmpty(),
+                    )
                 }
+
                 "chart-invalid", "chart-fresh" -> {
                     assertTrue(store.currentState.isActive(idle))
                     assertEquals(0, store.currentState.context)
                     assertEquals(listOf(idle), enters)
                 }
-                else -> error("Unknown phase: $phase")
+
+                else -> {
+                    error("Unknown phase: $phase")
+                }
             }
             assertEquals(if (phase == "chart-invalid") 1 else 0, failures.size)
             // A decode failure cannot leave the store unusable: a later committed transition
@@ -260,38 +309,57 @@ object PersistentRestoreProcess {
         }
     }
 
-    private fun machine(phase: String, file: File) = runTest {
+    private fun machine(
+        phase: String,
+        file: File,
+    ) = runTest {
         val upgraded = phase == "machine-upgrade"
         val initial = if (upgraded) ready else idle
         val version = if (upgraded) "2" else "1"
-        val definition = StateChartDefinition(initial, listOf(AtomicState(initial), AtomicState(waiting), AtomicState(done)), listOf(
-            Transition(initial, waiting, ActionMatcher.of<Begin>("begin"), effect = actron.statechart.EffectKey("remember")),
-            Transition(initial, done, Trigger.After(10.seconds)),
-            Transition(waiting, done, Trigger.After(5.seconds)),
-        ))
-        val model = Machine<Int, Begin, String, UnusedEvent>(DefinitionId("persistent"), DefinitionVersion(version), definition) {
-            effect("remember") { _, _ -> 42 }
-            onEnter(initial) { command("startup-$version") }
-            onEnter(waiting) { command("pending-fetch") }
-        }
+        val definition =
+            StateChartDefinition(
+                initial,
+                listOf(AtomicState(initial), AtomicState(waiting), AtomicState(done)),
+                listOf(
+                    Transition(initial, waiting, ActionMatcher.of<Begin>("begin"), effect = actron.statechart.EffectKey("remember")),
+                    Transition(initial, done, Trigger.After(10.seconds)),
+                    Transition(waiting, done, Trigger.After(5.seconds)),
+                ),
+            )
+        val model =
+            Machine<Int, Begin, String, UnusedEvent>(DefinitionId("persistent"), DefinitionVersion(version), definition) {
+                effect("remember") { _, _ -> 42 }
+                onEnter(initial) { command("startup-$version") }
+                onEnter(waiting) { command("pending-fetch") }
+            }
         val commands = mutableListOf<String>()
         val failures = mutableListOf<Throwable>()
         val dispatcher = StandardTestDispatcher(testScheduler)
         val scope = CoroutineScope(dispatcher + SupervisorJob())
-        val clock = object : MachineClock {
-            override fun now() = MachineTime(testScheduler.currentTime.milliseconds)
-            override suspend fun delayUntil(deadline: MachineTime) {
-                val remaining = deadline - now()
-                if (remaining.isPositive()) delay(remaining)
+        val clock =
+            object : MachineClock {
+                override fun now() = MachineTime(testScheduler.currentTime.milliseconds)
+
+                override suspend fun delayUntil(deadline: MachineTime) {
+                    val remaining = deadline - now()
+                    if (remaining.isPositive()) delay(remaining)
+                }
             }
-        }
-        val store = MachineStore(model, 0, CommandHandler<String, Begin> { envelope, _ ->
-            commands += envelope.command
-            awaitCancellation()
-        }, scope, clock, dispatcher) {
-            stateSaver(DiskSaver(file, DataOutputStream::machineState, DataInputStream::machineState))
-            exceptionHandler(ExceptionHandler { failures += it })
-        }
+        val store =
+            MachineStore(
+                model,
+                0,
+                CommandHandler<String, Begin> { envelope, _ ->
+                    commands += envelope.command
+                    awaitCancellation()
+                },
+                scope,
+                clock,
+                dispatcher,
+            ) {
+                stateSaver(DiskSaver(file, DataOutputStream::machineState, DataInputStream::machineState))
+                exceptionHandler(ExceptionHandler { failures += it })
+            }
         try {
             store.startAndAwait()
             runCurrent()
@@ -313,7 +381,12 @@ object PersistentRestoreProcess {
                 assertEquals(1, store.currentState.revision)
                 assertTrue(store.currentState.isActive(initial))
                 assertEquals(listOf("startup-$version"), commands, "Only new initial commands run")
-                assertEquals(10.seconds, store.currentState.timers.values.single().deadline.sinceStart)
+                assertEquals(
+                    10.seconds,
+                    store.currentState.timers.values
+                        .single()
+                        .deadline.sinceStart,
+                )
                 advanceTimeBy(5.seconds)
                 runCurrent()
                 assertTrue(store.currentState.isActive(initial), "Persisted Waiting timer is not restored")
@@ -392,7 +465,10 @@ private fun DataOutputStream.chartState(value: ChartState<Int>) {
     writeInt(value.context)
     writeLong(value.timers.issued)
     writeInt(value.timers.running.size)
-    value.timers.running.forEach { (index, token) -> writeInt(index); writeLong(token) }
+    value.timers.running.forEach { (index, token) ->
+        writeInt(index)
+        writeLong(token)
+    }
 }
 
 private fun DataInputStream.chartState(): ChartState<Int> {
@@ -410,7 +486,10 @@ private fun DataOutputStream.machineState(value: MachineSnapshot<Int>) {
     configuration(value.configuration)
     writeInt(value.context)
     writeInt(value.activations.size)
-    value.activations.forEach { (id, activation) -> writeUTF(id.value); writeLong(activation.value) }
+    value.activations.forEach { (id, activation) ->
+        writeUTF(id.value)
+        writeLong(activation.value)
+    }
     writeInt(value.commands.size)
     value.commands.forEach { (id, record) ->
         writeLong(id.value)
@@ -425,7 +504,12 @@ private fun DataOutputStream.machineState(value: MachineSnapshot<Int>) {
         writeLong(record.activation.value)
         writeLong(record.deadline.sinceStart.inWholeMilliseconds)
     }
-    with(value.counters) { writeLong(activations); writeLong(commands); writeLong(timers); writeLong(effects) }
+    with(value.counters) {
+        writeLong(activations)
+        writeLong(commands)
+        writeLong(timers)
+        writeLong(effects)
+    }
 }
 
 private fun DataInputStream.machineState(): MachineSnapshot<Int> {
@@ -435,13 +519,15 @@ private fun DataInputStream.machineState(): MachineSnapshot<Int> {
     val configuration = configuration()
     val context = readInt()
     val activations = List(readInt()) { StateId(readUTF()) to ActivationId(readLong()) }.toMap()
-    val commands = List(readInt()) {
-        val id = CommandId(readLong())
-        id to CommandRecord(ActivationId(readLong()), if (readBoolean()) LaneId(readUTF()) else actron.statechart.machine.CommandLane.Independent)
-    }.toMap()
-    val timers = List(readInt()) {
-        TimerId(readLong()) to TimerRecord(TransitionId(readInt()), ActivationId(readLong()), MachineTime(readLong().milliseconds))
-    }.toMap()
+    val commands =
+        List(readInt()) {
+            val id = CommandId(readLong())
+            id to CommandRecord(ActivationId(readLong()), if (readBoolean()) LaneId(readUTF()) else actron.statechart.machine.CommandLane.Independent)
+        }.toMap()
+    val timers =
+        List(readInt()) {
+            TimerId(readLong()) to TimerRecord(TransitionId(readInt()), ActivationId(readLong()), MachineTime(readLong().milliseconds))
+        }.toMap()
     val counters = MachineCounters(readLong(), readLong(), readLong(), readLong())
     return MachineSnapshot(definition, version, revision, configuration, context, activations, commands, timers, counters)
 }

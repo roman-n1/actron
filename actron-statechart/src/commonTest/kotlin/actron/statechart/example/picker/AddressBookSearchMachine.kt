@@ -64,22 +64,37 @@ import kotlin.time.Duration.Companion.milliseconds
  * selection and no timer restarts because a group was picked while idle.
  */
 object AddressBookSearchMachine {
-
-    data class Contact(val id: String, val displayName: String, val emails: List<String> = emptyList(), val isEnabled: Boolean = true)
+    data class Contact(
+        val id: String,
+        val displayName: String,
+        val emails: List<String> = emptyList(),
+        val isEnabled: Boolean = true,
+    )
 
     sealed interface GroupFilter {
         data object All : GroupFilter
-        data class Selected(val id: String) : GroupFilter
+
+        data class Selected(
+            val id: String,
+        ) : GroupFilter
     }
 
     sealed interface SearchStatus {
         data object AwaitingQuery : SearchStatus
+
         data object Completed : SearchStatus
-        data class Failed(val message: String) : SearchStatus
+
+        data class Failed(
+            val message: String,
+        ) : SearchStatus
+
         fun clearFailure(): SearchStatus = if (this is Failed) Completed else this
     }
 
-    data class Group(val filter: GroupFilter, val title: String) {
+    data class Group(
+        val filter: GroupFilter,
+        val title: String,
+    ) {
         constructor(id: String, title: String) : this(GroupFilter.Selected(id), title)
     }
 
@@ -88,40 +103,85 @@ object AddressBookSearchMachine {
     sealed interface Guest {
         val value: String
 
-        data class Email(override val value: String) : Guest
-        data class Phone(override val value: String) : Guest
+        data class Email(
+            override val value: String,
+        ) : Guest
+
+        data class Phone(
+            override val value: String,
+        ) : Guest
     }
 
-    data class PickerResult(val contacts: List<Contact>, val roles: Map<String, Role>, val guests: List<Guest>)
+    data class PickerResult(
+        val contacts: List<Contact>,
+        val roles: Map<String, Role>,
+        val guests: List<Guest>,
+    )
 
     sealed interface SearchAction : Action {
-        data class QueryChanged(val query: String) : SearchAction
-        data class GroupChanged(val filter: GroupFilter) : SearchAction {
+        data class QueryChanged(
+            val query: String,
+        ) : SearchAction
+
+        data class GroupChanged(
+            val filter: GroupFilter,
+        ) : SearchAction {
             constructor(id: String) : this(GroupFilter.Selected(id))
         }
-        data class ToggleSelect(val contactId: String) : SearchAction
-        data class RoleSelected(val contactId: String, val role: Role) : SearchAction
-        data class ToggleGuest(val guest: Guest) : SearchAction
+
+        data class ToggleSelect(
+            val contactId: String,
+        ) : SearchAction
+
+        data class RoleSelected(
+            val contactId: String,
+            val role: Role,
+        ) : SearchAction
+
+        data class ToggleGuest(
+            val guest: Guest,
+        ) : SearchAction
+
         data object Retry : SearchAction
+
         data object Back : SearchAction
+
         data object Done : SearchAction
 
         /** Results of commands. */
-        data class ContactsFound(val contacts: List<Contact>) : SearchAction
-        data class SearchFailed(val message: String) : SearchAction
-        data class GroupsLoaded(val groups: List<Group>) : SearchAction
+        data class ContactsFound(
+            val contacts: List<Contact>,
+        ) : SearchAction
+
+        data class SearchFailed(
+            val message: String,
+        ) : SearchAction
+
+        data class GroupsLoaded(
+            val groups: List<Group>,
+        ) : SearchAction
     }
 
     sealed interface SearchEvent : Event {
         data object BackClicked : SearchEvent
-        data class DoneClicked(val result: PickerResult) : SearchEvent
-        data class ShowError(val message: String) : SearchEvent
+
+        data class DoneClicked(
+            val result: PickerResult,
+        ) : SearchEvent
+
+        data class ShowError(
+            val message: String,
+        ) : SearchEvent
     }
 
     sealed interface SearchCommand {
-        data class Search(val query: String, val filter: GroupFilter) : SearchCommand {
+        data class Search(
+            val query: String,
+            val filter: GroupFilter,
+        ) : SearchCommand {
             constructor(query: String, id: String) : this(query, GroupFilter.Selected(id))
         }
+
         data object LoadGroups : SearchCommand
     }
 
@@ -169,41 +229,44 @@ object AddressBookSearchMachine {
     private val retry = ActionMatcher.of<SearchAction.Retry>("Retry")
     private val toggleGuest = ActionMatcher.of<SearchAction.ToggleGuest>("ToggleGuest")
 
-    val chart = StateChartDefinition(
-        initial = search,
-        states = listOf(
-            ParallelState(search),
-            CompoundState(queryRegion, initial = idle, parent = search),
-            AtomicState(idle, parent = queryRegion),
-            AtomicState(debouncing, parent = queryRegion),
-            AtomicState(searching, parent = queryRegion),
-            AtomicState(results, parent = queryRegion),
-            AtomicState(failed, parent = queryRegion),
-            CompoundState(groupsRegion, initial = loadingGroups, parent = search),
-            AtomicState(loadingGroups, parent = groupsRegion),
-            AtomicState(groupsReady, parent = groupsRegion),
-        ),
-        transitions = listOf(
-            Transition(idle, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
-            Transition(debouncing, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
-            Transition(debouncing, searching, Trigger.After(debounce)),
-            Transition(searching, results, contactsFound, effect = actron.statechart.EffectKey("storeContacts")),
-            Transition(searching, failed, searchFailed, effect = actron.statechart.EffectKey("storeError")),
-            Transition(searching, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
-            Transition(searching, searching, groupChanged, effect = actron.statechart.EffectKey("rememberGroup")),
-            Transition(results, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
-            Transition(results, searching, groupChanged, effect = actron.statechart.EffectKey("rememberGroup")),
-            Transition(failed, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
-            Transition(failed, searching, retry),
-            Transition(failed, searching, groupChanged, effect = actron.statechart.EffectKey("rememberGroup")),
-            // Declared on the region, so it applies from every query state; the guarded ones above
-            // are inner and take priority when the query is long enough.
-            Transition(queryRegion, idle, queryChanged, guard = actron.statechart.GuardKey("tooShort"), effect = actron.statechart.EffectKey("forgetResults")),
-            Transition(queryRegion, idle, toggleGuest, effect = actron.statechart.EffectKey("toggleGuest")),
-            Transition(loadingGroups, groupsReady, groupsLoaded, effect = actron.statechart.EffectKey("storeGroups")),
-            Transition(loadingGroups, groupsReady, commandFailure),
-        ),
-    )
+    val chart =
+        StateChartDefinition(
+            initial = search,
+            states =
+                listOf(
+                    ParallelState(search),
+                    CompoundState(queryRegion, initial = idle, parent = search),
+                    AtomicState(idle, parent = queryRegion),
+                    AtomicState(debouncing, parent = queryRegion),
+                    AtomicState(searching, parent = queryRegion),
+                    AtomicState(results, parent = queryRegion),
+                    AtomicState(failed, parent = queryRegion),
+                    CompoundState(groupsRegion, initial = loadingGroups, parent = search),
+                    AtomicState(loadingGroups, parent = groupsRegion),
+                    AtomicState(groupsReady, parent = groupsRegion),
+                ),
+            transitions =
+                listOf(
+                    Transition(idle, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
+                    Transition(debouncing, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
+                    Transition(debouncing, searching, Trigger.After(debounce)),
+                    Transition(searching, results, contactsFound, effect = actron.statechart.EffectKey("storeContacts")),
+                    Transition(searching, failed, searchFailed, effect = actron.statechart.EffectKey("storeError")),
+                    Transition(searching, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
+                    Transition(searching, searching, groupChanged, effect = actron.statechart.EffectKey("rememberGroup")),
+                    Transition(results, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
+                    Transition(results, searching, groupChanged, effect = actron.statechart.EffectKey("rememberGroup")),
+                    Transition(failed, debouncing, queryChanged, guard = actron.statechart.GuardKey("longEnough"), effect = actron.statechart.EffectKey("rememberQuery")),
+                    Transition(failed, searching, retry),
+                    Transition(failed, searching, groupChanged, effect = actron.statechart.EffectKey("rememberGroup")),
+                    // Declared on the region, so it applies from every query state; the guarded ones above
+                    // are inner and take priority when the query is long enough.
+                    Transition(queryRegion, idle, queryChanged, guard = actron.statechart.GuardKey("tooShort"), effect = actron.statechart.EffectKey("forgetResults")),
+                    Transition(queryRegion, idle, toggleGuest, effect = actron.statechart.EffectKey("toggleGuest")),
+                    Transition(loadingGroups, groupsReady, groupsLoaded, effect = actron.statechart.EffectKey("storeGroups")),
+                    Transition(loadingGroups, groupsReady, commandFailure),
+                ),
+        )
 
     /**
      * Builds the machine. The validators are pure functions the app supplies (its
@@ -270,19 +333,21 @@ object AddressBookSearchMachine {
     }
 
     private fun SearchContext.toggleGuest(guest: Guest): SearchContext {
-        val normalized = when (guest) {
-            is Guest.Email -> guest.copy(value = guest.value.trim())
-            is Guest.Phone -> guest.copy(value = guest.value.trim())
-        }
+        val normalized =
+            when (guest) {
+                is Guest.Email -> guest.copy(value = guest.value.trim())
+                is Guest.Phone -> guest.copy(value = guest.value.trim())
+            }
         if (normalized.value.isBlank()) return this
         return if (guests.any { it == normalized }) copy(guests = guests - normalized) else copy(guests = guests + normalized)
     }
 
-    private fun SearchContext.result(): PickerResult = PickerResult(
-        contacts = selectedIds.filter { it in selectedById }.map { selectedById.getValue(it) },
-        roles = roles.filterKeys { it in selectedIds },
-        guests = guests,
-    )
+    private fun SearchContext.result(): PickerResult =
+        PickerResult(
+            contacts = selectedIds.filter { it in selectedById }.map { selectedById.getValue(it) },
+            roles = roles.filterKeys { it in selectedIds },
+            guests = guests,
+        )
 
     /**
      * What the screen renders: the counterpart of the app's `AddressBookPickerSearchState`.
@@ -308,18 +373,19 @@ object AddressBookSearchMachine {
      * The `UiMapper`: a pure projection of the snapshot. `isLoading` is where the chart is, not a
      * flag the handlers have to keep in sync.
      */
-    fun MachineSnapshot<SearchContext>.toUiModel(): SearchUiModel = SearchUiModel(
-        query = context.query,
-        groups = context.groups,
-        selectedGroup = context.groupFilter,
-        contacts = context.contacts,
-        selectedContactIds = context.selectedIds.toSet(),
-        selectedRoles = context.roles,
-        guests = context.guests,
-        canAddGuestEmail = context.canAddGuestEmail,
-        canAddGuestPhone = context.canAddGuestPhone,
-        isLoading = isActive(debouncing) || isActive(searching),
-        isSearchDone = context.isSearchDone,
-        status = context.status,
-    )
+    fun MachineSnapshot<SearchContext>.toUiModel(): SearchUiModel =
+        SearchUiModel(
+            query = context.query,
+            groups = context.groups,
+            selectedGroup = context.groupFilter,
+            contacts = context.contacts,
+            selectedContactIds = context.selectedIds.toSet(),
+            selectedRoles = context.roles,
+            guests = context.guests,
+            canAddGuestEmail = context.canAddGuestEmail,
+            canAddGuestPhone = context.canAddGuestPhone,
+            isLoading = isActive(debouncing) || isActive(searching),
+            isSearchDone = context.isSearchDone,
+            status = context.status,
+        )
 }

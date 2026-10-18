@@ -2,8 +2,6 @@
 
 package actron.timetravel.file
 
-import actron.timetravel.verify
-
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
@@ -27,10 +25,11 @@ import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineClock
 import actron.statechart.machine.MachineStore
 import actron.statechart.machine.MachineTime
+import actron.statechart.test.VirtualMachineClock
 import actron.timetravel.MachineRecorder
 import actron.timetravel.RecordingCodec
 import actron.timetravel.ReplaySession
-import actron.statechart.test.VirtualMachineClock
+import actron.timetravel.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -67,19 +66,26 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  */
 class RecordingFileSinkTest {
-
     @Serializable
-    data class Ctx(val query: String = "", val items: List<String> = emptyList(), val timeouts: Int = 0)
+    data class Ctx(
+        val query: String = "",
+        val items: List<String> = emptyList(),
+        val timeouts: Int = 0,
+    )
 
     @Serializable
     sealed interface Act : Action {
         @Serializable
         @SerialName("Load")
-        data class Load(val query: String) : Act
+        data class Load(
+            val query: String,
+        ) : Act
 
         @Serializable
         @SerialName("Loaded")
-        data class Loaded(val items: List<String>) : Act
+        data class Loaded(
+            val items: List<String>,
+        ) : Act
 
         @Serializable
         @SerialName("Refresh")
@@ -94,53 +100,69 @@ class RecordingFileSinkTest {
     }
 
     @Serializable
-    data class Fetch(val query: String)
+    data class Fetch(
+        val query: String,
+    )
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
     private val loading = StateId("Loading")
     private val content = StateId("Content")
 
-    private val chart = StateChartDefinition(
-        root,
-        listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root), AtomicState(content, parent = root)),
-        listOf(
-            Transition(idle, loading, ActionMatcher.of<Act.Load>("Load"), effect = actron.statechart.EffectKey("remember")),
-            Transition(loading, content, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("store")),
-            Transition(loading, loading, ActionMatcher.of<Act.Load>("Load"), effect = actron.statechart.EffectKey("remember")),
-            Transition(loading, idle, Trigger.After(10.seconds), effect = actron.statechart.EffectKey("timeout")),
-            Transition(content, loading, ActionMatcher.of<Act.Refresh>("Refresh")),
-        ),
-    )
+    private val chart =
+        StateChartDefinition(
+            root,
+            listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root), AtomicState(content, parent = root)),
+            listOf(
+                Transition(idle, loading, ActionMatcher.of<Act.Load>("Load"), effect = actron.statechart.EffectKey("remember")),
+                Transition(loading, content, ActionMatcher.of<Act.Loaded>("Loaded"), effect = actron.statechart.EffectKey("store")),
+                Transition(loading, loading, ActionMatcher.of<Act.Load>("Load"), effect = actron.statechart.EffectKey("remember")),
+                Transition(loading, idle, Trigger.After(10.seconds), effect = actron.statechart.EffectKey("timeout")),
+                Transition(content, loading, ActionMatcher.of<Act.Refresh>("Refresh")),
+            ),
+        )
 
-    private val machine = Machine<Ctx, Act, Fetch, Ev>(DefinitionId("files"), DefinitionVersion("1"), chart) {
-        effect("remember") { c, a -> c.copy(query = (a as Act.Load).query) }
-        effect("store") { c, a -> c.copy(items = (a as Act.Loaded).items) }
-        effect("timeout") { c, _ -> c.copy(timeouts = c.timeouts + 1) }
-        onEnter(loading) { command(Fetch(context.query), LaneId("load"), ConcurrencyPolicy.Latest) }
-        onEnter(content) { event(Ev.Shown) }
-    }
+    private val machine =
+        Machine<Ctx, Act, Fetch, Ev>(DefinitionId("files"), DefinitionVersion("1"), chart) {
+            effect("remember") { c, a -> c.copy(query = (a as Act.Load).query) }
+            effect("store") { c, a -> c.copy(items = (a as Act.Loaded).items) }
+            effect("timeout") { c, _ -> c.copy(timeouts = c.timeouts + 1) }
+            onEnter(loading) { command(Fetch(context.query), LaneId("load"), ConcurrencyPolicy.Latest) }
+            onEnter(content) { event(Ev.Shown) }
+        }
 
     private val codec = RecordingCodec(Ctx.serializer(), Act.serializer(), Fetch.serializer(), Ev.serializer())
     private val store = StoreInstanceId("files-1")
 
-    private inner class Live(scope: TestScope, config: RecordingFileConfig = RecordingFileConfig()) {
+    private inner class Live(
+        scope: TestScope,
+        config: RecordingFileConfig = RecordingFileConfig(),
+    ) {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val storage = InMemorySegmentStorage()
         val recorder = MachineRecorder(machine, Ctx())
         val sink = RecordingFileSink(store, machine, Ctx(), codec, storage, executionScope, config)
-        val machineStore = MachineStore(
-            machine, Ctx(), CommandHandler<Fetch, Act> { command, results ->
-                delay(100.milliseconds)
-                results.result(Act.Loaded(listOf(command.command.query + "!")))
-            },
-            executionScope, VirtualMachineClock(scope.testScheduler), dispatcher, observers = listOf(recorder, sink),
-        ) { exceptionHandler(ExceptionHandler.Ignore) }
+        val machineStore =
+            MachineStore(
+                machine,
+                Ctx(),
+                CommandHandler<Fetch, Act> { command, results ->
+                    delay(100.milliseconds)
+                    results.result(Act.Loaded(listOf(command.command.query + "!")))
+                },
+                executionScope,
+                VirtualMachineClock(scope.testScheduler),
+                dispatcher,
+                observers = listOf(recorder, sink),
+            ) { exceptionHandler(ExceptionHandler.Ignore) }
     }
 
     /** Loads, answers, refreshes and times out: a run with commands, timers, effects, ignored and handled inputs. */
-    private fun TestScope.script(live: Live, rounds: Int = 2) {
+    private fun TestScope.script(
+        live: Live,
+        rounds: Int = 2,
+    ) {
         live.machineStore.start()
         runCurrent()
         repeat(rounds) { round ->
@@ -155,113 +177,131 @@ class RecordingFileSinkTest {
     }
 
     @Test
-    fun aRunRecordedToFiles_readsBackAsTheRecorderSawIt_andReplays() = runTest {
-        val live = Live(this)
-        script(live)
-        live.machineStore.close()
-        live.sink.close()
-        val recording = live.recorder.recording()
+    fun aRunRecordedToFiles_readsBackAsTheRecorderSawIt_andReplays() =
+        runTest {
+            val live = Live(this)
+            script(live)
+            live.machineStore.close()
+            live.sink.close()
+            val recording = live.recorder.recording()
 
-        val contents = RecordingFiles(live.storage).read(store, codec)
+            val contents = RecordingFiles(live.storage).read(store, codec)
 
-        kotlin.test.assertIs<actron.timetravel.RecordingOrigin.InitialSnapshot>(live.sink.origin)
-        assertTrue(contents.isComplete, contents.marks.toString())
-        val read = checkNotNull(contents.recording)
-        assertEquals(recording.steps, read.steps)
-        assertEquals(recording.start, read.start)
-        assertEquals(0, contents.firstStep)
-        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
-        assertEquals(listOf(store), RecordingFiles(live.storage).stores())
-        assertEquals(RecordingFileStats(recording.length.toLong(), recording.length.toLong(), 0, 1), live.sink.stats)
-        assertTrue(RecordingFileFormat.decodeSegment("x", live.storage.read(live.sink.segments.single()), codec).finished, "closed: the segment has its end frame")
-    }
-
-    @Test
-    fun segmentsRotate_eachBeginningWithACheckpoint_andTheRingStillReplaysFromWhatRemains() = runTest {
-        val live = Live(this, RecordingFileConfig(maxSegmentBytes = 1500, maxSegments = 3))
-        script(live, rounds = 4)
-        live.machineStore.close()
-        live.sink.close()
-        val recording = live.recorder.recording()
-        val segments = live.sink.segments
-        assertEquals(3, segments.size, segments.toString())
-
-        val contents = RecordingFiles(live.storage).read(store, codec)
-
-        val missing = assertIs<RecordingFileMark.MissingSegments>(contents.marks.single())
-        assertEquals(0, missing.fromIndex)
-        val read = checkNotNull(contents.recording)
-        val firstStep = checkNotNull(contents.firstStep)
-        assertTrue(firstStep > 0)
-        assertEquals(recording.steps.drop(firstStep), read.steps, "the range is the tail of the run")
-        assertEquals(recording.checkpointAt(firstStep), read.start, "it begins with the checkpoint the segment was written with")
-        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
-        for (name in segments) {
-            val decoded = RecordingFileFormat.decodeSegment(name, live.storage.read(name), codec)
-            assertTrue(decoded is DecodedRecordingSegment.Readable && decoded.finished, "$name begins with a checkpoint and was finished")
+            kotlin.test.assertIs<actron.timetravel.RecordingOrigin.InitialSnapshot>(live.sink.origin)
+            assertTrue(contents.isComplete, contents.marks.toString())
+            val read = checkNotNull(contents.recording)
+            assertEquals(recording.steps, read.steps)
+            assertEquals(recording.start, read.start)
+            assertEquals(0, contents.firstStep)
+            kotlin.test.assertFalse(ReplaySession(machine, read).verify { error("Unexpected replay mismatch: $it") })
+            assertEquals(listOf(store), RecordingFiles(live.storage).stores())
+            assertEquals(RecordingFileStats(recording.length.toLong(), recording.length.toLong(), 0, 1), live.sink.stats)
+            assertTrue(RecordingFileFormat.decodeSegment("x", live.storage.read(live.sink.segments.single()), codec).finished, "closed: the segment has its end frame")
         }
-    }
 
     @Test
-    fun aStepTheWriterHadNoRoomFor_leavesAMarkedHole_andARangeAfterItThatReplays() = runTest {
-        // The writer runs only when the dispatcher does: three steps before it does, a queue of one.
-        val live = Live(this, RecordingFileConfig(queueCapacity = 1))
-        live.machineStore.start()
-        runCurrent()
-        live.machineStore.dispatch(Act.Load("a"))
-        live.machineStore.dispatch(Act.Refresh)
-        live.machineStore.dispatch(Act.Load("b"))
-        // The three dispatches are decided in one drain of the store; the writer wakes after.
-        runCurrent()
-        advanceTimeBy(150.milliseconds)
-        runCurrent()
-        live.machineStore.close()
-        live.sink.close()
-        val recording = live.recorder.recording()
+    fun segmentsRotate_eachBeginningWithACheckpoint_andTheRingStillReplaysFromWhatRemains() =
+        runTest {
+            val live = Live(this, RecordingFileConfig(maxSegmentBytes = 1500, maxSegments = 3))
+            script(live, rounds = 4)
+            live.machineStore.close()
+            live.sink.close()
+            val recording = live.recorder.recording()
+            val segments = live.sink.segments
+            assertEquals(3, segments.size, segments.toString())
 
-        val stats = live.sink.stats
-        assertTrue(stats.dropped > 0, "$stats")
-        val contents = RecordingFiles(live.storage).read(store, codec)
-        val hole = assertIs<RecordingFileMark.StepsMissing>(contents.marks.single())
-        assertTrue(hole.found > hole.expected)
-        val read = checkNotNull(contents.recording)
-        val firstStep = checkNotNull(contents.firstStep)
-        assertEquals(hole.found, firstStep, "the range begins where the hole ends")
-        assertEquals(recording.steps.drop(firstStep), read.steps)
-        assertEquals(recording.checkpointAt(firstStep), read.start, "the checkpoint includes the dropped steps")
-        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
-        assertTrue(contents.segments.size >= 1 && live.sink.segments.size == 2, "a new segment began after the hole: ${live.sink.segments}")
-    }
+            val contents = RecordingFiles(live.storage).read(store, codec)
+
+            val missing = assertIs<RecordingFileMark.MissingSegments>(contents.marks.single())
+            assertEquals(0, missing.fromIndex)
+            val read = checkNotNull(contents.recording)
+            val firstStep = checkNotNull(contents.firstStep)
+            assertTrue(firstStep > 0)
+            assertEquals(recording.steps.drop(firstStep), read.steps, "the range is the tail of the run")
+            assertEquals(recording.checkpointAt(firstStep), read.start, "it begins with the checkpoint the segment was written with")
+            kotlin.test.assertFalse(ReplaySession(machine, read).verify { error("Unexpected replay mismatch: $it") })
+            for (name in segments) {
+                val decoded = RecordingFileFormat.decodeSegment(name, live.storage.read(name), codec)
+                assertTrue(decoded is DecodedRecordingSegment.Readable && decoded.finished, "$name begins with a checkpoint and was finished")
+            }
+        }
 
     @Test
-    fun aCrashMidWrite_keepsWhatWasWritten_andDamageIsNeverCrossed() = runTest {
-        val live = Live(this, RecordingFileConfig(maxSegmentBytes = 1500, maxSegments = 10, flushEveryFrames = 1))
-        script(live, rounds = 3)
-        runCurrent()
-        val recording = live.recorder.recording()
-        val segments = live.sink.segments
-        assertTrue(segments.size >= 3, segments.toString())
-        // Died three bytes into the last segment's last frame: the previous frames stay.
-        val last = segments.last()
-        live.storage.truncate(last, live.storage.list().first { it.name == last }.size.toInt() - 3)
+    fun aStepTheWriterHadNoRoomFor_leavesAMarkedHole_andARangeAfterItThatReplays() =
+        runTest {
+            // The writer runs only when the dispatcher does: three steps before it does, a queue of one.
+            val live = Live(this, RecordingFileConfig(queueCapacity = 1))
+            live.machineStore.start()
+            runCurrent()
+            live.machineStore.dispatch(Act.Load("a"))
+            live.machineStore.dispatch(Act.Refresh)
+            live.machineStore.dispatch(Act.Load("b"))
+            // The three dispatches are decided in one drain of the store; the writer wakes after.
+            runCurrent()
+            advanceTimeBy(150.milliseconds)
+            runCurrent()
+            live.machineStore.close()
+            live.sink.close()
+            val recording = live.recorder.recording()
 
-        val cut = RecordingFiles(live.storage).read(store, codec)
+            val stats = live.sink.stats
+            assertTrue(stats.dropped > 0, "$stats")
+            val contents = RecordingFiles(live.storage).read(store, codec)
+            val hole = assertIs<RecordingFileMark.StepsMissing>(contents.marks.single())
+            assertTrue(hole.found > hole.expected)
+            val read = checkNotNull(contents.recording)
+            val firstStep = checkNotNull(contents.firstStep)
+            assertEquals(hole.found, firstStep, "the range begins where the hole ends")
+            assertEquals(recording.steps.drop(firstStep), read.steps)
+            assertEquals(recording.checkpointAt(firstStep), read.start, "the checkpoint includes the dropped steps")
+            kotlin.test.assertFalse(ReplaySession(machine, read).verify { error("Unexpected replay mismatch: $it") })
+            assertTrue(contents.segments.size >= 1 && live.sink.segments.size == 2, "a new segment began after the hole: ${live.sink.segments}")
+        }
 
-        val truncated = assertIs<RecordingFileMark.Damaged>(cut.marks.single())
-        assertIs<SegmentMark.TruncatedTail>(truncated.mark)
-        val read = checkNotNull(cut.recording)
-        assertEquals(recording.steps.take(read.steps.size), read.steps, "a prefix of the run, one step short")
-        kotlin.test.assertFalse(ReplaySession(machine, read).verify() { error("Unexpected replay mismatch: $it") })
+    @Test
+    fun aCrashMidWrite_keepsWhatWasWritten_andDamageIsNeverCrossed() =
+        runTest {
+            val live = Live(this, RecordingFileConfig(maxSegmentBytes = 1500, maxSegments = 10, flushEveryFrames = 1))
+            script(live, rounds = 3)
+            runCurrent()
+            val recording = live.recorder.recording()
+            val segments = live.sink.segments
+            assertTrue(segments.size >= 3, segments.toString())
+            // Died three bytes into the last segment's last frame: the previous frames stay.
+            val last = segments.last()
+            live.storage.truncate(
+                last,
+                live.storage
+                    .list()
+                    .first { it.name == last }
+                    .size
+                    .toInt() - 3,
+            )
 
-        // A damaged byte in the middle of the first segment: the range starts over at the next one.
-        live.storage.corrupt(segments[0], live.storage.list().first { it.name == segments[0] }.size.toInt() / 2)
-        val damaged = RecordingFiles(live.storage).read(store, codec)
-        assertTrue(damaged.marks.any { it is RecordingFileMark.Damaged && (it as RecordingFileMark.Damaged).mark is SegmentMark.Corrupt })
-        val after = checkNotNull(damaged.recording)
-        val firstStep = checkNotNull(damaged.firstStep)
-        assertTrue(firstStep > 0, "the range does not cross the damage")
-        assertEquals(recording.checkpointAt(firstStep), after.start)
-        kotlin.test.assertFalse(ReplaySession(machine, after).verify() { error("Unexpected replay mismatch: $it") })
-        assertEquals(segments.drop(1).dropLast(0), damaged.segments.let { it.take(segments.size - 1) }, "read from the segment after the damaged one")
-    }
+            val cut = RecordingFiles(live.storage).read(store, codec)
+
+            val truncated = assertIs<RecordingFileMark.Damaged>(cut.marks.single())
+            assertIs<SegmentMark.TruncatedTail>(truncated.mark)
+            val read = checkNotNull(cut.recording)
+            assertEquals(recording.steps.take(read.steps.size), read.steps, "a prefix of the run, one step short")
+            kotlin.test.assertFalse(ReplaySession(machine, read).verify { error("Unexpected replay mismatch: $it") })
+
+            // A damaged byte in the middle of the first segment: the range starts over at the next one.
+            live.storage.corrupt(
+                segments[0],
+                live.storage
+                    .list()
+                    .first { it.name == segments[0] }
+                    .size
+                    .toInt() / 2,
+            )
+            val damaged = RecordingFiles(live.storage).read(store, codec)
+            assertTrue(damaged.marks.any { it is RecordingFileMark.Damaged && (it as RecordingFileMark.Damaged).mark is SegmentMark.Corrupt })
+            val after = checkNotNull(damaged.recording)
+            val firstStep = checkNotNull(damaged.firstStep)
+            assertTrue(firstStep > 0, "the range does not cross the damage")
+            assertEquals(recording.checkpointAt(firstStep), after.start)
+            kotlin.test.assertFalse(ReplaySession(machine, after).verify { error("Unexpected replay mismatch: $it") })
+            assertEquals(segments.drop(1).dropLast(0), damaged.segments.let { it.take(segments.size - 1) }, "read from the segment after the damaged one")
+        }
 }

@@ -37,10 +37,11 @@ class LoggerJournalSink(
          * Warnings for [JournalEntry.FailureReported] and [JournalEntry.JournalGap], info for
          * [JournalEntry.InputDiscarded], debug for the rest.
          */
-        fun defaultSeverity(record: JournalRecord<*, *, *>): Logger.Severity = when (record.entry) {
-            is JournalEntry.FailureReported, is JournalEntry.JournalGap -> Logger.Severity.Warn
-            is JournalEntry.InputDiscarded -> Logger.Severity.Info
-            else -> Logger.Severity.Debug
-        }
+        fun defaultSeverity(record: JournalRecord<*, *, *>): Logger.Severity =
+            when (record.entry) {
+                is JournalEntry.FailureReported, is JournalEntry.JournalGap -> Logger.Severity.Warn
+                is JournalEntry.InputDiscarded -> Logger.Severity.Info
+                else -> Logger.Severity.Debug
+            }
     }
 }

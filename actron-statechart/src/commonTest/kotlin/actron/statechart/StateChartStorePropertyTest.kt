@@ -46,34 +46,51 @@ import kotlin.time.Duration.Companion.seconds
  */
 @OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
 class StateChartStorePropertyTest {
-
     // Well above what the walks need on JVM; browsers on CI are many times slower.
     private val testTimeout = 5.minutes
 
     data object NoEvent : Event
 
     /** A random truth value per guard label and action, and per guard label for timers; independent of the state. */
-    private class GuardTable(random: Random) {
+    private class GuardTable(
+        random: Random,
+    ) {
         private val table = RandomCharts.guards.associateWith { RandomCharts.actions.associateWith { random.nextBoolean() } }
         private val timers = RandomCharts.guards.associateWith { random.nextBoolean() }
 
-        fun holds(label: String, action: Action): Boolean =
-            if (action is TimerFired) timers.getValue(label) else table.getValue(label).getValue(action as RandomAction)
+        fun holds(
+            label: String,
+            action: Action,
+        ): Boolean = if (action is TimerFired) timers.getValue(label) else table.getValue(label).getValue(action as RandomAction)
     }
 
     private val effectLabels = listOf("effect 0", "effect 1", "effect 2")
 
     /** Adds random effect labels to some action transitions; timers already have some. */
-    private fun withEffects(random: Random, chart: StateChartDefinition) = chart.copy(
+    private fun withEffects(
+        random: Random,
+        chart: StateChartDefinition,
+    ) = chart.copy(
         transitions = chart.transitions.map { if (it.effect is TransitionEffect.NoEffect && random.nextInt(3) == 0) it.copy(effect = (effectLabels.random(random))?.let { actron.statechart.EffectKey(it) } ?: actron.statechart.TransitionEffect.NoEffect) else it },
     )
 
-    private class RunningTimer(val index: Int, val deadline: Duration, val sequence: Long)
+    private class RunningTimer(
+        val index: Int,
+        val deadline: Duration,
+        val sequence: Long,
+    )
 
     /** The pure runtime plus a naive scheduler, fed what the Store is fed. */
-    private class Reference(val chart: StateChartDefinition, guards: GuardTable) {
+    private class Reference(
+        val chart: StateChartDefinition,
+        guards: GuardTable,
+    ) {
         val runtime = StateChartRuntime<ChartState<Int>>(chart, { chart.activeLeaves(it.configuration).first() }, RandomCharts.guards.associateWith { label -> { _, action -> guards.holds(label, action) } })
-        private val timersBySource = chart.transitions.withIndex().filter { it.value.isTimer }.groupBy({ it.value.source }, { it.index })
+        private val timersBySource =
+            chart.transitions
+                .withIndex()
+                .filter { it.value.isTimer }
+                .groupBy({ it.value.source }, { it.index })
         var configuration = runtime.initialConfiguration()
         var effects = 0
         val log = mutableListOf<String>()
@@ -101,7 +118,10 @@ class StateChartStorePropertyTest {
 
         private fun take(result: StepResult.Transitioned) {
             result.exited.forEach { log += "exit $it" }
-            result.transitions.map { it.effect }.filterIsInstance<actron.statechart.EffectKey>().map { it.name }.forEach { log += it; effects++ }
+            result.transitions.map { it.effect }.filterIsInstance<actron.statechart.EffectKey>().map { it.name }.forEach {
+                log += it
+                effects++
+            }
             result.entered.forEach { log += "enter $it" }
             val cancelled = result.exited.flatMap { timersBySource[it].orEmpty() }.toSet()
             assertEquals(result.timersToCancel, result.exited.flatMap { timersBySource[it].orEmpty() }.map { chart.transitions[it] })
@@ -140,29 +160,35 @@ class StateChartStorePropertyTest {
     ) {
         val log = mutableListOf<String>()
         val liveActivities = mutableSetOf<StateId>()
-        val host = ChartStoreHost(
-            chart,
-            0,
-            StateChartStoreBuilder<Int, RandomAction, NoEvent>().apply {
-                RandomCharts.guards.forEach { label -> guard(label) { _, action -> guards.holds(label, action) } }
-                effectLabels.forEach { label -> effect(label) { context, _ -> log += label; context + 1 } }
-                for (declared in chart.states.filter { it !is HistoryState }) {
-                    onEnter(declared.id) { log += "enter $node" }
-                    onExit(declared.id) { log += "exit $node" }
-                    activity(declared.id) {
-                        assertTrue(liveActivities.add(node), "activity of $node started twice")
-                        try {
-                            awaitCancellation()
-                        } finally {
-                            liveActivities -= node
+        val host =
+            ChartStoreHost(
+                chart,
+                0,
+                StateChartStoreBuilder<Int, RandomAction, NoEvent>().apply {
+                    RandomCharts.guards.forEach { label -> guard(label) { _, action -> guards.holds(label, action) } }
+                    effectLabels.forEach { label ->
+                        effect(label) { context, _ ->
+                            log += label
+                            context + 1
                         }
                     }
-                }
-                store { stateSaver(saver) }
-            },
-            coroutineContext = scope.backgroundScope.coroutineContext,
-            cancelTimers = cancelTimers,
-        )
+                    for (declared in chart.states.filter { it !is HistoryState }) {
+                        onEnter(declared.id) { log += "enter $node" }
+                        onExit(declared.id) { log += "exit $node" }
+                        activity(declared.id) {
+                            assertTrue(liveActivities.add(node), "activity of $node started twice")
+                            try {
+                                awaitCancellation()
+                            } finally {
+                                liveActivities -= node
+                            }
+                        }
+                    }
+                    store { stateSaver(saver) }
+                },
+                coroutineContext = scope.backgroundScope.coroutineContext,
+                cancelTimers = cancelTimers,
+            )
         val store: Store<ChartState<Int>, RandomAction, NoEvent> = host.build()
     }
 
@@ -170,7 +196,9 @@ class StateChartStorePropertyTest {
         val states = mutableListOf<ChartState<Int>>()
         var saved: ChartState<Int>
             get() = states.last()
-            set(value) { states += value }
+            set(value) {
+                states += value
+            }
 
         override fun save(state: ChartState<Int>) {
             saved = state
@@ -188,7 +216,12 @@ class StateChartStorePropertyTest {
      */
     private suspend fun yieldToEventLoop() = withContext(Dispatchers.Default) { yield() }
 
-    private fun assertAgrees(seed: Int, step: Int, reference: Reference, harness: Harness) {
+    private fun assertAgrees(
+        seed: Int,
+        step: Int,
+        reference: Reference,
+        harness: Harness,
+    ) {
         val state = harness.store.currentState
         val at = "seed $seed, step $step"
         assertEquals(reference.configuration, state.configuration, "$at: configuration")
@@ -199,7 +232,13 @@ class StateChartStorePropertyTest {
     }
 
     /** Walks [harness] and [reference] through [steps] random actions and advances. */
-    private suspend fun TestScope.walk(seed: Int, random: Random, reference: Reference, harness: Harness, steps: Int) {
+    private suspend fun TestScope.walk(
+        seed: Int,
+        random: Random,
+        reference: Reference,
+        harness: Harness,
+        steps: Int,
+    ) {
         repeat(steps) { step ->
             if (random.nextInt(10) < 6) {
                 val action = RandomCharts.actions.random(random)
@@ -240,45 +279,48 @@ class StateChartStorePropertyTest {
     }
 
     @Test
-    fun storeFollowsTheRuntimeStepForStepWithTimersCancelledOnExit() = runTest(timeout = testTimeout) {
-        storeAgreesWithTheRuntime(cancelTimers = true)
-    }
-
-    @Test
-    fun staleTimersNeverFireEvenWhenCancellationComesTooLate() = runTest(timeout = testTimeout) {
-        // Timer coroutines are never cancelled: only the tokens in the state stop stale firings.
-        val stale = storeAgreesWithTheRuntime(cancelTimers = false)
-        assertTrue(stale > 100, "only $stale stale firings exercised")
-    }
-
-    @Test
-    fun restoredStoreContinuesLikeTheRuntimeWithRestartedTimers() = runTest(timeout = testTimeout) {
-        var restores = 0
-        RandomCharts.forEachTimerChart(count = 60) { seed, random, base ->
-            val chart = withEffects(random, base)
-            val guards = GuardTable(random)
-            val reference = Reference(chart, guards)
-            val saver = MemorySaver()
-            val first = Harness(chart, guards, effectLabels, cancelTimers = true, scope = this, saver = saver)
-            first.store.startAndAwait()
-            runCurrent()
-            walk(seed, random, reference, first, steps = 12)
-            first.store.close()
-            runCurrent()
-
-            // Without any commit nothing was saved, and the second Store starts fresh.
-            val fresh = saver.states.isEmpty()
-            val second = Harness(chart, guards, effectLabels, cancelTimers = true, scope = this, saver = saver)
-            second.store.startAndAwait()
-            runCurrent()
-            reference.restart()
-            reference.log.clear() // no enter hooks on restore
-            if (fresh) reference.log += chart.inEntryOrder(reference.configuration.active).map { "enter $it" } else restores++
-            assertAgrees(seed, 100, reference, second)
-            walk(seed, random, reference, second, steps = 12)
-            second.store.close()
-            yieldToEventLoop()
+    fun storeFollowsTheRuntimeStepForStepWithTimersCancelledOnExit() =
+        runTest(timeout = testTimeout) {
+            storeAgreesWithTheRuntime(cancelTimers = true)
         }
-        assertTrue(restores > 30, "only $restores restores")
-    }
+
+    @Test
+    fun staleTimersNeverFireEvenWhenCancellationComesTooLate() =
+        runTest(timeout = testTimeout) {
+            // Timer coroutines are never cancelled: only the tokens in the state stop stale firings.
+            val stale = storeAgreesWithTheRuntime(cancelTimers = false)
+            assertTrue(stale > 100, "only $stale stale firings exercised")
+        }
+
+    @Test
+    fun restoredStoreContinuesLikeTheRuntimeWithRestartedTimers() =
+        runTest(timeout = testTimeout) {
+            var restores = 0
+            RandomCharts.forEachTimerChart(count = 60) { seed, random, base ->
+                val chart = withEffects(random, base)
+                val guards = GuardTable(random)
+                val reference = Reference(chart, guards)
+                val saver = MemorySaver()
+                val first = Harness(chart, guards, effectLabels, cancelTimers = true, scope = this, saver = saver)
+                first.store.startAndAwait()
+                runCurrent()
+                walk(seed, random, reference, first, steps = 12)
+                first.store.close()
+                runCurrent()
+
+                // Without any commit nothing was saved, and the second Store starts fresh.
+                val fresh = saver.states.isEmpty()
+                val second = Harness(chart, guards, effectLabels, cancelTimers = true, scope = this, saver = saver)
+                second.store.startAndAwait()
+                runCurrent()
+                reference.restart()
+                reference.log.clear() // no enter hooks on restore
+                if (fresh) reference.log += chart.inEntryOrder(reference.configuration.active).map { "enter $it" } else restores++
+                assertAgrees(seed, 100, reference, second)
+                walk(seed, random, reference, second, steps = 12)
+                second.store.close()
+                yieldToEventLoop()
+            }
+            assertTrue(restores > 30, "only $restores restores")
+        }
 }

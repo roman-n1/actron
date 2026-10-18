@@ -5,7 +5,10 @@ import org.gradle.api.publish.maven.MavenPomDeveloperSpec
 import org.gradle.api.publish.maven.MavenPomLicenseSpec
 
 /** Repository identity used by the published POM; forks additionally credit their owner. */
-internal fun MavenPublishBaseExtension.pom(repoUrl: String, fork: Boolean) {
+internal fun MavenPublishBaseExtension.pom(
+    repoUrl: String,
+    fork: Boolean,
+) {
     val repoPath = repoUrl.removePrefix("https://github.com/").removeSuffix("/")
     pom {
         name.set("Actron")

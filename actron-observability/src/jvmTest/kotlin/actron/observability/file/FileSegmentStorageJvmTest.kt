@@ -30,7 +30,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * whole frame, and pruning deletes files.
  */
 class FileSegmentStorageJvmTest {
-
     @Test
     fun invalidDirectoryAndFileOperationsReportErrorsWithoutCreatingSegments() {
         val directory = checkNotNull(Files.createTempDirectory("actron-file-errors").toFile())
@@ -44,52 +43,68 @@ class FileSegmentStorageJvmTest {
             assertFailsWith<java.io.IOException> { storage.read("missing") }
             assertFailsWith<java.io.IOException> { storage.append("child") }
             assertTrue(storage.list().isEmpty())
-        } finally { directory.deleteRecursively() }
-    }
-
-    private val session = RuntimeSessionId("jvm")
-
-    private fun record(seq: Long) = JournalRecord(
-        JOURNAL_FORMAT_VERSION, session, MachineGroupId("g"), StoreInstanceId("s"), ExecutionMode.Live, GroupSeq(seq), StoreSeq(seq), seq.milliseconds,
-        JournalEntry.ProcessingStarted(InputId(seq), seq),
-    )
-
-    @Test
-    fun segmentsAreFilesOfTheDirectory_readableByAnotherStorage_andRecoveredAfterACut() = runTest {
-        val directory = checkNotNull(Files.createTempDirectory("actron-journal").toFile())
-        try {
-            val nested = checkNotNull(File(directory, "journal/segments").path)
-            val sink = JournalFileSink(FileSegmentStorage(nested), JournalFileConfig(maxSegmentBytes = 300, maxSegments = 4, flushEveryRecords = 1))
-            val records = (1L..30L).map { record(it) }
-            for (record in records) sink.write(record)
-            sink.flush()
-            // Not closed: the process dies here, three bytes into the last frame.
-            val active = File(nested, assertIs<SegmentActivity.Writing>(sink.activeSegment).name)
-            RandomAccessFile(active, "rw").use { it.setLength(it.length() - 3) }
-
-            val files = JournalFiles(FileSegmentStorage(nested))
-            val contents = files.read(session)
-
-            assertEquals(listOf(session), files.sessions())
-            assertTrue(kotlin.test.assertNotNull(File(nested).listFiles()).filterNotNull().all { it.name.endsWith(JournalFileFormat.EXTENSION) })
-            assertEquals(4, kotlin.test.assertNotNull(File(nested).listFiles()).size, "four segments kept")
-            val marks = contents.marks
-            assertIs<SegmentMark.MissingSegments>(marks[0])
-            val tail = assertIs<SegmentMark.TruncatedTail>(marks[1])
-            assertEquals(active.name, tail.segment)
-            assertEquals(2, marks.size, marks.toString())
-            val read = contents.records.map { it.groupSeq.value }
-            assertEquals((read.first()..29L).toList(), read, "everything but the frame that was cut")
-
-            assertEquals(listOf(checkNotNull(File(nested, "jvm-000000.journal").name)).filter { File(nested, it).exists() }, emptyList(), "segment 0 rotated away")
-            assertTrue(files.prune(maxTotalBytes = 0).isEmpty(), "the newest session stays")
-            val other = JournalFileSink(FileSegmentStorage(nested))
-            other.write(record(1).copy(session = RuntimeSessionId("later")))
-            other.close()
-            assertEquals(4, JournalFiles(FileSegmentStorage(nested)).prune(maxTotalBytes = 0).size, "the older session's four files went")
-            assertEquals(listOf(RuntimeSessionId("later")), JournalFiles(FileSegmentStorage(nested)).sessions())
         } finally {
             directory.deleteRecursively()
         }
     }
+
+    private val session = RuntimeSessionId("jvm")
+
+    private fun record(seq: Long) =
+        JournalRecord(
+            JOURNAL_FORMAT_VERSION,
+            session,
+            MachineGroupId("g"),
+            StoreInstanceId("s"),
+            ExecutionMode.Live,
+            GroupSeq(seq),
+            StoreSeq(seq),
+            seq.milliseconds,
+            JournalEntry.ProcessingStarted(InputId(seq), seq),
+        )
+
+    @Test
+    fun segmentsAreFilesOfTheDirectory_readableByAnotherStorage_andRecoveredAfterACut() =
+        runTest {
+            val directory = checkNotNull(Files.createTempDirectory("actron-journal").toFile())
+            try {
+                val nested = checkNotNull(File(directory, "journal/segments").path)
+                val sink = JournalFileSink(FileSegmentStorage(nested), JournalFileConfig(maxSegmentBytes = 300, maxSegments = 4, flushEveryRecords = 1))
+                val records = (1L..30L).map { record(it) }
+                for (record in records) sink.write(record)
+                sink.flush()
+                // Not closed: the process dies here, three bytes into the last frame.
+                val active = File(nested, assertIs<SegmentActivity.Writing>(sink.activeSegment).name)
+                RandomAccessFile(active, "rw").use { it.setLength(it.length() - 3) }
+
+                val files = JournalFiles(FileSegmentStorage(nested))
+                val contents = files.read(session)
+
+                assertEquals(listOf(session), files.sessions())
+                assertTrue(
+                    kotlin.test
+                        .assertNotNull(File(nested).listFiles())
+                        .filterNotNull()
+                        .all { it.name.endsWith(JournalFileFormat.EXTENSION) },
+                )
+                assertEquals(4, kotlin.test.assertNotNull(File(nested).listFiles()).size, "four segments kept")
+                val marks = contents.marks
+                assertIs<SegmentMark.MissingSegments>(marks[0])
+                val tail = assertIs<SegmentMark.TruncatedTail>(marks[1])
+                assertEquals(active.name, tail.segment)
+                assertEquals(2, marks.size, marks.toString())
+                val read = contents.records.map { it.groupSeq.value }
+                assertEquals((read.first()..29L).toList(), read, "everything but the frame that was cut")
+
+                assertEquals(listOf(checkNotNull(File(nested, "jvm-000000.journal").name)).filter { File(nested, it).exists() }, emptyList(), "segment 0 rotated away")
+                assertTrue(files.prune(maxTotalBytes = 0).isEmpty(), "the newest session stays")
+                val other = JournalFileSink(FileSegmentStorage(nested))
+                other.write(record(1).copy(session = RuntimeSessionId("later")))
+                other.close()
+                assertEquals(4, JournalFiles(FileSegmentStorage(nested)).prune(maxTotalBytes = 0).size, "the older session's four files went")
+                assertEquals(listOf(RuntimeSessionId("later")), JournalFiles(FileSegmentStorage(nested)).sessions())
+            } finally {
+                directory.deleteRecursively()
+            }
+        }
 }

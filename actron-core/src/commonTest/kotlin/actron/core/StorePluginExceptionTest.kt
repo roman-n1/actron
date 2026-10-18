@@ -10,26 +10,33 @@ import kotlin.test.assertIs
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StorePluginExceptionTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     sealed interface AppState : State {
         data object Loading : AppState
-        data class Ready(val value: Int = 0) : AppState
-        data class Failed(val message: String) : AppState
+
+        data class Ready(
+            val value: Int = 0,
+        ) : AppState
+
+        data class Failed(
+            val message: String,
+        ) : AppState
     }
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
+
         data object Noop : AppAction
+
         data object Throw : AppAction
     }
 
     private fun createStore(
         plugin: Plugin<AppState, AppAction, Nothing>,
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
-    ): Store<AppState, AppAction, Nothing> {
-        return Store(AppState.Ready()) {
+    ): Store<AppState, AppAction, Nothing> =
+        Store(AppState.Ready()) {
             coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(exceptionHandler)
             plugin(plugin)
@@ -50,108 +57,111 @@ class StorePluginExceptionTest {
                 }
             }
         }
-    }
 
     @Test
-    fun pluginException_isHandledWithoutUsingStoreErrorHandling() = runTest(testDispatcher) {
-        val handledExceptionObservations = mutableListOf<Throwable>()
-        val store = createStore(
-            plugin = object : Plugin<AppState, AppAction, Nothing> {
-                override suspend fun onAction(
-                    scope: PluginScope<AppState, AppAction>,
-                    state: AppState,
-                    action: AppAction,
-                ) {
-                    throw IllegalArgumentException("plugin failed")
-                }
-            },
-            exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
-        )
+    fun pluginException_isHandledWithoutUsingStoreErrorHandling() =
+        runTest(testDispatcher) {
+            val handledExceptionObservations = mutableListOf<Throwable>()
+            val store =
+                createStore(
+                    plugin =
+                        object : Plugin<AppState, AppAction, Nothing> {
+                            override suspend fun onAction(
+                                scope: PluginScope<AppState, AppAction>,
+                                state: AppState,
+                                action: AppAction,
+                            ): Unit = throw IllegalArgumentException("plugin failed")
+                        },
+                    exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
+                )
 
-        store.dispatch(AppAction.Increment)
-        testScheduler.runCurrent()
+            store.dispatch(AppAction.Increment)
+            testScheduler.runCurrent()
 
-        assertEquals(AppState.Ready(), store.currentState)
-        val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
-        assertEquals("plugin failed", error.message)
-    }
-
-    @Test
-    fun pluginOnStateException_isHandledWithoutRetryingStoreErrorHandling() = runTest(testDispatcher) {
-        val handledExceptionObservations = mutableListOf<Throwable>()
-        val store = createStore(
-            plugin = object : Plugin<AppState, AppAction, Nothing> {
-                override suspend fun onState(
-                    scope: PluginScope<AppState, AppAction>,
-                    prevState: AppState,
-                    state: AppState,
-                ) {
-                    throw IllegalArgumentException("onState failed")
-                }
-            },
-            exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
-        )
-
-        store.dispatch(AppAction.Increment)
-        testScheduler.runCurrent()
-
-        assertEquals(AppState.Ready(value = 1), store.currentState)
-        val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
-        assertEquals("onState failed", error.message)
-    }
-
-    @Test
-    fun pluginOnStartException_retriesInitializationOnNextDispatch() = runTest(testDispatcher) {
-        val handled = mutableListOf<Throwable>()
-        val pluginRecords = mutableListOf<String>()
-        var onStartCalls = 0
-        val store: Store<AppState, AppAction, Nothing> = Store(AppState.Loading) {
-            coroutineContext(Dispatchers.Unconfined)
-            exceptionHandler(ExceptionHandler { handled += it })
-            pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder)
-            plugin(
-                Plugin(
-                    onStart = {
-                        onStartCalls++
-                        pluginRecords += "first"
-                        throw IllegalStateException("start failed")
-                    },
-                ),
-                Plugin(
-                    onStart = {
-                        pluginRecords += "second"
-                    },
-                ),
-            )
-
-            state<AppState.Loading> {
-                enter {
-                    nextState { AppState.Ready() }
-                }
-            }
-
-            state<AppState.Ready> {
-                action<AppAction.Noop> {}
-            }
+            assertEquals(AppState.Ready(), store.currentState)
+            val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
+            assertEquals("plugin failed", error.message)
         }
 
-        store.dispatch(AppAction.Noop)
-        testScheduler.runCurrent()
+    @Test
+    fun pluginOnStateException_isHandledWithoutRetryingStoreErrorHandling() =
+        runTest(testDispatcher) {
+            val handledExceptionObservations = mutableListOf<Throwable>()
+            val store =
+                createStore(
+                    plugin =
+                        object : Plugin<AppState, AppAction, Nothing> {
+                            override suspend fun onState(
+                                scope: PluginScope<AppState, AppAction>,
+                                prevState: AppState,
+                                state: AppState,
+                            ): Unit = throw IllegalArgumentException("onState failed")
+                        },
+                    exceptionHandler = ExceptionHandler { handledExceptionObservations.add(it) },
+                )
 
-        assertEquals(AppState.Loading, store.currentState)
-        assertEquals(1, onStartCalls)
-        // Every plugin sees every round, so the second plugin's onStart still ran.
-        assertEquals(listOf("first", "second"), pluginRecords)
-        val firstError = assertIs<IllegalStateException>(handled.single())
-        assertEquals("start failed", firstError.message)
+            store.dispatch(AppAction.Increment)
+            testScheduler.runCurrent()
 
-        store.dispatch(AppAction.Noop)
-        testScheduler.runCurrent()
+            assertEquals(AppState.Ready(value = 1), store.currentState)
+            val error = assertIs<IllegalArgumentException>(handledExceptionObservations.single())
+            assertEquals("onState failed", error.message)
+        }
 
-        assertEquals(AppState.Loading, store.currentState)
-        assertEquals(2, onStartCalls)
-        assertEquals(listOf("first", "second", "first"), pluginRecords)
-        val secondError = assertIs<IllegalStateException>(handled[1])
-        assertEquals("start failed", secondError.message)
-    }
+    @Test
+    fun pluginOnStartException_retriesInitializationOnNextDispatch() =
+        runTest(testDispatcher) {
+            val handled = mutableListOf<Throwable>()
+            val pluginRecords = mutableListOf<String>()
+            var onStartCalls = 0
+            val store: Store<AppState, AppAction, Nothing> =
+                Store(AppState.Loading) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder)
+                    plugin(
+                        Plugin(
+                            onStart = {
+                                onStartCalls++
+                                pluginRecords += "first"
+                                throw IllegalStateException("start failed")
+                            },
+                        ),
+                        Plugin(
+                            onStart = {
+                                pluginRecords += "second"
+                            },
+                        ),
+                    )
+
+                    state<AppState.Loading> {
+                        enter {
+                            nextState { AppState.Ready() }
+                        }
+                    }
+
+                    state<AppState.Ready> {
+                        action<AppAction.Noop> {}
+                    }
+                }
+
+            store.dispatch(AppAction.Noop)
+            testScheduler.runCurrent()
+
+            assertEquals(AppState.Loading, store.currentState)
+            assertEquals(1, onStartCalls)
+            // Every plugin sees every round, so the second plugin's onStart still ran.
+            assertEquals(listOf("first", "second"), pluginRecords)
+            val firstError = assertIs<IllegalStateException>(handled.single())
+            assertEquals("start failed", firstError.message)
+
+            store.dispatch(AppAction.Noop)
+            testScheduler.runCurrent()
+
+            assertEquals(AppState.Loading, store.currentState)
+            assertEquals(2, onStartCalls)
+            assertEquals(listOf("first", "second", "first"), pluginRecords)
+            val secondError = assertIs<IllegalStateException>(handled[1])
+            assertEquals("start failed", secondError.message)
+        }
 }

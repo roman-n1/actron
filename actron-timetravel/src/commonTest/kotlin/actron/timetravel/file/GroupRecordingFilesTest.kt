@@ -2,15 +2,15 @@
 
 package actron.timetravel.file
 
-import actron.timetravel.verify
-
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
 import actron.observability.MachineGroupId
 import actron.observability.StoreInstanceId
+import actron.observability.file.Framing
 import actron.observability.file.InMemorySegmentStorage
+import actron.observability.file.SegmentMark
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.CompoundState
@@ -30,13 +30,12 @@ import actron.statechart.machine.PairRole
 import actron.statechart.machine.RoutePair
 import actron.statechart.machine.SourceId
 import actron.statechart.machine.SourceSnapshot
-import actron.observability.file.Framing
-import actron.observability.file.SegmentMark
 import actron.timetravel.GroupRecorder
 import actron.timetravel.GroupReplaySession
 import actron.timetravel.GroupRoute
 import actron.timetravel.Recording
 import actron.timetravel.RecordingCodec
+import actron.timetravel.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -67,43 +66,58 @@ import kotlin.test.assertTrue
  * ```
  */
 class GroupRecordingFilesTest {
-
     @Serializable
-    data class PingCtx(val messages: List<Int> = emptyList(), val acks: List<Int> = emptyList())
+    data class PingCtx(
+        val messages: List<Int> = emptyList(),
+        val acks: List<Int> = emptyList(),
+    )
 
     @Serializable
     sealed interface PingAct : Action {
         @Serializable
         @SerialName("Kick")
-        data class Kick(val n: Int) : PingAct
+        data class Kick(
+            val n: Int,
+        ) : PingAct
 
         @Serializable
         @SerialName("Acked")
-        data class Acked(val n: Int) : PingAct
+        data class Acked(
+            val n: Int,
+        ) : PingAct
     }
 
     @Serializable
     sealed interface PingEv : Event {
         @Serializable
         @SerialName("Ping")
-        data class Ping(val n: Int) : PingEv
+        data class Ping(
+            val n: Int,
+        ) : PingEv
     }
 
     @Serializable
-    data class PongCtx(val messages: List<Int> = emptyList(), val count: Int = 0)
+    data class PongCtx(
+        val messages: List<Int> = emptyList(),
+        val count: Int = 0,
+    )
 
     @Serializable
     sealed interface PongAct : Action {
         @Serializable
         @SerialName("Pong")
-        data class Pong(val n: Int) : PongAct
+        data class Pong(
+            val n: Int,
+        ) : PongAct
     }
 
     @Serializable
     sealed interface PongEv : Event {
         @Serializable
         @SerialName("Ack")
-        data class Ack(val n: Int) : PongEv
+        data class Ack(
+            val n: Int,
+        ) : PongEv
     }
 
     @Serializable
@@ -111,18 +125,21 @@ class GroupRecordingFilesTest {
 
     private val root = StateId("Root")
     private val idle = StateId("Idle")
+
     private fun chart(matcher: ActionMatcher) = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root)), listOf(Transition(idle, idle, matcher, effect = actron.statechart.EffectKey("remember"))))
 
-    private val ping = Machine<PingCtx, PingAct, NoCommand, PingEv>(DefinitionId("ping"), DefinitionVersion("1"), chart(ActionMatcher.of<PingAct.Kick>("Kick"))) {
-        effect("remember") { c, a -> c.copy(messages = c.messages + (a as PingAct.Kick).n) }
-        onEnter(idle) { if (context.messages.isNotEmpty()) event(PingEv.Ping(context.messages.last())) }
-        onAction(root, ActionMatcher.of<PingAct.Acked>("Acked")) { context = context.copy(acks = context.acks + (action as PingAct.Acked).n) }
-    }
+    private val ping =
+        Machine<PingCtx, PingAct, NoCommand, PingEv>(DefinitionId("ping"), DefinitionVersion("1"), chart(ActionMatcher.of<PingAct.Kick>("Kick"))) {
+            effect("remember") { c, a -> c.copy(messages = c.messages + (a as PingAct.Kick).n) }
+            onEnter(idle) { if (context.messages.isNotEmpty()) event(PingEv.Ping(context.messages.last())) }
+            onAction(root, ActionMatcher.of<PingAct.Acked>("Acked")) { context = context.copy(acks = context.acks + (action as PingAct.Acked).n) }
+        }
 
-    private val pong = Machine<PongCtx, PongAct, NoCommand, PongEv>(DefinitionId("pong"), DefinitionVersion("1"), chart(ActionMatcher.of<PongAct.Pong>("Pong"))) {
-        effect("remember") { c, a -> c.copy(messages = c.messages + (a as PongAct.Pong).n, count = c.count + 1) }
-        onEnter(idle) { if (context.messages.isNotEmpty()) event(PongEv.Ack(context.messages.last())) }
-    }
+    private val pong =
+        Machine<PongCtx, PongAct, NoCommand, PongEv>(DefinitionId("pong"), DefinitionVersion("1"), chart(ActionMatcher.of<PongAct.Pong>("Pong"))) {
+            effect("remember") { c, a -> c.copy(messages = c.messages + (a as PongAct.Pong).n, count = c.count + 1) }
+            onEnter(idle) { if (context.messages.isNotEmpty()) event(PongEv.Ack(context.messages.last())) }
+        }
 
     private val pingId = StoreInstanceId("ping-1")
     private val pongId = StoreInstanceId("pong-1")
@@ -133,7 +150,9 @@ class GroupRecordingFilesTest {
     private val machines: Map<StoreInstanceId, Machine<*, *, *, *>> = mapOf(pingId to ping, pongId to pong)
 
     /** Kicks the ping store from outside: an external source whose snapshot counts what it fed. */
-    private class KickSource(private val store: () -> MachineStore<PingCtx, PingAct, NoCommand, PingEv>) : ExternalSource {
+    private class KickSource(
+        private val store: () -> MachineStore<PingCtx, PingAct, NoCommand, PingEv>,
+    ) : ExternalSource {
         override val id = SourceId("kicks:1")
         override val kind: String get() = "kicks"
         var fed = 0
@@ -151,7 +170,10 @@ class GroupRecordingFilesTest {
         override fun resume() = Unit
     }
 
-    private inner class Live(scope: TestScope, config: RecordingFileConfig = RecordingFileConfig()) {
+    private inner class Live(
+        scope: TestScope,
+        config: RecordingFileConfig = RecordingFileConfig(),
+    ) {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
         val storage = InMemorySegmentStorage()
@@ -181,7 +203,12 @@ class GroupRecordingFilesTest {
         }
     }
 
-    private fun TestScope.kicks(live: Live, count: Int, from: Int = 1, fed: Boolean = false) {
+    private fun TestScope.kicks(
+        live: Live,
+        count: Int,
+        from: Int = 1,
+        fed: Boolean = false,
+    ) {
         runCurrent()
         for (n in from until from + count) {
             if (fed) live.source.kick(n) else live.pingStore.dispatch(PingAct.Kick(n))
@@ -189,11 +216,21 @@ class GroupRecordingFilesTest {
         }
     }
 
-    private fun assertSameRun(expected: actron.timetravel.GroupRecording, read: actron.timetravel.GroupRecording, what: String) {
+    private fun assertSameRun(
+        expected: actron.timetravel.GroupRecording,
+        read: actron.timetravel.GroupRecording,
+        what: String,
+    ) {
         assertEquals(expected.order, read.order, "$what: the order")
         for ((member, recording) in expected.members) {
             assertEquals(recording.steps, read.members.getValue(member).steps, "$what: $member's steps")
-            assertEquals(recording.start.snapshot, read.members.getValue(member).start.snapshot, "$what: $member's start")
+            assertEquals(
+                recording.start.snapshot,
+                read.members
+                    .getValue(member)
+                    .start.snapshot,
+                "$what: $member's start",
+            )
         }
         assertEquals(expected.inFlight.toSet(), read.inFlight.toSet(), "$what: the messages in flight")
         assertEquals(expected.sourceIds, read.sourceIds, "$what: the sources")
@@ -201,217 +238,259 @@ class GroupRecordingFilesTest {
     }
 
     @Test
-    fun aRecordedGroup_readsBackAsTheRecorderSawIt_andReplays() = runTest {
-        val live = Live(this)
-        kicks(live, 3)
-        live.close()
-        val expected = live.recorder.recording()
+    fun aRecordedGroup_readsBackAsTheRecorderSawIt_andReplays() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 3)
+            live.close()
+            val expected = live.recorder.recording()
 
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+            val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
 
-        assertTrue(contents.marks.isEmpty(), contents.marks.toString())
-        assertEquals(0, contents.position)
-        val read = checkNotNull(contents.recording)
-        assertEquals(expected.order, read.order)
-        assertEquals(expected.members.getValue(pingId).steps, read.members.getValue(pingId).steps)
-        assertEquals(expected.members.getValue(pongId).steps, read.members.getValue(pongId).steps)
-        assertEquals(expected.routes, read.routes)
-        assertTrue(read.inFlight.isEmpty())
-        assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
-        assertEquals(listOf(groupId), GroupRecordingFiles(live.storage).groups())
-        assertEquals(setOf(pingId, pongId), RecordingFiles(live.storage).stores().toSet())
-        assertEquals(0L, live.files.dropped)
-    }
+            assertTrue(contents.marks.isEmpty(), contents.marks.toString())
+            assertEquals(0, contents.position)
+            val read = checkNotNull(contents.recording)
+            assertEquals(expected.order, read.order)
+            assertEquals(expected.members.getValue(pingId).steps, read.members.getValue(pingId).steps)
+            assertEquals(expected.members.getValue(pongId).steps, read.members.getValue(pongId).steps)
+            assertEquals(expected.routes, read.routes)
+            assertTrue(read.inFlight.isEmpty())
+            assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
+            assertEquals(listOf(groupId), GroupRecordingFiles(live.storage).groups())
+            assertEquals(setOf(pingId, pongId), RecordingFiles(live.storage).stores().toSet())
+            assertEquals(0L, live.files.dropped)
+        }
 
     @Test
-    fun memberFilesAheadOfTheOrder_areTrimmedToEverySurvivingPrefix() = runTest {
-        val live = Live(this)
-        kicks(live, 3)
-        live.close()
-        val whole = live.recorder.recording()
-        val name = GroupRecordingFileFormat.segmentName(groupId, 0)
-        val bytes = live.storage.read(name)
-        val decoded = GroupRecordingFileFormat.decodeSegment(name, bytes)
-        val header = checkNotNull(decoded.header)
-        for (count in 1 until decoded.entries.size) {
-            val prefix = GroupRecordingFileFormat.header(header) +
-                decoded.entries.take(count).fold(byteArrayOf()) { acc, entry -> acc + GroupRecordingFileFormat.entryFrame(entry) }
-            live.storage.delete(name)
-            live.storage.append(name).use { it.write(prefix) } // no END: order writer died first
+    fun memberFilesAheadOfTheOrder_areTrimmedToEverySurvivingPrefix() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 3)
+            live.close()
+            val whole = live.recorder.recording()
+            val name = GroupRecordingFileFormat.segmentName(groupId, 0)
+            val bytes = live.storage.read(name)
+            val decoded = GroupRecordingFileFormat.decodeSegment(name, bytes)
+            val header = checkNotNull(decoded.header)
+            for (count in 1 until decoded.entries.size) {
+                val prefix =
+                    GroupRecordingFileFormat.header(header) +
+                        decoded.entries.take(count).fold(byteArrayOf()) { acc, entry -> acc + GroupRecordingFileFormat.entryFrame(entry) }
+                live.storage.delete(name)
+                live.storage.append(name).use { it.write(prefix) } // no END: order writer died first
+                val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+                val read = checkNotNull(contents.recording)
+                assertEquals(whole.order.take(count), read.order, "prefix $count")
+                for ((member, recording) in read.members) {
+                    val covered = read.order.count { it.store == member }
+                    assertEquals(
+                        whole.members
+                            .getValue(member)
+                            .steps
+                            .take(covered),
+                        recording.steps,
+                    )
+                    assertEquals(whole.members.getValue(member).start, recording.start, "prefix $count: $member checkpoint")
+                }
+                assertTrue(contents.marks.any { it is RecordingFileMark.Damaged && it.mark is SegmentMark.Unfinished })
+                assertEquals(emptyList(), GroupReplaySession(machines, read).verify(), "prefix $count")
+            }
+        }
+
+    @Test
+    fun rotatedMemberAheadOfTheOnlyOrderPrefix_reportsThatItsOlderCheckpointIsMissing() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 3)
+            live.close()
+            val whole = live.recorder.recording()
+            val orderName = GroupRecordingFileFormat.segmentName(groupId, 0)
+            val order = GroupRecordingFileFormat.decodeSegment(orderName, live.storage.read(orderName))
+            // Keep both Start entries and the first ping Kick; pong's file now begins after step 1.
+            val entries = order.entries.take(3)
+            assertEquals(listOf(pingId, pongId, pingId), entries.map { it.store })
+            live.storage.delete(orderName)
+            live.storage.append(orderName).use { output ->
+                output.write(GroupRecordingFileFormat.header(checkNotNull(order.header)))
+                entries.forEach { output.write(GroupRecordingFileFormat.entryFrame(it)) }
+            }
+            val pongRecording = whole.members.getValue(pongId) as Recording<PongCtx, PongAct, NoCommand, PongEv>
+            live.storage.delete(RecordingFileFormat.segmentName(pongId, 0))
+            live.storage.append(RecordingFileFormat.segmentName(pongId, 1)).use { output ->
+                output.write(RecordingFileFormat.header(pong.id, pong.version, pongId, 1, 2))
+                output.write(RecordingFileFormat.checkpointFrame(pongCodec.encodeCheckpoint(pongRecording.checkpointAt(2))))
+                pongRecording.steps.drop(2).forEach { output.write(RecordingFileFormat.stepFrame(pongCodec.encodeStep(it))) }
+                output.write(Framing.END)
+            }
+            val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+            assertIs<GroupRecordingFileContents.Unreadable>(contents, "An unavailable checkpoint must not become a future state")
+            assertTrue(contents.marks.any { it is RecordingFileMark.StartMismatch && it.store == pongId })
+        }
+
+    @Test
+    fun aRingThatDroppedEarlySegments_yieldsTheRangeEveryFileCovers_withItsMessagesInFlight() =
+        runTest {
+            val live = Live(this, RecordingFileConfig(maxSegmentBytes = 900, maxSegments = 2))
+            kicks(live, 8)
+            live.close()
+            val whole = live.recorder.recording()
+
+            val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+
+            assertTrue(contents.marks.any { it is RecordingFileMark.MissingSegments }, contents.marks.toString())
+            val read = checkNotNull(contents.recording)
+            val position = checkNotNull(contents.position)
+            assertTrue(position > 0 && read.length < whole.length, "position $position, ${read.length} of ${whole.length}")
+            assertEquals(whole.order.drop(position).map { it.store }, read.order.map { it.store }, "the order's tail, member by member")
+            for ((member, recording) in read.members) {
+                val offset =
+                    whole.order
+                        .drop(position)
+                        .firstOrNull { it.store == member }
+                        ?.step ?: whole.members.getValue(member).length
+                assertEquals(
+                    whole.members
+                        .getValue(member)
+                        .steps
+                        .drop(offset),
+                    recording.steps,
+                    "$member's steps from the range on",
+                )
+                assertEquals(
+                    whole.members
+                        .getValue(member)
+                        .checkpointAt(offset)
+                        .snapshot,
+                    recording.start.snapshot,
+                    "$member begins at its checkpoint there",
+                )
+            }
+            assertEquals(emptyList(), GroupReplaySession(machines, read).verify(), "replays, the messages in flight at the range's start known")
+        }
+
+    @Test
+    fun anOrderEntryTheWriterHadNoRoomFor_startsANewRange() =
+        runTest {
+            val live = Live(this, RecordingFileConfig(queueCapacity = 1))
+            runCurrent()
+            // Three kicks decided before the writers run: the order file and the members drop entries.
+            live.pingStore.dispatch(PingAct.Kick(1))
+            live.pingStore.dispatch(PingAct.Kick(2))
+            live.pingStore.dispatch(PingAct.Kick(3))
+            runCurrent()
+            live.pingStore.dispatch(PingAct.Kick(4))
+            runCurrent()
+            live.close()
+            val whole = live.recorder.recording()
+
+            val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+
+            assertTrue(live.files.dropped > 0)
+            assertTrue(contents.marks.any { it is RecordingFileMark.StepsMissing }, contents.marks.toString())
+            val read = checkNotNull(contents.recording)
+            val position = checkNotNull(contents.position)
+            assertTrue(position > 0)
+            assertEquals(whole.order.drop(position).map { it.store }, read.order.map { it.store })
+            assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
+        }
+
+    @Test
+    fun aCutOfTheGroup_beginsASegmentInEveryFile_andTheRunSinceIt_isTheInMemoryOne_withTheSourcesSnapshots() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 2, fed = true)
+            val cut = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(live.group.checkpoint()).checkpoint
+            runCurrent()
+            kicks(live, 2, from = 3, fed = true)
+            live.close()
+            val whole = live.recorder.recording()
+
+            val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+
+            assertTrue(contents.marks.isEmpty(), contents.marks.toString())
+            assertEquals(0L, live.files.droppedCuts)
+            assertEquals(2, RecordingFiles(live.storage).read(pingId, pingCodec).segments.size, "the cut began ping's second segment")
+            assertEquals(2, RecordingFiles(live.storage).read(pongId, pongCodec).segments.size, "the cut began pong's second segment")
+            val recorded = contents.cuts.single()
+            assertEquals(mapOf(live.source.id to SourceSnapshot(live.source.id, "kicks", 1, mapOf("fed" to "2"))), recorded.sources, "the sources' snapshots at the cut")
+            assertEquals(mapOf(pingId to whole.stepsBefore(recorded.position, pingId), pongId to whole.stepsBefore(recorded.position, pongId)), recorded.counts, "the members' step counts at the cut")
+            val read = checkNotNull(contents.recording)
+            assertSameRun(whole, read, "the whole run")
+            assertTrue(read.sourceSnapshots.isEmpty(), "the whole run does not begin at the cut")
+            assertSameRun(whole.since(cut), contents.since(recorded), "the run since the cut")
+            assertEquals(emptyList(), GroupReplaySession(machines, contents.since(recorded)).verify(), "the run since the cut replays, its external inputs from a known source")
+            assertFailsWith<IllegalArgumentException> { contents.since(recorded.copy(position = recorded.position + 1)) }
+        }
+
+    @Test
+    fun aRingThatKeptOnlyTheSegmentsSinceTheCut_readsTheRunFromIt_withTheSourcesSnapshots() =
+        runTest {
+            val live = Live(this, RecordingFileConfig(maxSegments = 1))
+            kicks(live, 3, fed = true)
+            val cut = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(live.group.checkpoint()).checkpoint
+            runCurrent()
+            kicks(live, 2, from = 4, fed = true)
+            live.close()
+            val whole = live.recorder.recording()
+
+            val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
+
+            assertTrue(contents.marks.all { it is RecordingFileMark.MissingSegments }, contents.marks.toString())
+            val recorded = contents.cuts.single()
+            assertEquals(recorded.position, contents.position, "the range begins at the cut")
+            val read = checkNotNull(contents.recording)
+            assertSameRun(whole.since(cut), read, "the range since the cut")
+            assertEquals("3", read.sourceSnapshots.getValue(live.source.id).fields["fed"])
+            assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
+        }
+
+    @Test
+    fun prune_deletesTheOldestSegmentsFirst_neverTheNewest_andWhatRemainsStillReads() =
+        runTest {
+            val live = Live(this, RecordingFileConfig(maxSegmentBytes = 900))
+            kicks(live, 6)
+            live.close()
+            val whole = live.recorder.recording()
+            val files = RecordingFiles(live.storage)
+            val before = live.storage.list().sortedWith(compareBy({ it.modified }, { it.name }))
+            assertTrue(before.size >= 4, "several segments: ${before.map { it.name }}")
+            val total = before.sumOf { it.size }
+
+            val deleted = files.prune(total - before.first().size)
+
+            assertEquals(listOf(before.first().name), deleted, "exactly the oldest segment went")
             val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
             val read = checkNotNull(contents.recording)
-            assertEquals(whole.order.take(count), read.order, "prefix $count")
-            for ((member, recording) in read.members) {
-                val covered = read.order.count { it.store == member }
-                assertEquals(whole.members.getValue(member).steps.take(covered), recording.steps)
-                assertEquals(whole.members.getValue(member).start, recording.start, "prefix $count: $member checkpoint")
-            }
-            assertTrue(contents.marks.any { it is RecordingFileMark.Damaged && it.mark is SegmentMark.Unfinished })
-            assertEquals(emptyList(), GroupReplaySession(machines, read).verify(), "prefix $count")
+            assertTrue(contents.marks.any { it is RecordingFileMark.MissingSegments }, contents.marks.toString())
+            assertEquals(whole.order.drop(checkNotNull(contents.position)).map { it.store }, read.order.map { it.store })
+            assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
+
+            val rest = files.prune(1)
+            assertEquals(before.drop(1).dropLast(1).map { it.name }, rest, "all but the newest, oldest first")
+            assertEquals(listOf(before.last().name), live.storage.list().map { it.name })
+            assertTrue(files.prune(1).isEmpty())
         }
-    }
-
-    @Test
-    fun rotatedMemberAheadOfTheOnlyOrderPrefix_reportsThatItsOlderCheckpointIsMissing() = runTest {
-        val live = Live(this)
-        kicks(live, 3)
-        live.close()
-        val whole = live.recorder.recording()
-        val orderName = GroupRecordingFileFormat.segmentName(groupId, 0)
-        val order = GroupRecordingFileFormat.decodeSegment(orderName, live.storage.read(orderName))
-        // Keep both Start entries and the first ping Kick; pong's file now begins after step 1.
-        val entries = order.entries.take(3)
-        assertEquals(listOf(pingId, pongId, pingId), entries.map { it.store })
-        live.storage.delete(orderName)
-        live.storage.append(orderName).use { output ->
-            output.write(GroupRecordingFileFormat.header(checkNotNull(order.header)))
-            entries.forEach { output.write(GroupRecordingFileFormat.entryFrame(it)) }
-        }
-        val pongRecording = whole.members.getValue(pongId) as Recording<PongCtx, PongAct, NoCommand, PongEv>
-        live.storage.delete(RecordingFileFormat.segmentName(pongId, 0))
-        live.storage.append(RecordingFileFormat.segmentName(pongId, 1)).use { output ->
-            output.write(RecordingFileFormat.header(pong.id, pong.version, pongId, 1, 2))
-            output.write(RecordingFileFormat.checkpointFrame(pongCodec.encodeCheckpoint(pongRecording.checkpointAt(2))))
-            pongRecording.steps.drop(2).forEach { output.write(RecordingFileFormat.stepFrame(pongCodec.encodeStep(it))) }
-            output.write(Framing.END)
-        }
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-        assertIs<GroupRecordingFileContents.Unreadable>(contents, "An unavailable checkpoint must not become a future state")
-        assertTrue(contents.marks.any { it is RecordingFileMark.StartMismatch && it.store == pongId })
-    }
-
-    @Test
-    fun aRingThatDroppedEarlySegments_yieldsTheRangeEveryFileCovers_withItsMessagesInFlight() = runTest {
-        val live = Live(this, RecordingFileConfig(maxSegmentBytes = 900, maxSegments = 2))
-        kicks(live, 8)
-        live.close()
-        val whole = live.recorder.recording()
-
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-
-        assertTrue(contents.marks.any { it is RecordingFileMark.MissingSegments }, contents.marks.toString())
-        val read = checkNotNull(contents.recording)
-        val position = checkNotNull(contents.position)
-        assertTrue(position > 0 && read.length < whole.length, "position $position, ${read.length} of ${whole.length}")
-        assertEquals(whole.order.drop(position).map { it.store }, read.order.map { it.store }, "the order's tail, member by member")
-        for ((member, recording) in read.members) {
-            val offset = whole.order.drop(position).firstOrNull { it.store == member }?.step ?: whole.members.getValue(member).length
-            assertEquals(whole.members.getValue(member).steps.drop(offset), recording.steps, "$member's steps from the range on")
-            assertEquals(whole.members.getValue(member).checkpointAt(offset).snapshot, recording.start.snapshot, "$member begins at its checkpoint there")
-        }
-        assertEquals(emptyList(), GroupReplaySession(machines, read).verify(), "replays, the messages in flight at the range's start known")
-    }
-
-    @Test
-    fun anOrderEntryTheWriterHadNoRoomFor_startsANewRange() = runTest {
-        val live = Live(this, RecordingFileConfig(queueCapacity = 1))
-        runCurrent()
-        // Three kicks decided before the writers run: the order file and the members drop entries.
-        live.pingStore.dispatch(PingAct.Kick(1))
-        live.pingStore.dispatch(PingAct.Kick(2))
-        live.pingStore.dispatch(PingAct.Kick(3))
-        runCurrent()
-        live.pingStore.dispatch(PingAct.Kick(4))
-        runCurrent()
-        live.close()
-        val whole = live.recorder.recording()
-
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-
-        assertTrue(live.files.dropped > 0)
-        assertTrue(contents.marks.any { it is RecordingFileMark.StepsMissing }, contents.marks.toString())
-        val read = checkNotNull(contents.recording)
-        val position = checkNotNull(contents.position)
-        assertTrue(position > 0)
-        assertEquals(whole.order.drop(position).map { it.store }, read.order.map { it.store })
-        assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
-    }
-
-    @Test
-    fun aCutOfTheGroup_beginsASegmentInEveryFile_andTheRunSinceIt_isTheInMemoryOne_withTheSourcesSnapshots() = runTest {
-        val live = Live(this)
-        kicks(live, 2, fed = true)
-        val cut = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(live.group.checkpoint()).checkpoint
-        runCurrent()
-        kicks(live, 2, from = 3, fed = true)
-        live.close()
-        val whole = live.recorder.recording()
-
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-
-        assertTrue(contents.marks.isEmpty(), contents.marks.toString())
-        assertEquals(0L, live.files.droppedCuts)
-        assertEquals(2, RecordingFiles(live.storage).read(pingId, pingCodec).segments.size, "the cut began ping's second segment")
-        assertEquals(2, RecordingFiles(live.storage).read(pongId, pongCodec).segments.size, "the cut began pong's second segment")
-        val recorded = contents.cuts.single()
-        assertEquals(mapOf(live.source.id to SourceSnapshot(live.source.id, "kicks", 1, mapOf("fed" to "2"))), recorded.sources, "the sources' snapshots at the cut")
-        assertEquals(mapOf(pingId to whole.stepsBefore(recorded.position, pingId), pongId to whole.stepsBefore(recorded.position, pongId)), recorded.counts, "the members' step counts at the cut")
-        val read = checkNotNull(contents.recording)
-        assertSameRun(whole, read, "the whole run")
-        assertTrue(read.sourceSnapshots.isEmpty(), "the whole run does not begin at the cut")
-        assertSameRun(whole.since(cut), contents.since(recorded), "the run since the cut")
-        assertEquals(emptyList(), GroupReplaySession(machines, contents.since(recorded)).verify(), "the run since the cut replays, its external inputs from a known source")
-        assertFailsWith<IllegalArgumentException> { contents.since(recorded.copy(position = recorded.position + 1)) }
-    }
-
-    @Test
-    fun aRingThatKeptOnlyTheSegmentsSinceTheCut_readsTheRunFromIt_withTheSourcesSnapshots() = runTest {
-        val live = Live(this, RecordingFileConfig(maxSegments = 1))
-        kicks(live, 3, fed = true)
-        val cut = kotlin.test.assertIs<actron.statechart.machine.GroupCut.Ready>(live.group.checkpoint()).checkpoint
-        runCurrent()
-        kicks(live, 2, from = 4, fed = true)
-        live.close()
-        val whole = live.recorder.recording()
-
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-
-        assertTrue(contents.marks.all { it is RecordingFileMark.MissingSegments }, contents.marks.toString())
-        val recorded = contents.cuts.single()
-        assertEquals(recorded.position, contents.position, "the range begins at the cut")
-        val read = checkNotNull(contents.recording)
-        assertSameRun(whole.since(cut), read, "the range since the cut")
-        assertEquals("3", read.sourceSnapshots.getValue(live.source.id).fields["fed"])
-        assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
-    }
-
-    @Test
-    fun prune_deletesTheOldestSegmentsFirst_neverTheNewest_andWhatRemainsStillReads() = runTest {
-        val live = Live(this, RecordingFileConfig(maxSegmentBytes = 900))
-        kicks(live, 6)
-        live.close()
-        val whole = live.recorder.recording()
-        val files = RecordingFiles(live.storage)
-        val before = live.storage.list().sortedWith(compareBy({ it.modified }, { it.name }))
-        assertTrue(before.size >= 4, "several segments: ${before.map { it.name }}")
-        val total = before.sumOf { it.size }
-
-        val deleted = files.prune(total - before.first().size)
-
-        assertEquals(listOf(before.first().name), deleted, "exactly the oldest segment went")
-        val contents = GroupRecordingFiles(live.storage).read(groupId, codecs)
-        val read = checkNotNull(contents.recording)
-        assertTrue(contents.marks.any { it is RecordingFileMark.MissingSegments }, contents.marks.toString())
-        assertEquals(whole.order.drop(checkNotNull(contents.position)).map { it.store }, read.order.map { it.store })
-        assertEquals(emptyList(), GroupReplaySession(machines, read).verify())
-
-        val rest = files.prune(1)
-        assertEquals(before.drop(1).dropLast(1).map { it.name }, rest, "all but the newest, oldest first")
-        assertEquals(listOf(before.last().name), live.storage.list().map { it.name })
-        assertTrue(files.prune(1).isEmpty())
-    }
 
     @Test
     fun anOrderSegment_roundTrips_andEveryCutIsAPrefix() {
-        val header = GroupSegmentHeader(
-            GroupRecordingFileFormat.VERSION, groupId, listOf(pingId, pongId), listOf(GroupRoute(pingId, pongId, RoutePair("ping", PairRole.Request)), GroupRoute(pongId, pingId, RoutePair("ping", PairRole.Reply)), GroupRoute(pongId, pingId)), setOf(SourceId("paging:x")), 3, 40, listOf(MessageId(pingId, EffectId(7))),
-            RecordedCut(40, mapOf(pingId to 21, pongId to 19), mapOf(SourceId("paging:x") to SourceSnapshot(SourceId("paging:x"), "paging", 2, mapOf("loaded" to "3", "generation" to "1")))),
-        )
-        val entries = listOf(
-            GroupOrderEntry(pingId, 5, listOf(MessageId(pingId, EffectId(8)))),
-            GroupOrderEntry(pongId, 4, received = MessageId(pingId, EffectId(8))),
-            GroupOrderEntry(pingId, 6),
-        )
+        val header =
+            GroupSegmentHeader(
+                GroupRecordingFileFormat.VERSION,
+                groupId,
+                listOf(pingId, pongId),
+                listOf(GroupRoute(pingId, pongId, RoutePair("ping", PairRole.Request)), GroupRoute(pongId, pingId, RoutePair("ping", PairRole.Reply)), GroupRoute(pongId, pingId)),
+                setOf(SourceId("paging:x")),
+                3,
+                40,
+                listOf(MessageId(pingId, EffectId(7))),
+                RecordedCut(40, mapOf(pingId to 21, pongId to 19), mapOf(SourceId("paging:x") to SourceSnapshot(SourceId("paging:x"), "paging", 2, mapOf("loaded" to "3", "generation" to "1")))),
+            )
+        val entries =
+            listOf(
+                GroupOrderEntry(pingId, 5, listOf(MessageId(pingId, EffectId(8)))),
+                GroupOrderEntry(pongId, 4, received = MessageId(pingId, EffectId(8))),
+                GroupOrderEntry(pingId, 6),
+            )
         var bytes = GroupRecordingFileFormat.header(header)
         for (entry in entries) bytes += GroupRecordingFileFormat.entryFrame(entry)
         bytes += Framing.END

@@ -2,65 +2,85 @@
 
 package actron.soak
 
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.convert
+import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.rawValue
 import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import kotlinx.cinterop.get
-import kotlinx.cinterop.sizeOf
-import kotlinx.cinterop.rawValue
 import kotlinx.coroutines.delay
-import kotlin.native.runtime.GC
 import platform.Foundation.NSProcessInfo
 import platform.darwin.MACH_TASK_BASIC_INFO
 import platform.darwin.MACH_TASK_BASIC_INFO_COUNT
 import platform.darwin.mach_msg_type_number_tVar
+import platform.darwin.mach_port_deallocate
 import platform.darwin.mach_task_basic_info
 import platform.darwin.mach_task_self_
 import platform.darwin.task_info
 import platform.darwin.task_threads
 import platform.darwin.thread_act_array_tVar
 import platform.darwin.thread_tVar
-import platform.darwin.mach_port_deallocate
 import platform.darwin.vm_deallocate
 import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fwrite
 import platform.posix.usleep
+import kotlin.native.runtime.GC
 
 actual object SoakPlatform {
     actual var reportDirectory = "$SOAK_REPORT_DIRECTORY/ios"
-    actual fun metadata() = mapOf("platform" to "iOS", "runtime" to "Kotlin/Native ${KotlinVersion.CURRENT}", "os" to NSProcessInfo.processInfo.operatingSystemVersionString,
-        "device" to NSProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"].toString(),
-        "architecture" to kotlin.native.Platform.cpuArchitecture.name, "debugBinary" to kotlin.native.Platform.isDebugBinary.toString(),
-        "processors" to NSProcessInfo.processInfo.processorCount.toString(), "memoryUnits" to "bytes; heap/native=GCInfo custom allocator heap bytes; resident=Mach resident_size")
+
+    actual fun metadata() =
+        mapOf(
+            "platform" to "iOS",
+            "runtime" to "Kotlin/Native ${KotlinVersion.CURRENT}",
+            "os" to NSProcessInfo.processInfo.operatingSystemVersionString,
+            "device" to NSProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"].toString(),
+            "architecture" to kotlin.native.Platform.cpuArchitecture.name,
+            "debugBinary" to
+                kotlin.native.Platform.isDebugBinary
+                    .toString(),
+            "processors" to NSProcessInfo.processInfo.processorCount.toString(),
+            "memoryUnits" to "bytes; heap/native=GCInfo custom allocator heap bytes; resident=Mach resident_size",
+        )
+
     actual suspend fun afterGc(): MemorySample {
-        repeat(2) { GC.collect(); delay(100) }
+        repeat(2) {
+            GC.collect()
+            delay(100)
+        }
         val heap = checkNotNull(GC.lastGCInfo).memoryUsageAfter.getValue("heap").totalObjectsSizeBytes
-        val resident = memScoped {
-            val info = alloc<mach_task_basic_info>()
-            val count = alloc<mach_msg_type_number_tVar>()
-            count.value = MACH_TASK_BASIC_INFO_COUNT.convert()
-            check(task_info(mach_task_self_, MACH_TASK_BASIC_INFO.convert(), info.ptr.reinterpret(), count.ptr) == 0)
-            info.resident_size.toLong()
-        }
-        val threads = memScoped {
-            val list = alloc<thread_act_array_tVar>()
-            val count = alloc<mach_msg_type_number_tVar>()
-            check(task_threads(mach_task_self_, list.ptr, count.ptr) == 0)
-            val size = count.value.toInt()
-            val array = checkNotNull(list.value)
-            repeat(size) { check(mach_port_deallocate(mach_task_self_, array[it]) == 0) }
-            check(vm_deallocate(mach_task_self_, array.rawValue.toLong().convert(), (size * sizeOf<thread_tVar>()).convert()) == 0)
-            size
-        }
+        val resident =
+            memScoped {
+                val info = alloc<mach_task_basic_info>()
+                val count = alloc<mach_msg_type_number_tVar>()
+                count.value = MACH_TASK_BASIC_INFO_COUNT.convert()
+                check(task_info(mach_task_self_, MACH_TASK_BASIC_INFO.convert(), info.ptr.reinterpret(), count.ptr) == 0)
+                info.resident_size.toLong()
+            }
+        val threads =
+            memScoped {
+                val list = alloc<thread_act_array_tVar>()
+                val count = alloc<mach_msg_type_number_tVar>()
+                check(task_threads(mach_task_self_, list.ptr, count.ptr) == 0)
+                val size = count.value.toInt()
+                val array = checkNotNull(list.value)
+                repeat(size) { check(mach_port_deallocate(mach_task_self_, array[it]) == 0) }
+                check(vm_deallocate(mach_task_self_, array.rawValue.toLong().convert(), (size * sizeOf<thread_tVar>()).convert()) == 0)
+                size
+            }
         return MemorySample(heap, heap, resident, threads)
     }
-    actual fun blockingDelay(milliseconds: Long) { usleep((milliseconds * 1000).convert()) }
+
+    actual fun blockingDelay(milliseconds: Long) {
+        usleep((milliseconds * 1000).convert())
+    }
+
     private fun mkdir(path: String) {
         var prefix = if (path.startsWith('/')) "/" else ""
         for (part in path.split('/').filter { it.isNotEmpty() }) {
@@ -71,7 +91,9 @@ actual object SoakPlatform {
             }
         }
     }
+
     actual fun directory(batch: Int): String = "$reportDirectory/batch-$batch".also(::mkdir)
+
     actual fun removeDirectory(path: String) {
         // A batch owns a flat segment directory, released only after every writer has closed.
         val directory = checkNotNull(platform.posix.opendir(path)) { "Missing batch directory $path" }
@@ -80,17 +102,25 @@ actual object SoakPlatform {
         for (entry in storage.list()) storage.delete(entry.name)
         check(platform.posix.rmdir(path) == 0) { "Cannot release batch directory $path" }
     }
-    actual fun writeReport(name: String, content: String) {
+
+    actual fun writeReport(
+        name: String,
+        content: String,
+    ) {
         mkdir(reportDirectory)
         val output = checkNotNull(fopen("$reportDirectory/$name", "wb"))
         try {
             val bytes = content.encodeToByteArray()
             bytes.usePinned { check(fwrite(it.addressOf(0), 1u, bytes.size.convert(), output).toLong() == bytes.size.toLong()) }
-        } finally { check(fclose(output) == 0) }
+        } finally {
+            check(fclose(output) == 0)
+        }
     }
 }
 
 internal actual fun weakWitness(value: Any): WeakWitness {
     val reference = kotlin.native.ref.WeakReference(value)
-    return object : WeakWitness { override val isAlive get() = reference.get() is Any }
+    return object : WeakWitness {
+        override val isAlive get() = reference.get() is Any
+    }
 }

@@ -1,5 +1,10 @@
 package actron.compose
 
+import actron.core.Action
+import actron.core.ExperimentalActronApi
+import actron.core.State
+import actron.core.StateSaver
+import actron.core.Store
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,11 +18,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import actron.core.Action
-import actron.core.ExperimentalActronApi
-import actron.core.State
-import actron.core.StateSaver
-import actron.core.Store
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -33,15 +33,23 @@ import kotlin.test.assertSame
 @OptIn(ExperimentalActronApi::class)
 class ActivityLifecycleTest {
     @get:Rule val compose = createEmptyComposeRule()
+
     private sealed interface ActivityPhase {
         data object AwaitingLaunch : ActivityPhase
-        data class Running(val scenario: ActivityScenario<LifecycleTestActivity>) : ActivityPhase
+
+        data class Running(
+            val scenario: ActivityScenario<LifecycleTestActivity>,
+        ) : ActivityPhase
+
         data object Closed : ActivityPhase
     }
+
     private var activity: ActivityPhase = ActivityPhase.AwaitingLaunch
     private val scenario get() = (activity as ActivityPhase.Running).scenario
 
-    @Before fun setUp() { LifecycleHarness.fixture = Fixture() }
+    @Before fun setUp() {
+        LifecycleHarness.fixture = Fixture()
+    }
 
     @After fun tearDown() {
         if (activity is ActivityPhase.Running) scenario.close()
@@ -60,8 +68,17 @@ class ActivityLifecycleTest {
     @Test fun recreationRetainsSaverRestoresSnapshotAndClosesOldCompositionStore() {
         val fixture = launch()
         val originalObservations = mutableListOf<Handle>()
-        compose.runOnIdle { originalObservations.add(fixture.handles.getValue("left")); originalObservations.single().view.dispatch(Increment) }
-        compose.waitUntil(timeoutMillis = 10_000) { originalObservations.single().store.currentState.value == 1 && originalObservations.single().view.state.value == 1 }
+        compose.runOnIdle {
+            originalObservations.add(fixture.handles.getValue("left"))
+            originalObservations.single().view.dispatch(Increment)
+        }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            originalObservations
+                .single()
+                .store.currentState.value == 1 && originalObservations
+                .single()
+                .view.state.value == 1
+        }
 
         kotlin.test.assertNotNull(scenario).recreate()
         compose.waitForIdle()
@@ -70,20 +87,50 @@ class ActivityLifecycleTest {
             assertSame(originalObservations.single().saver, restored.saver)
             assertNotSame(originalObservations.single().store, restored.store)
             assertEquals(Counter(1), restored.view.state)
-            assertEquals(1, originalObservations.single().store.closes.get())
+            assertEquals(
+                1,
+                originalObservations
+                    .single()
+                    .store.closes
+                    .get(),
+            )
             assertEquals(0, restored.store.closes.get())
         }
         kotlin.test.assertNotNull(scenario).close()
-        compose.runOnIdle { assertEquals(1, fixture.handles.getValue("left").store.closes.get()) }
+        compose.runOnIdle {
+            assertEquals(
+                1,
+                fixture.handles
+                    .getValue("left")
+                    .store.closes
+                    .get(),
+            )
+        }
     }
 
     @Test fun removingScreenDiscardsSaverAndReturningCreatesFreshStore() {
         val fixture = launch()
         val originalObservations = mutableListOf<Handle>()
-        compose.runOnIdle { originalObservations.add(fixture.handles.getValue("left")); originalObservations.single().view.dispatch(Increment) }
-        compose.waitUntil(timeoutMillis = 10_000) { originalObservations.single().view.state.value == 1 }
+        compose.runOnIdle {
+            originalObservations.add(fixture.handles.getValue("left"))
+            originalObservations.single().view.dispatch(Increment)
+        }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            originalObservations
+                .single()
+                .view.state.value == 1
+        }
         compose.runOnIdle { fixture.tabs.value = emptyList() }
-        compose.runOnIdle { assertEquals(1, originalObservations.single().store.closes.get()); fixture.tabs.value = listOf("left") }
+        compose.runOnIdle {
+            assertEquals(
+                1,
+                originalObservations
+                    .single()
+                    .store.closes
+                    .get(),
+            )
+            fixture.tabs.value = listOf("left")
+        }
         compose.runOnIdle {
             val fresh = fixture.handles.getValue("left")
             assertNotSame(originalObservations.single().saver, fresh.saver)
@@ -99,12 +146,20 @@ class ActivityLifecycleTest {
         val leftObservations = mutableListOf<Handle>()
         val rightObservations = mutableListOf<Handle>()
         compose.runOnIdle {
-            leftObservations.add(fixture.handles.getValue("left")); rightObservations.add(fixture.handles.getValue("right"))
+            leftObservations.add(fixture.handles.getValue("left"))
+            rightObservations.add(fixture.handles.getValue("right"))
             assertNotSame(leftObservations.single().saver, rightObservations.single().saver)
             leftObservations.single().view.dispatch(Increment)
-            rightObservations.single().view.dispatch(Increment); rightObservations.single().view.dispatch(Increment)
+            rightObservations.single().view.dispatch(Increment)
+            rightObservations.single().view.dispatch(Increment)
         }
-        compose.waitUntil(timeoutMillis = 10_000) { leftObservations.single().view.state.value == 1 && rightObservations.single().view.state.value == 2 }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            leftObservations
+                .single()
+                .view.state.value == 1 && rightObservations
+                .single()
+                .view.state.value == 2
+        }
         compose.runOnIdle { fixture.tabs.value = listOf("right", "left") }
         compose.runOnIdle {
             assertSame(leftObservations.single().store, fixture.handles.getValue("left").store)
@@ -114,28 +169,63 @@ class ActivityLifecycleTest {
             fixture.tabs.value = listOf("right")
         }
         compose.runOnIdle {
-            assertEquals(1, leftObservations.single().store.closes.get())
-            assertEquals(0, rightObservations.single().store.closes.get())
+            assertEquals(
+                1,
+                leftObservations
+                    .single()
+                    .store.closes
+                    .get(),
+            )
+            assertEquals(
+                0,
+                rightObservations
+                    .single()
+                    .store.closes
+                    .get(),
+            )
             fixture.tabs.value = listOf("right", "left")
         }
         compose.runOnIdle {
-            assertEquals(Counter(0), fixture.handles.getValue("left").view.state)
-            assertEquals(Counter(2), fixture.handles.getValue("right").view.state)
+            assertEquals(
+                Counter(0),
+                fixture.handles
+                    .getValue("left")
+                    .view.state,
+            )
+            assertEquals(
+                Counter(2),
+                fixture.handles
+                    .getValue("right")
+                    .view.state,
+            )
         }
     }
 
     @Test fun storeKeyReplacementClosesOwnedStoreButKeepsRetainedSnapshot() {
         val fixture = launch()
         val originalObservations = mutableListOf<Handle>()
-        compose.runOnIdle { originalObservations.add(fixture.handles.getValue("left")); originalObservations.single().view.dispatch(Increment) }
-        compose.waitUntil(timeoutMillis = 10_000) { originalObservations.single().view.state.value == 1 }
+        compose.runOnIdle {
+            originalObservations.add(fixture.handles.getValue("left"))
+            originalObservations.single().view.dispatch(Increment)
+        }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            originalObservations
+                .single()
+                .view.state.value == 1
+        }
         compose.runOnIdle { fixture.storeKey.value = "replacement" }
         compose.runOnIdle {
             val replacement = fixture.handles.getValue("left")
             assertNotSame(originalObservations.single().store, replacement.store)
             assertSame(originalObservations.single().saver, replacement.saver)
             assertEquals(Counter(1), replacement.view.state)
-            assertEquals(1, originalObservations.single().store.closes.get())
+            assertEquals(
+                1,
+                originalObservations
+                    .single()
+                    .store.closes
+                    .get(),
+            )
         }
     }
 
@@ -144,8 +234,15 @@ class ActivityLifecycleTest {
         fixture.ownsStore = false
         launch()
         val originalObservations = mutableListOf<Handle>()
-        compose.runOnIdle { originalObservations.add(fixture.handles.getValue("left")); originalObservations.single().view.dispatch(Increment) }
-        compose.waitUntil(timeoutMillis = 10_000) { originalObservations.single().view.state.value == 1 }
+        compose.runOnIdle {
+            originalObservations.add(fixture.handles.getValue("left"))
+            originalObservations.single().view.dispatch(Increment)
+        }
+        compose.waitUntil(timeoutMillis = 10_000) {
+            originalObservations
+                .single()
+                .view.state.value == 1
+        }
         kotlin.test.assertNotNull(scenario).moveToState(Lifecycle.State.CREATED)
         kotlin.test.assertNotNull(scenario).moveToState(Lifecycle.State.RESUMED)
         kotlin.test.assertNotNull(scenario).recreate()
@@ -155,10 +252,22 @@ class ActivityLifecycleTest {
             assertSame(originalObservations.single().store, current.store)
             assertSame(originalObservations.single().saver, current.saver)
             assertEquals(Counter(1), current.view.state)
-            assertEquals(0, originalObservations.single().store.closes.get())
+            assertEquals(
+                0,
+                originalObservations
+                    .single()
+                    .store.closes
+                    .get(),
+            )
         }
         kotlin.test.assertNotNull(scenario).close()
-        assertEquals(0, originalObservations.single().store.closes.get())
+        assertEquals(
+            0,
+            originalObservations
+                .single()
+                .store.closes
+                .get(),
+        )
     }
 }
 
@@ -172,24 +281,45 @@ class LifecycleTestActivity : ComponentActivity() {
 private object LifecycleHarness {
     private sealed interface Run {
         data object AwaitingTest : Run
-        data class Prepared(val fixture: Fixture) : Run
+
+        data class Prepared(
+            val fixture: Fixture,
+        ) : Run
     }
+
     private var run: Run = Run.AwaitingTest
     var fixture: Fixture
         get() = (run as Run.Prepared).fixture
-        set(value) { run = Run.Prepared(value) }
-    fun finish() { run = Run.AwaitingTest }
+        set(value) {
+            run = Run.Prepared(value)
+        }
+
+    fun finish() {
+        run = Run.AwaitingTest
+    }
 }
-private data class Counter(val value: Int) : State
+
+private data class Counter(
+    val value: Int,
+) : State
+
 private data object Increment : Action
+
 private data class Handle(
     val saver: StateSaver<Counter>,
     val store: TrackedStore,
     val view: ViewStore<Counter, Increment, Nothing>,
 )
-private class TrackedStore(val delegate: Store<Counter, Increment, Nothing>) : Store<Counter, Increment, Nothing> by delegate {
+
+private class TrackedStore(
+    val delegate: Store<Counter, Increment, Nothing>,
+) : Store<Counter, Increment, Nothing> by delegate {
     val closes = AtomicInteger()
-    override fun close() { closes.incrementAndGet(); delegate.close() }
+
+    override fun close() {
+        closes.incrementAndGet()
+        delegate.close()
+    }
 }
 
 @OptIn(ExperimentalActronApi::class)
@@ -202,27 +332,30 @@ private class Fixture {
     private val external = mutableMapOf<String, TrackedStore>()
     private val adopted = mutableMapOf<String, TrackedStore>()
 
-    private fun newStore(saver: StateSaver<Counter>): TrackedStore = TrackedStore(
-        Store<Counter, Increment, Nothing>(Counter(0)) {
-            stateSaver(saver)
-            state<Counter> { action<Increment> { nextState { state.copy(value = state.value + 1) } } }
-        },
-    ).also { allStores += it }
+    private fun newStore(saver: StateSaver<Counter>): TrackedStore =
+        TrackedStore(
+            Store<Counter, Increment, Nothing>(Counter(0)) {
+                stateSaver(saver)
+                state<Counter> { action<Increment> { nextState { state.copy(value = state.value + 1) } } }
+            },
+        ).also { allStores += it }
 
     @Composable fun Content() {
-        for (tab in tabs.value) key(tab) {
-            val saver = rememberStateSaver<Counter>()
-            val view = if (ownsStore) {
-                rememberViewStore(key = storeKey.value, autoClose = true) {
-                    newStore(saver).also { adopted[tab] = it }
-                }
-            } else {
-                val store = external.getOrPut(tab) { newStore(saver) }
-                adopted[tab] = store
-                rememberViewStore(store = store, autoClose = false)
+        for (tab in tabs.value) {
+            key(tab) {
+                val saver = rememberStateSaver<Counter>()
+                val view =
+                    if (ownsStore) {
+                        rememberViewStore(key = storeKey.value, autoClose = true) {
+                            newStore(saver).also { adopted[tab] = it }
+                        }
+                    } else {
+                        val store = external.getOrPut(tab) { newStore(saver) }
+                        adopted[tab] = store
+                        rememberViewStore(store = store, autoClose = false)
+                    }
+                SideEffect { handles[tab] = Handle(saver, adopted.getValue(tab), view) }
             }
-            SideEffect { handles[tab] = Handle(saver, adopted.getValue(tab), view) }
         }
     }
-
 }

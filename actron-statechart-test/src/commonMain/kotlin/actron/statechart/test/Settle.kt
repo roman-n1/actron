@@ -50,24 +50,26 @@ data class MachinePendingWork<CMD : Any>(
 ) {
     val isIdle: Boolean get() = running.isEmpty() && queued.isEmpty() && ending.isEmpty() && timers.isEmpty() && effects.isEmpty()
 
-    override fun toString(): String = buildList {
-        if (running.isNotEmpty()) add("running ${running.joinToString(",", "[", "]") { "c${it.id.value} ${it.command}" }}")
-        if (queued.isNotEmpty()) add("queued ${queued.joinToString(",", "[", "]") { "c${it.id.value} ${it.command}" }}")
-        if (ending.isNotEmpty()) add("ending ${ending.joinToString(",", "[", "]") { "c${it.value}" }}")
-        if (timers.isNotEmpty()) add("timers ${timers.entries.joinToString(",", "[", "]") { "t${it.key.value} remaining ${it.value}" }}")
-        if (effects.isNotEmpty()) add("effects ${effects.joinToString(",", "[", "]") { "e${it.id.value} ${it.event}${if (it.handling) " (handling)" else ""}" }}")
-    }.ifEmpty { listOf("nothing") }.joinToString("; ")
+    override fun toString(): String =
+        buildList {
+            if (running.isNotEmpty()) add("running ${running.joinToString(",", "[", "]") { "c${it.id.value} ${it.command}" }}")
+            if (queued.isNotEmpty()) add("queued ${queued.joinToString(",", "[", "]") { "c${it.id.value} ${it.command}" }}")
+            if (ending.isNotEmpty()) add("ending ${ending.joinToString(",", "[", "]") { "c${it.value}" }}")
+            if (timers.isNotEmpty()) add("timers ${timers.entries.joinToString(",", "[", "]") { "t${it.key.value} remaining ${it.value}" }}")
+            if (effects.isNotEmpty()) add("effects ${effects.joinToString(",", "[", "]") { "e${it.id.value} ${it.event}${if (it.handling) " (handling)" else ""}" }}")
+        }.ifEmpty { listOf("nothing") }.joinToString("; ")
 }
 
 /** The work this checkpoint holds; see [MachinePendingWork]. */
 @ExperimentalActronApi
-fun <C : Any, CMD : Any> ExecutorCheckpoint<C, CMD>.pendingWork(): MachinePendingWork<CMD> = MachinePendingWork(
-    running = lanes.running.values.toList(),
-    queued = lanes.queued.values.flatten(),
-    ending = ending.keys.toList(),
-    timers = snapshot.timers.mapValues { (_, timer) -> timer.deadline - now },
-    effects = effects,
-)
+fun <C : Any, CMD : Any> ExecutorCheckpoint<C, CMD>.pendingWork(): MachinePendingWork<CMD> =
+    MachinePendingWork(
+        running = lanes.running.values.toList(),
+        queued = lanes.queued.values.flatten(),
+        ending = ending.keys.toList(),
+        timers = snapshot.timers.mapValues { (_, timer) -> timer.deadline - now },
+        effects = effects,
+    )
 
 /**
  * Fails when the store has inputs or launches pending, when the executor holds work (commands

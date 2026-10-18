@@ -2,17 +2,9 @@
 
 package actron.timetravel.file
 
-import actron.timetravel.verify
-
-import actron.core.InputAttribution
-
-import java.io.File
-import java.io.IOException
-import java.net.URLClassLoader
-import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 import actron.core.Action
 import actron.core.Event
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.*
 import actron.observability.file.*
@@ -21,9 +13,15 @@ import actron.statechart.machine.*
 import actron.timetravel.GroupReplaySession
 import actron.timetravel.RecordingCodec
 import actron.timetravel.ReplaySession
+import actron.timetravel.verify
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import java.io.File
+import java.io.IOException
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 import kotlin.test.*
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -32,7 +30,9 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class RecordingDurabilityJvmTest {
     @Test fun journalRecoversAfterWriterIsKilled() = crashCases("journal")
+
     @Test fun memberRecordingRecoversAndReplaysAfterWriterIsKilled() = crashCases("member")
+
     @Test fun groupOrderRecoversAndReplaysAfterWriterIsKilled() = crashCases("group")
 
     @Test fun fullFilesystemStopsAllWritersAndPreservesTheirFlushedPrefix() {
@@ -77,7 +77,13 @@ class RecordingDurabilityJvmTest {
         }
     }
 
-    private fun runChild(phase: String, kind: String, cut: String, directory: File, control: File) {
+    private fun runChild(
+        phase: String,
+        kind: String,
+        cut: String,
+        directory: File,
+        control: File,
+    ) {
         val child = startChild(phase, kind, cut, directory, control)
         try {
             assertTrue(child.waitFor(25, TimeUnit.SECONDS), "$phase child timed out")
@@ -89,61 +95,111 @@ class RecordingDurabilityJvmTest {
         }
     }
 
-    private fun startChild(phase: String, kind: String, cut: String, directory: File, control: File): Process {
-        val paths = buildList<String> {
-            var loader = checkNotNull(javaClass.classLoader)
-            while (true) {
-                if (loader is URLClassLoader) {
-                    for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+    private fun startChild(
+        phase: String,
+        kind: String,
+        cut: String,
+        directory: File,
+        control: File,
+    ): Process {
+        val paths =
+            buildList<String> {
+                var loader = checkNotNull(javaClass.classLoader)
+                while (true) {
+                    if (loader is URLClassLoader) {
+                        for (url in checkNotNull(loader.urLs).filterNotNull()) add(File(url.toURI()).path)
+                    }
+                    loader = loader.parent ?: break
                 }
-                loader = loader.parent ?: break
             }
-        }
         val classpath = checkNotNull((paths + checkNotNull(System.getProperty("java.class.path")).split(File.pathSeparator)).distinct())
-        return ProcessBuilder(File(System.getProperty("java.home"), "bin/java").path,
-            "-cp", classpath.joinToString(File.pathSeparator), RecordingDurabilityProcess::class.java.name,
-            phase, kind, cut, directory.path, control.path)
-            .redirectErrorStream(true).redirectOutput(File(control, "$phase.log")).start()
+        return ProcessBuilder(
+            File(System.getProperty("java.home"), "bin/java").path,
+            "-cp",
+            classpath.joinToString(File.pathSeparator),
+            RecordingDurabilityProcess::class.java.name,
+            phase,
+            kind,
+            cut,
+            directory.path,
+            control.path,
+        ).redirectErrorStream(true)
+            .redirectOutput(File(control, "$phase.log"))
+            .start()
     }
 }
 
 /** A separately launched writer/reader. Each reader has no live writer or in-memory recording. */
 object RecordingDurabilityProcess {
-    @Serializable data class Add(val payload: String = "") : Action
+    @Serializable data class Add(
+        val payload: String = "",
+    ) : Action
+
     @Serializable data object NoEvent : Event
+
     private val member = StoreInstanceId("counter")
     private val groupId = MachineGroupId("group")
     private val session = RuntimeSessionId("session")
     private val idle = StateId("Idle")
-    private val machine = Machine<Int, Add, Unit, NoEvent>(DefinitionId("counter"), DefinitionVersion("1"),
-        StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList())) {
-        onAction(idle, ActionMatcher.of<Add>("Add")) { context++ }
-    }
+    private val machine =
+        Machine<Int, Add, Unit, NoEvent>(
+            DefinitionId("counter"),
+            DefinitionVersion("1"),
+            StateChartDefinition(idle, listOf(AtomicState(idle)), emptyList()),
+        ) {
+            onAction(idle, ActionMatcher.of<Add>("Add")) { context++ }
+        }
     private val codec = RecordingCodec(Int.serializer(), Add.serializer(), Unit.serializer(), NoEvent.serializer())
 
-    @JvmStatic fun main(args: Array<String>) = runBlocking {
-        val (phase, kind, cut, path, controlPath) = args.toList()
-        val directory = checkNotNull(File(path))
-        val control = checkNotNull(File(controlPath))
-        when (phase) {
-            "write" -> write(kind, cut, directory, control)
-            "read" -> read(kind, cut, directory)
-            "full" -> full(kind, directory, control)
-            else -> error(phase)
+    @JvmStatic fun main(args: Array<String>) =
+        runBlocking {
+            val (phase, kind, cut, path, controlPath) = args.toList()
+            val directory = checkNotNull(File(path))
+            val control = checkNotNull(File(controlPath))
+            when (phase) {
+                "write" -> write(kind, cut, directory, control)
+                "read" -> read(kind, cut, directory)
+                "full" -> full(kind, directory, control)
+                else -> error(phase)
+            }
+            println("OK $phase")
         }
-        println("OK $phase")
-    }
 
-    private fun journalRecord(seq: Long) = JournalRecord(JOURNAL_FORMAT_VERSION, session, groupId, member,
-        ExecutionMode.Live, GroupSeq(seq), StoreSeq(seq), seq.milliseconds, JournalEntry.ProcessingStarted(InputId(seq), seq))
+    private fun journalRecord(seq: Long) =
+        JournalRecord(
+            JOURNAL_FORMAT_VERSION,
+            session,
+            groupId,
+            member,
+            ExecutionMode.Live,
+            GroupSeq(seq),
+            StoreSeq(seq),
+            seq.milliseconds,
+            JournalEntry.ProcessingStarted(InputId(seq), seq),
+        )
 
     /** Intercepts actual filesystem writes at a deterministic byte boundary; never fabricates file contents. */
-    private class GateStorage(private val directory: File, private val control: File, private val kind: String, private val cut: String) : SegmentStorage {
+    private class GateStorage(
+        private val directory: File,
+        private val control: File,
+        private val kind: String,
+        private val cut: String,
+    ) : SegmentStorage {
         private val actual = FileSegmentStorage(directory.path)
+
         override fun list() = actual.list()
+
         override fun read(name: String) = actual.read(name)
+
         override fun delete(name: String) = actual.delete(name)
-        private val extension = when (kind) { "journal" -> ".journal"; "member" -> ".recording"; else -> ".group" }
+
+        private val extension =
+            when (kind) {
+                "journal" -> ".journal"
+                "member" -> ".recording"
+                else -> ".group"
+            }
+
         private fun stopWhenMemberFlushed(): Nothing {
             if (kind == "group" && cut != "buffered") {
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
@@ -154,6 +210,7 @@ object RecordingDurabilityProcess {
             }
             stop(control)
         }
+
         override fun append(name: String): SegmentOutput {
             val output = actual.append(name)
             var writes = 0
@@ -165,9 +222,10 @@ object RecordingDurabilityProcess {
                     val frame = writes > (if (kind == "member") 2 else 1) && !bytes.contentEquals(Framing.END)
                     if (frame) frames++
                     if (name.endsWith(extension)) {
-                        val partial = (cut == "frame" && frame && frames == 2) ||
-                            (cut == "rotation-header" && second && writes == 1) ||
-                            (cut == "rotation-end" && bytes.contentEquals(Framing.END))
+                        val partial =
+                            (cut == "frame" && frame && frames == 2) ||
+                                (cut == "rotation-header" && second && writes == 1) ||
+                                (cut == "rotation-end" && bytes.contentEquals(Framing.END))
                         if (partial) {
                             output.write(bytes.copyOf(if (cut == "rotation-end") 3 else 9))
                             output.flush()
@@ -177,10 +235,12 @@ object RecordingDurabilityProcess {
                     output.write(bytes)
                     if (name.endsWith(extension) && cut == "buffered" && frame && frames == 1) stopWhenMemberFlushed()
                 }
+
                 override fun flush() {
                     output.flush()
                     if (name.endsWith(extension) && cut == "flushed" && frames == 1) stopWhenMemberFlushed()
                 }
+
                 override fun close() = output.close()
             }
         }
@@ -191,21 +251,39 @@ object RecordingDurabilityProcess {
         while (true) Thread.sleep(1000)
     }
 
-    private suspend fun write(kind: String, cut: String, directory: File, control: File) {
+    private suspend fun write(
+        kind: String,
+        cut: String,
+        directory: File,
+        control: File,
+    ) {
         val storage = GateStorage(directory, control, kind, cut)
         val rotating = cut.startsWith("rotation")
         if (kind == "journal") {
-            val sink = JournalFileSink(storage, JournalFileConfig(maxSegmentBytes = if (rotating) 1 else 1_000_000,
-                flushEveryRecords = if (cut == "buffered") 100 else 1))
+            val sink =
+                JournalFileSink(
+                    storage,
+                    JournalFileConfig(
+                        maxSegmentBytes = if (rotating) 1 else 1_000_000,
+                        flushEveryRecords = if (cut == "buffered") 100 else 1,
+                    ),
+                )
             sink.write(journalRecord(1))
             sink.write(journalRecord(2))
             error("Gate was not reached")
         }
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val config = RecordingFileConfig(maxSegmentBytes = if (rotating) 1 else 1_000_000,
-            flushEveryFrames = if (cut == "buffered") 100 else 1)
-        val observer = if (kind == "member") RecordingFileSink(member, machine, 0, codec, storage, scope, config)
-        else GroupRecordingFileSink(MachineGroup(), groupId, storage, scope, config).member(member, machine, 0, codec)
+        val config =
+            RecordingFileConfig(
+                maxSegmentBytes = if (rotating) 1 else 1_000_000,
+                flushEveryFrames = if (cut == "buffered") 100 else 1,
+            )
+        val observer =
+            if (kind == "member") {
+                RecordingFileSink(member, machine, 0, codec, storage, scope, config)
+            } else {
+                GroupRecordingFileSink(MachineGroup(), groupId, storage, scope, config).member(member, machine, 0, codec)
+            }
         val start = MachineInput.Start(MachineTime(0.milliseconds))
         val first = machine.decide(machine.initialSnapshot(0), start)
         observer.onCommitted(InputAttribution.Unattributed, start, first)
@@ -219,7 +297,11 @@ object RecordingDurabilityProcess {
         awaitCancellation()
     }
 
-    private fun read(kind: String, cut: String, directory: File) {
+    private fun read(
+        kind: String,
+        cut: String,
+        directory: File,
+    ) {
         val storage = FileSegmentStorage(directory.path)
         val expected = if (cut == "buffered") 0 else 1
         val damaged: List<SegmentMark>
@@ -229,12 +311,14 @@ object RecordingDurabilityProcess {
                 assertEquals((1L..expected.toLong()).toList(), contents.records.map { it.groupSeq.value })
                 damaged = contents.marks
             }
+
             "member" -> {
                 val contents = RecordingFiles(storage).read(member, codec)
                 assertEquals(expected, if (contents is RecordingFileContents.Readable) contents.recording.length else 0)
-                if (contents is RecordingFileContents.Readable) assertFalse(ReplaySession(machine, contents.recording).verify() { error("Unexpected mismatch: $it") })
+                if (contents is RecordingFileContents.Readable) assertFalse(ReplaySession(machine, contents.recording).verify { error("Unexpected mismatch: $it") })
                 damaged = contents.marks.filterIsInstance<RecordingFileMark.Damaged>().map { it.mark }
             }
+
             else -> {
                 val contents = GroupRecordingFiles(storage).read(groupId, mapOf(member to codec))
                 assertEquals(expected, if (contents is GroupRecordingFileContents.Readable) contents.recording.order.size else 0)
@@ -252,29 +336,47 @@ object RecordingDurabilityProcess {
     }
 
     private sealed interface FullWriter {
-        data class Journal(val sink: JournalFileSink) : FullWriter
-        class Recording(val observer: DecisionObserver<Int, Add, Unit, NoEvent>, val close: suspend () -> Unit) : FullWriter
+        data class Journal(
+            val sink: JournalFileSink,
+        ) : FullWriter
+
+        class Recording(
+            val observer: DecisionObserver<Int, Add, Unit, NoEvent>,
+            val close: suspend () -> Unit,
+        ) : FullWriter
     }
 
-    private suspend fun full(kind: String, directory: File, control: File) {
+    private suspend fun full(
+        kind: String,
+        directory: File,
+        control: File,
+    ) {
         val storage = FileSegmentStorage(directory.path)
         val failures = java.util.concurrent.CopyOnWriteArrayList<Throwable>()
         val config = RecordingFileConfig(flushEveryFrames = 1, onFailure = { failures += it })
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         val start = MachineInput.Start(MachineTime(0.milliseconds))
         val decision = machine.decide(machine.initialSnapshot(0), start)
-        val writer = when (kind) {
-            "journal" -> FullWriter.Journal(JournalFileSink(storage, JournalFileConfig(flushEveryRecords = 1)))
-            "member" -> {
-                val sink = RecordingFileSink(member, machine, 0, codec, storage, scope, config)
-                FullWriter.Recording(sink) { sink.close() }
+        val writer =
+            when (kind) {
+                "journal" -> {
+                    FullWriter.Journal(JournalFileSink(storage, JournalFileConfig(flushEveryRecords = 1)))
+                }
+
+                "member" -> {
+                    val sink = RecordingFileSink(member, machine, 0, codec, storage, scope, config)
+                    FullWriter.Recording(sink) { sink.close() }
+                }
+
+                "group" -> {
+                    val group = GroupRecordingFileSink(MachineGroup(), groupId, storage, scope, config)
+                    FullWriter.Recording(group.member(member, machine, 0, codec)) { group.close() }
+                }
+
+                else -> {
+                    error("Unknown format: $kind")
+                }
             }
-            "group" -> {
-                val group = GroupRecordingFileSink(MachineGroup(), groupId, storage, scope, config)
-                FullWriter.Recording(group.member(member, machine, 0, codec)) { group.close() }
-            }
-            else -> error("Unknown format: $kind")
-        }
         when (writer) {
             is FullWriter.Journal -> writer.sink.write(journalRecord(1))
             is FullWriter.Recording -> writer.observer.onCommitted(InputAttribution.Unattributed, start, decision)
@@ -293,7 +395,11 @@ object RecordingDurabilityProcess {
         assertEquals(0L, Files.getFileStore(directory.toPath()).usableSpace)
         if (writer is FullWriter.Journal) {
             val journal = writer.sink
-            val failure = assertFailsWith<IOException> { journal.write(journalRecord(2).copy(entry = JournalEntry.FailureReported(InputId(2), FailureDescriptor("disk-full", "x".repeat(32_768))))); journal.flush() }
+            val failure =
+                assertFailsWith<IOException> {
+                    journal.write(journalRecord(2).copy(entry = JournalEntry.FailureReported(InputId(2), FailureDescriptor("disk-full", "x".repeat(32_768)))))
+                    journal.flush()
+                }
             assertTrue(failure.message.orEmpty().contains("No space left on device"))
             journal.write(journalRecord(3))
             journal.close()

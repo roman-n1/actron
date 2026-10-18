@@ -13,29 +13,35 @@ import kotlin.test.assertNotNull
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class StoreBaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     sealed interface AppState : State {
         data object Loading : AppState
-        data class Main(val count: Int) : AppState
+
+        data class Main(
+            val count: Int,
+        ) : AppState
     }
 
     sealed interface AppAction : Action {
         data object Increment : AppAction
+
         data object Decrement : AppAction
+
         data object EmitEvent : AppAction
     }
 
     sealed interface AppEvent : Event {
-        data class CountUpdated(val count: Int) : AppEvent
+        data class CountUpdated(
+            val count: Int,
+        ) : AppEvent
     }
 
     private fun createTestStore(
         initialState: AppState,
         autoStartPolicy: AutoStartPolicy = AutoStartPolicy.OnDispatchOrStateCollection,
-    ): Store<AppState, AppAction, AppEvent> {
-        return Store(initialState) {
+    ): Store<AppState, AppAction, AppEvent> =
+        Store(initialState) {
             coroutineContext(Dispatchers.Unconfined)
             autoStartPolicy(autoStartPolicy)
             state<AppState.Loading> {
@@ -55,251 +61,274 @@ class StoreBaseTest {
                 }
             }
         }
-    }
 
     @Test
-    fun tartStore_shouldProcessInitialEnterWhenCollectingState() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Loading)
+    fun tartStore_shouldProcessInitialEnterWhenCollectingState() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Loading)
 
-        // Store is not started
-        assertIs<AppState.Loading>(store.currentState)
+            // Store is not started
+            assertIs<AppState.Loading>(store.currentState)
 
-        // start Store
-        store.collectState { }
-
-        // Store is started
-        assertIs<AppState.Main>(store.currentState)
-    }
-
-    @Test
-    fun tartStore_shouldProcessInitialEnterWhenCollectingStateFlow() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Loading)
-
-        // Store is not started
-        assertIs<AppState.Loading>(store.currentState)
-
-        val collectingJob = launch {
             // start Store
-            store.state.collect { }
+            store.collectState { }
+
+            // Store is started
+            assertIs<AppState.Main>(store.currentState)
         }
 
-        assertIs<AppState.Main>(store.currentState)
-
-        collectingJob.cancel()
-    }
-
     @Test
-    fun tartStore_withDispatchOnlyAutoStart_shouldNotProcessInitialEnterWhenCollectingState() = runTest(testDispatcher) {
-        val store = createTestStore(
-            initialState = AppState.Loading,
-            autoStartPolicy = AutoStartPolicy.OnDispatch,
-        )
-        val observedStateObservations = mutableListOf<AppState>()
+    fun tartStore_shouldProcessInitialEnterWhenCollectingStateFlow() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Loading)
 
-        store.collectState { state ->
-            observedStateObservations.add(state)
-        }
+            // Store is not started
+            assertIs<AppState.Loading>(store.currentState)
 
-        assertEquals(AppState.Loading, observedStateObservations.single())
-        assertIs<AppState.Loading>(store.currentState)
-    }
-
-    @Test
-    fun tartStore_dispatchBeforeStart_shouldInitializeAndHandleAction() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Loading)
-
-        store.dispatch(AppAction.Increment)
-
-        assertEquals(AppState.Main(1), store.currentState)
-    }
-
-    @Test
-    fun tartStore_start_shouldInitializeWithoutDispatch() = runTest(testDispatcher) {
-        val store = createTestStore(
-            initialState = AppState.Loading,
-            autoStartPolicy = AutoStartPolicy.OnDispatch,
-        )
-
-        store.start()
-
-        assertEquals(AppState.Main(count = 0), store.currentState)
-    }
-
-    @Test
-    fun tartStore_shouldHandleActions() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Loading)
-
-        // Store is not started
-        assertIs<AppState.Loading>(store.currentState)
-
-        // start Store and handle action
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.Decrement)
-
-        assertEquals(AppState.Main(1), store.currentState)
-    }
-
-    @Test
-    fun tartStore_dispatchAndAwait_shouldSuspendUntilActionHandled() = runTest(testDispatcher) {
-        val gate = CompletableDeferred<Unit>()
-        val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {
-            coroutineContext(Dispatchers.Unconfined)
-            state<AppState.Loading> {
-                enter {
-                    nextState { AppState.Main(count = 0) }
+            val collectingJob =
+                launch {
+                    // start Store
+                    store.state.collect { }
                 }
-            }
-            state<AppState.Main> {
-                action<AppAction.Increment> {
-                    gate.await()
-                    nextState { state.copy(count = state.count + 1) }
-                }
-            }
+
+            assertIs<AppState.Main>(store.currentState)
+
+            collectingJob.cancel()
         }
-
-        val dispatchJob = launch {
-            store.dispatchAndAwaitForTest(AppAction.Increment)
-        }
-
-        assertFalse(dispatchJob.isCompleted)
-        assertEquals(AppState.Main(0), store.currentState)
-
-        gate.complete(Unit)
-        dispatchJob.join()
-
-        assertEquals(AppState.Main(1), store.currentState)
-    }
 
     @Test
-    fun tartStore_dispatchQueuedBeforeDispatchTriggeredStartupCompletes_shouldSurviveStateExit() = runTest(testDispatcher) {
-        val startupEntered = CompletableDeferred<Unit>()
-        val startupGate = CompletableDeferred<Unit>()
-        val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {
-            coroutineContext(Dispatchers.Unconfined)
-            state<AppState.Loading> {
-                enter {
-                    startupEntered.complete(Unit)
-                    startupGate.await()
-                    nextState { AppState.Main(count = 0) }
-                }
+    fun tartStore_withDispatchOnlyAutoStart_shouldNotProcessInitialEnterWhenCollectingState() =
+        runTest(testDispatcher) {
+            val store =
+                createTestStore(
+                    initialState = AppState.Loading,
+                    autoStartPolicy = AutoStartPolicy.OnDispatch,
+                )
+            val observedStateObservations = mutableListOf<AppState>()
+
+            store.collectState { state ->
+                observedStateObservations.add(state)
             }
-            state<AppState.Main> {
-                action<AppAction.Increment> {
-                    nextState { state.copy(count = state.count + 1) }
-                }
-            }
+
+            assertEquals(AppState.Loading, observedStateObservations.single())
+            assertIs<AppState.Loading>(store.currentState)
         }
-
-        val firstDispatchJob = launch {
-            store.dispatchAndAwaitForTest(AppAction.Increment)
-        }
-        startupEntered.await()
-
-        val secondDispatchJob = launch {
-            store.dispatchAndAwaitForTest(AppAction.Increment)
-        }
-
-        assertFalse(firstDispatchJob.isCompleted)
-        assertFalse(secondDispatchJob.isCompleted)
-        assertIs<AppState.Loading>(store.currentState)
-
-        startupGate.complete(Unit)
-        firstDispatchJob.join()
-        secondDispatchJob.join()
-
-        assertEquals(AppState.Main(2), store.currentState)
-    }
 
     @Test
-    fun tartStore_dispatchQueuedDuringStateCollectionStartup_shouldSurviveStateExit() = runTest(testDispatcher) {
-        val startupEntered = CompletableDeferred<Unit>()
-        val startupGate = CompletableDeferred<Unit>()
-        val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {
-            coroutineContext(Dispatchers.Unconfined)
-            state<AppState.Loading> {
-                enter {
-                    startupEntered.complete(Unit)
-                    startupGate.await()
-                    nextState { AppState.Main(count = 0) }
-                }
-            }
-            state<AppState.Main> {
-                action<AppAction.Increment> {
-                    nextState { state.copy(count = state.count + 1) }
-                }
-            }
+    fun tartStore_dispatchBeforeStart_shouldInitializeAndHandleAction() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Loading)
+
+            store.dispatch(AppAction.Increment)
+
+            assertEquals(AppState.Main(1), store.currentState)
         }
-
-        val collectingJob = launch {
-            store.state.collect { }
-        }
-        startupEntered.await()
-
-        val dispatchJob = launch {
-            store.dispatchAndAwaitForTest(AppAction.Increment)
-        }
-
-        assertFalse(dispatchJob.isCompleted)
-        assertIs<AppState.Loading>(store.currentState)
-
-        startupGate.complete(Unit)
-        dispatchJob.join()
-        collectingJob.cancel()
-
-        assertEquals(AppState.Main(1), store.currentState)
-    }
 
     @Test
-    fun tartStore_dispatchQueuedDuringExplicitStartup_shouldSurviveStateExit() = runTest(testDispatcher) {
-        val startupEntered = CompletableDeferred<Unit>()
-        val startupGate = CompletableDeferred<Unit>()
-        val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {
-            coroutineContext(Dispatchers.Unconfined)
-            autoStartPolicy(AutoStartPolicy.OnDispatch)
-            state<AppState.Loading> {
-                enter {
-                    startupEntered.complete(Unit)
-                    startupGate.await()
-                    nextState { AppState.Main(count = 0) }
-                }
-            }
-            state<AppState.Main> {
-                action<AppAction.Increment> {
-                    nextState { state.copy(count = state.count + 1) }
-                }
-            }
+    fun tartStore_start_shouldInitializeWithoutDispatch() =
+        runTest(testDispatcher) {
+            val store =
+                createTestStore(
+                    initialState = AppState.Loading,
+                    autoStartPolicy = AutoStartPolicy.OnDispatch,
+                )
+
+            store.start()
+
+            assertEquals(AppState.Main(count = 0), store.currentState)
         }
-
-        store.start()
-        startupEntered.await()
-
-        val dispatchJob = launch {
-            store.dispatchAndAwaitForTest(AppAction.Increment)
-        }
-
-        assertFalse(dispatchJob.isCompleted)
-        assertIs<AppState.Loading>(store.currentState)
-
-        startupGate.complete(Unit)
-        dispatchJob.join()
-
-        assertEquals(AppState.Main(1), store.currentState)
-    }
 
     @Test
-    fun tartStore_shouldEmitEvents() = runTest(testDispatcher) {
-        val store = createTestStore(AppState.Loading)
+    fun tartStore_shouldHandleActions() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Loading)
 
-        val emittedEventObservations = mutableListOf<AppEvent>()
-        store.collectEvent { event ->
-            emittedEventObservations.add(event)
+            // Store is not started
+            assertIs<AppState.Loading>(store.currentState)
+
+            // start Store and handle action
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.Decrement)
+
+            assertEquals(AppState.Main(1), store.currentState)
         }
 
-        store.dispatch(AppAction.Increment)
-        store.dispatch(AppAction.EmitEvent)
+    @Test
+    fun tartStore_dispatchAndAwait_shouldSuspendUntilActionHandled() =
+        runTest(testDispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val store: Store<AppState, AppAction, AppEvent> =
+                Store(AppState.Loading) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    state<AppState.Loading> {
+                        enter {
+                            nextState { AppState.Main(count = 0) }
+                        }
+                    }
+                    state<AppState.Main> {
+                        action<AppAction.Increment> {
+                            gate.await()
+                            nextState { state.copy(count = state.count + 1) }
+                        }
+                    }
+                }
 
-        assertNotNull(emittedEventObservations.single())
-        assertEquals(AppEvent.CountUpdated(1), emittedEventObservations.single())
-    }
+            val dispatchJob =
+                launch {
+                    store.dispatchAndAwaitForTest(AppAction.Increment)
+                }
+
+            assertFalse(dispatchJob.isCompleted)
+            assertEquals(AppState.Main(0), store.currentState)
+
+            gate.complete(Unit)
+            dispatchJob.join()
+
+            assertEquals(AppState.Main(1), store.currentState)
+        }
+
+    @Test
+    fun tartStore_dispatchQueuedBeforeDispatchTriggeredStartupCompletes_shouldSurviveStateExit() =
+        runTest(testDispatcher) {
+            val startupEntered = CompletableDeferred<Unit>()
+            val startupGate = CompletableDeferred<Unit>()
+            val store: Store<AppState, AppAction, AppEvent> =
+                Store(AppState.Loading) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    state<AppState.Loading> {
+                        enter {
+                            startupEntered.complete(Unit)
+                            startupGate.await()
+                            nextState { AppState.Main(count = 0) }
+                        }
+                    }
+                    state<AppState.Main> {
+                        action<AppAction.Increment> {
+                            nextState { state.copy(count = state.count + 1) }
+                        }
+                    }
+                }
+
+            val firstDispatchJob =
+                launch {
+                    store.dispatchAndAwaitForTest(AppAction.Increment)
+                }
+            startupEntered.await()
+
+            val secondDispatchJob =
+                launch {
+                    store.dispatchAndAwaitForTest(AppAction.Increment)
+                }
+
+            assertFalse(firstDispatchJob.isCompleted)
+            assertFalse(secondDispatchJob.isCompleted)
+            assertIs<AppState.Loading>(store.currentState)
+
+            startupGate.complete(Unit)
+            firstDispatchJob.join()
+            secondDispatchJob.join()
+
+            assertEquals(AppState.Main(2), store.currentState)
+        }
+
+    @Test
+    fun tartStore_dispatchQueuedDuringStateCollectionStartup_shouldSurviveStateExit() =
+        runTest(testDispatcher) {
+            val startupEntered = CompletableDeferred<Unit>()
+            val startupGate = CompletableDeferred<Unit>()
+            val store: Store<AppState, AppAction, AppEvent> =
+                Store(AppState.Loading) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    state<AppState.Loading> {
+                        enter {
+                            startupEntered.complete(Unit)
+                            startupGate.await()
+                            nextState { AppState.Main(count = 0) }
+                        }
+                    }
+                    state<AppState.Main> {
+                        action<AppAction.Increment> {
+                            nextState { state.copy(count = state.count + 1) }
+                        }
+                    }
+                }
+
+            val collectingJob =
+                launch {
+                    store.state.collect { }
+                }
+            startupEntered.await()
+
+            val dispatchJob =
+                launch {
+                    store.dispatchAndAwaitForTest(AppAction.Increment)
+                }
+
+            assertFalse(dispatchJob.isCompleted)
+            assertIs<AppState.Loading>(store.currentState)
+
+            startupGate.complete(Unit)
+            dispatchJob.join()
+            collectingJob.cancel()
+
+            assertEquals(AppState.Main(1), store.currentState)
+        }
+
+    @Test
+    fun tartStore_dispatchQueuedDuringExplicitStartup_shouldSurviveStateExit() =
+        runTest(testDispatcher) {
+            val startupEntered = CompletableDeferred<Unit>()
+            val startupGate = CompletableDeferred<Unit>()
+            val store: Store<AppState, AppAction, AppEvent> =
+                Store(AppState.Loading) {
+                    coroutineContext(Dispatchers.Unconfined)
+                    autoStartPolicy(AutoStartPolicy.OnDispatch)
+                    state<AppState.Loading> {
+                        enter {
+                            startupEntered.complete(Unit)
+                            startupGate.await()
+                            nextState { AppState.Main(count = 0) }
+                        }
+                    }
+                    state<AppState.Main> {
+                        action<AppAction.Increment> {
+                            nextState { state.copy(count = state.count + 1) }
+                        }
+                    }
+                }
+
+            store.start()
+            startupEntered.await()
+
+            val dispatchJob =
+                launch {
+                    store.dispatchAndAwaitForTest(AppAction.Increment)
+                }
+
+            assertFalse(dispatchJob.isCompleted)
+            assertIs<AppState.Loading>(store.currentState)
+
+            startupGate.complete(Unit)
+            dispatchJob.join()
+
+            assertEquals(AppState.Main(1), store.currentState)
+        }
+
+    @Test
+    fun tartStore_shouldEmitEvents() =
+        runTest(testDispatcher) {
+            val store = createTestStore(AppState.Loading)
+
+            val emittedEventObservations = mutableListOf<AppEvent>()
+            store.collectEvent { event ->
+                emittedEventObservations.add(event)
+            }
+
+            store.dispatch(AppAction.Increment)
+            store.dispatch(AppAction.EmitEvent)
+
+            assertNotNull(emittedEventObservations.single())
+            assertEquals(AppEvent.CountUpdated(1), emittedEventObservations.single())
+        }
 }

@@ -81,7 +81,10 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
      * When empty, the coroutine inherits the Store's current execution context.
      * @param block The suspending block of code to execute
      */
-    fun launch(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend EnterLaunchScope<S, E, S2>.() -> Unit)
+    fun launch(
+        dispatcher: CoroutineContext = EmptyCoroutineContext,
+        block: suspend EnterLaunchScope<S, E, S2>.() -> Unit,
+    )
 
     /**
      * Starts a state-scoped coroutine that lives as long as this state: a Flow collection, a
@@ -93,7 +96,10 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
      * When empty, the coroutine inherits the Store's current execution context.
      * @param block The suspending block of code to execute
      */
-    fun subscribe(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend EnterLaunchScope<S, E, S2>.() -> Unit)
+    fun subscribe(
+        dispatcher: CoroutineContext = EmptyCoroutineContext,
+        block: suspend EnterLaunchScope<S, E, S2>.() -> Unit,
+    )
 
     /**
      * Scope available within a state-scoped coroutine launched from `enter {}`.
@@ -130,7 +136,10 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
          * When empty, the transaction inherits the Store's current execution context.
          * @param block The suspending block of code to execute as a transaction
          */
-        suspend fun transaction(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend EnterTransactionScope<S, E, S2>.() -> Unit)
+        suspend fun transaction(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            block: suspend EnterTransactionScope<S, E, S2>.() -> Unit,
+        )
 
         /**
          * Scope available within a transaction started from an `enter {}` launch.
@@ -317,7 +326,11 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
      * explicit [LaunchLane] or the default lane for the current action type.
      * @param block The suspending block of code to execute
      */
-    fun launch(dispatcher: CoroutineContext = EmptyCoroutineContext, control: LaunchControl = LaunchControl.Untracked, block: suspend ActionLaunchScope<S, A, E, S2>.() -> Unit)
+    fun launch(
+        dispatcher: CoroutineContext = EmptyCoroutineContext,
+        control: LaunchControl = LaunchControl.Untracked,
+        block: suspend ActionLaunchScope<S, A, E, S2>.() -> Unit,
+    )
 
     /**
      * Starts a state-scoped coroutine that lives as long as this state: a Flow collection, a
@@ -330,7 +343,10 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
      * When empty, the coroutine inherits the Store's current execution context.
      * @param block The suspending block of code to execute
      */
-    fun subscribe(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend ActionLaunchScope<S, A, E, S2>.() -> Unit)
+    fun subscribe(
+        dispatcher: CoroutineContext = EmptyCoroutineContext,
+        block: suspend ActionLaunchScope<S, A, E, S2>.() -> Unit,
+    )
 
     /**
      * Scope available within a state-scoped coroutine launched from `action {}`.
@@ -372,7 +388,10 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
          * When empty, the transaction inherits the Store's current execution context.
          * @param block The suspending block of code to execute as a transaction
          */
-        suspend fun transaction(dispatcher: CoroutineContext = EmptyCoroutineContext, block: suspend ActionTransactionScope<S, A, E, S2>.() -> Unit)
+        suspend fun transaction(
+            dispatcher: CoroutineContext = EmptyCoroutineContext,
+            block: suspend ActionTransactionScope<S, A, E, S2>.() -> Unit,
+        )
 
         /**
          * Scope available within a transaction started from an `action {}` launch.

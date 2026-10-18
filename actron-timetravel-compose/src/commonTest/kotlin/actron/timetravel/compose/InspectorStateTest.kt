@@ -31,14 +31,16 @@ import kotlin.time.Duration.Companion.milliseconds
  * the selection where it still exists.
  */
 class InspectorStateTest {
-
     private val a = StoreInstanceId("a")
     private val b = StoreInstanceId("b")
 
     private fun records(processings: Int): List<JournalRecord<*, *, *>> {
         var seq = 0L
-        fun record(entry: JournalEntry<*, *, *>, store: actron.observability.RecordSubject = a) =
-            JournalRecord(JOURNAL_FORMAT_VERSION, RuntimeSessionId("s"), MachineGroupId("g"), store, ExecutionMode.Live, GroupSeq(++seq), if (store is StoreInstanceId) StoreSeq(seq) else actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
+
+        fun record(
+            entry: JournalEntry<*, *, *>,
+            store: actron.observability.RecordSubject = a,
+        ) = JournalRecord(JOURNAL_FORMAT_VERSION, RuntimeSessionId("s"), MachineGroupId("g"), store, ExecutionMode.Live, GroupSeq(++seq), if (store is StoreInstanceId) StoreSeq(seq) else actron.observability.RecordOrdinal.Session, seq.milliseconds, entry)
         return buildList {
             add(record(JournalEntry.StoreRegistered(Capability.InspectOnly)))
             add(record(JournalEntry.StoreRegistered(Capability.InspectOnly), b))

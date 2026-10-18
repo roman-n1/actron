@@ -1,9 +1,5 @@
 package actron.timetravel.compose
 
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.ExecutorCheckpoint
@@ -14,6 +10,10 @@ import actron.timetravel.GroupReplaySession
 import actron.timetravel.GroupReplayStep
 import actron.timetravel.RecordedStep
 import actron.timetravel.inspect.SnapshotDiff
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /** One recorded input in the group's order, with the state change it produced. */
 @ExperimentalActronApi
@@ -37,7 +37,9 @@ data class GroupReplayPosition(
  */
 @ExperimentalActronApi
 @Stable
-class GroupReplayControls(val session: GroupReplaySession) {
+class GroupReplayControls(
+    val session: GroupReplaySession,
+) {
     var position: Int by mutableStateOf(session.position)
         private set
 
@@ -56,12 +58,19 @@ class GroupReplayControls(val session: GroupReplaySession) {
     val forwardAvailability: actron.timetravel.inspect.Availability
         get() {
             val current = movement
-            if (current is GroupReplayMovement.Diverged) return actron.timetravel.inspect.Availability.Unavailable(listOf(current.mismatch.explain()))
-            if (position == length) return actron.timetravel.inspect.Availability.Unavailable(listOf("at the end of the group recording"))
+            if (current is GroupReplayMovement.Diverged) {
+                return actron.timetravel.inspect.Availability
+                    .Unavailable(listOf(current.mismatch.explain()))
+            }
+            if (position == length) {
+                return actron.timetravel.inspect.Availability
+                    .Unavailable(listOf("at the end of the group recording"))
+            }
             return actron.timetravel.inspect.Availability.Available
         }
 
     val hasSelection: Boolean get() = movement is GroupReplayMovement.Diverged || position > 0
+
     fun selectedPosition(): GroupReplayPosition {
         val current = movement
         val index = if (current is GroupReplayMovement.Diverged) current.mismatch.position else position - 1
@@ -87,7 +96,11 @@ class GroupReplayControls(val session: GroupReplaySession) {
         return session.checkpointOf(store)
     }
 
-    fun mermaid(store: StoreInstanceId): String = session.members.getValue(store).machine.chart.toMermaid(snapshot(store).configuration.active)
+    fun mermaid(store: StoreInstanceId): String =
+        session.members
+            .getValue(store)
+            .machine.chart
+            .toMermaid(snapshot(store).configuration.active)
 
     fun stepForward() {
         if (!canStepForward) return
@@ -119,21 +132,30 @@ class GroupReplayControls(val session: GroupReplaySession) {
 @ExperimentalActronApi
 sealed interface GroupReplayMovement {
     data object Open : GroupReplayMovement
-    data class Diverged(val mismatch: GroupMismatch) : GroupReplayMovement
+
+    data class Diverged(
+        val mismatch: GroupMismatch,
+    ) : GroupReplayMovement
 }
+
 @ExperimentalActronApi
 sealed interface GroupVerification {
     data object Unchecked : GroupVerification
-    data class Checked(val problems: List<GroupMismatch>) : GroupVerification
+
+    data class Checked(
+        val problems: List<GroupMismatch>,
+    ) : GroupVerification
 }
 
 @OptIn(ExperimentalActronApi::class)
-internal fun GroupMismatch.explain(): String = "group step $position: " + when (this) {
-    is GroupMismatch.Replay -> "${store.value}: ${mismatch.describe()}"
-    is GroupMismatch.ReceivedBeforeSent -> "${store.value} received $message before it was sent"
-    is GroupMismatch.SentByNobody -> "${store.value} received $message from an unknown member"
-    is GroupMismatch.DeliveredTwice -> "${store.value} received $message twice (first at group step $first)"
-    is GroupMismatch.NoRoute -> "no route from ${message.from.value} to ${store.value} for $message"
-    is GroupMismatch.UnknownSource -> "${store.value} received input from unrecorded source ${source.value}"
-    is GroupMismatch.ReplyWithoutRequest -> "${store.value} received a reply without a request in pair $pair: $message"
-}
+internal fun GroupMismatch.explain(): String =
+    "group step $position: " +
+        when (this) {
+            is GroupMismatch.Replay -> "${store.value}: ${mismatch.describe()}"
+            is GroupMismatch.ReceivedBeforeSent -> "${store.value} received $message before it was sent"
+            is GroupMismatch.SentByNobody -> "${store.value} received $message from an unknown member"
+            is GroupMismatch.DeliveredTwice -> "${store.value} received $message twice (first at group step $first)"
+            is GroupMismatch.NoRoute -> "no route from ${message.from.value} to ${store.value} for $message"
+            is GroupMismatch.UnknownSource -> "${store.value} received input from unrecorded source ${source.value}"
+            is GroupMismatch.ReplyWithoutRequest -> "${store.value} received a reply without a request in pair $pair: $message"
+        }

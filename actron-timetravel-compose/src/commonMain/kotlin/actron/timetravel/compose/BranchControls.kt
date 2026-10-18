@@ -1,9 +1,5 @@
 package actron.timetravel.compose
 
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import actron.core.Action
 import actron.core.ExperimentalActronApi
 import actron.observability.FailureDescriptor
@@ -20,6 +16,10 @@ import actron.statechart.machine.SourceId
 import actron.statechart.toMermaid
 import actron.timetravel.GroupBranch
 import actron.timetravel.inspect.SnapshotDiff
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlin.time.Duration
 
 /**
@@ -33,13 +33,26 @@ sealed interface BranchInput {
     val label: String
 
     /** [action] dispatched to [store]. */
-    data class Dispatch(override val store: StoreInstanceId, override val label: String, val action: Action) : BranchInput
+    data class Dispatch(
+        override val store: StoreInstanceId,
+        override val label: String,
+        val action: Action,
+    ) : BranchInput
 
     /** [action] fed to [store] as data of the external source [source]. */
-    data class Feed(override val store: StoreInstanceId, override val label: String, val source: SourceId, val action: Action) : BranchInput
+    data class Feed(
+        override val store: StoreInstanceId,
+        override val label: String,
+        val source: SourceId,
+        val action: Action,
+    ) : BranchInput
 
     /** [result] for an awaiting command of [store]; the viewer picks which command. */
-    data class Answer(override val store: StoreInstanceId, override val label: String, val result: Action) : BranchInput
+    data class Answer(
+        override val store: StoreInstanceId,
+        override val label: String,
+        val result: Action,
+    ) : BranchInput
 }
 
 /**
@@ -51,7 +64,13 @@ sealed interface BranchInput {
  * @property diff What the decision changed in the member's snapshot
  */
 @ExperimentalActronApi
-data class BranchDecision(val index: Int, val store: StoreInstanceId, val cause: String, val decision: Decision<*, *, *>, val diff: SnapshotDiff)
+data class BranchDecision(
+    val index: Int,
+    val store: StoreInstanceId,
+    val cause: String,
+    val decision: Decision<*, *, *>,
+    val diff: SnapshotDiff,
+)
 
 /**
  * A group's branch as the screen drives it (handoff §11, v2): the members' snapshots and
@@ -123,37 +142,56 @@ class BranchControls(
 
     fun feed(input: BranchInput.Feed) = produce(input.store, input.label) { branch.feed(input.store, input.source, input.action) }
 
-    fun answer(input: BranchInput.Answer, command: CommandId) = produce(input.store, "${input.label} -> c${command.value}") { branch.answer(input.store, command, input.result) }
+    fun answer(
+        input: BranchInput.Answer,
+        command: CommandId,
+    ) = produce(input.store, "${input.label} -> c${command.value}") { branch.answer(input.store, command, input.result) }
 
-    fun complete(store: StoreInstanceId, command: CommandId) = produce(store, "complete c${command.value}") { branch.complete(store, command) }
+    fun complete(
+        store: StoreInstanceId,
+        command: CommandId,
+    ) = produce(store, "complete c${command.value}") { branch.complete(store, command) }
 
-    fun fail(store: StoreInstanceId, command: CommandId, reason: String = "failed in the branch") =
-        produce(store, "fail c${command.value}") { branch.fail(store, command, FailureDescriptor.of(IllegalStateException(reason))) }
+    fun fail(
+        store: StoreInstanceId,
+        command: CommandId,
+        reason: String = "failed in the branch",
+    ) = produce(store, "fail c${command.value}") { branch.fail(store, command, FailureDescriptor.of(IllegalStateException(reason))) }
 
     /** Moves every member's clock by [duration]; the timers that come due fire. */
     fun advance(duration: Duration) = produce("timer", { true }) { branch.advance(duration) }
 
-    private fun produce(store: StoreInstanceId, cause: String, act: () -> List<Decision<*, *, *>>) = produce(cause, { it == store }, act)
+    private fun produce(
+        store: StoreInstanceId,
+        cause: String,
+        act: () -> List<Decision<*, *, *>>,
+    ) = produce(cause, { it == store }, act)
 
-    private fun produce(cause: String, ownsCause: (StoreInstanceId) -> Boolean, act: () -> List<Decision<*, *, *>>) {
+    private fun produce(
+        cause: String,
+        ownsCause: (StoreInstanceId) -> Boolean,
+        act: () -> List<Decision<*, *, *>>,
+    ) {
         request = BranchRequest.Ready
         val counts = branch.members.mapValues { (_, member) -> member.history.size }
         val last = branch.members.mapValues { (_, member) -> member.snapshot }.toMutableMap()
-        val produced = try {
-            act()
-        } catch (e: IllegalArgumentException) {
-            request = BranchRequest.Refused(e.message ?: "invalid branch request")
-            return
-        }
+        val produced =
+            try {
+                act()
+            } catch (e: IllegalArgumentException) {
+                request = BranchRequest.Refused(e.message ?: "invalid branch request")
+                return
+            }
         // Which member made which decision: its history grew by it.
         val fresh = branch.members.mapValues { (id, member) -> member.history.drop(counts.getValue(id)) }
         var index = decisions.size
-        val listed = produced.map { decision ->
-            val owner = fresh.entries.first { (_, list) -> list.any { it === decision } }.key
-            val diff = SnapshotDiff.between(last.getValue(owner), decision.snapshot)
-            last[owner] = decision.snapshot
-            BranchDecision(index++, owner, if (ownsCause(owner)) cause else "bridge", decision, diff)
-        }
+        val listed =
+            produced.map { decision ->
+                val owner = fresh.entries.first { (_, list) -> list.any { it === decision } }.key
+                val diff = SnapshotDiff.between(last.getValue(owner), decision.snapshot)
+                last[owner] = decision.snapshot
+                BranchDecision(index++, owner, if (ownsCause(owner)) cause else "bridge", decision, diff)
+            }
         decisions = decisions + listed
         generation++
     }
@@ -163,31 +201,42 @@ class BranchControls(
 
 sealed interface BranchRequest {
     data object Ready : BranchRequest
-    data class Refused(val reason: String) : BranchRequest
+
+    data class Refused(
+        val reason: String,
+    ) : BranchRequest
 }
 
 /** Text of a branch's decision for the panel. */
 @ExperimentalActronApi
 object BranchText {
-    fun line(decision: BranchDecision): String = buildString {
-        append('#').append(decision.index).append(' ').append(decision.store).append(' ').append(decision.cause).append(": ")
-        when (val outcome = decision.decision.outcome) {
-            DecisionOutcome.Handled -> append("handled revision=").append(decision.decision.snapshot.revision)
-            is DecisionOutcome.Ignored -> append("ignored ").append(outcome.reason.name)
-            is DecisionOutcome.Failed -> append("failed ").append(outcome.cause::class.simpleName)
+    fun line(decision: BranchDecision): String =
+        buildString {
+            append('#')
+                .append(decision.index)
+                .append(' ')
+                .append(decision.store)
+                .append(' ')
+                .append(decision.cause)
+                .append(": ")
+            when (val outcome = decision.decision.outcome) {
+                DecisionOutcome.Handled -> append("handled revision=").append(decision.decision.snapshot.revision)
+                is DecisionOutcome.Ignored -> append("ignored ").append(outcome.reason.name)
+                is DecisionOutcome.Failed -> append("failed ").append(outcome.cause::class.simpleName)
+            }
+            val changed = changes(decision.diff)
+            if (changed.isNotEmpty()) append("; ").append(changed)
+            if (decision.decision.effects.isNotEmpty()) append("; effects ").append(decision.decision.effects.size)
         }
-        val changed = changes(decision.diff)
-        if (changed.isNotEmpty()) append("; ").append(changed)
-        if (decision.decision.effects.isNotEmpty()) append("; effects ").append(decision.decision.effects.size)
-    }
 
-    private fun changes(diff: SnapshotDiff): String = buildList {
-        if (diff.contextChanged) add("context")
-        if (diff.entered.isNotEmpty()) add("entered ${diff.entered.map { it.value }.sorted().joinToString(",")}")
-        if (diff.exited.isNotEmpty()) add("exited ${diff.exited.map { it.value }.sorted().joinToString(",")}")
-        if (diff.commandsRegistered.isNotEmpty()) add("commands +${diff.commandsRegistered.sortedBy { it.value }.joinToString(",") { "c${it.value}" }}")
-        if (diff.commandsEnded.isNotEmpty()) add("commands -${diff.commandsEnded.sortedBy { it.value }.joinToString(",") { "c${it.value}" }}")
-        if (diff.timersScheduled.isNotEmpty()) add("timers +${diff.timersScheduled.sortedBy { it.value }.joinToString(",") { "t${it.value}" }}")
-        if (diff.timersCancelled.isNotEmpty()) add("timers -${diff.timersCancelled.sortedBy { it.value }.joinToString(",") { "t${it.value}" }}")
-    }.joinToString("; ")
+    private fun changes(diff: SnapshotDiff): String =
+        buildList {
+            if (diff.contextChanged) add("context")
+            if (diff.entered.isNotEmpty()) add("entered ${diff.entered.map { it.value }.sorted().joinToString(",")}")
+            if (diff.exited.isNotEmpty()) add("exited ${diff.exited.map { it.value }.sorted().joinToString(",")}")
+            if (diff.commandsRegistered.isNotEmpty()) add("commands +${diff.commandsRegistered.sortedBy { it.value }.joinToString(",") { "c${it.value}" }}")
+            if (diff.commandsEnded.isNotEmpty()) add("commands -${diff.commandsEnded.sortedBy { it.value }.joinToString(",") { "c${it.value}" }}")
+            if (diff.timersScheduled.isNotEmpty()) add("timers +${diff.timersScheduled.sortedBy { it.value }.joinToString(",") { "t${it.value}" }}")
+            if (diff.timersCancelled.isNotEmpty()) add("timers -${diff.timersCancelled.sortedBy { it.value }.joinToString(",") { "t${it.value}" }}")
+        }.joinToString("; ")
 }

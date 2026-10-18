@@ -1,9 +1,10 @@
 @file:OptIn(actron.core.ExperimentalActronApi::class)
+
 package actron.timetravel.compose
 import actron.observability.StoreInstanceId
 import actron.timetravel.GroupMismatch
-import actron.timetravel.inspect.TimelineItem
 import actron.timetravel.inspect.Availability
+import actron.timetravel.inspect.TimelineItem
 
 internal val InspectorState.selected: Int get() = (selection as InspectorSelection.Position).index
 internal val InspectorState.selectedItem: TimelineItem get() = buildList<TimelineItem> { withSelected { add(it) } }.single()

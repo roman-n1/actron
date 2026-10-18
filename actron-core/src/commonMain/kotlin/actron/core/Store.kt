@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
  * Store.
  */
 interface Store<S : State, A : Action, E : Event> : AutoCloseable {
-
     /**
      * Hot stream of committed state snapshots.
      *

@@ -9,15 +9,19 @@ import kotlin.random.Random
 
 /** Supplies typed payloads and command answers; a deterministic function of snapshot and time. */
 fun interface MachineInputGenerator<C : Any, A : Action> {
-    fun inputs(snapshot: MachineSnapshot<C>, now: MachineTime): List<MachineInput<A>>
+    fun inputs(
+        snapshot: MachineSnapshot<C>,
+        now: MachineTime,
+    ): List<MachineInput<A>>
 }
 
 /** Adds timers in deadline/id order. They fire at their deadline, or now when overdue. */
 fun <C : Any, A : Action> MachineInputGenerator<C, A>.withTimers(): MachineInputGenerator<C, A> =
     MachineInputGenerator { snapshot, now ->
-        inputs(snapshot, now) + snapshot.timers.entries
-            .sortedWith(compareBy({ it.value.deadline }, { it.key.value }))
-            .map { (id, timer) -> MachineInput.TimerFired(id, maxOf(now, timer.deadline)) }
+        inputs(snapshot, now) +
+            snapshot.timers.entries
+                .sortedWith(compareBy({ it.value.deadline }, { it.key.value }))
+                .map { (id, timer) -> MachineInput.TimerFired(id, maxOf(now, timer.deadline)) }
     }
 
 /** Search strategies; both stop at the same explicit depth/decision limits. */
@@ -29,22 +33,35 @@ sealed interface ExplorationStrategy {
     data object AllTransitions : ExplorationStrategy
 
     /** Stops at a finite coverage target; missing obligations remain visible in the report. */
-    data class Cover(val target: CoverageTarget) : ExplorationStrategy
+    data class Cover(
+        val target: CoverageTarget,
+    ) : ExplorationStrategy
 
     /** Reproducible random walks through the application's generated input choices. */
-    data class RandomWalk(val seed: Int, val runs: Int = 100) : ExplorationStrategy {
-        init { require(runs > 0) { "[Actron] Random walks need at least one run" } }
+    data class RandomWalk(
+        val seed: Int,
+        val runs: Int = 100,
+    ) : ExplorationStrategy {
+        init {
+            require(runs > 0) { "[Actron] Random walks need at least one run" }
+        }
     }
 }
 
 /** Coverage uses declared nodes/transitions; unreachable declarations remain visible as missing. */
-data class CoverageMetric<T : Any>(val expected: Set<T>, val covered: Set<T>) {
+data class CoverageMetric<T : Any>(
+    val expected: Set<T>,
+    val covered: Set<T>,
+) {
     val missing: Set<T> get() = expected - covered
     val percent: Double get() = if (expected.isEmpty()) 100.0 else 100.0 * (covered intersect expected).size / expected.size
 }
 
 /** A guard branch of a particular transition, rather than just a shared guard label. */
-data class GuardOutcome(val transition: TransitionId, val result: Boolean)
+data class GuardOutcome(
+    val transition: TransitionId,
+    val result: Boolean,
+)
 
 /** Coverage from actual decisions, including timer transitions and guard rejections. */
 data class MachineCoverage(
@@ -61,10 +78,15 @@ sealed interface SequenceProblem {
     val identities: Set<String>
     val violations: List<InvariantViolation>
 
-    data class Invariants(override val violations: List<InvariantViolation>) : SequenceProblem {
+    data class Invariants(
+        override val violations: List<InvariantViolation>,
+    ) : SequenceProblem {
         override val identities: Set<String> get() = violations.mapTo(linkedSetOf()) { it.identity }
     }
-    data class Execution(val failure: FailureDescriptor) : SequenceProblem {
+
+    data class Execution(
+        val failure: FailureDescriptor,
+    ) : SequenceProblem {
         override val identities: Set<String> get() = setOf("decision:${failure.typeLabel}")
         override val violations: List<InvariantViolation> = emptyList()
     }
@@ -77,19 +99,33 @@ data class SequenceFailure<C : Any, A : Action>(
     val problems: List<SequenceProblem>,
 ) {
     val violations: List<InvariantViolation> get() = problems.flatMap { it.violations }
+
     /** Stable failure identities exclude payloads and exception messages. */
     val identities: Set<String> get() = problems.flatMapTo(linkedSetOf()) { it.identities }
 }
 
 /** An executable generated scenario with actual typed payloads and virtual times. */
-data class MachineScenario<A : Action>(val name: String, val inputs: List<MachineInput<A>>)
+data class MachineScenario<A : Action>(
+    val name: String,
+    val inputs: List<MachineInput<A>>,
+)
 
 /** Coverage of an executable prefix, captured during exploration rather than inferred from its graph. */
-data class ScenarioCoverage<A : Action>(val scenario: MachineScenario<A>, val transitions: Set<TransitionId>)
+data class ScenarioCoverage<A : Action>(
+    val scenario: MachineScenario<A>,
+    val transitions: Set<TransitionId>,
+)
 
 /** Actual prefix observations, separate from the original transition-only record's stable ABI. */
-data class BehaviouralScenarioCoverage<A : Action>(val scenario: MachineScenario<A>, val coverage: MachineCoverage)
-data class BehaviouralExplorationReport<C : Any, A : Action>(val report: ExplorationReport<C, A>, val scenarios: List<BehaviouralScenarioCoverage<A>>)
+data class BehaviouralScenarioCoverage<A : Action>(
+    val scenario: MachineScenario<A>,
+    val coverage: MachineCoverage,
+)
+
+data class BehaviouralExplorationReport<C : Any, A : Action>(
+    val report: ExplorationReport<C, A>,
+    val scenarios: List<BehaviouralScenarioCoverage<A>>,
+)
 
 /** Search results. [truncated] means a decision/failure budget stopped work, not proof of safety. */
 data class ExplorationReport<C : Any, A : Action>(
@@ -113,22 +149,25 @@ data class ExplorationReport<C : Any, A : Action>(
 }
 
 internal fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.sequenceFailure(
-    inputs: List<MachineInput<A>>, decision: Decision<C, CMD, E>, accept: (SequenceFailure<C, A>) -> Unit,
+    inputs: List<MachineInput<A>>,
+    decision: Decision<C, CMD, E>,
+    accept: (SequenceFailure<C, A>) -> Unit,
 ): Boolean {
     val outcome = decision.outcome
-    val problems = buildList {
-        if (outcome is DecisionOutcome.Failed) {
-            val cause = outcome.cause
-            if (cause is InvariantViolationException) {
-                // Enforcement has rolled back the invalid snapshot but retains the rejected identities.
-                add(SequenceProblem.Invariants(cause.violations))
-                return@buildList
+    val problems =
+        buildList {
+            if (outcome is DecisionOutcome.Failed) {
+                val cause = outcome.cause
+                if (cause is InvariantViolationException) {
+                    // Enforcement has rolled back the invalid snapshot but retains the rejected identities.
+                    add(SequenceProblem.Invariants(cause.violations))
+                    return@buildList
+                }
             }
+            val violations = checkInvariants(decision.snapshot)
+            if (violations.isNotEmpty()) add(SequenceProblem.Invariants(violations))
+            if (outcome is DecisionOutcome.Failed) add(SequenceProblem.Execution(outcome.failure))
         }
-        val violations = checkInvariants(decision.snapshot)
-        if (violations.isNotEmpty()) add(SequenceProblem.Invariants(violations))
-        if (outcome is DecisionOutcome.Failed) add(SequenceProblem.Execution(outcome.failure))
-    }
     if (problems.isEmpty()) return false
     accept(SequenceFailure(inputs.toList(), decision.snapshot, problems))
     return true
@@ -154,9 +193,13 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.explore(
 
 /** Per-prefix state/guard observations captured during the same decisions, without replaying metadata. */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDetailed(
-    initial: MachineSnapshot<C>, generator: MachineInputGenerator<C, A>,
+    initial: MachineSnapshot<C>,
+    generator: MachineInputGenerator<C, A>,
     strategy: ExplorationStrategy = ExplorationStrategy.BreadthFirst,
-    maxDepth: Int = 10, maxDecisions: Int = 10_000, maxFailures: Int = 1, now: MachineTime = MachineTime.Zero,
+    maxDepth: Int = 10,
+    maxDecisions: Int = 10_000,
+    maxFailures: Int = 1,
+    now: MachineTime = MachineTime.Zero,
 ): BehaviouralExplorationReport<C, A> {
     require(maxDepth >= 0 && maxDecisions > 0 && maxFailures > 0) { "[Actron] Invalid exploration limits" }
     val coverage = MachineCoverageRecorder(this)
@@ -166,21 +209,44 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
     var truncated = false
     val scenarios = linkedMapOf<MachineCoverage, MachineScenario<A>>()
     val emptyCoverage = coverage.snapshot()
-    val goalMet: () -> Boolean = when (strategy) {
-        ExplorationStrategy.AllTransitions -> {
-            val requirements = chart.requirements(CoverageTarget.AllTransitions)
-            fun(): Boolean = requirements.missing(coverage.snapshot()).isEmpty
-        }
-        is ExplorationStrategy.Cover -> {
-            val requirements = chart.requirements(strategy.target)
-            fun(): Boolean = requirements.missing(coverage.snapshot()).isEmpty
-        }
-        else -> { { false } }
-    }
-    data class Path<C : Any, A : Action>(val snapshot: MachineSnapshot<C>, val inputs: List<MachineInput<A>>, val now: MachineTime, val depth: Int, val transitions: Set<TransitionId> = emptySet(), val localCoverage: MachineCoverage)
+    val goalMet: () -> Boolean =
+        when (strategy) {
+            ExplorationStrategy.AllTransitions -> {
+                val requirements = chart.requirements(CoverageTarget.AllTransitions)
 
-    fun decidePath(path: Path<C, A>, input: MachineInput<A>, depth: Int, advance: (Path<C, A>) -> Unit): Boolean {
-        if (decisions >= maxDecisions || failures.size >= maxFailures) { truncated = true; return false }
+                fun(): Boolean = requirements.missing(coverage.snapshot()).isEmpty
+            }
+
+            is ExplorationStrategy.Cover -> {
+                val requirements = chart.requirements(strategy.target)
+
+                fun(): Boolean = requirements.missing(coverage.snapshot()).isEmpty
+            }
+
+            else -> {
+                { false }
+            }
+        }
+
+    data class Path<C : Any, A : Action>(
+        val snapshot: MachineSnapshot<C>,
+        val inputs: List<MachineInput<A>>,
+        val now: MachineTime,
+        val depth: Int,
+        val transitions: Set<TransitionId> = emptySet(),
+        val localCoverage: MachineCoverage,
+    )
+
+    fun decidePath(
+        path: Path<C, A>,
+        input: MachineInput<A>,
+        depth: Int,
+        advance: (Path<C, A>) -> Unit,
+    ): Boolean {
+        if (decisions >= maxDecisions || failures.size >= maxFailures) {
+            truncated = true
+            return false
+        }
         require(input.now >= path.now) { "[Actron] Generator moved virtual time backwards" }
         val explained = decideExplained(path.snapshot, input)
         decisions++
@@ -188,15 +254,25 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
         checked += invariants.size
         val inputs = path.inputs + input
         val covered = path.transitions + explained.decision.transitions
-        val local = path.localCoverage.copy(
-            states = path.localCoverage.states.copy(covered = path.localCoverage.states.covered + explained.explanation.active +
-                explained.decision.snapshot.configuration.active + explained.decision.entered.map { it.node }),
-            transitions = path.localCoverage.transitions.copy(covered = covered),
-            guards = path.localCoverage.guards.copy(covered = path.localCoverage.guards.covered + explained.explanation.guards
-                .filter { it.result == actron.statechart.GuardCheck.Allowed || it.result == actron.statechart.GuardCheck.Rejected }
-                .map { GuardOutcome(it.transition, it.result == actron.statechart.GuardCheck.Allowed) }),
-            timers = path.localCoverage.timers.copy(covered = covered intersect path.localCoverage.timers.expected),
-        )
+        val local =
+            path.localCoverage.copy(
+                states =
+                    path.localCoverage.states.copy(
+                        covered =
+                            path.localCoverage.states.covered + explained.explanation.active +
+                                explained.decision.snapshot.configuration.active + explained.decision.entered.map { it.node },
+                    ),
+                transitions = path.localCoverage.transitions.copy(covered = covered),
+                guards =
+                    path.localCoverage.guards.copy(
+                        covered =
+                            path.localCoverage.guards.covered +
+                                explained.explanation.guards
+                                    .filter { it.result == actron.statechart.GuardCheck.Allowed || it.result == actron.statechart.GuardCheck.Rejected }
+                                    .map { GuardOutcome(it.transition, it.result == actron.statechart.GuardCheck.Allowed) },
+                    ),
+                timers = path.localCoverage.timers.copy(covered = covered intersect path.localCoverage.timers.expected),
+            )
         if (local !in scenarios) {
             scenarios[local] = MachineScenario("scenario-${scenarios.size + 1}", inputs.toList())
         } else {
@@ -238,6 +314,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
                 }
             }
         }
+
         is ExplorationStrategy.RandomWalk -> {
             val random = Random(strategy.seed)
             repeat(strategy.runs) {
@@ -251,7 +328,16 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
             }
         }
     }
-    val report = ExplorationReport(decisions, checked, coverage.snapshot(), failures.toList(), truncated, maxDepth, scenarios.values.toList(),
-        scenarios.map { (observations, scenario) -> ScenarioCoverage(scenario, observations.transitions.covered) })
+    val report =
+        ExplorationReport(
+            decisions,
+            checked,
+            coverage.snapshot(),
+            failures.toList(),
+            truncated,
+            maxDepth,
+            scenarios.values.toList(),
+            scenarios.map { (observations, scenario) -> ScenarioCoverage(scenario, observations.transitions.covered) },
+        )
     return BehaviouralExplorationReport(report, scenarios.map { (observations, scenario) -> BehaviouralScenarioCoverage(scenario, observations) })
 }

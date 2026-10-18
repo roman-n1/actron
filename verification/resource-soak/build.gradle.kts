@@ -8,27 +8,38 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-val generatedConfig = tasks.register("generateSoakConfig") {
-    val seconds = providers.gradleProperty("soakSeconds").map(String::toInt).orElse(3)
-    val output = layout.buildDirectory.dir("generated/soak")
-    val reports = layout.buildDirectory.dir("reports/resource-soak").get().asFile.absolutePath
-    inputs.property("seconds", seconds)
-    inputs.property("reports", reports)
-    outputs.dir(output)
-    doLast {
-        val duration = seconds.get()
-        require(duration in 3..3600) { "soakSeconds must be 3..3600" }
-        val file = output.get().file("SoakConfig.kt").asFile
-        file.parentFile.mkdirs()
-        file.writeText("package actron.soak\nconst val SOAK_SECONDS = $duration\nconst val SOAK_REPORT_DIRECTORY = \"$reports\"\n")
+val generatedConfig =
+    tasks.register("generateSoakConfig") {
+        val seconds = providers.gradleProperty("soakSeconds").map(String::toInt).orElse(3)
+        val output = layout.buildDirectory.dir("generated/soak")
+        val reports =
+            layout.buildDirectory
+                .dir("reports/resource-soak")
+                .get()
+                .asFile.absolutePath
+        inputs.property("seconds", seconds)
+        inputs.property("reports", reports)
+        outputs.dir(output)
+        doLast {
+            val duration = seconds.get()
+            require(duration in 3..3600) { "soakSeconds must be 3..3600" }
+            val file = output.get().file("SoakConfig.kt").asFile
+            file.parentFile.mkdirs()
+            file.writeText("package actron.soak\nconst val SOAK_SECONDS = $duration\nconst val SOAK_REPORT_DIRECTORY = \"$reports\"\n")
+        }
     }
-}
 
 kotlin {
     android {
         namespace = "actron.resources.soak"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
         withDeviceTestBuilder { sourceSetTreeName = "deviceTest" }.configure {
             instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         }
@@ -36,10 +47,14 @@ kotlin {
     }
     jvm {
         compilerOptions { jvmTarget = JvmTarget.JVM_11 }
-        val defaultReachability = testRuns.create("defaultReachability") {
-            setExecutionSourceFrom(compilations.getByName("test"))
-            executionTask.configure { useJUnit(); filter.includeTestsMatching("actron.soak.DefaultReachabilityTest*") }
-        }
+        val defaultReachability =
+            testRuns.create("defaultReachability") {
+                setExecutionSourceFrom(compilations.getByName("test"))
+                executionTask.configure {
+                    useJUnit()
+                    filter.includeTestsMatching("actron.soak.DefaultReachabilityTest*")
+                }
+            }
         testRuns.getByName("test").executionTask.configure {
             useJUnit()
             filter.excludeTestsMatching("actron.soak.DefaultReachabilityTest*")

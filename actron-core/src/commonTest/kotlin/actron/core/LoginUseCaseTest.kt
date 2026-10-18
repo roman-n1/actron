@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/**
+/*
  * This test case was generated with assistance from Anthropic's Claude AI.
  */
 
@@ -31,45 +31,66 @@ import kotlin.test.assertIs
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LoginUseCaseTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     // Login repository interface
     interface LoginRepository {
-        suspend fun login(username: String, password: String): Boolean
+        suspend fun login(
+            username: String,
+            password: String,
+        ): Boolean
     }
 
     // Mock repository implementation
-    class MockLoginRepository(var shouldSucceed: Boolean) : LoginRepository {
-        override suspend fun login(username: String, password: String): Boolean {
-            return shouldSucceed
-        }
+    class MockLoginRepository(
+        var shouldSucceed: Boolean,
+    ) : LoginRepository {
+        override suspend fun login(
+            username: String,
+            password: String,
+        ): Boolean = shouldSucceed
     }
 
     // State definitions
     sealed interface AppState : State {
         data object Initial : AppState
-        data class Loading(val username: String, val password: String) : AppState
-        data class Success(val username: String) : AppState
-        data class Error(val message: String) : AppState
+
+        data class Loading(
+            val username: String,
+            val password: String,
+        ) : AppState
+
+        data class Success(
+            val username: String,
+        ) : AppState
+
+        data class Error(
+            val message: String,
+        ) : AppState
     }
 
     // Action definitions
     sealed interface AppAction : Action {
-        data class Login(val username: String, val password: String) : AppAction
+        data class Login(
+            val username: String,
+            val password: String,
+        ) : AppAction
+
         data object RetryFromError : AppAction
     }
 
     // Event definitions
     sealed interface AppEvent : Event {
-        data class NavigateToHome(val username: String) : AppEvent
+        data class NavigateToHome(
+            val username: String,
+        ) : AppEvent
     }
 
     // Create a Store using the standard Store factory function
     private fun createTestStore(
         repository: LoginRepository,
-    ): Store<AppState, AppAction, AppEvent> {
-        return Store(AppState.Initial) {
+    ): Store<AppState, AppAction, AppEvent> =
+        Store(AppState.Initial) {
             coroutineContext(Dispatchers.Unconfined)
             // Processing for Initial state
             state<AppState.Initial> {
@@ -124,70 +145,72 @@ class LoginUseCaseTest {
                 }
             }
         }
-    }
 
     @Test
-    fun loginFlow_successCase() = runTest(testDispatcher) {
-        // Create Store with a repository that will succeed
-        val repository = MockLoginRepository(shouldSucceed = true)
-        val store = createTestStore(repository)
+    fun loginFlow_successCase() =
+        runTest(testDispatcher) {
+            // Create Store with a repository that will succeed
+            val repository = MockLoginRepository(shouldSucceed = true)
+            val store = createTestStore(repository)
 
-        // Verify initial state
-        assertIs<AppState.Initial>(store.currentState)
+            // Verify initial state
+            assertIs<AppState.Initial>(store.currentState)
 
-        // Start login process
-        store.dispatch(AppAction.Login("user123", "password123"))
+            // Start login process
+            store.dispatch(AppAction.Login("user123", "password123"))
 
-        // Login successful, should be in Success state
-        assertIs<AppState.Success>(store.currentState)
-        val successState = store.currentState as AppState.Success
-        assertEquals("user123", successState.username)
-    }
-
-    @Test
-    fun loginFlow_failureCase() = runTest(testDispatcher) {
-        // Create Store with a repository that will fail
-        val repository = MockLoginRepository(shouldSucceed = false)
-        val store = createTestStore(repository)
-
-        // Verify initial state
-        assertIs<AppState.Initial>(store.currentState)
-
-        // Start login process
-        store.dispatch(AppAction.Login("user123", "wrong_password"))
-
-        // Login fails, should be in Error state
-        assertIs<AppState.Error>(store.currentState)
-        val errorState = store.currentState as AppState.Error
-        assertEquals("Authentication failed", errorState.message)
-    }
+            // Login successful, should be in Success state
+            assertIs<AppState.Success>(store.currentState)
+            val successState = store.currentState as AppState.Success
+            assertEquals("user123", successState.username)
+        }
 
     @Test
-    fun errorState_canRetryLogin() = runTest(testDispatcher) {
-        // Create Store with a repository that will initially fail
-        val repository = MockLoginRepository(shouldSucceed = false)
-        val store = createTestStore(repository)
+    fun loginFlow_failureCase() =
+        runTest(testDispatcher) {
+            // Create Store with a repository that will fail
+            val repository = MockLoginRepository(shouldSucceed = false)
+            val store = createTestStore(repository)
 
-        // Verify initial state
-        assertIs<AppState.Initial>(store.currentState)
+            // Verify initial state
+            assertIs<AppState.Initial>(store.currentState)
 
-        // First login attempt (will fail)
-        store.dispatch(AppAction.Login("user123", "wrong_password"))
+            // Start login process
+            store.dispatch(AppAction.Login("user123", "wrong_password"))
 
-        // Login fails, should be in Error state
-        assertIs<AppState.Error>(store.currentState)
+            // Login fails, should be in Error state
+            assertIs<AppState.Error>(store.currentState)
+            val errorState = store.currentState as AppState.Error
+            assertEquals("Authentication failed", errorState.message)
+        }
 
-        // Change repository to succeed on next attempt
-        repository.shouldSucceed = true
+    @Test
+    fun errorState_canRetryLogin() =
+        runTest(testDispatcher) {
+            // Create Store with a repository that will initially fail
+            val repository = MockLoginRepository(shouldSucceed = false)
+            val store = createTestStore(repository)
 
-        // Send retry action
-        store.dispatch(AppAction.RetryFromError)
-        assertIs<AppState.Initial>(store.currentState)
+            // Verify initial state
+            assertIs<AppState.Initial>(store.currentState)
 
-        // Try logging in again
-        store.dispatch(AppAction.Login("user123", "correct_password"))
+            // First login attempt (will fail)
+            store.dispatch(AppAction.Login("user123", "wrong_password"))
 
-        // Login process is automatically handled by the enter block
-        assertIs<AppState.Success>(store.currentState)
-    }
+            // Login fails, should be in Error state
+            assertIs<AppState.Error>(store.currentState)
+
+            // Change repository to succeed on next attempt
+            repository.shouldSucceed = true
+
+            // Send retry action
+            store.dispatch(AppAction.RetryFromError)
+            assertIs<AppState.Initial>(store.currentState)
+
+            // Try logging in again
+            store.dispatch(AppAction.Login("user123", "correct_password"))
+
+            // Login process is automatically handled by the enter block
+            assertIs<AppState.Success>(store.currentState)
+        }
 }

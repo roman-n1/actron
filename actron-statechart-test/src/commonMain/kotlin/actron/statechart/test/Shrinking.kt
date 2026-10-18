@@ -13,12 +13,17 @@ data class ShrinkReport<C : Any, A : Action>(
 
 /** Replays inputs from the same snapshot and reports the first failure, without executing IO. */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.replaySequence(
-    initial: MachineSnapshot<C>, inputs: List<MachineInput<A>>, accept: (SequenceFailure<C, A>) -> Unit,
+    initial: MachineSnapshot<C>,
+    inputs: List<MachineInput<A>>,
+    accept: (SequenceFailure<C, A>) -> Unit,
 ): Boolean {
-    val initialViolations = if (initial.isStarted) checkInvariants(initial) else {
-        require(initial.definition == id && initial.version == version) { "[Actron] Snapshot belongs to another machine or version" }
-        emptyList()
-    }
+    val initialViolations =
+        if (initial.isStarted) {
+            checkInvariants(initial)
+        } else {
+            require(initial.definition == id && initial.version == version) { "[Actron] Snapshot belongs to another machine or version" }
+            emptyList()
+        }
     if (initialViolations.isNotEmpty()) {
         accept(SequenceFailure(emptyList(), initial, listOf(SequenceProblem.Invariants(initialViolations))))
         return true
@@ -43,14 +48,19 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.replaySequ
  * or reassigning recorded command ids is implied. [maxAttempts] bounds replay work.
  */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.shrink(
-    initial: MachineSnapshot<C>, inputs: List<MachineInput<A>>, maxAttempts: Int = 1_000,
-): ShrinkReport<C, A> = shrink(initial, inputs, maxAttempts) { original, candidate ->
-    candidate.identities.any { it in original.identities }
-}
+    initial: MachineSnapshot<C>,
+    inputs: List<MachineInput<A>>,
+    maxAttempts: Int = 1_000,
+): ShrinkReport<C, A> =
+    shrink(initial, inputs, maxAttempts) { original, candidate ->
+        candidate.identities.any { it in original.identities }
+    }
 
 /** Custom semantic failure matching; the pure predicate must accept the original failure itself. */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.shrink(
-    initial: MachineSnapshot<C>, inputs: List<MachineInput<A>>, maxAttempts: Int = 1_000,
+    initial: MachineSnapshot<C>,
+    inputs: List<MachineInput<A>>,
+    maxAttempts: Int = 1_000,
     preservesFailure: (original: SequenceFailure<C, A>, candidate: SequenceFailure<C, A>) -> Boolean,
 ): ShrinkReport<C, A> {
     require(maxAttempts > 0) { "[Actron] Shrinking needs a positive attempt budget" }
@@ -66,7 +76,10 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.shrink(
         var reduced = false
         var position = 0
         while (position < best.inputs.size) {
-            if (attempts >= maxAttempts) { truncated = true; break }
+            if (attempts >= maxAttempts) {
+                truncated = true
+                break
+            }
             val candidate = best.inputs.take(position) + best.inputs.drop(position + size)
             attempts++
             replaySequence(initial, candidate) { failure ->
@@ -84,7 +97,9 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.shrink(
             size = maxOf(1, best.inputs.size / 2)
         } else if (size > 1) {
             size = maxOf(1, size / 2)
-        } else break
+        } else {
+            break
+        }
     }
     return ShrinkReport(best, attempts, truncated)
 }

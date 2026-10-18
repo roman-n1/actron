@@ -1,9 +1,8 @@
 package actron.timetravel.file
 
-import actron.core.InputAttribution
-
 import actron.core.Action
 import actron.core.Event
+import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.FailureDescriptor
 import actron.observability.StoreInstanceId
@@ -20,11 +19,11 @@ import actron.timetravel.RecordedStep
 import actron.timetravel.RecordingCodec
 import actron.timetravel.carriedPast
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 
@@ -55,7 +54,12 @@ data class RecordingFileConfig(
 }
 
 /** Counters of a [RecordingFileSink]. */
-data class RecordingFileStats(val recorded: Long, val written: Long, val dropped: Long, val segments: Int)
+data class RecordingFileStats(
+    val recorded: Long,
+    val written: Long,
+    val dropped: Long,
+    val segments: Int,
+)
 
 /**
  * Records the run of a `MachineStore` into segments of a [SegmentStorage] in the
@@ -101,15 +105,24 @@ class RecordingFileSink<C : Any, A : Action, CMD : Any, E : Event>(
     var origin: actron.timetravel.RecordingOrigin = actron.timetravel.RecordingOrigin.InitialSnapshot
         private set
 
-    private class Item<C : Any, A : Action, CMD : Any, E : Event>(val step: RecordedStep<C, A, CMD, E>, val index: Int, val before: ExecutorCheckpoint<C, CMD>, val beginSegment: Boolean)
+    private class Item<C : Any, A : Action, CMD : Any, E : Event>(
+        val step: RecordedStep<C, A, CMD, E>,
+        val index: Int,
+        val before: ExecutorCheckpoint<C, CMD>,
+        val beginSegment: Boolean,
+    )
 
     private val queue = Channel<Item<C, A, CMD, E>>(config.queueCapacity)
 
     // Writer state: touched only by the writer.
     private sealed interface SegmentWriter {
         data object Detached : SegmentWriter
-        data class Active(val output: SegmentOutput) : SegmentWriter
+
+        data class Active(
+            val output: SegmentOutput,
+        ) : SegmentWriter
     }
+
     private var segmentWriter: SegmentWriter = SegmentWriter.Detached
     private var segmentIndex = -1
     private var segmentBytes = 0
@@ -118,35 +131,36 @@ class RecordingFileSink<C : Any, A : Action, CMD : Any, E : Event>(
     private var written = 0L
     private var failed = false
 
-    private val writer: Job = scope.launch {
-        var completion: Result<Unit> = Result.success(Unit)
-        try {
-            for (item in queue) {
-                if (failed) continue
+    private val writer: Job =
+        scope.launch {
+            var completion: Result<Unit> = Result.success(Unit)
+            try {
+                for (item in queue) {
+                    if (failed) continue
+                    try {
+                        write(item)
+                    } catch (e: Exception) {
+                        if (e is CancellationException && !currentCoroutineContext().isActive) throw e
+                        failed = true
+                        release(Result.failure(e))
+                        notifyFailure(e)
+                    }
+                }
+                if (!failed) finish()
+            } catch (t: Throwable) {
+                completion = Result.failure(t)
+                if (t is CancellationException || t !is Exception) throw t
+                notifyFailure(t)
+            } finally {
+                // Cancellation leaves an unfinished segment; never append END to a failed frame.
                 try {
-                    write(item)
-                } catch (e: Exception) {
-                    if (e is CancellationException && !currentCoroutineContext().isActive) throw e
-                    failed = true
-                    release(Result.failure(e))
-                    notifyFailure(e)
+                    release(completion)
+                } finally {
+                    locked { closed = true }
+                    queue.cancel()
                 }
             }
-            if (!failed) finish()
-        } catch (t: Throwable) {
-            completion = Result.failure(t)
-            if (t is CancellationException || t !is Exception) throw t
-            notifyFailure(t)
-        } finally {
-            // Cancellation leaves an unfinished segment; never append END to a failed frame.
-            try {
-                release(completion)
-            } finally {
-                locked { closed = true }
-                queue.cancel()
-            }
         }
-    }
 
     private fun notifyFailure(failure: Throwable) {
         try {
@@ -163,7 +177,10 @@ class RecordingFileSink<C : Any, A : Action, CMD : Any, E : Event>(
         closeOutput(active.output, completion)
     }
 
-    private fun closeOutput(output: SegmentOutput, completion: Result<Unit>) {
+    private fun closeOutput(
+        output: SegmentOutput,
+        completion: Result<Unit>,
+    ) {
         try {
             output.close()
         } catch (t: Throwable) {
@@ -180,10 +197,17 @@ class RecordingFileSink<C : Any, A : Action, CMD : Any, E : Event>(
 
     /** The Store's segments present in the storage, oldest first. */
     val segments: List<String>
-        get() = RecordingFileFormat.namedSegments(storage, store)
-            .sortedBy { it.first }.map { it.second }
+        get() =
+            RecordingFileFormat
+                .namedSegments(storage, store)
+                .sortedBy { it.first }
+                .map { it.second }
 
-    override fun onCommitted(input: InputAttribution, machineInput: MachineInput<A>, decision: Decision<C, CMD, E>) {
+    override fun onCommitted(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        decision: Decision<C, CMD, E>,
+    ) {
         locked {
             if (nextStep == 0 && machineInput is MachineInput.Start && machine.decide(current.snapshot, machineInput).snapshot != decision.snapshot) {
                 origin = actron.timetravel.RecordingOrigin.UnknownBeginning("the run did not start from the sink's initial snapshot (a restored snapshot started over?)")
@@ -192,9 +216,17 @@ class RecordingFileSink<C : Any, A : Action, CMD : Any, E : Event>(
         record(RecordedStep.Committed(machineInput, decision))
     }
 
-    override fun onIgnored(input: InputAttribution, machineInput: MachineInput<A>, reason: IgnoreReason) = record(RecordedStep.Ignored(machineInput, reason))
+    override fun onIgnored(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        reason: IgnoreReason,
+    ) = record(RecordedStep.Ignored(machineInput, reason))
 
-    override fun onFailed(input: InputAttribution, machineInput: MachineInput<A>, failure: FailureDescriptor) = record(RecordedStep.Failed(machineInput, failure))
+    override fun onFailed(
+        input: InputAttribution,
+        machineInput: MachineInput<A>,
+        failure: FailureDescriptor,
+    ) = record(RecordedStep.Failed(machineInput, failure))
 
     /** Finishes the active segment with the end frame and stops the writer. Steps after this are dropped. */
     suspend fun close() {
@@ -209,13 +241,14 @@ class RecordingFileSink<C : Any, A : Action, CMD : Any, E : Event>(
     }
 
     private fun record(step: RecordedStep<C, A, CMD, E>) {
-        val item = locked {
-            if (closed) return
-            val before = current
-            current = current.carriedPast(step)
-            recorded++
-            Item(step, nextStep++, before, beginSegment).also { beginSegment = false }
-        }
+        val item =
+            locked {
+                if (closed) return
+                val before = current
+                current = current.carriedPast(step)
+                recorded++
+                Item(step, nextStep++, before, beginSegment).also { beginSegment = false }
+            }
         if (queue.trySend(item).isFailure) {
             locked {
                 dropped++

@@ -1,5 +1,9 @@
 pluginManagement {
-    repositories { google(); mavenCentral(); gradlePluginPortal() }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
     plugins {
         id("org.jetbrains.kotlin.multiplatform") version providers.gradleProperty("consumer.kotlin").get()
         id("com.android.kotlin.multiplatform.library") version providers.gradleProperty("consumer.agp").get()

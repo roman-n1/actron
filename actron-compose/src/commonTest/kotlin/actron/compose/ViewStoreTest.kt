@@ -1,7 +1,7 @@
 package actron.compose
 
-import androidx.compose.runtime.mutableStateOf
 import actron.core.State
+import androidx.compose.runtime.mutableStateOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -19,4 +19,6 @@ class ViewStoreTest {
     }
 }
 
-private data class CounterState(val count: Int) : State
+private data class CounterState(
+    val count: Int,
+) : State

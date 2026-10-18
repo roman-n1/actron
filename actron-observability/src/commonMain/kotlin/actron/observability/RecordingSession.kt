@@ -35,9 +35,15 @@ fun interface JournalSink {
  * cannot feed on its own reports.
  */
 sealed interface JournalFailure {
-    data class SinkFailed(val sink: JournalSink, val error: Throwable) : JournalFailure
+    data class SinkFailed(
+        val sink: JournalSink,
+        val error: Throwable,
+    ) : JournalFailure
 
-    data class PolicyFailed(val store: StoreInstanceId, val error: Throwable) : JournalFailure
+    data class PolicyFailed(
+        val store: StoreInstanceId,
+        val error: Throwable,
+    ) : JournalFailure
 }
 
 /**
@@ -117,12 +123,22 @@ data class JournalStats(
  */
 interface JournalPublisher {
     val boundary: JournalBoundary
-    fun publish(store: StoreInstanceId, entry: JournalEntry<*, *, *>)
+
+    fun publish(
+        store: StoreInstanceId,
+        entry: JournalEntry<*, *, *>,
+    )
+
     fun publish(entry: JournalEntry<*, *, *>)
 
     data object Disabled : JournalPublisher {
         override val boundary: JournalBoundary = JournalBoundary.Beginning
-        override fun publish(store: StoreInstanceId, entry: JournalEntry<*, *, *>) {}
+
+        override fun publish(
+            store: StoreInstanceId,
+            entry: JournalEntry<*, *, *>,
+        ) {}
+
         override fun publish(entry: JournalEntry<*, *, *>) {}
     }
 }
@@ -155,9 +171,10 @@ class RecordingSession(
     private var stopped = false
 
     private val queue = Channel<JournalRecord<*, *, *>>(config.writerQueueCapacity)
-    private val writer: Job = scope.launch {
-        for (record in queue) deliver(record)
-    }
+    private val writer: Job =
+        scope.launch {
+            for (record in queue) deliver(record)
+        }
 
     /**
      * Creates the probe that records a Store into this session as [store], and publishes its
@@ -168,7 +185,10 @@ class RecordingSession(
      * @throws IllegalArgumentException if [store] is already recorded by this session
      */
     @InternalActronApi
-    fun <S : State, A : Action, E : Event> probe(store: StoreInstanceId, policy: PayloadPolicy<S, A, E>): StoreProbe<S, A, E> {
+    fun <S : State, A : Action, E : Event> probe(
+        store: StoreInstanceId,
+        policy: PayloadPolicy<S, A, E>,
+    ): StoreProbe<S, A, E> {
         locked {
             require(probed.add(store)) { "[Actron] Store $store is already recorded by this session; give every instance its own StoreInstanceId" }
         }
@@ -186,21 +206,23 @@ class RecordingSession(
      * The counters as of now.
      */
     val stats: JournalStats
-        get() = locked {
-            JournalStats(
-                published = published,
-                retained = retained.size,
-                evicted = evicted,
-                droppedForSinks = droppedForSinks,
-                sinkFailures = sinkFailures,
-                policyFailures = policyFailures,
-                publishedAfterStop = publishedAfterStop,
-            )
-        }
+        get() =
+            locked {
+                JournalStats(
+                    published = published,
+                    retained = retained.size,
+                    evicted = evicted,
+                    droppedForSinks = droppedForSinks,
+                    sinkFailures = sinkFailures,
+                    policyFailures = policyFailures,
+                    publishedAfterStop = publishedAfterStop,
+                )
+            }
 
-    override val boundary: JournalBoundary get() = locked {
-        if (published == 0L) JournalBoundary.Beginning else GroupSeq(published)
-    }
+    override val boundary: JournalBoundary get() =
+        locked {
+            if (published == 0L) JournalBoundary.Beginning else GroupSeq(published)
+        }
 
     /**
      * Publishes [JournalEntry.RecordingStopped], stops accepting records, writes what is queued
@@ -210,17 +232,18 @@ class RecordingSession(
         // Stop first, so nothing publishes after the closing records; then send them with the
         // suspending `send`: the last gap and the stop record reach the sinks even when the queue
         // is full, unlike the records of the hot path.
-        val closing = locked {
-            if (stopped) return@locked emptyList()
-            stopped = true
-            buildList {
-                if (pendingGap > 0) {
-                    add(allocate(RecordSubject.Session, JournalEntry.JournalGap(pendingGap)).also(::retain))
-                    pendingGap = 0
+        val closing =
+            locked {
+                if (stopped) return@locked emptyList()
+                stopped = true
+                buildList {
+                    if (pendingGap > 0) {
+                        add(allocate(RecordSubject.Session, JournalEntry.JournalGap(pendingGap)).also(::retain))
+                        pendingGap = 0
+                    }
+                    add(allocate(RecordSubject.Session, JournalEntry.RecordingStopped).also(::retain))
                 }
-                add(allocate(RecordSubject.Session, JournalEntry.RecordingStopped).also(::retain))
             }
-        }
         for (record in closing) queue.send(record)
         queue.close()
         writer.join()
@@ -228,7 +251,10 @@ class RecordingSession(
 
     internal fun now(): TimeMark = timeSource.markNow()
 
-    internal fun reportPolicyFailure(store: StoreInstanceId, error: Throwable) {
+    internal fun reportPolicyFailure(
+        store: StoreInstanceId,
+        error: Throwable,
+    ) {
         locked { policyFailures++ }
         notify(JournalFailure.PolicyFailed(store, error))
     }
@@ -240,7 +266,10 @@ class RecordingSession(
      * such as the decisions of a replay-ready machine. After [close], counts the publication
      * without retaining or writing it.
      */
-    override fun publish(store: StoreInstanceId, entry: JournalEntry<*, *, *>) = publishRecord(store, entry)
+    override fun publish(
+        store: StoreInstanceId,
+        entry: JournalEntry<*, *, *>,
+    ) = publishRecord(store, entry)
 
     /**
      * Publishes [entry] as a record of the session itself, about no Store: a group's cut, for
@@ -253,7 +282,10 @@ class RecordingSession(
      * lock. [RecordSubject.Session] identifies session records. After [close], only increments the
      * after-stop counter.
      */
-    internal fun publishRecord(store: RecordSubject, entry: JournalEntry<*, *, *>) {
+    internal fun publishRecord(
+        store: RecordSubject,
+        entry: JournalEntry<*, *, *>,
+    ) {
         return locked {
             if (stopped) {
                 publishedAfterStop++
@@ -280,17 +312,24 @@ class RecordingSession(
         }
     }
 
-    private fun allocate(store: RecordSubject, entry: JournalEntry<*, *, *>): JournalRecord<*, *, *> {
+    private fun allocate(
+        store: RecordSubject,
+        entry: JournalEntry<*, *, *>,
+    ): JournalRecord<*, *, *> {
         published++
         val groupSeq = GroupSeq(++nextGroupSeq)
-        val storeSeq: RecordOrdinal = when (store) {
-            RecordSubject.Session -> RecordOrdinal.Session
-            is StoreInstanceId -> {
-                val next = (storeSeqs[store] ?: 0L) + 1
-                storeSeqs[store] = next
-                StoreSeq(next)
+        val storeSeq: RecordOrdinal =
+            when (store) {
+                RecordSubject.Session -> {
+                    RecordOrdinal.Session
+                }
+
+                is StoreInstanceId -> {
+                    val next = (storeSeqs[store] ?: 0L) + 1
+                    storeSeqs[store] = next
+                    StoreSeq(next)
+                }
             }
-        }
         return JournalRecord(
             formatVersion = JOURNAL_FORMAT_VERSION,
             session = id,
