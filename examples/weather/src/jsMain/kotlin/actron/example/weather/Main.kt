@@ -2,14 +2,35 @@
 
 package actron.example.weather
 
+import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.core.network.weatherHttpClient
+import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
+import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
+import actron.example.weather.feature.weather.data.OpenMeteoWeatherRepository
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.window.ComposeViewport
+import com.arkivanov.decompose.DefaultComponentContext
+import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.destroy
+import com.arkivanov.essenty.lifecycle.resume
 import kotlinx.browser.document
-import kotlinx.browser.window
 
 fun main() {
     val client = weatherHttpClient()
-    val article = window.location.search.removePrefix("?").split('&').any { it == "scenario=article" }
-    val api = if (article) ArticleWeatherApi() else OpenMeteoApi(client)
-    ComposeViewport(checkNotNull(document.body)) { MaterialTheme { WeatherApp(api, if (article) "Article scenario · fixed responses · no network" else "Open-Meteo · live public API") } }
+    val api = OpenMeteoWeatherRepository(client)
+    val hourlyApi = OpenMeteoHourlyRepository(client)
+    val cities = OpenMeteoCitySearchRepository(client)
+    val lifecycle = LifecycleRegistry()
+    val root = DefaultWeatherRootComponent(DefaultComponentContext(lifecycle), api, cities, hourlyApi)
+    ComposeViewport(checkNotNull(document.body)) {
+        DisposableEffect(root) {
+            lifecycle.resume()
+            onDispose {
+                lifecycle.destroy()
+                client.close()
+            }
+        }
+        MaterialTheme { root.Render() }
+    }
 }

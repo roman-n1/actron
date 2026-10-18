@@ -1,132 +1,95 @@
-# Weather: from asynchronous inputs to a deterministic recording
+# Weather application
 
-A Compose Multiplatform MVI demo in this repository. Run the desktop application directly on
-macOS, without an emulator, or run the same shared machines, presentation Store and Compose
-UI in a browser.
+A two-screen Compose Multiplatform application for Android, Desktop and the browser.
+Search for a city, open its current weather and six-hour forecast, refresh or go back.
+There are no Time Travel controls, debug counters or demo-story screens.
+
+## Run
 
 ```sh
-# Live weather, no API key or account
 ./gradlew :weather-example:run
-
-# Explicit sample data, useful without a network connection
 ./gradlew :weather-example:run --args='--offline'
-
-# Fixed article story: cancellation, failure, recovery and automatic capture
-./gradlew :weather-example:run --args='--article'
-# Check the same story, including replay, without opening a window
-./gradlew :weather-example:run --args='--check-article'
-
-# Verify recorded responses, replay and branching without a window
-./gradlew :weather-example:run --args='--check'
-# The same check against the real API (requires network)
-./gradlew :weather-example:run --args='--check-live'
-
-# Browser application
 ./gradlew :weather-example:jsBrowserDevelopmentRun
+./gradlew :weather-android:assembleDebug
 ```
 
-The live adapter calls [Open-Meteo's forecast API](https://open-meteo.com/en/docs), requesting
-current temperature, apparent temperature, wind speed and weather code for one of four
-predefined cities. These are model-based current conditions. Units are explicitly Celsius and
-km/h. The screen attributes the data to Open-Meteo (CC BY 4.0). API failures are displayed;
-the application does not silently replace live results with sample data.
-The explicit offline scenario adds 1.2 seconds of synthetic latency, so rapid selections
-exercise cancellation even without an internet connection. Replay retains the resulting
-inputs and never repeats that delay or runs the sample loader.
+In Android Studio select the `weather-android` application module. The debug APK is
+`examples/weather-android/build/outputs/apk/debug/weather-android-debug.apk` (Android 7.0+).
+Live data uses Open-Meteo without an API key. `--offline` selects explicit local fixtures on
+Desktop. The old article, replay and CLI-check modes have been removed from this application.
 
-## A repeatable story for an article
+## Responsibilities
 
-Launch with `--article`. The scenario starts automatically, takes about five seconds and
-uses **scripted data with no HTTP requests**. In the browser, add `?scenario=article` to
-the development server URL. Open a fresh desktop session or reload that browser URL to repeat
-the story with a new journal and reset request counter.
+- **Decompose** owns the component tree, lifecycle and navigation stack. The root handles only
+  `CitySelected(city)` and `BackClicked`. The weather configuration carries the selected city.
+- **Actron** owns each feature's `MachineStore`, state, transitions, timers, command execution
+  and cancellation. Search and weather have independent stores; weather contains two parallel regions.
+- **Command handlers** call the use case/repositories and return typed result actions. Network
+  access is outside the pure machine definitions.
+- **Compose** reads the machine snapshot and sends screen intents. UI models are pure formatting
+  projections, never independent mutable stores.
 
-| Request | Controlled behaviour | Visible result |
-| --- | --- | --- |
-| 1 · Novosibirsk | Hold the response; choose Lisbon after 700 ms | The old loading activation is cancelled |
-| 2 · Lisbon | Hold the response; choose Tokyo after 700 ms | The second loading activation is cancelled |
-| 3 · Tokyo | Release the response; delay 600 ms | Ready, 24°C, wind 12 km/h; comfortable advice |
-| 4 · Tokyo refresh | Delay 800 ms; throw a scripted connection failure | Failed with the recorded error message |
-| 5 · Tokyo retry | Delay 800 ms; return wind 55 km/h | Ready; Advice transitions to Windy |
+The root does not copy feature states or forward search/refresh requests. Each feature handles
+its own intents. The KMP-style parent/child bridge carries navigation news only. No parent-to-child
+state broadcasts are needed; the corresponding action type is `Nothing`.
 
-There is a 600 ms viewing pause before the refresh and retry. The driver waits for each
-request to start, the old requests to cancel and the bridged advice to settle. Response gates
-hold the first two loads, so cancellation does not depend on two delays racing. Machine
-definitions and handlers are the same as in interactive mode. Manual city changes and refreshes
-are disabled in this finite scenario; experiments remain available after capture.
+```text
+app/WeatherRootComponent.kt       Decompose Search / Weather(city) stack
+core/component/                  Base/StackComponent, bridges, retained MachineInstance
+core/mvi/RequestState.kt          Shared typed request lifecycle
+feature/cities/
+  data/                          HTTP and offline search repositories
+  domain/                        CitySearchRepository, SearchCitiesUseCase
+  presentation/                  Component, machine, command handler, screen and UI projection
+feature/weather/
+  data/                          Current/hourly HTTP and offline repositories
+  domain/                        Weather data and repository interfaces
+  presentation/                  Component, parallel machine, command handler, screen and UI projection
+```
 
-At the end, a consistent group history is captured automatically. The **Original run** card
-lists the five request outcomes and stays fixed while the historical app preview changes.
-Named checkpoints above the app and panel provide a short walkthrough:
+Each component retains its `MachineInstance` through Decompose's `InstanceKeeper`.
+Recreating the host with its saved navigation state reuses the same executor. Returning from
+weather destroys that child and cancels its requests. Search stays in the back stack with its
+query and results. Opening another city creates a new weather child and executor. Merely opening
+search does not request weather for a default city.
 
-1. **Calm weather** shows the first successful Tokyo answer. Step forward to see Advice consume
-   the bridge effect and become Comfortable.
-2. **Before failure** shows Loading with an awaiting command. Choose **Experiment here** and
-   answer it with a recorded response or different weather; the live loader does not run.
-3. **Connection failed** shows the original error. Step backward to inspect the input that
-   caused it, then forward through the retry.
-4. **Recovered · wind** shows the final weather and Windy recommendation. **Verify** re-decides
-   the original recording. **Load calls: 5** stays unchanged during replay and experiments.
+All platform entry points create `DefaultWeatherRootComponent` and call `root.Render()`.
+Desktop constructs/destroys it on the Swing UI thread; Android uses the Activity component context.
+Each screen owns its padding and scrolling. There is no `WeatherApp` or `WeatherAppContent` wrapper.
 
-A named checkpoint returns from an experiment to the original recording before seeking.
-The repeatable contract is the requests, data and per-machine decision sequence. Actual
-wall-clock timestamps and the interleaving of independent machines may differ between fresh
-runs; the captured run retains its own ordering and machine times for exact replay.
+## State machines
 
-## Try the workflow
+`CitySearchMachine` uses `RequestState<List<CityOption>>`:
+`Idle → Debouncing → Loading → Success / Error / TimedOut`.
+Every edit updates the query and revision; 350 ms of quiet starts the request, even for one letter.
+Clearing cancels pending work and restores `Idle`. An empty server response is `Success(emptyList())`.
+Responses for outdated revisions are ignored. Requests time out after eight seconds.
 
-1. Choose a city. The second screen shows weather and a recommendation. Three independently
-   running machines coordinate through typed bridge effects: **Location**, **Weather** and
-   **Advice**. Weather has loading, success, failure and timeout states; previous requests are
-   cancelled when a newer city replaces them, and a guard rejects answers for a different city.
-2. Try **Rapid city changes**. The machines process several selections while requests may be
-   in progress. Earlier loading activations are cancelled; the final selection wins. The journal
-   and machine recordings were installed at startup, before opening the panel.
-3. **Capture history** takes a consistent group cut. The panel and app preview now use the same
-   recorded group cursor. Back, Next or a selected input moves the historical screen. Verify
-   re-decides every recorded input and checks group causality, without calling the API.
-4. Select the Weather machine and find a loading checkpoint, or start an experiment and press
-   Refresh. **Experiment here** creates an isolated branch. Answer the awaiting command with a
-   recorded response, scripted wind or heat, or a scripted connection failure. Advance the
-   virtual clock to the eight-second loading deadline to test a timeout. Advice updates through
-   the local branch bridge. No real command handler runs in the branch.
-5. **Return to recording** discards the experiment and keeps the original replay cursor.
-   **Return to live** shows the independent live Stores again.
+`CityWeatherMachine` uses the typed parallel DSL with `Current` and `Hourly` regions, containing
+`RequestState<WeatherReading>` and `RequestState<HourlyForecast>`. Each declares
+`Idle`, `Loading`, `Success`, `Error` and `TimedOut`. Refresh loads both; retrying the forecast
+only restarts `Hourly`. Responses, errors and timeouts are independent.
 
-Use **Panel: Bottom / Left / Right** to move the same `TimeTravelPanel` component. Drag the
-divider to resize the dock. Narrow browser windows fall back to a bottom dock to keep the app
-visible. There is no second debug window and no tool-tab navigation.
+The state variants define graph identity through the DSL. There are no independent state IDs,
+loading/error flags or string guards/effects. `RequestState` uses generated `@Serializable`
+serialization. Strict repository null-safety checks apply to this example too.
 
-## MVI and determinism
+## Data
 
-`WeatherDemoStore` is an Actron presentation Store: the View sends `DemoIntent`s, a pure
-`reduceWeatherDemo` creates the next immutable state, and lifecycle-owned effects perform
-startup, capture and subscriptions. `WeatherDemoScreen` renders the state and dispatches
-intents. Only UI geometry and menu visibility are local Compose state.
-
-`WeatherRuntime` owns the three MachineStores, command handler, journal and group recorder.
-Pure definitions in `WeatherMachines` never read the network, wall clock or random values.
-An asynchronous response becomes a recorded `MachineInput.CommandResult`. Its data, ordering
-and machine time make the run replayable. The original API may change tomorrow; replay still
-receives the recorded answers. A missing branch answer stays awaiting, with no network fallback.
-
-The demo keeps recordings in memory for this application session; machine recordings grow with
-the run, while weather/error context histories are bounded. They are cleared when the app closes.
-For durable files and reopening after process
-exit, see the separate [disk-to-inspector checkout demo](../time-travel/README.md).
+Current weather includes temperature, apparent temperature and wind. The receipt timestamp is
+shown at the upper right. The hourly request returns six hours of temperature, wind and rain
+probability in the selected city's local time. Errors are shown without replacing live data
+with fixtures. Weather data: Open-Meteo ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/));
+city data: [GeoNames](https://www.geonames.org/).
 
 ## Verification
 
 ```sh
-./gradlew :weather-example:jvmTest :actron-timetravel-compose:jvmTest
-./gradlew :weather-example:compileKotlinJs
+./gradlew :weather-example:jvmTest :weather-example:compileKotlinJs
+./gradlew :weather-android:assembleDebug :nullability-guard:checkPolicy
 ```
 
-Tests use controlled responses and virtual time, not the public service. They cover request
-cancellation, response parsing, replay/branch without further API calls, virtual timeout,
-MVI navigation, historical preview isolation and all three dock placements. Article tests also
-check all five outcomes, two cancellations, error/recovery decisions, repeated fresh sessions,
-blocked interactive intents and the named checkpoint UI. The demo is
-unpublished, excluded from library API dumps and classified as a debug consumer by
-`checkDebugGraph`. Shared code currently targets Desktop/JVM and JS browsers; Android/iOS
-hosts are not included in this example.
+Tests cover HTTP decoding, debounce and revisions, cancellation and timeouts, independent
+parallel requests, generic serialization, navigation, host recreation and request cleanup.
+The Actron library retains its own recording/replay facilities and tests; the weather application
+has no recording coordinator or debug UI dependency.
