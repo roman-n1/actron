@@ -71,7 +71,13 @@ private fun HistoryPanel(
             }
             LazyColumn(Modifier.weight(1f)) {
                 items(entries.asReversed(), key = { it.id }) { entry ->
-                    Column(Modifier.fillMaxWidth().clickable { selectedId = entry.id }.padding(vertical = 8.dp)) {
+                    Column(
+                        Modifier
+                            .testTag("history-entry-${entry.id}")
+                            .fillMaxWidth()
+                            .clickable { selectedId = entry.id }
+                            .padding(vertical = 8.dp),
+                    ) {
                         Text("#${entry.id} ${entry.machine}", style = MaterialTheme.typography.labelMedium)
                         Text(entry.summary, style = MaterialTheme.typography.bodySmall)
                     }
@@ -81,8 +87,17 @@ private fun HistoryPanel(
             if (selected.isEmpty()) {
                 Text("Select an entry. Older entries may have been overwritten.", style = MaterialTheme.typography.bodySmall)
             } else {
+                val entry = selected.single()
+                val replay = remember(entry.id) { entry.replay() }
+                var frame by remember(entry.id) { mutableStateOf(replay.frame()) }
+                Row {
+                    TextButton(onClick = { frame = replay.backward() }, enabled = frame.position > 0) { Text("Previous") }
+                    TextButton(onClick = { frame = replay.forward() }, enabled = frame.position < frame.length) { Text("Next") }
+                    TextButton(onClick = { frame = replay.verify() }) { Text("Verify") }
+                }
+                Text("Replay ${frame.position}/${frame.length}: ${frame.status}", style = MaterialTheme.typography.labelSmall)
                 SelectionContainer(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    Text(remember(selected.single().id) { selected.single().details() }, style = MaterialTheme.typography.bodySmall)
+                    Text(frame.details + "\n\nSelected entry:\n" + remember(entry.id) { entry.details() }, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

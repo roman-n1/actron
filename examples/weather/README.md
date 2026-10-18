@@ -95,22 +95,31 @@ parallel requests, generic serialization, navigation, host recreation and reques
 The Actron library retains its own recording/replay facilities and tests; the weather application
 has no recording coordinator or debug UI dependency.
 
-## Session history
+## Session history and replay
 
-Every default feature executor installs a `DecisionTraceObserver` before `start()`. One
-`WeatherHistory` is retained by the root's `InstanceKeeper` and shared with both feature
-factories. The bounded deque keeps the most recent **500 entries across all feature instances**;
-a new entry evicts the oldest. Closed weather screens remain inspectable until their entries
-are evicted. Clearing history releases the retained entries and recording continues.
+Every default feature executor attaches the library's `BoundedMachineRecorder` through a
+`DecisionTraceObserver` before `start()`. The root retains one `WeatherHistory` across host
+recreation and shares it with both feature factories. Its timeline enforces **500 entries in
+total**, including closed weather screens. Evicting a timeline entry also trims that feature's
+recorder with `discardBefore`, advancing its replay checkpoint. Closed feature recorders are
+released when their last timeline entry disappears. Clear trims all recorders, then recording
+continues from their checkpoints; indices remain stable.
 
-Open **Settings → Debug panel** to inspect inputs, before/after snapshots, transitions,
-commands, timers and actual guard evaluations. Ignored and failed decisions are included.
-The panel observes decisions; it never redispatches an action or calls an API. Selecting an
-entry displays its details without replacing the live application's state. This is history
-inspection, not executor checkpoint replay. The unbounded `MachineRecorder` is deliberately
-not attached; history uses the library's live decision observer contract.
+Open **Settings → Debug panel** for the right-hand panel. Select an entry to freeze a library
+recording, then use **Previous**, **Next** and **Verify**. Replay uses `ReplaySession` and never
+calls repositories or changes the live application's state. It inspects snapshots, commands,
+queues and timers; it does not rewind Decompose navigation. Live recording continues while the
+panel is closed or while a frozen recording is inspected. Decision explanations preserve the
+actual observed guard evaluations. Only actual machine inputs occupy replay slots; dispatches
+refused before processing and Store closure itself are not replay inputs.
 
-History and panel visibility survive host recreation with the retained component owner.
-They are held only in memory and disappear after a complete application restart. The limit
-is an entry count, not a byte quota; payload size still affects memory. Tests use smaller
-capacities to exercise eviction and verify that hiding/showing the panel never resets history.
+History is memory-only and disappears on full application restart. The count limit is not a
+byte quota; a selected frozen recording retains one additional bounded copy. Weather is an
+explicit diagnostics demo and includes `actron-timetravel` on all its targets (including the
+Android example). `checkDebugGraph` still forbids production library modules from depending on
+debug tooling. A production application should isolate this integration in its debug build.
+
+Tests cover shared eviction, clear-and-continue, replay verification after eviction, frozen
+recordings surviving a clear, no API calls or live-state mutation from replay, and lifecycle
+retention. Virtual-time tests inject a matching `MachineClock` so recorded timer deadlines and
+scheduler delays use the same clock.

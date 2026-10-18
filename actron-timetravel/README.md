@@ -127,6 +127,30 @@ Branch(listMachine, checkpoint)          // what if, from where the app is right
 recording.since(checkpoint)              // the run from the checkpoint on: replays and branches from it
 ```
 
+## Bounded in-memory recording
+
+Use `BoundedMachineRecorder(machine, context, capacity = 500)` as a `MachineStore` observer
+before starting the store. `capture()` atomically returns a `RecordingWindow` with absolute
+`firstStep`/`nextStep` indices, origin status and an immutable `recording`.
+
+The recorder keeps a ring of steps and the executor checkpoint immediately before its oldest
+step. Eviction advances this checkpoint through the discarded step with the same lane/timer
+bookkeeping as ordinary recordings. Ignored and failed inputs also occupy slots and advance
+the boundary clock. `ReplaySession(machine, window.recording)` supports seek, verification and
+isolated branches after any number of evictions. `RecordingCodec` encodes this ordinary recording
+without a new file format.
+
+`clear()` discards all steps but retains the current boundary checkpoint so subsequent inputs
+still replay. `discardBefore(absoluteIndex)` allows a host with several recorders to enforce a
+shared budget. Indices never restart after clear. An overload accepts an exact
+`ExecutorCheckpoint` for recording from a known mid-run boundary. Unknown beginnings remain
+marked through `origin`; callers must not present them as verified recordings.
+
+Capacity must be positive and bounds **step count, not bytes**. The boundary may retain active
+commands and application data. A caller that holds old captures owns those extra immutable
+copies. Recorder callbacks and captures are synchronized; a capture cannot combine steps and a
+boundary from different moments. The original unbounded `MachineRecorder` remains compatible.
+
 ## Inspecting a run
 
 Generated or shrunk model-test inputs can become a recording without running a live Store:

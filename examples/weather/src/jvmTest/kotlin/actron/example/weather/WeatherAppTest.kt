@@ -51,6 +51,9 @@ class WeatherAppTest {
             onNodeWithText("Done").performClick()
             onNodeWithTag("weather-history-panel").assertIsDisplayed()
             onNodeWithText("Current session").assertIsDisplayed()
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithText("Verify").performClick()
+            onNodeWithText("Replay verified", substring = true).assertIsDisplayed()
             onNodeWithText("Close").performClick()
             onNodeWithTag("city-search").performTextReplacement("Tokyo")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
