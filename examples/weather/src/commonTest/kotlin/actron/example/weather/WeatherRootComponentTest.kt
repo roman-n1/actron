@@ -25,6 +25,80 @@ import kotlin.test.assertTrue
 
 class WeatherRootComponentTest {
     @Test
+    fun continueFromWeatherRestartsOnlyPendingRegionAndRestoresSearchBackStack() =
+        runTest {
+            var currentCalls = 0
+            var hourlyCalls = 0
+            val keeper = InstanceKeeperDispatcher()
+            val lifecycle = LifecycleRegistry()
+            val root =
+                DefaultWeatherRootComponent(
+                    DefaultComponentContext(lifecycle, instanceKeeper = keeper),
+                    WeatherRepository { city ->
+                        currentCalls++
+                        actron.example.weather.feature.weather.domain
+                            .WeatherReading(city, 20.0, 19.0, 2.0, 0, "test")
+                    },
+                    LocalCitySearchRepository,
+                    actron.example.weather.feature.weather.domain.HourlyForecastRepository {
+                        hourlyCalls++
+                        awaitCancellation()
+                    },
+                    coroutineContext,
+                )
+            lifecycle.resume()
+            try {
+                testScheduler.runCurrent()
+                val history = keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("Missing history") }
+                val search =
+                    root
+                        .getChildStack()
+                        .value.active.instance as CitySearchComponent
+                search.onUiEvent(CitySearchIntent.QueryChanged("Lis"))
+                testScheduler.runCurrent()
+                search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
+                testScheduler.runCurrent()
+                val entry =
+                    history.timeline.entries.value
+                        .last()
+                assertTrue(entry.snapshot.canResume())
+                assertEquals(1, currentCalls)
+                assertEquals(1, hourlyCalls)
+                history.panel.select(entry)
+                history.panel.previewSelected()
+                testScheduler.runCurrent()
+                assertEquals(1, hourlyCalls, "Inspection must not restart requests")
+                root.continueFrom(entry.snapshot)
+                testScheduler.runCurrent()
+                assertEquals(1, currentCalls, "Completed region must not reload")
+                assertEquals(2, hourlyCalls, "Pending read request must restart")
+                assertEquals(1L, history.branch)
+                assertTrue(
+                    history.timeline.entries.value
+                        .contains(entry),
+                )
+                val weather =
+                    root
+                        .getChildStack()
+                        .value.active.instance as actron.example.weather.feature.weather.presentation.CityWeatherComponent
+                assertEquals(demoCities[1], weather.state.value.context.city)
+                weather.onUiEvent(actron.example.weather.feature.weather.presentation.CityWeatherIntent.Back)
+                testScheduler.runCurrent()
+                val restored =
+                    root
+                        .getChildStack()
+                        .value.active.instance as CitySearchComponent
+                assertEquals("Lis", restored.state.value.context.query)
+                restored.onUiEvent(CitySearchIntent.QueryChanged("Paris"))
+                testScheduler.runCurrent()
+                assertEquals("Paris", restored.state.value.context.query)
+            } finally {
+                lifecycle.destroy()
+                keeper.destroy()
+            }
+        }
+
+    @Test
     fun activeWeatherRestores_andBridgeSubscriptionsDoNotDuplicateCitySelection() =
         runTest {
             val requests = mutableListOf<actron.example.weather.core.domain.City>()
@@ -60,9 +134,9 @@ class WeatherRootComponentTest {
             search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
             testScheduler.runCurrent()
             assertEquals(initialCalls + 1, requests.size)
-            val retainedEntries = history.entries.value
-            assertTrue(retainedEntries.any { it.machine.startsWith("city-search") })
-            assertTrue(retainedEntries.any { it.machine.startsWith("city-weather") })
+            val retainedEntries = history.timeline.entries.value
+            assertTrue(retainedEntries.any { it.machine.name.startsWith("City Search") })
+            assertTrue(retainedEntries.any { it.machine.name.startsWith("City Weather") })
             val saved = stateKeeper.save()
             firstLifecycle.destroy()
 
@@ -83,7 +157,10 @@ class WeatherRootComponentTest {
                 )
             lifecycle.resume()
             assertSame(history, keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("History must survive recreation") })
-            assertTrue(history.entries.value.containsAll(retainedEntries))
+            assertTrue(
+                history.timeline.entries.value
+                    .containsAll(retainedEntries),
+            )
             try {
                 testScheduler.runCurrent()
                 val weather =

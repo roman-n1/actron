@@ -1,13 +1,18 @@
 package actron.example.weather.feature.cities.presentation
 
+import actron.example.weather.core.debug.LocalWeatherSettings
 import actron.example.weather.core.mvi.RequestState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -15,8 +20,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -34,7 +42,14 @@ fun CitySearchScreen(
                 .testTag("cities-screen"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Cities", style = MaterialTheme.typography.titleLarge)
+            val openSettings = LocalWeatherSettings.current
+            val settingsLabel = if (androidx.compose.ui.text.intl.Locale.current.language == "ru") "Настройки" else "Settings"
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Cities", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = openSettings, modifier = Modifier.testTag("debug-settings").semantics { contentDescription = settingsLabel }) {
+                    Text("⚙", style = MaterialTheme.typography.headlineSmall)
+                }
+            }
             OutlinedTextField(
                 value = state.query,
                 onValueChange = { onIntent(CitySearchIntent.QueryChanged(it)) },
@@ -48,8 +63,12 @@ fun CitySearchScreen(
                     Text("Enter a city name", modifier = Modifier.testTag("city-search-hint"))
                 }
 
-                RequestState.Debouncing, RequestState.Loading -> {
-                    Text("Searching…")
+                RequestState.Debouncing -> {
+                    Text("Waiting for typing…", modifier = Modifier.testTag("city-search-debounce"))
+                }
+
+                RequestState.Loading -> {
+                    Text("Searching…", modifier = Modifier.testTag("city-search-loading"))
                 }
 
                 is RequestState.Error, RequestState.TimedOut -> {
@@ -65,6 +84,8 @@ fun CitySearchScreen(
                         OutlinedButton(
                             onClick = { onIntent(CitySearchIntent.SelectCity(city)) },
                             enabled = state.enabled,
+                            colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = MaterialTheme.colorScheme.primary),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                             modifier = Modifier.fillMaxWidth().testTag("city-${city.name}"),
                         ) {
                             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {

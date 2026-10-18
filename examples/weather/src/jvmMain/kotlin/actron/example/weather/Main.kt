@@ -1,11 +1,11 @@
 package actron.example.weather
 
 import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.app.WeatherTheme
 import actron.example.weather.core.network.weatherHttpClient
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
 import actron.example.weather.feature.weather.data.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -36,7 +36,7 @@ fun main(args: Array<String>) {
                 }
             application(exitProcessOnExit = false) {
                 Window(onCloseRequest = ::exitApplication, title = "Weather", state = rememberWindowState(size = DpSize(1180.dp, 900.dp))) {
-                    MaterialTheme { root.Render() }
+                    WeatherTheme { root.Render() }
                 }
             }
         } finally {

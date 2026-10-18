@@ -6,6 +6,17 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.roman-n1:actron-timetravel>
+final enum class actron.timetravel/HistorySourceKind : kotlin/Enum<actron.timetravel/HistorySourceKind> { // actron.timetravel/HistorySourceKind|null[0]
+    enum entry Machine // actron.timetravel/HistorySourceKind.Machine|null[0]
+    enum entry Navigation // actron.timetravel/HistorySourceKind.Navigation|null[0]
+
+    final val entries // actron.timetravel/HistorySourceKind.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<actron.timetravel/HistorySourceKind> // actron.timetravel/HistorySourceKind.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): actron.timetravel/HistorySourceKind // actron.timetravel/HistorySourceKind.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<actron.timetravel/HistorySourceKind> // actron.timetravel/HistorySourceKind.values|values#static(){}[0]
+}
+
 sealed interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/DecodedRecording { // actron.timetravel/DecodedRecording|null[0]
     final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Decoded : actron.timetravel/DecodedRecording<#A1, #B1, #C1, #D1> { // actron.timetravel/DecodedRecording.Decoded|null[0]
         constructor <init>(actron.timetravel/Recording<#A1, #B1, #C1, #D1>) // actron.timetravel/DecodedRecording.Decoded.<init>|<init>(actron.timetravel.Recording<1:0,1:1,1:2,1:3>){}[0]
@@ -1579,6 +1590,37 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
     final fun withNext(kotlin/Function1<actron.timetravel/RecordedStep<#A, #B, #C, #D>, kotlin/Unit>): kotlin/Boolean // actron.timetravel/ReplaySession.withNext|withNext(kotlin.Function1<actron.timetravel.RecordedStep<1:0,1:1,1:2,1:3>,kotlin.Unit>){}[0]
 }
 
+final class <#A: kotlin/Any> actron.timetravel/HistoryEntry { // actron.timetravel/HistoryEntry|null[0]
+    constructor <init>(kotlin/Long, actron.timetravel/HistoryMachine, kotlin/Long, kotlin.time/Instant, actron.timetravel/HistoryDetails, #A, kotlin/Function0<kotlin/Unit>) // actron.timetravel/HistoryEntry.<init>|<init>(kotlin.Long;actron.timetravel.HistoryMachine;kotlin.Long;kotlin.time.Instant;actron.timetravel.HistoryDetails;1:0;kotlin.Function0<kotlin.Unit>){}[0]
+
+    final val at // actron.timetravel/HistoryEntry.at|{}at[0]
+        final fun <get-at>(): kotlin.time/Instant // actron.timetravel/HistoryEntry.at.<get-at>|<get-at>(){}[0]
+    final val branch // actron.timetravel/HistoryEntry.branch|{}branch[0]
+        final fun <get-branch>(): kotlin/Long // actron.timetravel/HistoryEntry.branch.<get-branch>|<get-branch>(){}[0]
+    final val details // actron.timetravel/HistoryEntry.details|{}details[0]
+        final fun <get-details>(): actron.timetravel/HistoryDetails // actron.timetravel/HistoryEntry.details.<get-details>|<get-details>(){}[0]
+    final val id // actron.timetravel/HistoryEntry.id|{}id[0]
+        final fun <get-id>(): kotlin/Long // actron.timetravel/HistoryEntry.id.<get-id>|<get-id>(){}[0]
+    final val machine // actron.timetravel/HistoryEntry.machine|{}machine[0]
+        final fun <get-machine>(): actron.timetravel/HistoryMachine // actron.timetravel/HistoryEntry.machine.<get-machine>|<get-machine>(){}[0]
+    final val snapshot // actron.timetravel/HistoryEntry.snapshot|{}snapshot[0]
+        final fun <get-snapshot>(): #A // actron.timetravel/HistoryEntry.snapshot.<get-snapshot>|<get-snapshot>(){}[0]
+}
+
+final class <#A: kotlin/Any> actron.timetravel/HistoryTimeline { // actron.timetravel/HistoryTimeline|null[0]
+    constructor <init>(kotlin/Int = ...) // actron.timetravel/HistoryTimeline.<init>|<init>(kotlin.Int){}[0]
+
+    final val capacity // actron.timetravel/HistoryTimeline.capacity|{}capacity[0]
+        final fun <get-capacity>(): kotlin/Int // actron.timetravel/HistoryTimeline.capacity.<get-capacity>|<get-capacity>(){}[0]
+    final val entries // actron.timetravel/HistoryTimeline.entries|{}entries[0]
+        final fun <get-entries>(): kotlinx.coroutines.flow/StateFlow<kotlin.collections/List<actron.timetravel/HistoryEntry<#A>>> // actron.timetravel/HistoryTimeline.entries.<get-entries>|<get-entries>(){}[0]
+
+    final fun append(actron.timetravel/HistoryMachine, kotlin/Long, actron.timetravel/HistoryDetails, #A, kotlin.time/Instant = ..., kotlin/Function0<kotlin/Unit> = ...) // actron.timetravel/HistoryTimeline.append|append(actron.timetravel.HistoryMachine;kotlin.Long;actron.timetravel.HistoryDetails;1:0;kotlin.time.Instant;kotlin.Function0<kotlin.Unit>){}[0]
+    final fun clear() // actron.timetravel/HistoryTimeline.clear|clear(){}[0]
+    final fun machine(kotlin/String, actron.timetravel/HistorySourceKind = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryTimeline.machine|machine(kotlin.String;actron.timetravel.HistorySourceKind){}[0]
+    final fun truncateAfter(kotlin/Long, kotlin/Long = ...) // actron.timetravel/HistoryTimeline.truncateAfter|truncateAfter(kotlin.Long;kotlin.Long){}[0]
+}
+
 final class actron.timetravel.file/GroupOrderEntry { // actron.timetravel.file/GroupOrderEntry|null[0]
     constructor <init>(actron.observability/StoreInstanceId, kotlin/Int, kotlin.collections/List<actron.statechart.machine/MessageId> = ..., actron.statechart.machine/MessageId) // actron.timetravel.file/GroupOrderEntry.<init>|<init>(actron.observability.StoreInstanceId;kotlin.Int;kotlin.collections.List<actron.statechart.machine.MessageId>;actron.statechart.machine.MessageId){}[0]
     constructor <init>(actron.observability/StoreInstanceId, kotlin/Int, kotlin.collections/List<actron.statechart.machine/MessageId> = ..., actron.timetravel.file/GroupDelivery = ...) // actron.timetravel.file/GroupOrderEntry.<init>|<init>(actron.observability.StoreInstanceId;kotlin.Int;kotlin.collections.List<actron.statechart.machine.MessageId>;actron.timetravel.file.GroupDelivery){}[0]
@@ -2021,6 +2063,93 @@ final class actron.timetravel/GroupStep { // actron.timetravel/GroupStep|null[0]
     final fun toString(): kotlin/String // actron.timetravel/GroupStep.toString|toString(){}[0]
 }
 
+final class actron.timetravel/HistoryDetails { // actron.timetravel/HistoryDetails|null[0]
+    constructor <init>(kotlin/String, kotlin/String, kotlin/String, kotlin.collections/List<actron.timetravel/StateField>, kotlin.collections/List<actron.timetravel/StateField>, kotlin.collections/List<kotlin/String> = ..., kotlin/String = ...) // actron.timetravel/HistoryDetails.<init>|<init>(kotlin.String;kotlin.String;kotlin.String;kotlin.collections.List<actron.timetravel.StateField>;kotlin.collections.List<actron.timetravel.StateField>;kotlin.collections.List<kotlin.String>;kotlin.String){}[0]
+
+    final val after // actron.timetravel/HistoryDetails.after|{}after[0]
+        final fun <get-after>(): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/HistoryDetails.after.<get-after>|<get-after>(){}[0]
+    final val before // actron.timetravel/HistoryDetails.before|{}before[0]
+        final fun <get-before>(): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/HistoryDetails.before.<get-before>|<get-before>(){}[0]
+    final val changes // actron.timetravel/HistoryDetails.changes|{}changes[0]
+        final fun <get-changes>(): kotlin.collections/List<actron.timetravel/StateChange> // actron.timetravel/HistoryDetails.changes.<get-changes>|<get-changes>(){}[0]
+    final val explanation // actron.timetravel/HistoryDetails.explanation|{}explanation[0]
+        final fun <get-explanation>(): kotlin/String // actron.timetravel/HistoryDetails.explanation.<get-explanation>|<get-explanation>(){}[0]
+    final val input // actron.timetravel/HistoryDetails.input|{}input[0]
+        final fun <get-input>(): kotlin/String // actron.timetravel/HistoryDetails.input.<get-input>|<get-input>(){}[0]
+    final val operations // actron.timetravel/HistoryDetails.operations|{}operations[0]
+        final fun <get-operations>(): kotlin.collections/List<kotlin/String> // actron.timetravel/HistoryDetails.operations.<get-operations>|<get-operations>(){}[0]
+    final val outcome // actron.timetravel/HistoryDetails.outcome|{}outcome[0]
+        final fun <get-outcome>(): kotlin/String // actron.timetravel/HistoryDetails.outcome.<get-outcome>|<get-outcome>(){}[0]
+    final val source // actron.timetravel/HistoryDetails.source|{}source[0]
+        final fun <get-source>(): kotlin/String // actron.timetravel/HistoryDetails.source.<get-source>|<get-source>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/HistoryDetails.component1|component1(){}[0]
+    final fun component2(): kotlin/String // actron.timetravel/HistoryDetails.component2|component2(){}[0]
+    final fun component3(): kotlin/String // actron.timetravel/HistoryDetails.component3|component3(){}[0]
+    final fun component4(): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/HistoryDetails.component4|component4(){}[0]
+    final fun component5(): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/HistoryDetails.component5|component5(){}[0]
+    final fun component6(): kotlin.collections/List<kotlin/String> // actron.timetravel/HistoryDetails.component6|component6(){}[0]
+    final fun component7(): kotlin/String // actron.timetravel/HistoryDetails.component7|component7(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlin/String = ..., kotlin.collections/List<actron.timetravel/StateField> = ..., kotlin.collections/List<actron.timetravel/StateField> = ..., kotlin.collections/List<kotlin/String> = ..., kotlin/String = ...): actron.timetravel/HistoryDetails // actron.timetravel/HistoryDetails.copy|copy(kotlin.String;kotlin.String;kotlin.String;kotlin.collections.List<actron.timetravel.StateField>;kotlin.collections.List<actron.timetravel.StateField>;kotlin.collections.List<kotlin.String>;kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryDetails.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryDetails.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryDetails.toString|toString(){}[0]
+}
+
+final class actron.timetravel/HistoryMachine { // actron.timetravel/HistoryMachine|null[0]
+    constructor <init>(kotlin/Long, kotlin/String, actron.timetravel/HistorySourceKind = ...) // actron.timetravel/HistoryMachine.<init>|<init>(kotlin.Long;kotlin.String;actron.timetravel.HistorySourceKind){}[0]
+
+    final val id // actron.timetravel/HistoryMachine.id|{}id[0]
+        final fun <get-id>(): kotlin/Long // actron.timetravel/HistoryMachine.id.<get-id>|<get-id>(){}[0]
+    final val kind // actron.timetravel/HistoryMachine.kind|{}kind[0]
+        final fun <get-kind>(): actron.timetravel/HistorySourceKind // actron.timetravel/HistoryMachine.kind.<get-kind>|<get-kind>(){}[0]
+    final val name // actron.timetravel/HistoryMachine.name|{}name[0]
+        final fun <get-name>(): kotlin/String // actron.timetravel/HistoryMachine.name.<get-name>|<get-name>(){}[0]
+
+    final fun component1(): kotlin/Long // actron.timetravel/HistoryMachine.component1|component1(){}[0]
+    final fun component2(): kotlin/String // actron.timetravel/HistoryMachine.component2|component2(){}[0]
+    final fun component3(): actron.timetravel/HistorySourceKind // actron.timetravel/HistoryMachine.component3|component3(){}[0]
+    final fun copy(kotlin/Long = ..., kotlin/String = ..., actron.timetravel/HistorySourceKind = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryMachine.copy|copy(kotlin.Long;kotlin.String;actron.timetravel.HistorySourceKind){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryMachine.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryMachine.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryMachine.toString|toString(){}[0]
+}
+
+final class actron.timetravel/StateChange { // actron.timetravel/StateChange|null[0]
+    constructor <init>(kotlin/String, kotlin/String, kotlin/String) // actron.timetravel/StateChange.<init>|<init>(kotlin.String;kotlin.String;kotlin.String){}[0]
+
+    final val after // actron.timetravel/StateChange.after|{}after[0]
+        final fun <get-after>(): kotlin/String // actron.timetravel/StateChange.after.<get-after>|<get-after>(){}[0]
+    final val before // actron.timetravel/StateChange.before|{}before[0]
+        final fun <get-before>(): kotlin/String // actron.timetravel/StateChange.before.<get-before>|<get-before>(){}[0]
+    final val path // actron.timetravel/StateChange.path|{}path[0]
+        final fun <get-path>(): kotlin/String // actron.timetravel/StateChange.path.<get-path>|<get-path>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/StateChange.component1|component1(){}[0]
+    final fun component2(): kotlin/String // actron.timetravel/StateChange.component2|component2(){}[0]
+    final fun component3(): kotlin/String // actron.timetravel/StateChange.component3|component3(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlin/String = ...): actron.timetravel/StateChange // actron.timetravel/StateChange.copy|copy(kotlin.String;kotlin.String;kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/StateChange.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/StateChange.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/StateChange.toString|toString(){}[0]
+}
+
+final class actron.timetravel/StateField { // actron.timetravel/StateField|null[0]
+    constructor <init>(kotlin/String, kotlin/String) // actron.timetravel/StateField.<init>|<init>(kotlin.String;kotlin.String){}[0]
+
+    final val path // actron.timetravel/StateField.path|{}path[0]
+        final fun <get-path>(): kotlin/String // actron.timetravel/StateField.path.<get-path>|<get-path>(){}[0]
+    final val value // actron.timetravel/StateField.value|{}value[0]
+        final fun <get-value>(): kotlin/String // actron.timetravel/StateField.value.<get-value>|<get-value>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/StateField.component1|component1(){}[0]
+    final fun component2(): kotlin/String // actron.timetravel/StateField.component2|component2(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ...): actron.timetravel/StateField // actron.timetravel/StateField.copy|copy(kotlin.String;kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/StateField.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/StateField.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/StateField.toString|toString(){}[0]
+}
+
 sealed class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel.file/DecodedRecordingSegment { // actron.timetravel.file/DecodedRecordingSegment|null[0]
     abstract val ending // actron.timetravel.file/DecodedRecordingSegment.ending|{}ending[0]
         abstract fun <get-ending>(): actron.observability.file/SegmentEnding // actron.timetravel.file/DecodedRecordingSegment.ending.<get-ending>|<get-ending>(){}[0]
@@ -2264,3 +2393,4 @@ final const val actron.timetravel/RECORDING_FORMAT_VERSION // actron.timetravel/
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/ExecutorCheckpoint<#A, #C>).actron.timetravel/carriedPast(actron.timetravel/RecordedStep<#A, #B, #C, #D>): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/carriedPast|carriedPast@actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>(actron.timetravel.RecordedStep<0:0,0:1,0:2,0:3>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/Machine<#A, #B, #C, #D>).actron.timetravel/recordInputs(actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin.collections/List<actron.statechart.machine/MachineInput<#B>>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/recordInputs|recordInputs@actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>(actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>;kotlin.collections.List<actron.statechart.machine.MachineInput<0:1>>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/Machine<#A, #B, #C, #D>).actron.timetravel/recordInputs(actron.statechart.machine/MachineSnapshot<#A>, kotlin.collections/List<actron.statechart.machine/MachineInput<#B>>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/recordInputs|recordInputs@actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>(actron.statechart.machine.MachineSnapshot<0:0>;kotlin.collections.List<actron.statechart.machine.MachineInput<0:1>>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
+final fun actron.timetravel/historyFields(kotlinx.serialization.json/JsonElement): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/historyFields|historyFields(kotlinx.serialization.json.JsonElement){}[0]

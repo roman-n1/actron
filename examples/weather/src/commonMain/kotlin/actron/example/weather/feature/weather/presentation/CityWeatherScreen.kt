@@ -2,6 +2,7 @@
 
 package actron.example.weather.feature.weather.presentation
 
+import actron.timetravel.compose.formatHistoryTime
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import kotlin.time.Instant
 
 @Composable
 fun CityWeatherScreen(
@@ -57,7 +59,7 @@ fun CityWeatherScreen(
                         Text(state.city, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).testTag("weather-city"))
                         if (state.updatedAt.isNotEmpty()) {
                             Text(
-                                state.updatedAt,
+                                localizedUpdatedAt(state.updatedAt),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.End,
@@ -88,4 +90,15 @@ fun CityWeatherScreen(
             }
         }
     }
+}
+
+@Composable
+private fun localizedUpdatedAt(value: String): String {
+    val parsed =
+        try {
+            listOf(Instant.parse(value))
+        } catch (_: IllegalArgumentException) {
+            emptyList()
+        }
+    return if (parsed.isEmpty()) value else "Updated ${formatHistoryTime(parsed.single())}"
 }

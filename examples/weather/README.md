@@ -102,24 +102,35 @@ Every default feature executor attaches the library's `BoundedMachineRecorder` t
 recreation and shares it with both feature factories. Its timeline enforces **500 entries in
 total**, including closed weather screens. Evicting a timeline entry also trims that feature's
 recorder with `discardBefore`, advancing its replay checkpoint. Closed feature recorders are
-released when their last timeline entry disappears. Clear trims all recorders, then recording
-continues from their checkpoints; indices remain stable.
+released when their last timeline entry disappears; indices remain stable.
 
-Open **Settings → Debug panel** for the right-hand panel. Select an entry to freeze a library
-recording, then use **Previous**, **Next** and **Verify**. Replay uses `ReplaySession` and never
-calls repositories or changes the live application's state. It inspects snapshots, commands,
-queues and timers; it does not rewind Decompose navigation. Live recording continues while the
-panel is closed or while a frozen recording is inspected. Decision explanations preserve the
-actual observed guard evaluations. Only actual machine inputs occupy replay slots; dispatches
-refused before processing and Store closure itself are not replay inputs.
+Open the gear next to **Cities**, then enable **Debug panel** for the reusable library `HistoryPanel`. The global
+chronology includes navigation and can be filtered by machine instance. Each selection shows
+the input action with its payload between the before/after active states, structured field
+changes. Technical diagnostics remain in the recording model. Event and update timestamps
+use the device's local time zone and locale.
+
+Selecting an event immediately renders the saved application frame with inputs disabled, without calling any
+repositories. Live recording continues in the background. Switching to **Live** exits preview.
+**Continue here** replaces the Decompose stack and executors with the selected frame and exits preview. Search context and both parallel weather regions are restored
+together. Completed requests stay completed; running read requests restart, queued commands
+keep their lanes and timers keep their remaining delay. Old executors are closed; callbacks
+from an earlier branch cannot modify the new frame. After successful restoration, entries after the selected event are removed. Earlier entries
+and the selected event stay available; new execution extends this linear history. The original
+running session is replaced. This is an at-least-once restart of read-only
+work, not replay of arbitrary external side effects. Unsupported checkpoints with pending
+effects or terminal command outcomes cannot be continued.
 
 History is memory-only and disappears on full application restart. The count limit is not a
-byte quota; a selected frozen recording retains one additional bounded copy. Weather is an
-explicit diagnostics demo and includes `actron-timetravel` on all its targets (including the
-Android example). `checkDebugGraph` still forbids production library modules from depending on
-debug tooling. A production application should isolate this integration in its debug build.
+byte quota. Selection and preview can each pin an immutable application frame after eviction.
+Weather is an explicit diagnostics demo and includes `actron-timetravel-compose` on all targets.
+Production integrations should isolate this dependency in their debug build.
 
-Tests cover shared eviction, clear-and-continue, replay verification after eviction, frozen
-recordings surviving a clear, no API calls or live-state mutation from replay, and lifecycle
-retention. Virtual-time tests inject a matching `MachineClock` so recorded timer deadlines and
-scheduler delays use the same clock.
+Tests cover bounded history, pinned selection after eviction, action details, preview/continue,
+restoring navigation and a pending parallel request, local timestamp formatting, and lifecycle
+retention. Core restart tests verify command queues, remaining timer delays and entry hooks.
+
+
+Desktop `:weather-example:run` copies its classpath into a per-run temporary snapshot before
+starting. Rebuilding project JARs while the app is open therefore cannot invalidate classes
+that the running app has not loaded yet. Normal exit removes the snapshot.

@@ -1,3 +1,5 @@
+import java.nio.file.Files
+
 plugins {
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlinMultiplatform)
@@ -27,7 +29,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":actron-statechart"))
-            implementation(project(":actron-timetravel"))
+            implementation(project(":actron-timetravel-compose"))
             implementation("com.arkivanov.decompose:decompose:3.5.0")
             implementation("com.arkivanov.decompose:extensions-compose:3.5.0")
             implementation(compose.foundation)
@@ -61,4 +63,34 @@ kotlin {
 
 compose.desktop.application {
     mainClass = "actron.example.weather.MainKt"
+}
+
+// An open desktop app must not read JARs that another Gradle build can replace.
+tasks.withType<JavaExec>().configureEach {
+    if (name != "run") return@configureEach
+    val isolatedClasspath = objects.fileCollection()
+    doFirst {
+        val snapshot = Files.createTempDirectory("actron-weather-run-").toFile()
+        val copies =
+            classpath.files.mapIndexed { index, source ->
+                val target = snapshot.resolve("$index/${source.name}")
+                if (source.isDirectory) {
+                    source.copyRecursively(target, overwrite = false)
+                } else {
+                    target.parentFile.mkdirs()
+                    source.copyTo(target, overwrite = false)
+                }
+                target
+            }
+        isolatedClasspath.setFrom(copies)
+        classpath = isolatedClasspath
+        logger.lifecycle("Weather runs from an isolated classpath snapshot: $snapshot")
+    }
+    doLast {
+        // Every classpath entry is copied under its own index directory in doFirst.
+        classpath.files
+            .first()
+            .parentFile.parentFile
+            .deleteRecursively()
+    }
 }

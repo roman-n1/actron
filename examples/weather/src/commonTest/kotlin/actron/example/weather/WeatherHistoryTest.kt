@@ -3,108 +3,47 @@
 package actron.example.weather
 
 import actron.core.InputAttribution
-import actron.example.weather.core.debug.WeatherHistory
-import actron.example.weather.feature.cities.presentation.CitySearchAction
-import actron.example.weather.feature.cities.presentation.CitySearchMachine
-import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.core.debug.*
+import actron.example.weather.feature.cities.presentation.*
 import actron.statechart.machine.*
+import actron.timetravel.historyFields
+import kotlinx.serialization.json.Json
 import kotlin.test.*
 
 class WeatherHistoryTest {
     @Test
-    fun realStoreRecordsBeforePanelOpensAndRetainsClosedFeature() =
-        kotlinx.coroutines.test.runTest {
-            val history = WeatherHistory()
-            var apiCalls = 0
-            val instance =
-                actron.example.weather.core.component.MachineInstance(
-                    CitySearchMachine.create(),
-                    CitySearchState(),
-                    actron.example.weather.feature.cities.presentation.citySearchHandler(
-                        actron.example.weather.feature.cities.domain.SearchCitiesUseCase(
-                            actron.example.weather.feature.cities.domain
-                                .CitySearchRepository {
-                                    apiCalls++
-                                    emptyList()
-                                },
-                        ),
-                    ),
-                    coroutineContext,
-                    history,
-                    clock = MachineClock.monotonic(testScheduler.timeSource),
-                )
-            testScheduler.runCurrent()
-            assertEquals(1, history.entries.value.size)
-            for (query in listOf("P", "Pa", "Paris")) {
-                instance.store.dispatch(CitySearchAction.ChangeQuery(query))
-                testScheduler.runCurrent()
-            }
-            assertEquals(4, history.entries.value.size)
-            testScheduler.advanceTimeBy(350)
-            testScheduler.runCurrent()
-            assertTrue(history.entries.value.any { it.details().contains("Found") })
-            val live = instance.store.state.value
-            val calls = apiCalls
-            val replay =
-                history.entries.value
-                    .last()
-                    .replay()
-            assertEquals("Replay verified", replay.verify().status)
-            replay.backward()
-            replay.forward()
-            assertEquals(live, instance.store.state.value)
-            assertEquals(calls, apiCalls)
-            val beforeClose = history.entries.value.toList()
-            instance.onDestroy()
-            testScheduler.runCurrent()
-            assertTrue(history.entries.value.containsAll(beforeClose))
-            history.panelVisible.value = true
-            assertTrue(history.entries.value.containsAll(beforeClose))
-        }
+    fun hiddenHistoryRetainsEditsAndPinsSelectionAfterEviction() {
+        val history = WeatherHistory(3)
+        traceEdits(history, listOf("P", "Pa"))
+        assertFalse(history.panelVisible.value)
+        val selected =
+            history.timeline.entries.value
+                .last()
+        history.panel.select(selected)
+        history.panel.previewSelected()
+        traceEdits(history, listOf("Berlin", "Berlinn"))
+        assertEquals(3, history.timeline.entries.value.size)
+        assertEquals(selected, history.panel.preview.single())
+        assertEquals("Pa", selected.snapshot.search.snapshot.context.query)
+        assertTrue(selected.details.changes.any { it.path == "query" })
+        history.timeline.clear()
+        assertTrue(
+            history.timeline.entries.value
+                .isEmpty(),
+        )
+        assertEquals(selected, history.panel.preview.single())
+    }
 
     @Test
-    fun hiddenHistoryRetainsEveryEditAndEvictsOldestAcrossInstances() {
-        val history = WeatherHistory(capacity = 3)
-        traceEdits(history, listOf("P", "Pa", "Par", "Paris"))
-        assertFalse(history.panelVisible.value)
-        val beforeOpening = history.entries.value
-        assertEquals(3, beforeOpening.size)
-        assertTrue(beforeOpening.last().details().contains("Paris"))
-        assertTrue(beforeOpening.last().details().contains("Before:"))
-        history.panelVisible.value = true
-        assertEquals(beforeOpening, history.entries.value)
-        traceEdits(history, listOf("Berlin"))
-        assertEquals(3, history.entries.value.size)
-        assertEquals(
-            2,
-            history.entries.value
-                .map { it.machine }
-                .distinct()
-                .size,
-        )
-        assertTrue(
-            history.entries.value
-                .first()
-                .id > beforeOpening.first().id,
-        )
-        for (entry in history.entries.value) assertEquals("Replay verified", entry.replay().verify().status)
-        val frozen =
-            history.entries.value
-                .last()
-                .replay()
-        val lastId =
-            history.entries.value
-                .last()
-                .id
-        history.clear()
-        assertTrue(history.entries.value.isEmpty())
-        assertEquals("Replay verified", frozen.verify().status)
-        traceEdits(history, listOf("Rome"))
-        assertTrue(
-            history.entries.value
-                .first()
-                .id > lastId,
-        )
+    fun oldBranchCallbacksCannotChangeNewBranch() {
+        val history = WeatherHistory()
+        val machine = CitySearchMachine.create()
+        val checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(machine.initialSnapshot(CitySearchState()))
+        val observer = history.observer(machine, checkpoint, { historyFields(Json.encodeToJsonElement(CitySearchState.serializer(), it)) }, history::updateSearch)
+        history.beginBranch(WeatherFrame())
+        observer.onDecided(InputAttribution.Unattributed, MachineInput.Start(MachineTime.Zero), machine.decideExplained(checkpoint.snapshot, MachineInput.Start(MachineTime.Zero)))
+        assertEquals(1, history.timeline.entries.value.size)
+        assertFalse(history.frame.search.snapshot.isStarted)
     }
 
     private fun traceEdits(
@@ -112,20 +51,14 @@ class WeatherHistoryTest {
         queries: List<String>,
     ) {
         val machine = CitySearchMachine.create()
-        val observer = history.observer(machine, CitySearchState())
-        var snapshot = machine.initialSnapshot(CitySearchState())
-        val inputs =
-            listOf<MachineInput<CitySearchAction>>(MachineInput.Start(MachineTime.Zero)) +
-                queries.map { MachineInput.Dispatch(CitySearchAction.ChangeQuery(it), MachineTime.Zero) }
-        for (input in inputs) {
+        val checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(machine.initialSnapshot(CitySearchState()))
+        val observer = history.observer(machine, checkpoint, { historyFields(Json.encodeToJsonElement(CitySearchState.serializer(), it)) }, history::updateSearch)
+        var snapshot = checkpoint.snapshot
+        val inputs = listOf<MachineInput<CitySearchAction>>(MachineInput.Start(MachineTime.Zero)) + queries.map { MachineInput.Dispatch(CitySearchAction.ChangeQuery(it), MachineTime.Zero) }
+        inputs.forEach { input ->
             val explained = machine.decideExplained(snapshot, input)
             observer.onDecided(InputAttribution.Unattributed, input, explained)
             snapshot = explained.decision.snapshot
         }
-    }
-
-    @Test
-    fun bufferRequiresPositiveCapacity() {
-        assertFailsWith<IllegalArgumentException> { WeatherHistory(0) }
     }
 }

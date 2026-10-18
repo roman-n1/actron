@@ -6,6 +6,27 @@ replay → experiment → return workflow, `GroupReplayControls` for replay only
 `ReplayControls` for one Store. Add this to a debug dependency graph; setup follows the
 [installation guide](../README.md#installation).
 
+## Application history panel
+
+`HistoryPanel(timeline, state, onContinue)` displays a bounded, session-wide
+`HistoryTimeline<S>` across machine instances. It provides a machine filter, chronological
+inputs, full selected action payload, before/after states and field changes.
+UI labels follow the device language: Russian and English are supported, with English as the fallback. Machine names, payloads and diagnostic data remain verbatim. `formatHistoryTime` uses the device locale and local time zone;
+Android also respects the system 12/24-hour preference.
+
+The application creates the timeline before starting executors, supplies immutable snapshots
+and structured `StateField` values (or `historyFields(JsonElement)`), and owns restoration.
+`HistoryPanelState` pins selected and preview entries even after ring-buffer eviction.
+Selecting an entry immediately changes `state.preview`, which the host renders
+without interactive handlers. Switching to Live clears preview. Continue here invokes the host's
+callback for the selected preview; `canContinue` can reject unsupported checkpoints. The host owns
+navigation, cancellation and safe executor restart. The weather example demonstrates this
+using `resumeMachineStore` and read-only weather requests.
+
+The timeline is bounded by entry count, not bytes. It stores no files and does not automatically
+capture machines. Keep snapshots immutable and install recording even when the panel is hidden.
+The panel should receive bounded layout constraints (for example a right-hand app sidebar).
+
 ## Embeddable panel
 
 `TimeTravelPanel` is a compact alternative to the full inspector. It has one machine picker,
@@ -38,7 +59,7 @@ position and verification result intact.
 The panel does not open a window, start a recorder, replace the application's state or call
 command handlers. Install recording before the bug happens. Drive an explicit, IO-free app
 preview from the selected replay/branch snapshots; the [MVI weather demo](../examples/weather/README.md)
-shows that integration and lets you switch between bottom, left and right docks.
+demonstrates application-frame preview and continuation with the newer HistoryPanel.
 
 For a complete runnable recording → disk → replay → experiment workflow, see the
 [Time Travel desktop example](../examples/time-travel/README.md).
@@ -156,3 +177,15 @@ previous nodes, selectable transitions, timer details and actual guard outcomes.
 “Explain next input / check invariants” button computes one pure decision and checks the selected
 snapshot; composition itself never executes guards or business IO. The panel renders metadata,
 with context/action payloads left to an application's explicit projection.
+
+
+`ResizableHistoryLayout` places the inspector on the right of a wide window or below the app
+on a narrow window. Drag its separator to adjust width or height. Retain a
+`HistoryPanelLayoutState` in the host to preserve the size when hiding the panel or navigating.
+The separator also exposes an accessible range action.
+
+
+Selecting entries or switching History/Live does not remove history. After the continuation
+callback succeeds, the panel removes the abandoned future, keeping the selected event,
+earlier entries and any new events emitted during restoration. Event IDs are never reused.
+Technical diagnostics remain in the recording model but are not displayed by HistoryPanel.

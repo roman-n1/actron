@@ -1,12 +1,16 @@
+@file:OptIn(actron.core.ExperimentalActronApi::class)
+
 package actron.example.weather.core.component
 
 import actron.core.Action
 import actron.core.Event
 import actron.example.weather.core.debug.WeatherHistory
+import actron.statechart.machine.*
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineClock
 import actron.statechart.machine.MachineStore
+import actron.timetravel.StateField
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -20,10 +24,19 @@ class MachineInstance<C : Any, A : Action, CMD : Any, E : Event>(
     handler: CommandHandler<CMD, A>,
     context: CoroutineContext,
     history: WeatherHistory = WeatherHistory(),
-    clock: MachineClock = MachineClock.monotonic(),
+    clock: MachineClock = history.clock,
+    checkpoint: ExecutorCheckpoint<C, CMD> = ExecutorCheckpoint.initial(machine.initialSnapshot(initial)),
+    describe: (C) -> List<StateField> = { listOf(StateField("context", it.toString())) },
+    update: (ExecutorCheckpoint<C, CMD>) -> Unit = {},
 ) : InstanceKeeper.Instance {
     private val scope = CoroutineScope(context + SupervisorJob())
-    val store = MachineStore(machine, initial, handler, scope, coroutineContext = context, observers = listOf(history.observer(machine, initial)), clock = clock)
+    private val observer = history.observer(machine, checkpoint, describe, update)
+    val store =
+        if (checkpoint.snapshot.isStarted) {
+            resumeMachineStore(machine, checkpoint, handler, scope, context, clock, listOf(observer))
+        } else {
+            MachineStore(machine, checkpoint.snapshot.context, handler, scope, coroutineContext = context, observers = listOf(observer), clock = clock)
+        }
 
     init {
         store.start()

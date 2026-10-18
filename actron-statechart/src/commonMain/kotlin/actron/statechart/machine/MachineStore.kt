@@ -163,6 +163,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val observers: List<DecisionObserver<C, A, CMD, E>>,
     mailboxConfig: MailboxConfig<E>,
     builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit,
+    private val origin: StoreOrigin<C, CMD> = StoreOrigin.Fresh,
 ) : MachineStore<C, A, CMD, E>,
     StoreInternalApi<MachineSnapshot<C>, A, E> {
     init {
@@ -170,6 +171,12 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
             "[Actron] MachineStore needs an execution scope with a real dispatcher: with Dispatchers.Unconfined, command handlers would run under the store's lock"
         }
     }
+
+    private val initialSnapshot =
+        when (origin) {
+            StoreOrigin.Fresh -> machine.initialSnapshot(context)
+            is StoreOrigin.Resumed -> origin.checkpoint.snapshot
+        }
 
     private val executionScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 
@@ -206,7 +213,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val scheduler =
         CommandScheduler<C, A, CMD, E>(
             executionScope,
-            machine.initialSnapshot(context),
+            initialSnapshot,
             handler,
             clock,
             mailboxImpl,
@@ -280,12 +287,16 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
 
     /** The underlying Actron Store; the module's own tests feed it raw machine inputs. */
     internal val inner: Store<MachineSnapshot<C>, MachineInput<A>, E> =
-        Store(machine.initialSnapshot(context), coroutineContext) {
+        Store(initialSnapshot, coroutineContext) {
             // Registered before the configuration, so first-match selection never lets a
             // configured enter {} or action {} run in the machine's place; recover {} handlers
             // configured below still apply.
             state<MachineSnapshot<C>> {
                 enter {
+                    if (origin is StoreOrigin.Resumed) {
+                        scheduler.resume(origin.checkpoint)
+                        return@enter
+                    }
                     val input = currentInputId()
                     val foreign = state.definition != machine.id || state.version != machine.version
                     // A restored snapshot of another machine or version cannot be decided by this

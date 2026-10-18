@@ -8,6 +8,7 @@ import actron.example.weather.core.domain.City
 import actron.example.weather.feature.weather.domain.HourlyForecastRepository
 import actron.example.weather.feature.weather.domain.WeatherRepository
 import actron.statechart.machine.MachineSnapshot
+import actron.timetravel.historyFields
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +20,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlin.coroutines.CoroutineContext
 
 interface CityWeatherComponent : BaseComponent {
@@ -52,8 +54,17 @@ class DefaultCityWeatherComponent(
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
     private val machine =
         instanceKeeper.getOrCreate {
-            MachineInstance(CityWeatherMachine.create(), WeatherContext(city), cityWeatherHandler(repository, hourlyRepository), coroutineContext, history)
-                .also { it.store.dispatch(WeatherAction.Refresh) }
+            val checkpoint = history.weatherCheckpoint(city)
+            MachineInstance(
+                CityWeatherMachine.create(),
+                WeatherContext(city),
+                cityWeatherHandler(repository, hourlyRepository),
+                coroutineContext,
+                history,
+                checkpoint = checkpoint,
+                describe = { historyFields(Json.encodeToJsonElement(WeatherContext.serializer(), it)) },
+                update = history::updateWeather,
+            ).also { if (!checkpoint.snapshot.isStarted) it.store.dispatch(WeatherAction.Refresh) }
         }
     override val state = machine.store.state
 
