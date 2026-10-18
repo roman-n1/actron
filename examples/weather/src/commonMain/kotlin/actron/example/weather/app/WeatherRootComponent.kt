@@ -6,6 +6,8 @@ import actron.example.weather.core.component.BaseComponent
 import actron.example.weather.core.component.ParentBridge
 import actron.example.weather.core.component.StackComponent
 import actron.example.weather.core.component.toStateFlow
+import actron.example.weather.core.debug.WeatherDebugLayout
+import actron.example.weather.core.debug.WeatherHistory
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.domain.CitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchComponent
@@ -14,12 +16,14 @@ import actron.example.weather.feature.weather.domain.HourlyForecastRepository
 import actron.example.weather.feature.weather.domain.WeatherRepository
 import actron.example.weather.feature.weather.presentation.CityWeatherComponent
 import actron.example.weather.feature.weather.presentation.DefaultCityWeatherComponentFactory
+import androidx.compose.runtime.Composable
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.push
+import com.arkivanov.essenty.instancekeeper.getOrCreate
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,8 +42,9 @@ class DefaultWeatherRootComponent(
     citySearch: CitySearchRepository,
     hourlyApi: HourlyForecastRepository,
     coroutineContext: CoroutineContext = Dispatchers.Main.immediate,
-    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, coroutineContext),
-    private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext),
+    private val history: WeatherHistory = componentContext.instanceKeeper.getOrCreate(key = "weather-history") { WeatherHistory() },
+    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, coroutineContext, history),
+    private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history),
 ) : WeatherRootComponent,
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
@@ -83,6 +88,11 @@ class DefaultWeatherRootComponent(
             ChildConfiguration.Search -> searchFactory.create(context, searchBridge.endpoint)
             is ChildConfiguration.Weather -> weatherFactory.create(context, configuration.city, weatherBridge.endpoint)
         }
+
+    @Composable
+    override fun Render() {
+        WeatherDebugLayout(history) { super<WeatherRootComponent>.Render() }
+    }
 
     override fun getChildStack(): StateFlow<ChildStack<*, BaseComponent>> = stackFlow
 

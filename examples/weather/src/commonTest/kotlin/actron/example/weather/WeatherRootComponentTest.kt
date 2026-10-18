@@ -1,6 +1,7 @@
 package actron.example.weather
 
 import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.core.debug.WeatherHistory
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchComponent
@@ -11,6 +12,7 @@ import actron.example.weather.feature.weather.domain.WeatherRepository
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.backhandler.BackDispatcher
 import com.arkivanov.essenty.instancekeeper.InstanceKeeperDispatcher
+import com.arkivanov.essenty.instancekeeper.getOrCreate
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
@@ -45,6 +47,7 @@ class WeatherRootComponentTest {
                     SampleHourlyRepository,
                     coroutineContext,
                 )
+            val history = keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("Root must install history before creating children") }
             firstLifecycle.resume()
             testScheduler.runCurrent()
             val initialCalls = requests.size
@@ -57,6 +60,9 @@ class WeatherRootComponentTest {
             search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
             testScheduler.runCurrent()
             assertEquals(initialCalls + 1, requests.size)
+            val retainedEntries = history.entries.value
+            assertTrue(retainedEntries.any { it.machine.startsWith("city-search") })
+            assertTrue(retainedEntries.any { it.machine.startsWith("city-weather") })
             val saved = stateKeeper.save()
             firstLifecycle.destroy()
 
@@ -76,6 +82,8 @@ class WeatherRootComponentTest {
                     coroutineContext,
                 )
             lifecycle.resume()
+            assertSame(history, keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("History must survive recreation") })
+            assertTrue(history.entries.value.containsAll(retainedEntries))
             try {
                 testScheduler.runCurrent()
                 val weather =

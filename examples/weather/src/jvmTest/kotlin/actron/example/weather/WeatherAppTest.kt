@@ -40,6 +40,27 @@ import kotlin.test.Test
 
 class WeatherAppTest {
     @Test
+    fun enablingPanelShowsEarlierSearchAndKeepsRecordingAfterClosing() =
+        runComposeUiTest {
+            setRootContent(SampleWeatherRepository)
+            onNodeWithTag("city-search").performTextInput("Lisbon")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("weather-history-panel").assertDoesNotExist()
+            onNodeWithText("Settings").performClick()
+            onNodeWithTag("debug-panel-switch").performClick()
+            onNodeWithText("Done").performClick()
+            onNodeWithTag("weather-history-panel").assertIsDisplayed()
+            onNodeWithText("Current session").assertIsDisplayed()
+            onNodeWithText("Close").performClick()
+            onNodeWithTag("city-search").performTextReplacement("Tokyo")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithText("Settings").performClick()
+            onNodeWithTag("debug-panel-switch").performClick()
+            onNodeWithText("Done").performClick()
+            onNodeWithTag("weather-history-panel").assertIsDisplayed()
+        }
+
+    @Test
     fun searchResult_opensWeatherForServerCoordinates() =
         runComposeUiTest {
             val city = City("Springfield", 39.78, -89.65)

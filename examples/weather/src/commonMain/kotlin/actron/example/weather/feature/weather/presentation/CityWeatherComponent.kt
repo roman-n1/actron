@@ -3,6 +3,7 @@ package actron.example.weather.feature.weather.presentation
 import actron.example.weather.core.component.BaseComponent
 import actron.example.weather.core.component.BridgeEndpoint
 import actron.example.weather.core.component.MachineInstance
+import actron.example.weather.core.debug.WeatherHistory
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.weather.domain.HourlyForecastRepository
 import actron.example.weather.feature.weather.domain.WeatherRepository
@@ -45,12 +46,13 @@ class DefaultCityWeatherComponent(
     private val repository: WeatherRepository,
     private val hourlyRepository: HourlyForecastRepository,
     coroutineContext: CoroutineContext,
+    history: WeatherHistory = WeatherHistory(),
 ) : CityWeatherComponent,
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
     private val machine =
         instanceKeeper.getOrCreate {
-            MachineInstance(CityWeatherMachine.create(), WeatherContext(city), cityWeatherHandler(repository, hourlyRepository), coroutineContext)
+            MachineInstance(CityWeatherMachine.create(), WeatherContext(city), cityWeatherHandler(repository, hourlyRepository), coroutineContext, history)
                 .also { it.store.dispatch(WeatherAction.Refresh) }
         }
     override val state = machine.store.state
@@ -79,10 +81,11 @@ class DefaultCityWeatherComponentFactory(
     private val repository: WeatherRepository,
     private val hourlyRepository: HourlyForecastRepository,
     private val coroutineContext: CoroutineContext,
+    private val history: WeatherHistory = WeatherHistory(),
 ) : CityWeatherComponent.Factory {
     override fun create(
         componentContext: ComponentContext,
         city: City,
         endpoint: BridgeEndpoint<Nothing, CityWeatherComponent.News>,
-    ): CityWeatherComponent = DefaultCityWeatherComponent(componentContext, city, endpoint, repository, hourlyRepository, coroutineContext)
+    ): CityWeatherComponent = DefaultCityWeatherComponent(componentContext, city, endpoint, repository, hourlyRepository, coroutineContext, history)
 }

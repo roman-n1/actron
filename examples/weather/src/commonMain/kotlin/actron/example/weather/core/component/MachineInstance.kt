@@ -2,6 +2,7 @@ package actron.example.weather.core.component
 
 import actron.core.Action
 import actron.core.Event
+import actron.example.weather.core.debug.WeatherHistory
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineStore
@@ -17,9 +18,10 @@ class MachineInstance<C : Any, A : Action, CMD : Any, E : Event>(
     initial: C,
     handler: CommandHandler<CMD, A>,
     context: CoroutineContext,
+    history: WeatherHistory = WeatherHistory(),
 ) : InstanceKeeper.Instance {
     private val scope = CoroutineScope(context + SupervisorJob())
-    val store = MachineStore(machine, initial, handler, scope, coroutineContext = context)
+    val store = MachineStore(machine, initial, handler, scope, coroutineContext = context, observers = listOf(history.observer(machine, initial)))
 
     init {
         store.start()

@@ -2,7 +2,8 @@
 
 A two-screen Compose Multiplatform application for Android, Desktop and the browser.
 Search for a city, open its current weather and six-hour forecast, refresh or go back.
-There are no Time Travel controls, debug counters or demo-story screens.
+Settings contains an optional debug history panel, shown only on the right. Recording starts
+with the machines, independently of panel visibility.
 
 ## Run
 
@@ -93,3 +94,23 @@ Tests cover HTTP decoding, debounce and revisions, cancellation and timeouts, in
 parallel requests, generic serialization, navigation, host recreation and request cleanup.
 The Actron library retains its own recording/replay facilities and tests; the weather application
 has no recording coordinator or debug UI dependency.
+
+## Session history
+
+Every default feature executor installs a `DecisionTraceObserver` before `start()`. One
+`WeatherHistory` is retained by the root's `InstanceKeeper` and shared with both feature
+factories. The bounded deque keeps the most recent **500 entries across all feature instances**;
+a new entry evicts the oldest. Closed weather screens remain inspectable until their entries
+are evicted. Clearing history releases the retained entries and recording continues.
+
+Open **Settings → Debug panel** to inspect inputs, before/after snapshots, transitions,
+commands, timers and actual guard evaluations. Ignored and failed decisions are included.
+The panel observes decisions; it never redispatches an action or calls an API. Selecting an
+entry displays its details without replacing the live application's state. This is history
+inspection, not executor checkpoint replay. The unbounded `MachineRecorder` is deliberately
+not attached; history uses the library's live decision observer contract.
+
+History and panel visibility survive host recreation with the retained component owner.
+They are held only in memory and disappear after a complete application restart. The limit
+is an entry count, not a byte quota; payload size still affects memory. Tests use smaller
+capacities to exercise eviction and verify that hiding/showing the panel never resets history.
