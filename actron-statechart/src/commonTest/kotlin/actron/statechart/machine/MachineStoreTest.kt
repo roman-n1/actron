@@ -24,6 +24,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
@@ -35,6 +36,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -525,6 +527,46 @@ class MachineStoreTest {
             assertEquals(listOf<Throwable>(boom), h.handled)
             assertTrue(h.handler.cancelled.isEmpty(), "Connect keeps running")
             h.close()
+        }
+
+    @Test
+    fun requestHandlerCannotOverwriteRetryWithLateCancelledResponse() =
+        runTest {
+            val h = harness()
+            val oldResponse = CompletableDeferred<ListAction>()
+            val newResponse = CompletableDeferred<ListAction>()
+            val requestHandler =
+                commandHandler<ListCommand, ListAction>(onFailure = { _, error -> throw error }) { request ->
+                    when (request) {
+                        is ListCommand.Fetch -> {
+                            withContext(NonCancellable) {
+                                if (request.attempt == 0) oldResponse.await() else newResponse.await()
+                            }
+                        }
+
+                        else -> {
+                            awaitCancellation()
+                        }
+                    }
+                }
+            h.handler.behaviour = { command, results -> requestHandler.execute(command, results) }
+            try {
+                h.store.dispatch(ListAction.Load("query"))
+                runCurrent()
+                h.store.dispatch(ListAction.Failed)
+                runCurrent()
+                newResponse.complete(ListAction.Loaded(listOf("new")))
+                runCurrent()
+                assertEquals(listOf("new"), h.store.currentState.context.items)
+                oldResponse.complete(ListAction.Loaded(listOf("old")))
+                runCurrent()
+                assertEquals(listOf("new"), h.store.currentState.context.items)
+                assertTrue(h.handled.isEmpty())
+            } finally {
+                oldResponse.complete(ListAction.Failed)
+                newResponse.complete(ListAction.Failed)
+                h.close()
+            }
         }
 
     // --- close, events, stale results ---

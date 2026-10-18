@@ -134,3 +134,13 @@ retention. Core restart tests verify command queues, remaining timer delays and 
 Desktop `:weather-example:run` copies its classpath into a per-run temporary snapshot before
 starting. Rebuilding project JARs while the app is open therefore cannot invalidate classes
 that the running app has not loaded yet. Normal exit removes the snapshot.
+
+## MVI execution
+
+The root uses `Dispatchers.Main` for machine processing and Decompose navigation. Search and
+weather use typed `commandHandler` / `commandHandlers` to call domain services and return actions;
+they never write state. Each machine commits decisions sequentially. Both screens collect
+with `collectAsUiState`, explicitly separating UI collection from the machine dispatcher.
+The shared history adapter is UI-confined together with navigation. See the
+[library's threading and command contract](../../doc/guides/machine-mvi.md) before configuring
+a background processor in a different host.

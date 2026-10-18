@@ -1602,6 +1602,16 @@ public abstract interface class actron/statechart/machine/CommandHandler {
 	public abstract fun execute (Lactron/statechart/machine/CommandEnvelope;Lactron/statechart/machine/ResultSink;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
+public final class actron/statechart/machine/CommandHandlersBuilder {
+	public fun <init> ()V
+	public final fun register (Lkotlin/jvm/functions/Function1;Lactron/statechart/machine/CommandHandler;)V
+}
+
+public final class actron/statechart/machine/CommandHandlersKt {
+	public static final fun commandHandler (Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;)Lactron/statechart/machine/CommandHandler;
+	public static final fun commandHandlers (Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/CommandHandler;
+}
+
 public final class actron/statechart/machine/CommandId {
 	public static final synthetic fun box-impl (J)Lactron/statechart/machine/CommandId;
 	public static fun constructor-impl (J)J
@@ -3380,6 +3390,7 @@ public class actron/statechart/machine/TypedStateMachineBuilder {
 
 public final class actron/statechart/machine/TypedStateMachineDslKt {
 	public static final fun typedStateMachine-GhXO0fo (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/Machine;
+	public static final fun typedStateMachine-jlvHTy0 (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/Machine;
 }
 
 public final class actron/statechart/machine/TypedStateRegistry {

@@ -2,6 +2,10 @@ public final class actron/compose/StateSaverKt {
 	public static final fun rememberStateSaver (Landroidx/compose/runtime/Composer;I)Lactron/core/StateSaver;
 }
 
+public final class actron/compose/UiStateKt {
+	public static final fun collectAsUiState (Lkotlinx/coroutines/flow/StateFlow;Landroidx/compose/runtime/Composer;I)Landroidx/compose/runtime/State;
+}
+
 public final class actron/compose/ViewStore {
 	public static final field $stable I
 	public fun <init> (Lactron/core/State;Lkotlin/jvm/functions/Function1;Lkotlinx/coroutines/flow/Flow;)V
