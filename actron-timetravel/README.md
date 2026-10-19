@@ -281,3 +281,36 @@ platform validation work.
 All library-owned domain contracts are non-null and enforced by source/compiler checks.
 See the [null-free migration guide](../doc/guides/absence-policy.md) for callbacks, lifecycle
 results and UI state replacements. Old recording readers and format versions are preserved.
+
+## Saving and restoring an executor
+
+`machinePersistence(machine)` infers generated serializers from the machine's types. It has
+no Android, Decompose, database or HTTP dependency; the application owns where and when the
+returned string is stored.
+
+```kotlin
+val persistence = machinePersistence(machine)
+val saved = persistence.save(store) // suspend: captures through the executor mailbox
+// Persist saved using the application's storage. Close the old store when replacing it.
+val restored = persistence.resume(saved, handler, scope)
+restored.start()
+```
+
+`save(checkpoint)` and `restore(saved)` support hosts that already coordinate several machines.
+`MachinePersistence(machine, recordingCodec)` supports custom serializers. The versioned
+format includes machine identity and definition version; malformed data, incompatible definitions,
+nonempty histories, invariant violations and checkpoints with unacknowledged effects or
+undelivered terminal command outcomes are rejected with `IllegalArgumentException`. The host
+chooses whether to migrate or start fresh. Saved data is not encrypted by this API.
+
+Restoration does not repeat state entry hooks. Completed commands stay completed; running
+commands restart from the beginning, queued commands retain their lanes, and timers preserve
+their remaining delay (time without an executor is paused). A computation needs explicit saved
+progress to resume partway through. A subscription is re-established and follows its source's
+replay/cursor semantics; missed events are not reconstructed automatically. Database transactions
+and coroutine stacks are not serialized. Writes and other side effects require idempotency or
+application reconciliation because restarting a command is at-least-once execution.
+
+The checkpoint excludes accepted-but-undecided inputs and the debug timeline. Persistence must
+complete in the host's storage before it can survive process loss. Neither `resume` nor `save`
+closes a previous store, and `resume` returns a store that the host must start explicitly.
