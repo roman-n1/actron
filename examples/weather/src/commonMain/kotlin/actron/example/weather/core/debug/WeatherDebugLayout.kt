@@ -25,6 +25,7 @@ fun WeatherDebugLayout(
 ) {
     val russian = androidx.compose.ui.text.intl.Locale.current.language == "ru"
     var settingsOpen by remember { mutableStateOf(false) }
+    var diagnosticDemo by remember { mutableStateOf(GraphDiagnosticDemo.Off) }
     val visible by history.panelVisible.collectAsState()
     CompositionLocalProvider(LocalWeatherSettings provides { settingsOpen = true }) {
         Box(Modifier.fillMaxSize()) {
@@ -65,7 +66,7 @@ fun WeatherDebugLayout(
                     panel = {
                         Column(Modifier.fillMaxSize()) {
                             if (viewer.imported.isEmpty()) {
-                                HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.weight(1f).testTag("weather-history-panel"), WeatherFrame::canResume, graph = history::graph, actions = { RecordingActions(viewer, files, history) })
+                                HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.weight(1f).testTag("weather-history-panel"), WeatherFrame::canResume, graph = { history.graph(it).withDiagnosticDemo(diagnosticDemo) }, actions = { RecordingActions(viewer, files, history) })
                             } else {
                                 val imported = viewer.imported.single()
                                 key(imported) { HistoryRecordingPanel(imported.recording, imported.panel, Modifier.weight(1f), WeatherRecording::graph, actions = { RecordingActions(viewer, files, history) }) }
@@ -91,6 +92,22 @@ fun WeatherDebugLayout(
                                 viewer.close()
                             }
                         }, Modifier.testTag("debug-panel-switch"))
+                    }
+                    if (visible && viewer.imported.isEmpty()) {
+                        TextButton(onClick = { diagnosticDemo = GraphDiagnosticDemo.entries[(diagnosticDemo.ordinal + 1) % GraphDiagnosticDemo.entries.size] }, modifier = Modifier.testTag("graph-diagnostic-demo")) {
+                            Text(
+                                if (russian) {
+                                    "Демо диагностики графа: ${when (diagnosticDemo) {
+                                        GraphDiagnosticDemo.Off -> "выкл."
+                                        GraphDiagnosticDemo.Warnings -> "предупреждения"
+                                        GraphDiagnosticDemo.Errors -> "ошибки"
+                                    }}"
+                                } else {
+                                    "Graph diagnostic demo: $diagnosticDemo"
+                                },
+                            )
+                        }
+                        if (diagnosticDemo != GraphDiagnosticDemo.Off) Text(if (russian) "Ошибки добавляются только в рисунок. Рабочая машина не меняется." else "Issues affect only the diagram. The running machine is unchanged.")
                     }
                     Text(if (russian) "Сохраняются последние ${history.capacity} событий текущего запуска. Просмотр истории не запускает запросы. «Продолжить отсюда» удаляет более позднюю историю и перезапускает незавершённые запросы." else "The last ${history.capacity} events are recorded throughout this session. Preview does not run requests. Continue here removes later history and restarts unfinished requests.")
                 }
