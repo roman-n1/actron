@@ -57,7 +57,6 @@ class WeatherHistory(
         private set
     var branch = 0L
         private set
-    private val navigation = timeline.machine("Navigation", HistorySourceKind.Navigation)
 
     fun beginBranch(snapshot: WeatherFrame) {
         require(snapshot.canResume())
@@ -71,7 +70,6 @@ class WeatherHistory(
 
                 override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(MachineTime.Zero + (deadline - origin))
             }
-        timeline.append(navigation, branch, HistoryDetails("ContinueHere", "Time travel", "Handled", emptyList(), routeFields(snapshot.route)), frame)
     }
 
     fun searchCheckpoint() = frame.search
@@ -92,24 +90,13 @@ class WeatherHistory(
         frame = frame.copy(route = WeatherRoute.Weather(checkpoint))
     }
 
-    fun openCity(city: City) = navigate(WeatherRoute.Weather(freshWeather(city)), "CitySelected(${city.name})")
-
-    fun back() = navigate(WeatherRoute.Search, "BackClicked")
-
-    private fun navigate(
-        route: WeatherRoute,
-        input: String,
-    ) {
-        val before = frame.route
-        frame = frame.copy(route = route).at(clock.now())
-        timeline.append(navigation, branch, HistoryDetails(input, "Navigation", "Handled", routeFields(before), routeFields(route)), frame)
+    fun openCity(city: City) {
+        frame = frame.copy(route = WeatherRoute.Weather(freshWeather(city))).at(clock.now())
     }
 
-    private fun routeFields(route: WeatherRoute): List<StateField> =
-        when (route) {
-            WeatherRoute.Search -> listOf(StateField("screen", "Search"))
-            is WeatherRoute.Weather -> listOf(StateField("screen", "Weather"), StateField("city", route.checkpoint.snapshot.context.city.name))
-        }
+    fun back() {
+        frame = frame.copy(route = WeatherRoute.Search).at(clock.now())
+    }
 
     fun <C : Any, A : Action, CMD : Any, E : Event> observer(
         machine: Machine<C, A, CMD, E>,

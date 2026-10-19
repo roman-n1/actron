@@ -7,13 +7,10 @@ import kotlinx.serialization.json.*
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-enum class HistorySourceKind { Machine, Navigation }
-
 /** [id] identifies a lifetime; [stableId] groups lifetimes of one logical machine, independently of its display name. */
 data class HistoryMachine(
     val id: Long,
     val name: String,
-    val kind: HistorySourceKind = HistorySourceKind.Machine,
     val stableId: String = name,
 )
 
@@ -70,7 +67,7 @@ class HistoryEntry<S : Any>(
     internal val discard: () -> Unit,
 )
 
-/** Bounded session-wide chronology. Application snapshots include navigation when required. */
+/** Bounded session-wide machine chronology with opaque snapshots supplied by the host. */
 class HistoryTimeline<S : Any>(
     val capacity: Int = 500,
 ) {
@@ -81,23 +78,16 @@ class HistoryTimeline<S : Any>(
     private val lock = Mutex()
     private var next = 0L
     private var nextMachine = 0L
-    private var nextNavigation = 0L
     private val buffer = ArrayDeque<HistoryEntry<S>>()
     private val mutableEntries = MutableStateFlow<List<HistoryEntry<S>>>(emptyList())
     val entries = mutableEntries.asStateFlow()
 
     fun machine(
         name: String,
-        kind: HistorySourceKind = HistorySourceKind.Machine,
         stableId: String = name,
     ): HistoryMachine =
         locked {
-            val id =
-                when (kind) {
-                    HistorySourceKind.Machine -> ++nextMachine
-                    HistorySourceKind.Navigation -> --nextNavigation
-                }
-            HistoryMachine(id, name, kind, stableId)
+            HistoryMachine(++nextMachine, name, stableId)
         }
 
     fun append(

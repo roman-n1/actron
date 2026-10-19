@@ -45,15 +45,13 @@ class HistoryTimelineTest {
     }
 
     @Test
-    fun navigationDoesNotConsumeMachineNumbers() {
+    fun lifetimesHaveUniqueIdsAndShareStableIdentity() {
         val history = HistoryTimeline<String>()
-        val navigation = history.machine("Navigation", HistorySourceKind.Navigation)
-        val search = history.machine("City Search")
-        val secondNavigation = history.machine("Other navigation", HistorySourceKind.Navigation)
-        val weather = history.machine("City Weather")
-        assertEquals(1L, search.id)
-        assertEquals(2L, weather.id)
-        assertEquals(4, setOf(navigation.id, search.id, secondNavigation.id, weather.id).size)
+        val first = history.machine("Weather", stableId = "weather")
+        val second = history.machine("Weather", stableId = "weather")
+        assertEquals(1L, first.id)
+        assertEquals(2L, second.id)
+        assertEquals(first.stableId, second.stableId)
     }
 
     @Test

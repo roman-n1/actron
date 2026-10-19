@@ -33,7 +33,6 @@ class HistoryPanelTest {
                 )
             timeline.append(machine, 0, details, "Paris")
             timeline.append(timeline.machine("Weather"), 0, details.copy(input = "Refresh"), "Weather snapshot")
-            timeline.append(timeline.machine("Navigation", actron.timetravel.HistorySourceKind.Navigation), 0, details.copy(input = "Back"), "Search")
             val state = HistoryPanelState<String>()
             val continued = mutableListOf<String>()
             setContent {
@@ -45,7 +44,6 @@ class HistoryPanelTest {
                 }
             }
             onNodeWithTag("history-machine-filter").performClick()
-            onNodeWithText("Navigation").assertDoesNotExist()
             onNodeWithText("Search").performClick()
             onNodeWithTag("history-entry-2").assertDoesNotExist()
             onNodeWithTag("history-entry-1").performClick()
@@ -55,7 +53,7 @@ class HistoryPanelTest {
             onNodeWithTag("history-live").performClick().assertIsSelected()
             runOnIdle {
                 assertEquals(emptyList(), state.preview)
-                assertEquals(3, timeline.entries.value.size)
+                assertEquals(2, timeline.entries.value.size)
             }
             onNodeWithTag("history-continue").assertIsNotEnabled()
             onNodeWithTag("history-mode-history").performClick().assertIsSelected()
@@ -68,7 +66,7 @@ class HistoryPanelTest {
                 assertEquals(emptyList(), state.preview)
                 assertEquals(emptyList(), state.selection)
             }
-            onNodeWithTag("history-entry-4").assertExists()
+            onNodeWithTag("history-entry-3").assertExists()
         }
 
     @Test

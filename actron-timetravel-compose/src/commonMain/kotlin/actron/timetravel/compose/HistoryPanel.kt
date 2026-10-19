@@ -71,8 +71,8 @@ fun <S : Any> HistoryPanel(
     val entries by timeline.entries.collectAsState()
     var filter by remember { mutableStateOf(emptyList<String>()) }
     var picker by remember { mutableStateOf(false) }
-    val machines = entries.map { it.machine }.filter { it.kind == HistorySourceKind.Machine }.distinctBy { it.stableId }
-    val visible = entries.filter { filter.isEmpty() || (it.machine.kind == HistorySourceKind.Machine && it.machine.stableId in filter) }
+    val machines = entries.map { it.machine }.distinctBy { it.stableId }
+    val visible = entries.filter { filter.isEmpty() || it.machine.stableId in filter }
     Surface(modifier.testTag("history-panel"), color = MaterialTheme.colorScheme.surface) {
         Column {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -199,7 +199,7 @@ private fun <S : Any> EventRow(
     ) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(if (selected) colors.primary else colors.surface))
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Muted("#${entry.id} · ${entry.machine.name}" + if (entry.machine.kind == HistorySourceKind.Navigation) " · ${historyText(HistoryText.AppEvent)}" else "")
+            Muted("#${entry.id} · ${entry.machine.name}")
             Text(actionSummary(entry.details.input), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Muted(entry.details.activeBefore(), Modifier.weight(1f))

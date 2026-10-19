@@ -105,7 +105,9 @@ recorder with `discardBefore`, advancing its replay checkpoint. Closed feature r
 released when their last timeline entry disappears; indices remain stable.
 
 Open the gear next to **Cities**, then enable **Debug panel** for the reusable library `HistoryPanel`. The global
-chronology includes navigation and can be filtered by machine instance. Each selection shows
+chronology contains only machine events and groups lifetimes by stable machine ID.
+Navigation stays in the example: `WeatherFrame` carries the route, and the root restores the
+Decompose stack through the generic panel callback. The library treats that frame as an opaque snapshot. Each selection shows
 the input action with its payload between the before/after active states, structured field
 changes. Technical diagnostics remain in the recording model. Event and update timestamps
 use the device's local time zone and locale.
