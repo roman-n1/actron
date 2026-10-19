@@ -148,8 +148,8 @@ fun <S : Any> HistoryPanel(
                         state.selection.forEach { entry ->
                             Column(detailModifier) {
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(!graphSelected, { graphSelected = false }, { Text(historyText(HistoryText.Event)) }, modifier = Modifier.testTag("history-event-tab"))
-                                    FilterChip(graphSelected, { graphSelected = true }, { Text(historyText(HistoryText.Graph)) }, modifier = Modifier.testTag("history-graph-tab"))
+                                    HistoryChoice(!graphSelected, { graphSelected = false }, { Text(historyText(HistoryText.Event)) }, modifier = Modifier.testTag("history-event-tab"))
+                                    HistoryChoice(graphSelected, { graphSelected = true }, { Text(historyText(HistoryText.Graph)) }, modifier = Modifier.testTag("history-graph-tab"))
                                 }
                                 if (graphSelected) {
                                     Text("${entry.machine.name} · #${entry.id}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleSmall)
@@ -254,8 +254,8 @@ private fun <S : Any> EventDetail(
         ) {
             key(entry.id) { TransitionDiagram(entry.details) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !full, onClick = { full = false }, label = { Text(historyText(HistoryText.Changes)) })
-                FilterChip(selected = full, onClick = { full = true }, label = { Text(historyText(HistoryText.FullState)) })
+                HistoryChoice(selected = !full, onClick = { full = false }, label = { Text(historyText(HistoryText.Changes)) })
+                HistoryChoice(selected = full, onClick = { full = true }, label = { Text(historyText(HistoryText.FullState)) })
             }
             SelectionContainer {
                 Column {
