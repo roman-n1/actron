@@ -2,14 +2,18 @@ package actron.timetravel.compose
 
 import actron.statechart.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.*
@@ -350,12 +354,17 @@ private fun GraphCanvas(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.surfaceContainerLow)
+                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp))
                     .heightIn(max = 180.dp)
                     .verticalScroll(rememberScrollState())
                     .padding(12.dp)
                     .testTag("graph-transition-details"),
             ) {
-                Text("${historyText(HistoryText.Transition)} #${index + 1}", style = MaterialTheme.typography.titleSmall)
+                Text("${historyText(HistoryText.Transition)} #${index + 1}", style = MaterialTheme.typography.titleSmall, color = colors.primary)
+                Spacer(Modifier.height(6.dp))
                 Text("${historyText(HistoryText.FromState)}: ${transition.source.value}", style = MaterialTheme.typography.bodySmall)
                 Text("${historyText(HistoryText.ToState)}: ${transition.target.value}", style = MaterialTheme.typography.bodySmall)
                 Text("${historyText(HistoryText.Action)}: ${transition.triggerLabel}", style = MaterialTheme.typography.bodySmall)
@@ -369,12 +378,17 @@ private fun GraphCanvas(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.surfaceContainerLow)
+                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp))
                     .heightIn(max = 140.dp)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp)
+                    .padding(12.dp)
                     .testTag("graph-state-transitions"),
             ) {
-                Text(id.value, style = MaterialTheme.typography.titleSmall)
+                Text("${historyText(HistoryText.State)}: ${id.value}", style = MaterialTheme.typography.titleSmall, color = colors.primary)
+                Spacer(Modifier.height(6.dp))
                 graph.definition.transitionsFrom(id).forEach { transition ->
                     Text("${transition.triggerLabel}: ${transition.target.value}", style = MaterialTheme.typography.bodySmall)
                 }

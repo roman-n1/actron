@@ -20,6 +20,7 @@ internal enum class HistoryText(
     Event("Event", "Событие"),
     Graph("Graph", "Граф"),
     Transition("Transition", "Переход"),
+    State("State", "Состояние"),
     FromState("From", "Из состояния"),
     ToState("To", "В состояние"),
     Guard("Guard", "Условие"),
