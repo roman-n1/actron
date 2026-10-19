@@ -246,6 +246,19 @@ callback succeeds, the panel removes the abandoned future, keeping the selected 
 earlier entries and any new events emitted during restoration. Event IDs are never reused.
 Technical diagnostics remain in the recording model but are not displayed by HistoryPanel.
 
+### Graph diagnostics
+
+The graph automatically inspects `definition.diagnostics`. Clean graphs show no banner.
+Errors use the error palette; warnings use a separate tinted banner. Expand the banner to
+read localized diagnostics, then select a problem to focus its state or exact transition.
+The viewport pans and increases scale when needed. If an endpoint is missing, the existing
+source/target is focused; an entirely missing node cannot be drawn.
+
+Weather's Settings offers **Graph diagnostic demo** while the debug panel is enabled.
+Cycle through Off / Warnings / Errors. It adds unreachable/no-exit states and a shadowed
+transition to an inspector-only copy; Errors also adds a missing endpoint. This never
+modifies the executing machine, history checkpoints, HTTP requests or saved state.
+
 ### Transition coverage
 
 Supply `HistoryGraphCoverage.Recorded(hits)` to `HistoryGraph.Machine.coverage` to show

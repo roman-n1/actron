@@ -1124,3 +1124,23 @@ strategy runs again. Handlers still produce actions, never state writes. Selecti
 reconciliation errors follow normal command failure handling. Policies are code and are not
 serialized. External repeat safety remains an application/service contract, not an exactly-once
 guarantee supplied by the coroutine runtime.
+
+## Automatic graph diagnostics
+
+`chart.diagnostics` lazily caches a structural report for that definition. The inspector reads
+it automatically. `chart.diagnose(maxConfigurations = 1_000, maxEdges = 10_000)` runs an
+explicit bounded analysis for tooling/tests. Neither API evaluates application guards,
+reducers, command handlers or action payloads.
+
+Diagnostics carry a typed code, severity, state identities and exact transition indices.
+Invalid endpoints, duplicate state IDs, invalid hierarchy/history and invalid transition
+sources/delays are errors; malformed graphs are not explored. Structurally unreachable
+states, reachable non-final leaves without an exit and transitions shadowed by an earlier
+unconditional transition with the same source/trigger are warnings. Ancestor exits count;
+final leaves are intentional terminals. Separate timer identities are not treated as
+shadowed just because their delays match.
+
+The search assumes opaque guards can succeed. On budget exhaustion it reports incomplete
+analysis and never labels unseen states as proven unreachable. A warning does not prove a
+bug (for example a non-final terminal can be intentional). This adds inspection metadata;
+existing execution validation remains responsible for rejecting invalid runtime models.
