@@ -2,6 +2,7 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
+import actron.core.State
 import actron.observability.FailureDescriptor
 import actron.statechart.StateId
 
@@ -9,7 +10,7 @@ import actron.statechart.StateId
 data class InvocationSnapshot<PC : Any, CC : Any>(
     val parent: MachineSnapshot<PC>,
     val child: ChildInvocation<CC> = ChildInvocation.Dormant,
-)
+) : State
 
 /** Child lifecycle; only an active invocation owns a snapshot, commands and timers. */
 sealed interface ChildInvocation<out C : Any> {

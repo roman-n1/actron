@@ -922,13 +922,34 @@ typedInvokedMachine(
 ```
 
 The child handle is typed and must be invoked in exactly one owner state. No owner ID, string
-routing key or action cast is required. The result is a **pure `InvokedMachine`**, with
-`InvocationSnapshot` and `InvocationInput`; it is not a `MachineStore`. Use the existing
-invocation execution contract: atomically commit a successful composite decision, then execute
-its parent/child commands and timers, qualifying child work by owner activation. Re-entry creates
-a new owner, stale child inputs are ignored, typed event routes drain atomically, and a failed
-child start rolls back the parent. This facade deliberately preserves the existing single-child
-composition contract; it does not implicitly start another Store or execute IO in DSL hooks.
+routing key or action cast is required. The DSL returns a pure `InvokedMachine`; run it with
+`InvokedMachineStore(composition, context, parentHandler, childHandler, scope)` and call `start()`.
+
+The executor implements the core `Store` interface and owns one ordered mailbox and one
+`StateFlow<InvocationSnapshot>`. Start explicitly or dispatch; collecting alone does not start
+work. Use `admit(action)` when the caller needs an accepted/closed result. Concurrent
+parent actions, owner-qualified child actions, command results and timers enter that mailbox.
+It commits an entire composite decision before starting IO, preserves lane policies, cancels
+child work on exit/reentry, and rejects stale child inputs. Feedback routes settle atomically:
+commands from transient states that disappeared during routing never start. A failed child
+start rolls back the parent and is reported through `onError`.
+
+Use `dispatch(action)` for parent input and `dispatchChild(owner, action)` for input from a
+specific child instance. `dispatchAndAwait` waits for a parent action to be decided, not for its
+IO to finish. `checkpoint()` captures both sides at one message boundary and clock instant.
+Inputs receive logical time when decided. The mailbox is unbounded; close may discard accepted inputs. The host owns the supplied scope
+and any dedicated dispatcher. `coroutineContext` selects sequential decision processing;
+commands use `scope`. Dispatcher pools serialize decisions without pinning a physical thread.
+UI collectors choose their own UI context. `Dispatchers.Unconfined` is rejected for command
+execution. `close()` cancels commands, timers, recovery waits and pending checkpoint requests.
+
+`resumeInvokedMachineStore` restores an unstarted executor from an `InvocationCheckpoint`.
+It retains context, ownership, lanes and remaining timer delays without repeating entry hooks.
+`parentRecovery` and `childRecovery` select how previously running commands resume. Child events
+route internally through the composition; parent effects are exposed as `event`/`mailbox`.
+There is one child per composition, matching the existing invocation DSL contract.
+For versioned serialization and `save(store)` / `resume(saved, ...)`, see
+[invocation persistence](../actron-timetravel/README.md#invoked-parent-and-child).
 
 ## State-local machine DSL
 
@@ -1089,3 +1110,17 @@ Commands have **at-least-once** semantics on restart: use restartable handlers, 
 queries. This does not reconstruct accepted mailbox inputs or replay transient effects.
 Checkpoints with ending commands or unacknowledged effects are rejected. Definition/version
 and machine invariants are checked. Application navigation is restored by the host.
+
+
+### Choosing how a pending command resumes
+
+`resumeMachineStore(..., recovery = strategy)` and the invocation executor support
+`CommandRecoveryStrategy<CMD, A>`. Return `CommandRecoveryDecision.Restart` to repeat the original
+handler, `Reconcile(handler)` to execute a status/reconciliation handler instead, or
+`AwaitDecision { envelope -> ... }` to suspend for an application decision. Only previously
+running commands use the strategy; queued and new commands execute normally. An approval wait
+keeps its lane occupied and is cancelled with its owner. On another save/restore the application
+strategy runs again. Handlers still produce actions, never state writes. Selection, waiting and
+reconciliation errors follow normal command failure handling. Policies are code and are not
+serialized. External repeat safety remains an application/service contract, not an exactly-once
+guarantee supplied by the coroutine runtime.

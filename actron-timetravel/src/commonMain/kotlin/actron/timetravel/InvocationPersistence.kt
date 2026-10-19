@@ -4,43 +4,14 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.statechart.machine.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.coroutines.CoroutineContext
 
-/** Executor data for one invocation. The host captures both sides at the same decision boundary. */
-@ExperimentalActronApi
-data class InvocationCheckpoint<PC : Any, PCMD : Any, CC : Any, CCMD : Any>(
-    val parent: ExecutorCheckpoint<PC, PCMD>,
-    val child: ChildCheckpoint<CC, CCMD> = ChildCheckpoint.Dormant,
-) {
-    val snapshot: InvocationSnapshot<PC, CC>
-        get() =
-            InvocationSnapshot(
-                parent.snapshot,
-                when (val current = child) {
-                    ChildCheckpoint.Dormant -> ChildInvocation.Dormant
-                    is ChildCheckpoint.Active -> ChildInvocation.Active(current.owner, current.checkpoint.snapshot)
-                },
-            )
-}
-
-@ExperimentalActronApi
-sealed interface ChildCheckpoint<out C : Any, out CMD : Any> {
-    data object Dormant : ChildCheckpoint<Nothing, Nothing>
-
-    data class Active<C : Any, CMD : Any>(
-        val owner: ActivationId,
-        val checkpoint: ExecutorCheckpoint<C, CMD>,
-    ) : ChildCheckpoint<C, CMD>
-}
-
-/**
- * Persists a pure InvokedMachine composition, including ownership and executor registrations.
- * Restore returns data, not a running coroutine executor. The invocation host resumes commands
- * and timers from the checkpoints and routes their inputs through InvokedMachine.decide.
- * Do not start two independent stores: that would bypass atomic parent/child routing.
- */
+/** Persists and resumes a complete parent/child composition, including both executors. */
 @ExperimentalActronApi
 class InvocationPersistence<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event>(
     private val machine: InvokedMachine<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
@@ -50,6 +21,36 @@ class InvocationPersistence<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : 
     private val parent = MachinePersistence(machine.parent, parentCodec)
     private val child = MachinePersistence(machine.child, childCodec)
     internal val definitionKey: String get() = machine.parent.id.value
+
+    /** Captures both sides through the composition's ordered mailbox. */
+    suspend fun save(store: InvokedMachineStore<PC, PA, PCMD, PE, CC, CA, CCMD, CE>): String = save(store.checkpoint())
+
+    /** Restores an unstarted executor. Close the previous instance before replacing it. */
+    fun resume(
+        saved: String,
+        parentHandler: CommandHandler<PCMD, PA>,
+        childHandler: CommandHandler<CCMD, CA>,
+        scope: CoroutineScope,
+        coroutineContext: CoroutineContext = scope.coroutineContext,
+        clock: MachineClock = MachineClock.monotonic(),
+        parentRecovery: CommandRecoveryStrategy<PCMD, PA> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
+        childRecovery: CommandRecoveryStrategy<CCMD, CA> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
+        mailbox: MailboxConfig<PE> = MailboxConfig(),
+        onError: (Throwable) -> Unit = { error -> scope.launch { throw error } },
+    ): InvokedMachineStore<PC, PA, PCMD, PE, CC, CA, CCMD, CE> =
+        resumeInvokedMachineStore(
+            machine,
+            restore(saved),
+            parentHandler,
+            childHandler,
+            scope,
+            coroutineContext,
+            clock,
+            parentRecovery,
+            childRecovery,
+            mailbox,
+            onError,
+        )
 
     fun save(checkpoint: InvocationCheckpoint<PC, PCMD, CC, CCMD>): String {
         validate(checkpoint)

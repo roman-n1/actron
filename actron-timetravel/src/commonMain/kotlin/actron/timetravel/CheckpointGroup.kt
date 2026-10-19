@@ -4,6 +4,7 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.statechart.machine.ExecutorCheckpoint
+import actron.statechart.machine.InvocationCheckpoint
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 

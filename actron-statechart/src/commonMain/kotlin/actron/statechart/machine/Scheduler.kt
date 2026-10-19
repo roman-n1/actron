@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
  * [checkpoint] needs. Commands and timers run as children of [parent] in a scope of their own,
  * cancelled by [close].
  */
+@OptIn(ExperimentalActronApi::class)
 internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
     parent: CoroutineScope,
     initial: MachineSnapshot<C>,
@@ -36,6 +37,7 @@ internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
     private val mailbox: MailboxImpl<E>,
     private val feed: (MachineInput<A>) -> Unit,
     private val report: (Throwable) -> Unit,
+    private val recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
     private val onClosed: (queued: List<CommandId>, running: List<CommandId>) -> Unit = { _, _ -> },
 ) {
     private val scope = CoroutineScope(parent.coroutineContext + SupervisorJob(parent.coroutineContext[Job]))
@@ -141,7 +143,7 @@ internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
                 val checkpoint = message.checkpoint as ExecutorCheckpoint<C, CMD>
                 lastSnapshot = checkpoint.snapshot
                 lanes = checkpoint.lanes
-                for (registration in lanes.running.values) start(registration)
+                for (registration in lanes.running.values) start(registration, recovering = true)
                 for ((id, timer) in lastSnapshot.timers) {
                     timers[id] =
                         scope.launch {
@@ -215,12 +217,16 @@ internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
         for (registration in change.started) start(registration)
     }
 
-    private fun start(registration: CommandRegistration<CMD>) {
+    private fun start(
+        registration: CommandRegistration<CMD>,
+        recovering: Boolean = false,
+    ) {
         val envelope = CommandEnvelope(registration.id, registration.command, registration.scope, registration.lane)
         val job =
             scope.launch {
                 try {
-                    handler.execute(envelope) { action -> feed(MachineInput.CommandResult(registration.id, action, clock.now())) }
+                    val results = ResultSink<A> { action -> feed(MachineInput.CommandResult(registration.id, action, clock.now())) }
+                    if (recovering) executeRecovery(recovery, handler, envelope, results) else handler.execute(envelope, results)
                     feed(MachineInput.CommandCompleted(registration.id, clock.now()))
                 } catch (e: CancellationException) {
                     // The command's own cancellation ends it: its scope exited (the machine already dropped
