@@ -226,16 +226,19 @@ sealed interface actron.timetravel.compose/GroupVerification { // actron.timetra
 
 sealed interface actron.timetravel.compose/HistoryGraph { // actron.timetravel.compose/HistoryGraph|null[0]
     final class Machine : actron.timetravel.compose/HistoryGraph { // actron.timetravel.compose/HistoryGraph.Machine|null[0]
-        constructor <init>(actron.statechart/StateChartDefinition, kotlin.collections/Set<actron.statechart/StateId>) // actron.timetravel.compose/HistoryGraph.Machine.<init>|<init>(actron.statechart.StateChartDefinition;kotlin.collections.Set<actron.statechart.StateId>){}[0]
+        constructor <init>(actron.statechart/StateChartDefinition, kotlin.collections/Set<actron.statechart/StateId>, actron.timetravel.compose/HistoryGraphCoverage = ...) // actron.timetravel.compose/HistoryGraph.Machine.<init>|<init>(actron.statechart.StateChartDefinition;kotlin.collections.Set<actron.statechart.StateId>;actron.timetravel.compose.HistoryGraphCoverage){}[0]
 
         final val active // actron.timetravel.compose/HistoryGraph.Machine.active|{}active[0]
             final fun <get-active>(): kotlin.collections/Set<actron.statechart/StateId> // actron.timetravel.compose/HistoryGraph.Machine.active.<get-active>|<get-active>(){}[0]
+        final val coverage // actron.timetravel.compose/HistoryGraph.Machine.coverage|{}coverage[0]
+            final fun <get-coverage>(): actron.timetravel.compose/HistoryGraphCoverage // actron.timetravel.compose/HistoryGraph.Machine.coverage.<get-coverage>|<get-coverage>(){}[0]
         final val definition // actron.timetravel.compose/HistoryGraph.Machine.definition|{}definition[0]
             final fun <get-definition>(): actron.statechart/StateChartDefinition // actron.timetravel.compose/HistoryGraph.Machine.definition.<get-definition>|<get-definition>(){}[0]
 
         final fun component1(): actron.statechart/StateChartDefinition // actron.timetravel.compose/HistoryGraph.Machine.component1|component1(){}[0]
         final fun component2(): kotlin.collections/Set<actron.statechart/StateId> // actron.timetravel.compose/HistoryGraph.Machine.component2|component2(){}[0]
-        final fun copy(actron.statechart/StateChartDefinition = ..., kotlin.collections/Set<actron.statechart/StateId> = ...): actron.timetravel.compose/HistoryGraph.Machine // actron.timetravel.compose/HistoryGraph.Machine.copy|copy(actron.statechart.StateChartDefinition;kotlin.collections.Set<actron.statechart.StateId>){}[0]
+        final fun component3(): actron.timetravel.compose/HistoryGraphCoverage // actron.timetravel.compose/HistoryGraph.Machine.component3|component3(){}[0]
+        final fun copy(actron.statechart/StateChartDefinition = ..., kotlin.collections/Set<actron.statechart/StateId> = ..., actron.timetravel.compose/HistoryGraphCoverage = ...): actron.timetravel.compose/HistoryGraph.Machine // actron.timetravel.compose/HistoryGraph.Machine.copy|copy(actron.statechart.StateChartDefinition;kotlin.collections.Set<actron.statechart.StateId>;actron.timetravel.compose.HistoryGraphCoverage){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel.compose/HistoryGraph.Machine.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // actron.timetravel.compose/HistoryGraph.Machine.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // actron.timetravel.compose/HistoryGraph.Machine.toString|toString(){}[0]
@@ -245,6 +248,27 @@ sealed interface actron.timetravel.compose/HistoryGraph { // actron.timetravel.c
         final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel.compose/HistoryGraph.Unavailable.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // actron.timetravel.compose/HistoryGraph.Unavailable.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // actron.timetravel.compose/HistoryGraph.Unavailable.toString|toString(){}[0]
+    }
+}
+
+sealed interface actron.timetravel.compose/HistoryGraphCoverage { // actron.timetravel.compose/HistoryGraphCoverage|null[0]
+    final class Recorded : actron.timetravel.compose/HistoryGraphCoverage { // actron.timetravel.compose/HistoryGraphCoverage.Recorded|null[0]
+        constructor <init>(kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long>) // actron.timetravel.compose/HistoryGraphCoverage.Recorded.<init>|<init>(kotlin.collections.Map<actron.statechart.machine.TransitionId,kotlin.Long>){}[0]
+
+        final val hits // actron.timetravel.compose/HistoryGraphCoverage.Recorded.hits|{}hits[0]
+            final fun <get-hits>(): kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> // actron.timetravel.compose/HistoryGraphCoverage.Recorded.hits.<get-hits>|<get-hits>(){}[0]
+
+        final fun component1(): kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> // actron.timetravel.compose/HistoryGraphCoverage.Recorded.component1|component1(){}[0]
+        final fun copy(kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> = ...): actron.timetravel.compose/HistoryGraphCoverage.Recorded // actron.timetravel.compose/HistoryGraphCoverage.Recorded.copy|copy(kotlin.collections.Map<actron.statechart.machine.TransitionId,kotlin.Long>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel.compose/HistoryGraphCoverage.Recorded.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // actron.timetravel.compose/HistoryGraphCoverage.Recorded.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // actron.timetravel.compose/HistoryGraphCoverage.Recorded.toString|toString(){}[0]
+    }
+
+    final object Unavailable : actron.timetravel.compose/HistoryGraphCoverage { // actron.timetravel.compose/HistoryGraphCoverage.Unavailable|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel.compose/HistoryGraphCoverage.Unavailable.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // actron.timetravel.compose/HistoryGraphCoverage.Unavailable.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // actron.timetravel.compose/HistoryGraphCoverage.Unavailable.toString|toString(){}[0]
     }
 }
 
@@ -589,6 +613,8 @@ final val actron.timetravel.compose/actron_timetravel_compose_GroupTravel_Experi
 final val actron.timetravel.compose/actron_timetravel_compose_GroupTravel_Replaying$stableprop // actron.timetravel.compose/actron_timetravel_compose_GroupTravel_Replaying$stableprop|#static{}actron_timetravel_compose_GroupTravel_Replaying$stableprop[0]
 final val actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Checked$stableprop // actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Checked$stableprop|#static{}actron_timetravel_compose_GroupVerification_Checked$stableprop[0]
 final val actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Unchecked$stableprop // actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Unchecked$stableprop|#static{}actron_timetravel_compose_GroupVerification_Unchecked$stableprop[0]
+final val actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Recorded$stableprop // actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Recorded$stableprop|#static{}actron_timetravel_compose_HistoryGraphCoverage_Recorded$stableprop[0]
+final val actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Unavailable$stableprop // actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Unavailable$stableprop|#static{}actron_timetravel_compose_HistoryGraphCoverage_Unavailable$stableprop[0]
 final val actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Machine$stableprop // actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Machine$stableprop|#static{}actron_timetravel_compose_HistoryGraph_Machine$stableprop[0]
 final val actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Unavailable$stableprop // actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Unavailable$stableprop|#static{}actron_timetravel_compose_HistoryGraph_Unavailable$stableprop[0]
 final val actron.timetravel.compose/actron_timetravel_compose_HistoryPanelLayoutState$stableprop // actron.timetravel.compose/actron_timetravel_compose_HistoryPanelLayoutState$stableprop|#static{}actron_timetravel_compose_HistoryPanelLayoutState$stableprop[0]
@@ -655,6 +681,8 @@ final fun actron.timetravel.compose/actron_timetravel_compose_GroupTravel_Experi
 final fun actron.timetravel.compose/actron_timetravel_compose_GroupTravel_Replaying$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_GroupTravel_Replaying$stableprop_getter|actron_timetravel_compose_GroupTravel_Replaying$stableprop_getter(){}[0]
 final fun actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Checked$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Checked$stableprop_getter|actron_timetravel_compose_GroupVerification_Checked$stableprop_getter(){}[0]
 final fun actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Unchecked$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_GroupVerification_Unchecked$stableprop_getter|actron_timetravel_compose_GroupVerification_Unchecked$stableprop_getter(){}[0]
+final fun actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Recorded$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Recorded$stableprop_getter|actron_timetravel_compose_HistoryGraphCoverage_Recorded$stableprop_getter(){}[0]
+final fun actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Unavailable$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_HistoryGraphCoverage_Unavailable$stableprop_getter|actron_timetravel_compose_HistoryGraphCoverage_Unavailable$stableprop_getter(){}[0]
 final fun actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Machine$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Machine$stableprop_getter|actron_timetravel_compose_HistoryGraph_Machine$stableprop_getter(){}[0]
 final fun actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Unavailable$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_HistoryGraph_Unavailable$stableprop_getter|actron_timetravel_compose_HistoryGraph_Unavailable$stableprop_getter(){}[0]
 final fun actron.timetravel.compose/actron_timetravel_compose_HistoryPanelLayoutState$stableprop_getter(): kotlin/Int // actron.timetravel.compose/actron_timetravel_compose_HistoryPanelLayoutState$stableprop_getter|actron_timetravel_compose_HistoryPanelLayoutState$stableprop_getter(){}[0]

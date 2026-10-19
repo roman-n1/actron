@@ -40,6 +40,7 @@ kotlin {
             implementation("io.ktor:ktor-client-core:3.5.0")
         }
         commonTest.dependencies {
+            implementation(project(":actron-statechart-test"))
             implementation(libs.kotlin.test)
             implementation(libs.coroutines.test)
             implementation("io.ktor:ktor-client-mock:3.5.0")
