@@ -345,3 +345,41 @@ This API packages a consistent immutable frame provided by the host. It does not
 capture independently running stores, start executors, navigate screens or persist data by
 itself. Application metadata can wrap the returned string. The group format is versioned;
 changes to the member schema require application migration or an explicit fresh-start policy.
+
+### Invoked parent and child
+
+`invoke` is a pure composition with an `InvocationSnapshot`, rather than two independent
+live stores. Its persistence adapter keeps both executor checkpoints and the child's owner
+activation together:
+
+```kotlin
+val persistence = invocationPersistence(composition)
+val saved = persistence.save(invocationCheckpoint)
+val restored = persistence.restore(saved)
+val next = composition.decide(restored.snapshot, input)
+```
+
+The host supplies an `InvocationCheckpoint(parent, child)` at a committed decision boundary.
+`child` is `ChildCheckpoint.Dormant` or `ChildCheckpoint.Active(owner, checkpoint)`. Active
+parent and child checkpoints must share the same logical clock instant. Both keep context,
+active states, shallow/deep history, activation IDs, running/queued command registrations and
+timers. Restoring does not re-enter states. Owner mismatches, incompatible definitions/versions,
+unknown formats and undelivered effects or terminal command outcomes are rejected. Even a
+currently dormant child's definition/version is checked.
+
+The existing invocation API has no built-in coroutine executor. This adapter restores the
+complete data for the invocation host; it does not introduce one or launch work itself. The
+host restarts pending commands, retains queue ordering, rebases the shared clock to keep the
+remaining timer delays, and routes inputs through `InvokedMachine.decide`, qualifying child
+inputs with the saved owner. Starting independent parent/child `MachineStore`s would bypass
+that composition and is not a replacement. Completed work is absent from the checkpoints;
+external operations that restart retain the same at-least-once contract as a single machine.
+
+Use `invocation(persistence, read, write)` inside `checkpointGroup` to register the whole
+composition as one member, keyed by the parent definition. Custom serializers can be supplied
+through `InvocationPersistence(composition, parentCodec, childCodec)`.
+
+Common persistence tests cover fresh and completed machines, nested hierarchy, shallow/deep
+history, parallel regions with partial completion, cascading completion, and active/dormant
+invocations. They serialize, rebuild definitions, restore and continue with actions, command
+results or timers; invocation tests additionally check owner replacement and stale results.

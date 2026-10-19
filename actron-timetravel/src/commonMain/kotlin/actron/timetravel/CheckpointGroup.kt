@@ -42,6 +42,23 @@ class CheckpointGroupBuilder<F : Any> internal constructor() {
         write: (F, List<ExecutorCheckpoint<C, CMD>>) -> F,
     ) = add(persistence, read, write, single = false)
 
+    /** One parent/child invocation, validated and restored as a single member. */
+    fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> invocation(
+        persistence: InvocationPersistence<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
+        read: (F) -> InvocationCheckpoint<PC, PCMD, CC, CCMD>,
+        write: (F, InvocationCheckpoint<PC, PCMD, CC, CCMD>) -> F,
+    ) {
+        val id = persistence.definitionKey
+        require(bindings.none { it.id == id }) { "Duplicate checkpoint group definition: $id" }
+        bindings +=
+            CheckpointBinding(id, { frame -> listOf(persistence.save(read(frame))) }, { values ->
+                require(values.size == 1) { "Expected one invocation checkpoint for $id" }
+                val checkpoint = persistence.restore(values.single())
+                val update: (F) -> F = { frame -> write(frame, checkpoint) }
+                update
+            })
+    }
+
     private fun <C : Any, A : Action, CMD : Any, E : Event> add(
         persistence: MachinePersistence<C, A, CMD, E>,
         read: (F) -> List<ExecutorCheckpoint<C, CMD>>,
