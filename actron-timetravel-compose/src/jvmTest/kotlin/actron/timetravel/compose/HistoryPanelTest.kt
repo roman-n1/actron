@@ -40,7 +40,7 @@ class HistoryPanelTest {
                 MaterialTheme {
                     HistoryPanel(timeline, state, {
                         continued += it.snapshot
-                        timeline.append(machine, 1, details, "Resumed")
+                        timeline.append(timeline.machine("Search"), 1, details, "Resumed")
                     }, Modifier.fillMaxSize())
                 }
             }
@@ -66,8 +66,55 @@ class HistoryPanelTest {
                 assertEquals(listOf("Paris"), continued)
                 assertEquals(listOf("Paris", "Resumed"), timeline.entries.value.map { it.snapshot })
                 assertEquals(emptyList(), state.preview)
+                assertEquals(emptyList(), state.selection)
             }
+            onNodeWithTag("history-entry-4").assertExists()
         }
+
+    @Test
+    fun switchingMachineClearsForeignSelectionAndHistoryUsesFilteredEntries() =
+        runComposeUiTest {
+            val timeline = HistoryTimeline<String>()
+            val details = HistoryDetails("Load", "Action", "Handled", emptyList(), emptyList())
+            timeline.append(timeline.machine("Search"), 0, details, "Search snapshot")
+            timeline.append(timeline.machine("Weather"), 0, details, "Weather snapshot")
+            val state = HistoryPanelState<String>()
+            setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.fillMaxSize()) } }
+            onNodeWithTag("history-entry-2").performClick()
+            onNodeWithTag("history-machine-filter").performClick()
+            onNodeWithText("Search #1").performClick()
+            onNodeWithTag("history-selected-input").assertDoesNotExist()
+            runOnIdle {
+                assertEquals(emptyList(), state.selection)
+                assertEquals(emptyList(), state.preview)
+            }
+            onNodeWithTag("history-mode-history").performClick()
+            runOnIdle { assertEquals("Search snapshot", state.preview.single().snapshot) }
+            onNodeWithTag("history-entry-2").assertDoesNotExist()
+        }
+
+    @Test
+    fun longPayloadIsExpandableAndRawTypesRemainAvailable() =
+        runComposeUiTest {
+            val payload = "Loaded(values=" + "sample,".repeat(40) + ")"
+            val timeline = HistoryTimeline<String>()
+            val rawType = "actron.example.weather.RequestState.Success"
+            val details = HistoryDetails(payload, "Action", "Handled", emptyList(), listOf(StateField("current.type", rawType)))
+            timeline.append(timeline.machine("Weather"), 0, details, "snapshot")
+            val state = HistoryPanelState<String>()
+            setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.fillMaxSize()) } }
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("history-selected-input").assertTextEquals("Loaded")
+            onNodeWithText("RequestState.Success").assertExists()
+            onNodeWithTag("history-action-payload").performClick()
+            onNodeWithTag("history-selected-input").assertTextEquals(payload)
+            onNodeWithTag("history-action-payload").performClick()
+            onNodeWithTag("history-selected-input").assertTextEquals("Loaded")
+            onNodeWithText(historyLabelFullState()).performClick()
+            onNodeWithText(rawType).assertExists()
+        }
+
+    private fun historyLabelFullState(): String = HistoryText.FullState.forLanguage(Locale.getDefault().language)
 
     @Test
     fun timeUsesDeviceLocaleAndTimeZone() {
