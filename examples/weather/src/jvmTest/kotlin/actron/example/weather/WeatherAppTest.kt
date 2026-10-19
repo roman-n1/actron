@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -41,6 +42,35 @@ import com.arkivanov.essenty.lifecycle.resume
 import kotlin.test.Test
 
 class WeatherAppTest {
+    @Test
+    fun graphFollowsSearchAndParallelWeatherHistory() =
+        runComposeUiTest {
+            setRootContent(SampleWeatherRepository)
+            onNodeWithTag("debug-settings").performClick()
+            onNodeWithTag("debug-panel-switch").performClick()
+            onNodeWithTag("debug-settings-done").performClick()
+            onNodeWithTag("city-search").performTextInput("Lisbon")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("history-graph-tab").performClick()
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Idle", substring = true)
+            onNodeWithTag("history-entry-2").performClick()
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Debouncing", substring = true)
+            onNodeWithTag("history-live").performClick()
+            onNodeWithTag("city-Lisbon").performClick()
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("history-machine-filter").performClick()
+            onNodeWithText("City Weather").performClick()
+            onNodeWithTag("history-mode-history").performClick()
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Current.Success", substring = true)
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Hourly.Success", substring = true)
+            onNodeWithTag("graph-zoom-in").performClick()
+            onNodeWithTag("graph-fit").performClick()
+            onNodeWithTag("history-event-tab").performClick()
+            onNodeWithTag("history-continue").performClick()
+            onNodeWithTag("weather-refresh").assertIsEnabled()
+        }
+
     @Test
     fun continueHereRestoresSearchAndAcceptsNewInput() =
         runComposeUiTest {

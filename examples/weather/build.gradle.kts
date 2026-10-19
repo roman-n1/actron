@@ -64,6 +64,9 @@ kotlin {
 
 compose.desktop.application {
     mainClass = "actron.example.weather.MainKt"
+    if (System.getProperty("os.name", "").startsWith("Mac")) {
+        jvmArgs += "--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED"
+    }
 }
 
 // An open desktop app must not read JARs that another Gradle build can replace.

@@ -58,7 +58,7 @@ fun WeatherDebugLayout(
                     Modifier.fillMaxSize(),
                     content = preview,
                     panel = {
-                        HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.fillMaxSize().testTag("weather-history-panel"), WeatherFrame::canResume)
+                        HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.fillMaxSize().testTag("weather-history-panel"), WeatherFrame::canResume, graph = history::graph)
                     },
                 )
             }

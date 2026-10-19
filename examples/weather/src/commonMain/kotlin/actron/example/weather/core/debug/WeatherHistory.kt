@@ -9,6 +9,7 @@ import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.weather.presentation.*
 import actron.statechart.machine.*
 import actron.timetravel.*
+import actron.timetravel.compose.HistoryGraph
 import actron.timetravel.compose.HistoryPanelState
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,6 +91,40 @@ class WeatherHistory(
                 override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(baseStart + (deadline - origin))
             }
     }
+
+    private val searchChart = CitySearchMachine.create().chart
+    private val weatherChart = CityWeatherMachine.create().chart
+
+    fun graph(entry: HistoryEntry<WeatherFrame>): HistoryGraph =
+        when (entry.machine.stableId) {
+            "city-search" -> {
+                HistoryGraph.Machine(
+                    searchChart,
+                    entry.snapshot.search.snapshot.configuration.active
+                        .toSet(),
+                )
+            }
+
+            "city-weather" -> {
+                when (val route = entry.snapshot.route) {
+                    WeatherRoute.Search -> {
+                        HistoryGraph.Unavailable
+                    }
+
+                    is WeatherRoute.Weather -> {
+                        HistoryGraph.Machine(
+                            weatherChart,
+                            route.checkpoint.snapshot.configuration.active
+                                .toSet(),
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                HistoryGraph.Unavailable
+            }
+        }
 
     fun searchCheckpoint() = frame.search
 

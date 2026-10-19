@@ -70,3 +70,10 @@ kotlin {
 publishConvention {
     artifactId.set("actron-timetravel-compose")
 }
+
+// The JDK macOS gesture API is platform-specific and not exported by default on modern JDKs.
+tasks.withType<Test>().configureEach {
+    if (System.getProperty("os.name", "").startsWith("Mac")) {
+        jvmArgs("--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED")
+    }
+}

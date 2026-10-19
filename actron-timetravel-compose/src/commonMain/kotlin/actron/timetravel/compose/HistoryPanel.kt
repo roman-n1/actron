@@ -67,9 +67,12 @@ fun <S : Any> HistoryPanel(
     onContinue: (HistoryEntry<S>) -> Unit,
     modifier: Modifier = Modifier,
     canContinue: (S) -> Boolean = { true },
+    graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
 ) {
     val entries by timeline.entries.collectAsState()
     var filter by remember { mutableStateOf(emptyList<String>()) }
+    val graphViewports = remember { mutableMapOf<String, GraphViewport>() }
+    var graphSelected by remember { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
     val machines = entries.map { it.machine }.distinctBy { it.stableId }
     val visible = entries.filter { filter.isEmpty() || it.machine.stableId in filter }
@@ -143,12 +146,23 @@ fun <S : Any> HistoryPanel(
                         }
                     } else {
                         state.selection.forEach { entry ->
-                            EventDetail(entry, visible, state, { selected ->
-                                val previousHead = timeline.entries.value.fold(selected.id) { id, item -> maxOf(id, item.id) }
-                                onContinue(selected)
-                                timeline.truncateAfter(selected.id, previousHead)
-                                state.clearSelection()
-                            }, canContinue, detailModifier)
+                            Column(detailModifier) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    HistoryChoice(!graphSelected, { graphSelected = false }, { Text(historyText(HistoryText.Event)) }, modifier = Modifier.testTag("history-event-tab"))
+                                    HistoryChoice(graphSelected, { graphSelected = true }, { Text(historyText(HistoryText.Graph)) }, modifier = Modifier.testTag("history-graph-tab"))
+                                }
+                                if (graphSelected) {
+                                    Text("${entry.machine.name} · #${entry.id}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleSmall)
+                                    key(entry.machine.stableId) { MachineGraph(graph(entry), graphViewports.getOrPut(entry.machine.stableId) { GraphViewport() }, Modifier.weight(1f).fillMaxWidth()) }
+                                } else {
+                                    EventDetail(entry, visible, state, { selected ->
+                                        val previousHead = timeline.entries.value.fold(selected.id) { id, item -> maxOf(id, item.id) }
+                                        onContinue(selected)
+                                        timeline.truncateAfter(selected.id, previousHead)
+                                        state.clearSelection()
+                                    }, canContinue, Modifier.weight(1f).fillMaxWidth())
+                                }
+                            }
                         }
                     }
                 }
@@ -240,8 +254,8 @@ private fun <S : Any> EventDetail(
         ) {
             key(entry.id) { TransitionDiagram(entry.details) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !full, onClick = { full = false }, label = { Text(historyText(HistoryText.Changes)) })
-                FilterChip(selected = full, onClick = { full = true }, label = { Text(historyText(HistoryText.FullState)) })
+                HistoryChoice(selected = !full, onClick = { full = false }, label = { Text(historyText(HistoryText.Changes)) })
+                HistoryChoice(selected = full, onClick = { full = true }, label = { Text(historyText(HistoryText.FullState)) })
             }
             SelectionContainer {
                 Column {
