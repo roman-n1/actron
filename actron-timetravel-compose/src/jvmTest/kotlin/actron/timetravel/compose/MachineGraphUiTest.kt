@@ -15,6 +15,37 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class MachineGraphUiTest {
     @Test
+    fun diagnosticBannerSelectsStateAndExactDuplicateArrow() =
+        runComposeUiTest {
+            val idle = StateId("Idle")
+            val done = StateId("Done")
+            val lost = StateId("Lost")
+            val trigger = ActionMatcher("Go")
+            val chart = StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(done), AtomicState(lost)), listOf(Transition(idle, done, trigger), Transition(idle, done, trigger)))
+            val viewport = GraphViewport()
+            setContent { MaterialTheme { MachineGraph(HistoryGraph.Machine(chart, setOf(idle)), viewport, Modifier.size(900.dp, 800.dp)) } }
+            onNodeWithTag("graph-diagnostics-toggle").performClick()
+            onNodeWithTag("graph-issue-0").performClick()
+            onNodeWithTag("graph-state-transitions").assertExists()
+            onNodeWithText("Lost", substring = true).assertExists()
+            val previousOffset = viewport.offset
+            onNodeWithTag("graph-diagnostics-toggle").performClick()
+            onNodeWithTag("graph-issue-2").performClick()
+            onNodeWithTag("graph-transition-details").assertExists()
+            onNodeWithText("#2", substring = true).assertExists()
+            runOnIdle { assertNotEquals(previousOffset, viewport.offset) }
+        }
+
+    @Test
+    fun validGraphHasNoBanner() =
+        runComposeUiTest {
+            val done = StateId("Done")
+            val chart = StateChartDefinition(done, listOf(FinalState(done)), emptyList())
+            setContent { MaterialTheme { MachineGraph(HistoryGraph.Machine(chart, setOf(done)), GraphViewport(), Modifier.size(900.dp, 800.dp)) } }
+            onNodeWithTag("graph-diagnostics").assertDoesNotExist()
+        }
+
+    @Test
     fun historySelectionChangesHighlightAndTabsPreserveViewportWithoutContinuing() =
         runComposeUiTest {
             val idle = StateId("Idle")

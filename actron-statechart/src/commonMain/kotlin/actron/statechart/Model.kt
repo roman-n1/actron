@@ -341,6 +341,9 @@ data class StateChartDefinition(
     val states: List<StateNode>,
     val transitions: List<Transition>,
 ) {
+    /** Cached static diagnostics, evaluated automatically when inspected. No application code is executed. */
+    val diagnostics: List<GraphDiagnostic> by lazy { diagnose() }
+
     internal val hierarchy: HierarchyIndex by lazy { HierarchyIndex(this) }
 
     /** The configuration search behind paths and reachability; computed once per definition. */

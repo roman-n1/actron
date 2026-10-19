@@ -43,6 +43,7 @@ internal data class GraphNode(
 
 internal data class GraphEdge(
     val transition: Transition,
+    val definitionIndex: Int,
     val points: List<Offset>,
     val label: Rect,
 )
@@ -60,7 +61,8 @@ internal fun layoutGraph(
 ): GraphLayout {
     val nodes = mutableListOf<GraphNode>()
     val visited = mutableSetOf<StateId>()
-    val transitions = chart.transitions.filter { chart.hasNode(it.source) && chart.hasNode(it.target) }
+    val indexedTransitions = chart.transitions.withIndex().filter { chart.hasNode(it.value.source) && chart.hasNode(it.value.target) }
+    val transitions = indexedTransitions.map { it.value }
 
     fun owner(edge: Transition): StateParent =
         chart
@@ -165,7 +167,7 @@ internal fun layoutGraph(
             val to = port(transition.target, 20f)
             val labelSize = labelSizes[index]
             val label = Rect(Offset(right + 12f + labelColumn(transition, parent) * (labelWidth(parent) + 24f), from.y - labelSize.height / 2f), labelSize)
-            GraphEdge(transition, listOf(from, Offset(lane, from.y), Offset(lane, to.y), to), label)
+            GraphEdge(transition, indexedTransitions[index].index, listOf(from, Offset(lane, from.y), Offset(lane, to.y), to), label)
         }
     return GraphLayout(nodes, edges, Size(width + gutter(StateParent.Root), maxOf(200f, y)))
 }
@@ -239,6 +241,16 @@ private fun GraphCanvas(
     val nativeZoom = nativeGraphZoom { anchor, zoom -> viewport.transform(anchor, Offset.Zero, zoom) }
     val activeLabel = historyText(HistoryText.ActiveStates)
     Column(modifier) {
+        GraphDiagnosticsPanel(graph.definition.diagnostics) { issue ->
+            selectedEdges = layout.edges.indices.filter { index -> issue.transitions.any { it.index == layout.edges[index].definitionIndex } }
+            selected = if (selectedEdges.isEmpty()) issue.states.toList() else emptyList()
+            val boxes = if (selectedEdges.isNotEmpty()) selectedEdges.map { layout.edges[it].label } else layout.nodes.filter { it.state.id in selected }.map { it.bounds }
+            if (boxes.isNotEmpty()) {
+                val box = boxes.first()
+                val anchor = box.center * viewport.scale + viewport.offset
+                viewport.transform(anchor, view.center - anchor, maxOf(viewport.scale, 0.8f) / viewport.scale)
+            }
+        }
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
             TextButton({ viewport.transform(view.center, Offset.Zero, 1f / 1.25f) }, Modifier.testTag("graph-zoom-out").semantics { contentDescription = zoomOut }) { Text("−") }
             Text("${(viewport.scale * 100).toInt()}%", Modifier.padding(top = 12.dp).testTag("graph-scale"))
