@@ -45,6 +45,7 @@ fun CityWeatherScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(
                     onClick = { onIntent(CityWeatherIntent.Back) },
+                    enabled = state.enabled,
                     modifier = Modifier.testTag("weather-back"),
                 ) { Text("Back") }
                 OutlinedButton(

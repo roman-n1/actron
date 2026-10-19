@@ -68,6 +68,34 @@ fun <S : Any> HistoryPanel(
     modifier: Modifier = Modifier,
     canContinue: (S) -> Boolean = { true },
     graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    HistoryPanelContent(timeline, state, onContinue, modifier, canContinue, graph, false, actions)
+}
+
+/** Detached recording viewer: deliberately exposes no continuation callback or live mode. */
+@Composable
+fun <S : Any> HistoryRecordingPanel(
+    recording: HistoryRecording<S>,
+    state: HistoryPanelState<S>,
+    modifier: Modifier = Modifier,
+    graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    val timeline = remember(recording) { HistoryTimeline.fromRecording(recording) }
+    HistoryPanelContent(timeline, state, {}, modifier, { false }, graph, true, actions)
+}
+
+@Composable
+private fun <S : Any> HistoryPanelContent(
+    timeline: HistoryTimeline<S>,
+    state: HistoryPanelState<S>,
+    onContinue: (HistoryEntry<S>) -> Unit,
+    modifier: Modifier,
+    canContinue: (S) -> Boolean,
+    graph: (HistoryEntry<S>) -> HistoryGraph,
+    readOnly: Boolean,
+    actions: @Composable RowScope.() -> Unit,
 ) {
     val entries by timeline.entries.collectAsState()
     var filter by remember { mutableStateOf(emptyList<String>()) }
@@ -81,20 +109,22 @@ fun <S : Any> HistoryPanel(
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(historyText(HistoryText.Title), style = MaterialTheme.typography.titleMedium)
-                    Muted(historyText(HistoryText.Session))
+                    Muted(if (readOnly) historyText(HistoryText.ImportedRecording) else historyText(HistoryText.Session))
                 }
-                HistoryModeSwitch(
-                    history = state.preview.isNotEmpty(),
-                    historyAvailable = state.selection.isNotEmpty() || visible.isNotEmpty(),
-                    onHistory = {
-                        if (state.selection.isNotEmpty()) {
-                            state.previewSelected()
-                        } else if (visible.isNotEmpty()) {
-                            state.select(visible.last())
-                        }
-                    },
-                    onLive = state::returnToLive,
-                )
+                if (!readOnly) {
+                    HistoryModeSwitch(
+                        history = state.preview.isNotEmpty(),
+                        historyAvailable = state.selection.isNotEmpty() || visible.isNotEmpty(),
+                        onHistory = {
+                            if (state.selection.isNotEmpty()) {
+                                state.previewSelected()
+                            } else if (visible.isNotEmpty()) {
+                                state.select(visible.last())
+                            }
+                        },
+                        onLive = state::returnToLive,
+                    )
+                }
             }
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -119,6 +149,7 @@ fun <S : Any> HistoryPanel(
                         }
                     }
                 }
+                actions()
             }
             HorizontalDivider()
             BoxWithConstraints(Modifier.weight(1f)) {
@@ -160,7 +191,7 @@ fun <S : Any> HistoryPanel(
                                         onContinue(selected)
                                         timeline.truncateAfter(selected.id, previousHead)
                                         state.clearSelection()
-                                    }, canContinue, Modifier.weight(1f).fillMaxWidth())
+                                    }, canContinue, Modifier.weight(1f).fillMaxWidth(), readOnly)
                                 }
                             }
                         }
@@ -234,6 +265,7 @@ private fun <S : Any> EventDetail(
     onContinue: (HistoryEntry<S>) -> Unit,
     canContinue: (S) -> Boolean,
     modifier: Modifier,
+    readOnly: Boolean,
 ) {
     var full by remember { mutableStateOf(false) }
     val index = visible.indexOfFirst { it.id == entry.id }
@@ -285,26 +317,28 @@ private fun <S : Any> EventDetail(
                 }
             }
         }
-        HorizontalDivider()
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Button(
-                onClick = {
-                    onContinue(entry)
-                    state.returnToLive()
-                },
-                enabled = state.preview.any { it.id == entry.id } && canContinue(entry.snapshot),
-                modifier = Modifier.fillMaxWidth().testTag("history-continue"),
-                shape = RoundedCornerShape(8.dp),
-            ) { Text(historyText(HistoryText.Continue)) }
-            Muted(
-                if (!canContinue(entry.snapshot)) {
-                    historyText(HistoryText.Unsafe)
-                } else if (state.preview.isNotEmpty()) {
-                    historyText(HistoryText.ContinueHint)
-                } else {
-                    historyText(HistoryText.SelectToView)
-                },
-            )
+        if (!readOnly) {
+            HorizontalDivider()
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(
+                    onClick = {
+                        onContinue(entry)
+                        state.returnToLive()
+                    },
+                    enabled = state.preview.any { it.id == entry.id } && canContinue(entry.snapshot),
+                    modifier = Modifier.fillMaxWidth().testTag("history-continue"),
+                    shape = RoundedCornerShape(8.dp),
+                ) { Text(historyText(HistoryText.Continue)) }
+                Muted(
+                    if (!canContinue(entry.snapshot)) {
+                        historyText(HistoryText.Unsafe)
+                    } else if (state.preview.isNotEmpty()) {
+                        historyText(HistoryText.ContinueHint)
+                    } else {
+                        historyText(HistoryText.SelectToView)
+                    },
+                )
+            }
         }
     }
 }

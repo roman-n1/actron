@@ -49,6 +49,7 @@ data class WeatherFrame(
 /** App adapter: owns typed machine checkpoints and Decompose route; UI lives in the library. */
 class WeatherHistory(
     val capacity: Int = 500,
+    val exportSettings: HistoryExportSettings = HistoryExportSettings("Weather"),
     initialFrame: WeatherFrame = WeatherFrame(),
     initialBranch: Long = 0,
     private val clockFactory: () -> MachineClock = { MachineClock.monotonic() },

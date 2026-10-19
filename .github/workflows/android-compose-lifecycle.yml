@@ -26,7 +26,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Run tests with real Android Activity recreation
+      - name: Run Activity recreation and recording document picker tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -35,7 +35,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: ./gradlew :actron-compose:connectedAndroidDeviceTest --max-workers=2
+          script: ./gradlew :actron-compose:connectedAndroidDeviceTest :weather-android:connectedDebugAndroidTest --max-workers=2
       - name: Upload device test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,3 +44,5 @@ jobs:
           path: |
             actron-compose/build/reports/androidTests/
             actron-compose/build/outputs/androidTest-results/
+            examples/weather-android/build/reports/androidTests/
+            examples/weather-android/build/outputs/androidTest-results/

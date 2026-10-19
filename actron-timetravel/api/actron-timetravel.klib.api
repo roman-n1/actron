@@ -1625,6 +1625,121 @@ final class <#A: kotlin/Any> actron.timetravel/HistoryEntry { // actron.timetrav
         final fun <get-snapshot>(): #A // actron.timetravel/HistoryEntry.snapshot.<get-snapshot>|<get-snapshot>(){}[0]
 }
 
+final class <#A: kotlin/Any> actron.timetravel/HistoryRecord { // actron.timetravel/HistoryRecord|null[0]
+    constructor <init>(kotlin/Long, actron.timetravel/HistoryMachine, kotlin/Long, kotlin/String, actron.timetravel/HistoryDetails, #A) // actron.timetravel/HistoryRecord.<init>|<init>(kotlin.Long;actron.timetravel.HistoryMachine;kotlin.Long;kotlin.String;actron.timetravel.HistoryDetails;1:0){}[0]
+
+    final val at // actron.timetravel/HistoryRecord.at|{}at[0]
+        final fun <get-at>(): kotlin/String // actron.timetravel/HistoryRecord.at.<get-at>|<get-at>(){}[0]
+    final val branch // actron.timetravel/HistoryRecord.branch|{}branch[0]
+        final fun <get-branch>(): kotlin/Long // actron.timetravel/HistoryRecord.branch.<get-branch>|<get-branch>(){}[0]
+    final val details // actron.timetravel/HistoryRecord.details|{}details[0]
+        final fun <get-details>(): actron.timetravel/HistoryDetails // actron.timetravel/HistoryRecord.details.<get-details>|<get-details>(){}[0]
+    final val id // actron.timetravel/HistoryRecord.id|{}id[0]
+        final fun <get-id>(): kotlin/Long // actron.timetravel/HistoryRecord.id.<get-id>|<get-id>(){}[0]
+    final val machine // actron.timetravel/HistoryRecord.machine|{}machine[0]
+        final fun <get-machine>(): actron.timetravel/HistoryMachine // actron.timetravel/HistoryRecord.machine.<get-machine>|<get-machine>(){}[0]
+    final val snapshot // actron.timetravel/HistoryRecord.snapshot|{}snapshot[0]
+        final fun <get-snapshot>(): #A // actron.timetravel/HistoryRecord.snapshot.<get-snapshot>|<get-snapshot>(){}[0]
+
+    final fun component1(): kotlin/Long // actron.timetravel/HistoryRecord.component1|component1(){}[0]
+    final fun component2(): actron.timetravel/HistoryMachine // actron.timetravel/HistoryRecord.component2|component2(){}[0]
+    final fun component3(): kotlin/Long // actron.timetravel/HistoryRecord.component3|component3(){}[0]
+    final fun component4(): kotlin/String // actron.timetravel/HistoryRecord.component4|component4(){}[0]
+    final fun component5(): actron.timetravel/HistoryDetails // actron.timetravel/HistoryRecord.component5|component5(){}[0]
+    final fun component6(): #A // actron.timetravel/HistoryRecord.component6|component6(){}[0]
+    final fun copy(kotlin/Long = ..., actron.timetravel/HistoryMachine = ..., kotlin/Long = ..., kotlin/String = ..., actron.timetravel/HistoryDetails = ..., #A = ...): actron.timetravel/HistoryRecord<#A> // actron.timetravel/HistoryRecord.copy|copy(kotlin.Long;actron.timetravel.HistoryMachine;kotlin.Long;kotlin.String;actron.timetravel.HistoryDetails;1:0){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryRecord.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryRecord.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryRecord.toString|toString(){}[0]
+
+    final class <#A1: kotlin/Any?> $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecord<#A1>> { // actron.timetravel/HistoryRecord.$serializer|null[0]
+        constructor <init>(kotlinx.serialization/KSerializer<#A1>) // actron.timetravel/HistoryRecord.$serializer.<init>|<init>(kotlinx.serialization.KSerializer<1:0>){}[0]
+
+        final val descriptor // actron.timetravel/HistoryRecord.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryRecord.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+        final val typeSerial0 // actron.timetravel/HistoryRecord.$serializer.typeSerial0|{}typeSerial0[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryRecord.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/HistoryRecord<#A1> // actron.timetravel/HistoryRecord.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/HistoryRecord<#A1>) // actron.timetravel/HistoryRecord.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.HistoryRecord<1:0>){}[0]
+        final fun typeParametersSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryRecord.$serializer.typeParametersSerializers|typeParametersSerializers(){}[0]
+    }
+
+    final object Companion : kotlinx.serialization.internal/SerializerFactory { // actron.timetravel/HistoryRecord.Companion|null[0]
+        final val $cachedDescriptor // actron.timetravel/HistoryRecord.Companion.$cachedDescriptor|{}$cachedDescriptor[0]
+            final fun <get-$cachedDescriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryRecord.Companion.$cachedDescriptor.<get-$cachedDescriptor>|<get-$cachedDescriptor>(){}[0]
+
+        final fun <#A2: kotlin/Any?> serializer(kotlinx.serialization/KSerializer<#A2>): kotlinx.serialization/KSerializer<actron.timetravel/HistoryRecord<#A2>> // actron.timetravel/HistoryRecord.Companion.serializer|serializer(kotlinx.serialization.KSerializer<0:0>){0§<kotlin.Any?>}[0]
+        final fun serializer(kotlin/Array<out kotlinx.serialization/KSerializer<*>>...): kotlinx.serialization/KSerializer<*> // actron.timetravel/HistoryRecord.Companion.serializer|serializer(kotlin.Array<out|kotlinx.serialization.KSerializer<*>>...){}[0]
+    }
+}
+
+final class <#A: kotlin/Any> actron.timetravel/HistoryRecording { // actron.timetravel/HistoryRecording|null[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<actron.timetravel/HistoryRecord<#A>>, actron.timetravel/HistoryRecordingMetadata, kotlin/Int = ..., kotlin.collections/List<actron.timetravel/HistoryDefinition> = ...) // actron.timetravel/HistoryRecording.<init>|<init>(kotlin.String;kotlin.collections.List<actron.timetravel.HistoryRecord<1:0>>;actron.timetravel.HistoryRecordingMetadata;kotlin.Int;kotlin.collections.List<actron.timetravel.HistoryDefinition>){}[0]
+
+    final val definitions // actron.timetravel/HistoryRecording.definitions|{}definitions[0]
+        final fun <get-definitions>(): kotlin.collections/List<actron.timetravel/HistoryDefinition> // actron.timetravel/HistoryRecording.definitions.<get-definitions>|<get-definitions>(){}[0]
+    final val entries // actron.timetravel/HistoryRecording.entries|{}entries[0]
+        final fun <get-entries>(): kotlin.collections/List<actron.timetravel/HistoryRecord<#A>> // actron.timetravel/HistoryRecording.entries.<get-entries>|<get-entries>(){}[0]
+    final val format // actron.timetravel/HistoryRecording.format|{}format[0]
+        final fun <get-format>(): kotlin/Int // actron.timetravel/HistoryRecording.format.<get-format>|<get-format>(){}[0]
+    final val metadata // actron.timetravel/HistoryRecording.metadata|{}metadata[0]
+        final fun <get-metadata>(): actron.timetravel/HistoryRecordingMetadata // actron.timetravel/HistoryRecording.metadata.<get-metadata>|<get-metadata>(){}[0]
+    final val schema // actron.timetravel/HistoryRecording.schema|{}schema[0]
+        final fun <get-schema>(): kotlin/String // actron.timetravel/HistoryRecording.schema.<get-schema>|<get-schema>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/HistoryRecording.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/List<actron.timetravel/HistoryRecord<#A>> // actron.timetravel/HistoryRecording.component2|component2(){}[0]
+    final fun component3(): actron.timetravel/HistoryRecordingMetadata // actron.timetravel/HistoryRecording.component3|component3(){}[0]
+    final fun component4(): kotlin/Int // actron.timetravel/HistoryRecording.component4|component4(){}[0]
+    final fun component5(): kotlin.collections/List<actron.timetravel/HistoryDefinition> // actron.timetravel/HistoryRecording.component5|component5(){}[0]
+    final fun copy(kotlin/String = ..., kotlin.collections/List<actron.timetravel/HistoryRecord<#A>> = ..., actron.timetravel/HistoryRecordingMetadata = ..., kotlin/Int = ..., kotlin.collections/List<actron.timetravel/HistoryDefinition> = ...): actron.timetravel/HistoryRecording<#A> // actron.timetravel/HistoryRecording.copy|copy(kotlin.String;kotlin.collections.List<actron.timetravel.HistoryRecord<1:0>>;actron.timetravel.HistoryRecordingMetadata;kotlin.Int;kotlin.collections.List<actron.timetravel.HistoryDefinition>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryRecording.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryRecording.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryRecording.toString|toString(){}[0]
+    final fun validate() // actron.timetravel/HistoryRecording.validate|validate(){}[0]
+
+    final class <#A1: kotlin/Any?> $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecording<#A1>> { // actron.timetravel/HistoryRecording.$serializer|null[0]
+        constructor <init>(kotlinx.serialization/KSerializer<#A1>) // actron.timetravel/HistoryRecording.$serializer.<init>|<init>(kotlinx.serialization.KSerializer<1:0>){}[0]
+
+        final val descriptor // actron.timetravel/HistoryRecording.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryRecording.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+        final val typeSerial0 // actron.timetravel/HistoryRecording.$serializer.typeSerial0|{}typeSerial0[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryRecording.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/HistoryRecording<#A1> // actron.timetravel/HistoryRecording.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/HistoryRecording<#A1>) // actron.timetravel/HistoryRecording.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.HistoryRecording<1:0>){}[0]
+        final fun typeParametersSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryRecording.$serializer.typeParametersSerializers|typeParametersSerializers(){}[0]
+    }
+
+    final object Companion : kotlinx.serialization.internal/SerializerFactory { // actron.timetravel/HistoryRecording.Companion|null[0]
+        final val $cachedDescriptor // actron.timetravel/HistoryRecording.Companion.$cachedDescriptor|{}$cachedDescriptor[0]
+            final fun <get-$cachedDescriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryRecording.Companion.$cachedDescriptor.<get-$cachedDescriptor>|<get-$cachedDescriptor>(){}[0]
+        final val $childSerializers // actron.timetravel/HistoryRecording.Companion.$childSerializers|{}$childSerializers[0]
+
+        final fun <#A2: kotlin/Any?> serializer(kotlinx.serialization/KSerializer<#A2>): kotlinx.serialization/KSerializer<actron.timetravel/HistoryRecording<#A2>> // actron.timetravel/HistoryRecording.Companion.serializer|serializer(kotlinx.serialization.KSerializer<0:0>){0§<kotlin.Any?>}[0]
+        final fun serializer(kotlin/Array<out kotlinx.serialization/KSerializer<*>>...): kotlinx.serialization/KSerializer<*> // actron.timetravel/HistoryRecording.Companion.serializer|serializer(kotlin.Array<out|kotlinx.serialization.KSerializer<*>>...){}[0]
+    }
+}
+
+final class <#A: kotlin/Any> actron.timetravel/HistoryRecordingCodec { // actron.timetravel/HistoryRecordingCodec|null[0]
+    constructor <init>(kotlin/String, kotlinx.serialization/KSerializer<#A>, kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin.collections/List<actron.timetravel/HistoryDefinition> = ...) // actron.timetravel/HistoryRecordingCodec.<init>|<init>(kotlin.String;kotlinx.serialization.KSerializer<1:0>;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.collections.List<actron.timetravel.HistoryDefinition>){}[0]
+
+    final val definitions // actron.timetravel/HistoryRecordingCodec.definitions|{}definitions[0]
+        final fun <get-definitions>(): kotlin.collections/List<actron.timetravel/HistoryDefinition> // actron.timetravel/HistoryRecordingCodec.definitions.<get-definitions>|<get-definitions>(){}[0]
+    final val maxBytes // actron.timetravel/HistoryRecordingCodec.maxBytes|{}maxBytes[0]
+        final fun <get-maxBytes>(): kotlin/Int // actron.timetravel/HistoryRecordingCodec.maxBytes.<get-maxBytes>|<get-maxBytes>(){}[0]
+    final val maxDepth // actron.timetravel/HistoryRecordingCodec.maxDepth|{}maxDepth[0]
+        final fun <get-maxDepth>(): kotlin/Int // actron.timetravel/HistoryRecordingCodec.maxDepth.<get-maxDepth>|<get-maxDepth>(){}[0]
+    final val maxEntries // actron.timetravel/HistoryRecordingCodec.maxEntries|{}maxEntries[0]
+        final fun <get-maxEntries>(): kotlin/Int // actron.timetravel/HistoryRecordingCodec.maxEntries.<get-maxEntries>|<get-maxEntries>(){}[0]
+    final val schema // actron.timetravel/HistoryRecordingCodec.schema|{}schema[0]
+        final fun <get-schema>(): kotlin/String // actron.timetravel/HistoryRecordingCodec.schema.<get-schema>|<get-schema>(){}[0]
+
+    final fun decode(kotlin/ByteArray): actron.timetravel/HistoryRecording<#A> // actron.timetravel/HistoryRecordingCodec.decode|decode(kotlin.ByteArray){}[0]
+    final fun encode(actron.timetravel/HistoryRecording<#A>): kotlin/ByteArray // actron.timetravel/HistoryRecordingCodec.encode|encode(actron.timetravel.HistoryRecording<1:0>){}[0]
+}
+
 final class <#A: kotlin/Any> actron.timetravel/HistoryTimeline { // actron.timetravel/HistoryTimeline|null[0]
     constructor <init>(kotlin/Int = ...) // actron.timetravel/HistoryTimeline.<init>|<init>(kotlin.Int){}[0]
 
@@ -1637,6 +1752,10 @@ final class <#A: kotlin/Any> actron.timetravel/HistoryTimeline { // actron.timet
     final fun clear() // actron.timetravel/HistoryTimeline.clear|clear(){}[0]
     final fun machine(kotlin/String, kotlin/String = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryTimeline.machine|machine(kotlin.String;kotlin.String){}[0]
     final fun truncateAfter(kotlin/Long, kotlin/Long = ...) // actron.timetravel/HistoryTimeline.truncateAfter|truncateAfter(kotlin.Long;kotlin.Long){}[0]
+
+    final object Companion { // actron.timetravel/HistoryTimeline.Companion|null[0]
+        final fun <#A2: kotlin/Any> fromRecording(actron.timetravel/HistoryRecording<#A2>): actron.timetravel/HistoryTimeline<#A2> // actron.timetravel/HistoryTimeline.Companion.fromRecording|fromRecording(actron.timetravel.HistoryRecording<0:0>){0§<kotlin.Any>}[0]
+    }
 }
 
 final class actron.timetravel.file/GroupOrderEntry { // actron.timetravel.file/GroupOrderEntry|null[0]
@@ -2081,6 +2200,38 @@ final class actron.timetravel/GroupStep { // actron.timetravel/GroupStep|null[0]
     final fun toString(): kotlin/String // actron.timetravel/GroupStep.toString|toString(){}[0]
 }
 
+final class actron.timetravel/HistoryDefinition { // actron.timetravel/HistoryDefinition|null[0]
+    constructor <init>(kotlin/String, kotlin/String, kotlinx.serialization.json/JsonObject) // actron.timetravel/HistoryDefinition.<init>|<init>(kotlin.String;kotlin.String;kotlinx.serialization.json.JsonObject){}[0]
+
+    final val id // actron.timetravel/HistoryDefinition.id|{}id[0]
+        final fun <get-id>(): kotlin/String // actron.timetravel/HistoryDefinition.id.<get-id>|<get-id>(){}[0]
+    final val structure // actron.timetravel/HistoryDefinition.structure|{}structure[0]
+        final fun <get-structure>(): kotlinx.serialization.json/JsonObject // actron.timetravel/HistoryDefinition.structure.<get-structure>|<get-structure>(){}[0]
+    final val version // actron.timetravel/HistoryDefinition.version|{}version[0]
+        final fun <get-version>(): kotlin/String // actron.timetravel/HistoryDefinition.version.<get-version>|<get-version>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/HistoryDefinition.component1|component1(){}[0]
+    final fun component2(): kotlin/String // actron.timetravel/HistoryDefinition.component2|component2(){}[0]
+    final fun component3(): kotlinx.serialization.json/JsonObject // actron.timetravel/HistoryDefinition.component3|component3(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlinx.serialization.json/JsonObject = ...): actron.timetravel/HistoryDefinition // actron.timetravel/HistoryDefinition.copy|copy(kotlin.String;kotlin.String;kotlinx.serialization.json.JsonObject){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryDefinition.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryDefinition.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryDefinition.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryDefinition> { // actron.timetravel/HistoryDefinition.$serializer|null[0]
+        final val descriptor // actron.timetravel/HistoryDefinition.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryDefinition.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryDefinition.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/HistoryDefinition // actron.timetravel/HistoryDefinition.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/HistoryDefinition) // actron.timetravel/HistoryDefinition.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.HistoryDefinition){}[0]
+    }
+
+    final object Companion { // actron.timetravel/HistoryDefinition.Companion|null[0]
+        final fun serializer(): kotlinx.serialization/KSerializer<actron.timetravel/HistoryDefinition> // actron.timetravel/HistoryDefinition.Companion.serializer|serializer(){}[0]
+    }
+}
+
 final class actron.timetravel/HistoryDetails { // actron.timetravel/HistoryDetails|null[0]
     constructor <init>(kotlin/String, kotlin/String, kotlin/String, kotlin.collections/List<actron.timetravel/StateField>, kotlin.collections/List<actron.timetravel/StateField>, kotlin.collections/List<kotlin/String> = ..., kotlin/String = ...) // actron.timetravel/HistoryDetails.<init>|<init>(kotlin.String;kotlin.String;kotlin.String;kotlin.collections.List<actron.timetravel.StateField>;kotlin.collections.List<actron.timetravel.StateField>;kotlin.collections.List<kotlin.String>;kotlin.String){}[0]
 
@@ -2112,6 +2263,36 @@ final class actron.timetravel/HistoryDetails { // actron.timetravel/HistoryDetai
     final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryDetails.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // actron.timetravel/HistoryDetails.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // actron.timetravel/HistoryDetails.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryDetails> { // actron.timetravel/HistoryDetails.$serializer|null[0]
+        final val descriptor // actron.timetravel/HistoryDetails.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryDetails.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryDetails.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/HistoryDetails // actron.timetravel/HistoryDetails.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/HistoryDetails) // actron.timetravel/HistoryDetails.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.HistoryDetails){}[0]
+    }
+
+    final object Companion { // actron.timetravel/HistoryDetails.Companion|null[0]
+        final val $childSerializers // actron.timetravel/HistoryDetails.Companion.$childSerializers|{}$childSerializers[0]
+
+        final fun serializer(): kotlinx.serialization/KSerializer<actron.timetravel/HistoryDetails> // actron.timetravel/HistoryDetails.Companion.serializer|serializer(){}[0]
+    }
+}
+
+final class actron.timetravel/HistoryExportSettings { // actron.timetravel/HistoryExportSettings|null[0]
+    constructor <init>(kotlin/String = ...) // actron.timetravel/HistoryExportSettings.<init>|<init>(kotlin.String){}[0]
+
+    final val projectName // actron.timetravel/HistoryExportSettings.projectName|{}projectName[0]
+        final fun <get-projectName>(): kotlin/String // actron.timetravel/HistoryExportSettings.projectName.<get-projectName>|<get-projectName>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/HistoryExportSettings.component1|component1(){}[0]
+    final fun copy(kotlin/String = ...): actron.timetravel/HistoryExportSettings // actron.timetravel/HistoryExportSettings.copy|copy(kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryExportSettings.equals|equals(kotlin.Any?){}[0]
+    final fun fileName(kotlin/String): kotlin/String // actron.timetravel/HistoryExportSettings.fileName|fileName(kotlin.String){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryExportSettings.hashCode|hashCode(){}[0]
+    final fun metadata(kotlin.time/Instant = ...): actron.timetravel/HistoryRecordingMetadata // actron.timetravel/HistoryExportSettings.metadata|metadata(kotlin.time.Instant){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryExportSettings.toString|toString(){}[0]
 }
 
 final class actron.timetravel/HistoryMachine { // actron.timetravel/HistoryMachine|null[0]
@@ -2131,6 +2312,48 @@ final class actron.timetravel/HistoryMachine { // actron.timetravel/HistoryMachi
     final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryMachine.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // actron.timetravel/HistoryMachine.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // actron.timetravel/HistoryMachine.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryMachine> { // actron.timetravel/HistoryMachine.$serializer|null[0]
+        final val descriptor // actron.timetravel/HistoryMachine.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryMachine.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryMachine.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/HistoryMachine // actron.timetravel/HistoryMachine.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/HistoryMachine) // actron.timetravel/HistoryMachine.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.HistoryMachine){}[0]
+    }
+
+    final object Companion { // actron.timetravel/HistoryMachine.Companion|null[0]
+        final fun serializer(): kotlinx.serialization/KSerializer<actron.timetravel/HistoryMachine> // actron.timetravel/HistoryMachine.Companion.serializer|serializer(){}[0]
+    }
+}
+
+final class actron.timetravel/HistoryRecordingMetadata { // actron.timetravel/HistoryRecordingMetadata|null[0]
+    constructor <init>(kotlin/String, kotlin/String) // actron.timetravel/HistoryRecordingMetadata.<init>|<init>(kotlin.String;kotlin.String){}[0]
+
+    final val exportedAt // actron.timetravel/HistoryRecordingMetadata.exportedAt|{}exportedAt[0]
+        final fun <get-exportedAt>(): kotlin/String // actron.timetravel/HistoryRecordingMetadata.exportedAt.<get-exportedAt>|<get-exportedAt>(){}[0]
+    final val projectName // actron.timetravel/HistoryRecordingMetadata.projectName|{}projectName[0]
+        final fun <get-projectName>(): kotlin/String // actron.timetravel/HistoryRecordingMetadata.projectName.<get-projectName>|<get-projectName>(){}[0]
+
+    final fun component1(): kotlin/String // actron.timetravel/HistoryRecordingMetadata.component1|component1(){}[0]
+    final fun component2(): kotlin/String // actron.timetravel/HistoryRecordingMetadata.component2|component2(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ...): actron.timetravel/HistoryRecordingMetadata // actron.timetravel/HistoryRecordingMetadata.copy|copy(kotlin.String;kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryRecordingMetadata.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryRecordingMetadata.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryRecordingMetadata.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecordingMetadata> { // actron.timetravel/HistoryRecordingMetadata.$serializer|null[0]
+        final val descriptor // actron.timetravel/HistoryRecordingMetadata.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/HistoryRecordingMetadata.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/HistoryRecordingMetadata.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/HistoryRecordingMetadata // actron.timetravel/HistoryRecordingMetadata.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/HistoryRecordingMetadata) // actron.timetravel/HistoryRecordingMetadata.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.HistoryRecordingMetadata){}[0]
+    }
+
+    final object Companion { // actron.timetravel/HistoryRecordingMetadata.Companion|null[0]
+        final fun serializer(): kotlinx.serialization/KSerializer<actron.timetravel/HistoryRecordingMetadata> // actron.timetravel/HistoryRecordingMetadata.Companion.serializer|serializer(){}[0]
+    }
 }
 
 final class actron.timetravel/StateChange { // actron.timetravel/StateChange|null[0]
@@ -2166,6 +2389,19 @@ final class actron.timetravel/StateField { // actron.timetravel/StateField|null[
     final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/StateField.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // actron.timetravel/StateField.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // actron.timetravel/StateField.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/StateField> { // actron.timetravel/StateField.$serializer|null[0]
+        final val descriptor // actron.timetravel/StateField.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // actron.timetravel/StateField.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // actron.timetravel/StateField.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): actron.timetravel/StateField // actron.timetravel/StateField.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, actron.timetravel/StateField) // actron.timetravel/StateField.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;actron.timetravel.StateField){}[0]
+    }
+
+    final object Companion { // actron.timetravel/StateField.Companion|null[0]
+        final fun serializer(): kotlinx.serialization/KSerializer<actron.timetravel/StateField> // actron.timetravel/StateField.Companion.serializer|serializer(){}[0]
+    }
 }
 
 sealed class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel.file/DecodedRecordingSegment { // actron.timetravel.file/DecodedRecordingSegment|null[0]
@@ -2408,9 +2644,11 @@ final const val actron.timetravel.file/RECORDING_FILE_FORMAT_VERSION // actron.t
 final const val actron.timetravel/RECORDING_FORMAT_VERSION // actron.timetravel/RECORDING_FORMAT_VERSION|{}RECORDING_FORMAT_VERSION[0]
     final fun <get-RECORDING_FORMAT_VERSION>(): kotlin/Int // actron.timetravel/RECORDING_FORMAT_VERSION.<get-RECORDING_FORMAT_VERSION>|<get-RECORDING_FORMAT_VERSION>(){}[0]
 
+final fun (actron.statechart/StateChartDefinition).actron.timetravel/historyDefinition(kotlin/String, kotlin/String): actron.timetravel/HistoryDefinition // actron.timetravel/historyDefinition|historyDefinition@actron.statechart.StateChartDefinition(kotlin.String;kotlin.String){}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/ExecutorCheckpoint<#A, #C>).actron.timetravel/carriedPast(actron.timetravel/RecordedStep<#A, #B, #C, #D>): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/carriedPast|carriedPast@actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>(actron.timetravel.RecordedStep<0:0,0:1,0:2,0:3>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/Machine<#A, #B, #C, #D>).actron.timetravel/recordInputs(actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin.collections/List<actron.statechart.machine/MachineInput<#B>>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/recordInputs|recordInputs@actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>(actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>;kotlin.collections.List<actron.statechart.machine.MachineInput<0:1>>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/Machine<#A, #B, #C, #D>).actron.timetravel/recordInputs(actron.statechart.machine/MachineSnapshot<#A>, kotlin.collections/List<actron.statechart.machine/MachineInput<#B>>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/recordInputs|recordInputs@actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>(actron.statechart.machine.MachineSnapshot<0:0>;kotlin.collections.List<actron.statechart.machine.MachineInput<0:1>>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
+final fun <#A: kotlin/Any, #B: kotlin/Any> (actron.timetravel/HistoryTimeline<#A>).actron.timetravel/recording(kotlin/String, kotlin/Function1<#A, #B>, kotlin/Function1<actron.timetravel/HistoryDetails, actron.timetravel/HistoryDetails> = ..., actron.timetravel/HistoryRecordingMetadata = ...): actron.timetravel/HistoryRecording<#B> // actron.timetravel/recording|recording@actron.timetravel.HistoryTimeline<0:0>(kotlin.String;kotlin.Function1<0:0,0:1>;kotlin.Function1<actron.timetravel.HistoryDetails,actron.timetravel.HistoryDetails>;actron.timetravel.HistoryRecordingMetadata){0§<kotlin.Any>;1§<kotlin.Any>}[0]
 final fun <#A: kotlin/Any> actron.timetravel/checkpointGroup(kotlin/Function0<#A>, kotlin/Function1<actron.timetravel/CheckpointGroupBuilder<#A>, kotlin/Unit>): actron.timetravel/CheckpointGroup<#A> // actron.timetravel/checkpointGroup|checkpointGroup(kotlin.Function0<0:0>;kotlin.Function1<actron.timetravel.CheckpointGroupBuilder<0:0>,kotlin.Unit>){0§<kotlin.Any>}[0]
 final fun actron.timetravel/historyFields(kotlinx.serialization.json/JsonElement): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/historyFields|historyFields(kotlinx.serialization.json.JsonElement){}[0]
 final inline fun <#A: reified kotlin/Any, #B: reified actron.core/Action, #C: reified kotlin/Any, #D: reified actron.core/Event, #E: reified kotlin/Any, #F: reified actron.core/Action, #G: reified kotlin/Any, #H: reified actron.core/Event> actron.timetravel/invocationPersistence(actron.statechart.machine/InvokedMachine<#A, #B, #C, #D, #E, #F, #G, #H>): actron.timetravel/InvocationPersistence<#A, #B, #C, #D, #E, #F, #G, #H> // actron.timetravel/invocationPersistence|invocationPersistence(actron.statechart.machine.InvokedMachine<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>;4§<kotlin.Any>;5§<actron.core.Action>;6§<kotlin.Any>;7§<actron.core.Event>}[0]

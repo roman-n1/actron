@@ -3,17 +3,20 @@ package actron.timetravel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import kotlin.time.Clock
 import kotlin.time.Instant
 
 /** [id] identifies a lifetime; [stableId] groups lifetimes of one logical machine, independently of its display name. */
+@Serializable
 data class HistoryMachine(
     val id: Long,
     val name: String,
     val stableId: String = name,
 )
 
+@Serializable
 data class StateField(
     val path: String,
     val value: String,
@@ -25,6 +28,7 @@ data class StateChange(
     val after: String,
 )
 
+@Serializable
 data class HistoryDetails(
     val input: String,
     val source: String,
@@ -126,6 +130,21 @@ class HistoryTimeline<S : Any>(
             buffer.clear()
             mutableEntries.value = emptyList()
         }
+
+    companion object {
+        /** Creates a detached timeline for inspection. Never connects to a machine or executor. */
+        fun <S : Any> fromRecording(recording: HistoryRecording<S>): HistoryTimeline<S> {
+            recording.validate()
+            val timeline = HistoryTimeline<S>(maxOf(1, recording.entries.size))
+            recording.entries.forEach { entry ->
+                timeline.buffer.addLast(HistoryEntry(entry.id, entry.machine, entry.branch, Instant.parse(entry.at), entry.details, entry.snapshot, {}))
+            }
+            timeline.next = recording.entries.lastOrNull()?.id ?: 0L
+            timeline.nextMachine = recording.entries.maxOfOrNull { it.machine.id } ?: 0L
+            timeline.mutableEntries.value = timeline.buffer.toList()
+            return timeline
+        }
+    }
 
     private inline fun <T : Any> locked(block: () -> T): T {
         while (!lock.tryLock()) { }
