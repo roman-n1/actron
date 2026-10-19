@@ -6,7 +6,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.regex.Pattern
@@ -20,7 +19,12 @@ class RecordingFilesTest {
     private fun awaitDocumentsUi() {
         // AOSP and Google APIs emulator images ship different DocumentsUI packages.
         val picker = By.pkg(Pattern.compile("com\\.(android|google\\.android)\\.documentsui"))
-        assertTrue("System document picker did not appear; foreground=${device.currentPackageName}", device.wait(Until.hasObject(picker), timeout))
+        val appeared: Boolean = device.wait(Until.hasObject(picker), timeout)
+        if (!appeared) {
+            val hierarchy = java.io.ByteArrayOutputStream()
+            device.dumpWindowHierarchy(hierarchy)
+            throw AssertionError("System document picker did not appear; foreground=${device.currentPackageName}; hierarchy=$hierarchy")
+        }
     }
 
     private fun enableInspector() {
