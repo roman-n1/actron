@@ -3233,6 +3233,26 @@ final class actron.statechart.machine/TransitionCandidate { // actron.statechart
     final fun toString(): kotlin/String // actron.statechart.machine/TransitionCandidate.toString|toString(){}[0]
 }
 
+final class actron.statechart.machine/TransitionCoverage { // actron.statechart.machine/TransitionCoverage|null[0]
+    constructor <init>(actron.statechart.machine/DefinitionId, actron.statechart.machine/DefinitionVersion, kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> = ...) // actron.statechart.machine/TransitionCoverage.<init>|<init>(actron.statechart.machine.DefinitionId;actron.statechart.machine.DefinitionVersion;kotlin.collections.Map<actron.statechart.machine.TransitionId,kotlin.Long>){}[0]
+
+    final val definition // actron.statechart.machine/TransitionCoverage.definition|{}definition[0]
+        final fun <get-definition>(): actron.statechart.machine/DefinitionId // actron.statechart.machine/TransitionCoverage.definition.<get-definition>|<get-definition>(){}[0]
+    final val hits // actron.statechart.machine/TransitionCoverage.hits|{}hits[0]
+        final fun <get-hits>(): kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> // actron.statechart.machine/TransitionCoverage.hits.<get-hits>|<get-hits>(){}[0]
+    final val version // actron.statechart.machine/TransitionCoverage.version|{}version[0]
+        final fun <get-version>(): actron.statechart.machine/DefinitionVersion // actron.statechart.machine/TransitionCoverage.version.<get-version>|<get-version>(){}[0]
+
+    final fun <#A1: kotlin/Any, #B1: kotlin/Any, #C1: actron.core/Event> record(actron.statechart.machine/Decision<#A1, #B1, #C1>): actron.statechart.machine/TransitionCoverage // actron.statechart.machine/TransitionCoverage.record|record(actron.statechart.machine.Decision<0:0,0:1,0:2>){0§<kotlin.Any>;1§<kotlin.Any>;2§<actron.core.Event>}[0]
+    final fun component1(): actron.statechart.machine/DefinitionId // actron.statechart.machine/TransitionCoverage.component1|component1(){}[0]
+    final fun component2(): actron.statechart.machine/DefinitionVersion // actron.statechart.machine/TransitionCoverage.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> // actron.statechart.machine/TransitionCoverage.component3|component3(){}[0]
+    final fun copy(actron.statechart.machine/DefinitionId = ..., actron.statechart.machine/DefinitionVersion = ..., kotlin.collections/Map<actron.statechart.machine/TransitionId, kotlin/Long> = ...): actron.statechart.machine/TransitionCoverage // actron.statechart.machine/TransitionCoverage.copy|copy(actron.statechart.machine.DefinitionId;actron.statechart.machine.DefinitionVersion;kotlin.collections.Map<actron.statechart.machine.TransitionId,kotlin.Long>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.statechart.machine/TransitionCoverage.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.statechart.machine/TransitionCoverage.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.statechart.machine/TransitionCoverage.toString|toString(){}[0]
+}
+
 final class actron.statechart.machine/TransitionSelectionExplanation { // actron.statechart.machine/TransitionSelectionExplanation|null[0]
     constructor <init>(actron.statechart.machine/TransitionId, actron.statechart.machine/CandidateDisposition, kotlin.collections/List<actron.statechart.machine/GuardEvaluation>, kotlin/Boolean, kotlin/Boolean, kotlin.collections/List<actron.statechart.machine/TransitionId>) // actron.statechart.machine/TransitionSelectionExplanation.<init>|<init>(actron.statechart.machine.TransitionId;actron.statechart.machine.CandidateDisposition;kotlin.collections.List<actron.statechart.machine.GuardEvaluation>;kotlin.Boolean;kotlin.Boolean;kotlin.collections.List<actron.statechart.machine.TransitionId>){}[0]
 

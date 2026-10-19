@@ -46,6 +46,36 @@ class WeatherHistoryTest {
         assertFalse(history.frame.search.snapshot.isStarted)
     }
 
+    @Test
+    fun coverageAccumulatesAcrossInstancesAndBranchesFromSelectedSnapshot() {
+        val history = WeatherHistory(2)
+        traceEdits(history, listOf("L", "Lo", "Lon"))
+        val selected =
+            history.timeline.entries.value
+                .first()
+        val selectedGraph = history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine
+        val selectedHits = (selectedGraph.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits
+        assertEquals(2L, selectedHits.values.sum())
+        assertEquals(
+            3L,
+            history.frame.coverage.values
+                .single()
+                .hits.values
+                .sum(),
+        )
+        history.beginBranch(selected.snapshot)
+        traceEdits(history, listOf("Paris"))
+        assertEquals(
+            3L,
+            history.frame.coverage.values
+                .single()
+                .hits.values
+                .sum(),
+        )
+        assertEquals(2L, selectedHits.values.sum(), "Historical coverage is immutable")
+        assertEquals(2L, (history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine).let { (it.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits.values.sum() })
+    }
+
     private fun traceEdits(
         history: WeatherHistory,
         queries: List<String>,

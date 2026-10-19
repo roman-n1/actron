@@ -153,3 +153,33 @@ and compare with the PR base revision. See the executable
 [review exporter](../verification/behaviour-review/src/jvmMain/kotlin/actron/review/Review.kt),
 [IDE plugin](../tooling/intellij-plugin/README.md) and
 [five-wave contracts](../doc/internal/design/2026-10-06-competitive-roadmap.md).
+
+## Scenario DSL
+
+`machine.test(scope, initial) { ... }` starts a real queued `MachineStore`, uses scripted
+commands and virtual time, checks unexpected runtime failures and pending work, then closes
+its execution scope in `finally`, including after assertion failures. It returns the same
+`MachineCoverage` report as the driver. No real HTTP or database operation runs.
+
+```kotlin
+val coverage = CitySearchMachine.create().test(this, CitySearchState()) {
+    expectState<RequestState.Idle> { it.phase }
+    dispatch(CitySearchAction.ChangeQuery("London"))
+    expectState<RequestState.Debouncing> { it.phase }
+    advanceTimeBy(350.milliseconds)
+    expectState<RequestState.Loading> { it.phase }
+    completeCommand { command -> CitySearchAction.Found(command.revision, emptyList()) }
+    expectState<RequestState.Success<List<CityOption>>> { it.phase }
+}
+```
+
+Inside `runTest`, pass `this` as the scope. Direct-state machines can use
+`expectState<Ready>()` without a selector; parallel machines select each region's state.
+`completeCommand(matching = { it is Forecast }) { ... }` requires exactly one matching
+running command before sending its result and completing it (unless its state already exited).
+Zero or multiple matches fail with a diagnostic. Use `driver` for multi-result streams,
+effects, failure injection and other advanced controls. `allowPendingWork = true` explicitly
+allows ending a scenario with work still running; the scope is still closed afterwards.
+
+See executable Weather examples: `CitySearchScenarioTest` (debounce/success/error/clear/timeout)
+and `WeatherScenarioTest` (two parallel requests, selective completion and independent timeout).
