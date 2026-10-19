@@ -105,7 +105,9 @@ recorder with `discardBefore`, advancing its replay checkpoint. Closed feature r
 released when their last timeline entry disappears; indices remain stable.
 
 Open the gear next to **Cities**, then enable **Debug panel** for the reusable library `HistoryPanel`. The global
-chronology includes navigation and can be filtered by machine instance. Each selection shows
+chronology contains only machine events and groups lifetimes by stable machine ID.
+Navigation stays in the example: `WeatherFrame` carries the route, and the root restores the
+Decompose stack through the generic panel callback. The library treats that frame as an opaque snapshot. Each selection shows
 the input action with its payload between the before/after active states, structured field
 changes. Technical diagnostics remain in the recording model. Event and update timestamps
 use the device's local time zone and locale.
@@ -120,6 +122,21 @@ and the selected event stay available; new execution extends this linear history
 running session is replaced. This is an at-least-once restart of read-only
 work, not replay of arbitrary external side effects. Unsupported checkpoints with pending
 effects or terminal command outcomes cannot be continued.
+
+The root registers a versioned current checkpoint with Essenty `StateKeeper`, which the Android
+host connects to saved instance state. After system-initiated process death, a new
+`InstanceKeeper` restores search data, weather data and pending commands before creating children.
+Decompose independently restores the screen stack. Completed reads are retained; pending HTTP
+reads are issued again. Debounce and timeout clocks resume with the delay remaining at save time,
+so time spent without a process is paused. Saving again after restoration is supported.
+
+Only the latest resumable application checkpoint is saved, not the timeline or preview selection.
+A transient checkpoint with unacknowledged effects/terminal commands falls back to the latest
+resumable frame. Unsupported machine versions or invalid checkpoint payloads start fresh.
+This is Android saved-state restoration of the task, not durable storage after force-stop or
+removing the task. It restores the last saved checkpoint, not inputs accepted after that save.
+The bounded city results and six-hour forecast fit the example's saved state; larger production
+payloads should live on disk with only a reference in saved state.
 
 History is memory-only and disappears on full application restart. The count limit is not a
 byte quota. Selection and preview can each pin an immutable application frame after eviction.

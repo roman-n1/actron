@@ -24,7 +24,7 @@ and structured `StateField` values (or `historyFields(JsonElement)`), and owns r
 `HistoryPanelState` pins selected and preview entries even after ring-buffer eviction.
 Selecting an entry immediately changes `state.preview`, which the host renders
 without interactive handlers. Switching to Live clears preview. Continue here invokes the host's
-callback for the selected preview; `canContinue` can reject unsupported checkpoints. The host owns
+callback for the selected preview; `canContinue` can reject unsupported checkpoints. The library records only machine events and has no screen or navigation model. The host owns
 navigation, cancellation and safe executor restart. The weather example demonstrates this
 using `resumeMachineStore` and read-only weather requests.
 

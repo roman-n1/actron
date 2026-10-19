@@ -42,7 +42,7 @@ class WeatherHistoryTest {
         val observer = history.observer(machine, checkpoint, { historyFields(Json.encodeToJsonElement(CitySearchState.serializer(), it)) }, history::updateSearch)
         history.beginBranch(WeatherFrame())
         observer.onDecided(InputAttribution.Unattributed, MachineInput.Start(MachineTime.Zero), machine.decideExplained(checkpoint.snapshot, MachineInput.Start(MachineTime.Zero)))
-        assertEquals(1, history.timeline.entries.value.size)
+        assertEquals(0, history.timeline.entries.value.size)
         assertFalse(history.frame.search.snapshot.isStarted)
     }
 

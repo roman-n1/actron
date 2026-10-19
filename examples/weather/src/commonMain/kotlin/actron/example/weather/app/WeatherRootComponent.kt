@@ -10,6 +10,9 @@ import actron.example.weather.core.debug.WeatherDebugLayout
 import actron.example.weather.core.debug.WeatherFrame
 import actron.example.weather.core.debug.WeatherHistory
 import actron.example.weather.core.debug.WeatherRoute
+import actron.example.weather.core.debug.WeatherSavedState
+import actron.example.weather.core.debug.WeatherSavedStateCodec
+import actron.example.weather.core.debug.retainedWeatherHistory
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.domain.CitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchComponent
@@ -26,7 +29,6 @@ import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.push
 import com.arkivanov.decompose.router.stack.replaceAll
-import com.arkivanov.essenty.instancekeeper.getOrCreate
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +47,7 @@ class DefaultWeatherRootComponent(
     citySearch: CitySearchRepository,
     hourlyApi: HourlyForecastRepository,
     coroutineContext: CoroutineContext = Dispatchers.Main,
-    private val history: WeatherHistory = componentContext.instanceKeeper.getOrCreate(key = "weather-history") { WeatherHistory() },
+    private val history: WeatherHistory = retainedWeatherHistory(componentContext),
     private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, coroutineContext, history),
     private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history),
 ) : WeatherRootComponent,
@@ -66,11 +68,13 @@ class DefaultWeatherRootComponent(
     private val stackFlow = stack.toStateFlow()
 
     init {
+        stateKeeper.register("weather-checkpoint", WeatherSavedState.serializer()) { WeatherSavedStateCodec.encode(history) }
         val navigationObserver =
             stack.subscribe { value ->
                 if (value.active.configuration is ChildConfiguration.Search && history.frame.route is WeatherRoute.Weather) history.back()
             }
         lifecycle.doOnDestroy {
+            stateKeeper.unregister("weather-checkpoint")
             navigationObserver.cancel()
             scope.cancel()
         }

@@ -56,6 +56,9 @@ class WeatherRootComponentTest {
                         .value.active.instance as CitySearchComponent
                 search.onUiEvent(CitySearchIntent.QueryChanged("Lis"))
                 testScheduler.runCurrent()
+                val searchEntry =
+                    history.timeline.entries.value
+                        .last()
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
                 testScheduler.runCurrent()
                 val entry =
@@ -92,6 +95,26 @@ class WeatherRootComponentTest {
                 restored.onUiEvent(CitySearchIntent.QueryChanged("Paris"))
                 testScheduler.runCurrent()
                 assertEquals("Paris", restored.state.value.context.query)
+                assertTrue(
+                    history.timeline.entries.value
+                        .all { it.machine.stableId in setOf("city-search", "city-weather") },
+                )
+                root.continueFrom(searchEntry.snapshot)
+                testScheduler.runCurrent()
+                val pastSearch =
+                    root
+                        .getChildStack()
+                        .value.active.instance as CitySearchComponent
+                assertEquals("Lis", pastSearch.state.value.context.query)
+                root.continueFrom(entry.snapshot)
+                testScheduler.runCurrent()
+                val pastWeather =
+                    root
+                        .getChildStack()
+                        .value.active.instance as actron.example.weather.feature.weather.presentation.CityWeatherComponent
+                assertEquals(demoCities[1], pastWeather.state.value.context.city)
+                assertEquals(1, currentCalls, "Restoring the weather screen retains completed current weather")
+                assertEquals(3, hourlyCalls, "Restoring the weather screen restarts only the pending forecast")
             } finally {
                 lifecycle.destroy()
                 keeper.destroy()
