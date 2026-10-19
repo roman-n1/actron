@@ -46,6 +46,9 @@ data class WeatherFrame(
 /** App adapter: owns typed machine checkpoints and Decompose route; UI lives in the library. */
 class WeatherHistory(
     val capacity: Int = 500,
+    initialFrame: WeatherFrame = WeatherFrame(),
+    initialBranch: Long = 0,
+    private val clockFactory: () -> MachineClock = { MachineClock.monotonic() },
 ) : InstanceKeeper.Instance {
     var clock: MachineClock = MachineClock.monotonic()
         private set
@@ -53,22 +56,38 @@ class WeatherHistory(
     val panel = HistoryPanelState<WeatherFrame>()
     val panelLayout = actron.timetravel.compose.HistoryPanelLayoutState()
     val panelVisible = MutableStateFlow(false)
-    var frame = WeatherFrame()
+    var frame = initialFrame
         private set
-    var branch = 0L
+    var branch = initialBranch
         private set
+
+    private var resumableFrame = initialFrame
+
+    init {
+        require(initialFrame.canResume())
+        resetClock(initialFrame)
+    }
+
+    /** Pause logical time while the process is absent, preserving remaining timer delays. */
+    fun persistenceFrame(): WeatherFrame = resumableFrame.at(clock.now())
 
     fun beginBranch(snapshot: WeatherFrame) {
         require(snapshot.canResume())
         branch++
         frame = snapshot
-        val base = MachineClock.monotonic()
+        resumableFrame = snapshot
+        resetClock(snapshot)
+    }
+
+    private fun resetClock(snapshot: WeatherFrame) {
+        val base = clockFactory()
+        val baseStart = base.now()
         val origin = snapshot.search.now
         clock =
             object : MachineClock {
-                override fun now(): MachineTime = origin + (base.now() - MachineTime.Zero)
+                override fun now(): MachineTime = origin + (base.now() - baseStart)
 
-                override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(MachineTime.Zero + (deadline - origin))
+                override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(baseStart + (deadline - origin))
             }
     }
 
@@ -92,10 +111,12 @@ class WeatherHistory(
 
     fun openCity(city: City) {
         frame = frame.copy(route = WeatherRoute.Weather(freshWeather(city))).at(clock.now())
+        if (frame.canResume()) resumableFrame = frame
     }
 
     fun back() {
         frame = frame.copy(route = WeatherRoute.Search).at(clock.now())
+        if (frame.canResume()) resumableFrame = frame
     }
 
     fun <C : Any, A : Action, CMD : Any, E : Event> observer(
@@ -144,6 +165,7 @@ class WeatherHistory(
                 val after = previous.carriedPast(step)
                 update(after)
                 frame = frame.at(after.now)
+                if (frame.canResume()) resumableFrame = frame
 
                 fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)
                 val details =

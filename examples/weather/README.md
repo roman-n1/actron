@@ -123,6 +123,21 @@ running session is replaced. This is an at-least-once restart of read-only
 work, not replay of arbitrary external side effects. Unsupported checkpoints with pending
 effects or terminal command outcomes cannot be continued.
 
+The root registers a versioned current checkpoint with Essenty `StateKeeper`, which the Android
+host connects to saved instance state. After system-initiated process death, a new
+`InstanceKeeper` restores search data, weather data and pending commands before creating children.
+Decompose independently restores the screen stack. Completed reads are retained; pending HTTP
+reads are issued again. Debounce and timeout clocks resume with the delay remaining at save time,
+so time spent without a process is paused. Saving again after restoration is supported.
+
+Only the latest resumable application checkpoint is saved, not the timeline or preview selection.
+A transient checkpoint with unacknowledged effects/terminal commands falls back to the latest
+resumable frame. Unsupported machine versions or invalid checkpoint payloads start fresh.
+This is Android saved-state restoration of the task, not durable storage after force-stop or
+removing the task. It restores the last saved checkpoint, not inputs accepted after that save.
+The bounded city results and six-hour forecast fit the example's saved state; larger production
+payloads should live on disk with only a reference in saved state.
+
 History is memory-only and disappears on full application restart. The count limit is not a
 byte quota. Selection and preview can each pin an immutable application frame after eviction.
 Weather is an explicit diagnostics demo and includes `actron-timetravel-compose` on all targets.
