@@ -69,10 +69,10 @@ fun <S : Any> HistoryPanel(
     canContinue: (S) -> Boolean = { true },
 ) {
     val entries by timeline.entries.collectAsState()
-    var filter by remember { mutableStateOf(0L) }
+    var filter by remember { mutableStateOf(emptyList<String>()) }
     var picker by remember { mutableStateOf(false) }
-    val machines = entries.map { it.machine }.filter { it.kind == HistorySourceKind.Machine }.distinctBy { it.id }
-    val visible = entries.filter { filter == 0L || it.machine.id == filter }
+    val machines = entries.map { it.machine }.filter { it.kind == HistorySourceKind.Machine }.distinctBy { it.stableId }
+    val visible = entries.filter { filter.isEmpty() || (it.machine.kind == HistorySourceKind.Machine && it.machine.stableId in filter) }
     Surface(modifier.testTag("history-panel"), color = MaterialTheme.colorScheme.surface) {
         Column {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -97,20 +97,20 @@ fun <S : Any> HistoryPanel(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     TextButton(onClick = { picker = true }, modifier = Modifier.testTag("history-machine-filter")) {
-                        Text(if (filter == 0L) historyText(HistoryText.AllMachines) else machines.filter { it.id == filter }.fold(historyText(HistoryText.PreviousInstance)) { _, machine -> "${machine.name} #${machine.id}" })
+                        Text(if (filter.isEmpty()) historyText(HistoryText.AllMachines) else machines.filter { it.stableId in filter }.fold(historyText(HistoryText.PreviousInstance)) { _, machine -> machine.name })
                         Spacer(Modifier.width(8.dp))
                         HistoryArrow(down = true)
                     }
                     DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
                         DropdownMenuItem(text = { Text(historyText(HistoryText.AllMachines)) }, onClick = {
-                            if (filter != 0L) state.clearSelection()
-                            filter = 0L
+                            if (filter.isNotEmpty()) state.clearSelection()
+                            filter = emptyList()
                             picker = false
                         })
                         machines.forEach { machine ->
-                            DropdownMenuItem(text = { Text("${machine.name} #${machine.id}") }, onClick = {
-                                if (filter != machine.id) state.clearSelection()
-                                filter = machine.id
+                            DropdownMenuItem(text = { Text(machine.name) }, onClick = {
+                                if (filter != listOf(machine.stableId)) state.clearSelection()
+                                filter = listOf(machine.stableId)
                                 picker = false
                             })
                         }
@@ -147,7 +147,6 @@ fun <S : Any> HistoryPanel(
                                 val previousHead = timeline.entries.value.fold(selected.id) { id, item -> maxOf(id, item.id) }
                                 onContinue(selected)
                                 timeline.truncateAfter(selected.id, previousHead)
-                                filter = 0L
                                 state.clearSelection()
                             }, canContinue, detailModifier)
                         }

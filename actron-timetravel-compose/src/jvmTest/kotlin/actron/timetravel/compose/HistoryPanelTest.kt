@@ -40,13 +40,13 @@ class HistoryPanelTest {
                 MaterialTheme {
                     HistoryPanel(timeline, state, {
                         continued += it.snapshot
-                        timeline.append(timeline.machine("Search"), 1, details, "Resumed")
+                        timeline.append(timeline.machine("Restored search", stableId = "Search"), 1, details, "Resumed")
                     }, Modifier.fillMaxSize())
                 }
             }
             onNodeWithTag("history-machine-filter").performClick()
-            onNodeWithText("Navigation #-1").assertDoesNotExist()
-            onNodeWithText("Search #1").performClick()
+            onNodeWithText("Navigation").assertDoesNotExist()
+            onNodeWithText("Search").performClick()
             onNodeWithTag("history-entry-2").assertDoesNotExist()
             onNodeWithTag("history-entry-1").performClick()
             onNodeWithTag("history-selected-input").assertTextEquals("QueryChanged(query=Paris)")
@@ -82,7 +82,7 @@ class HistoryPanelTest {
             setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.fillMaxSize()) } }
             onNodeWithTag("history-entry-2").performClick()
             onNodeWithTag("history-machine-filter").performClick()
-            onNodeWithText("Search #1").performClick()
+            onNodeWithText("Search").performClick()
             onNodeWithTag("history-selected-input").assertDoesNotExist()
             runOnIdle {
                 assertEquals(emptyList(), state.selection)
@@ -91,6 +91,26 @@ class HistoryPanelTest {
             onNodeWithTag("history-mode-history").performClick()
             runOnIdle { assertEquals("Search snapshot", state.preview.single().snapshot) }
             onNodeWithTag("history-entry-2").assertDoesNotExist()
+        }
+
+    @Test
+    fun filterGroupsLifetimesByStableIdRatherThanDisplayName() =
+        runComposeUiTest {
+            val timeline = HistoryTimeline<String>()
+            val details = HistoryDetails("Load", "Action", "Handled", emptyList(), emptyList())
+            timeline.append(timeline.machine("Weather", stableId = "weather"), 0, details, "old")
+            timeline.append(timeline.machine("Renamed weather", stableId = "weather"), 1, details, "new")
+            timeline.append(timeline.machine("Search", stableId = "search"), 1, details, "search")
+            val state = HistoryPanelState<String>()
+            setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.fillMaxSize()) } }
+            onNodeWithTag("history-machine-filter").performClick()
+            onNodeWithText("Renamed weather").assertDoesNotExist()
+            onNodeWithText("Weather", useUnmergedTree = true).performClick()
+            onNodeWithTag("history-entry-1").assertExists()
+            onNodeWithTag("history-entry-2").assertExists()
+            onNodeWithTag("history-entry-3").assertDoesNotExist()
+            onNodeWithTag("history-mode-history").performClick()
+            runOnIdle { assertEquals("new", state.preview.single().snapshot) }
         }
 
     @Test
