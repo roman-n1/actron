@@ -124,6 +124,7 @@ class WeatherHistory(
                     "city-weather" -> "City Weather"
                     else -> machine.id.value
                 },
+                stableId = machine.id.value,
             )
         val generation = branch
         val recorder = BoundedMachineRecorder(machine, checkpoint, capacity)

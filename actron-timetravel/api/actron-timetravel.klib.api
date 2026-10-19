@@ -1617,7 +1617,7 @@ final class <#A: kotlin/Any> actron.timetravel/HistoryTimeline { // actron.timet
 
     final fun append(actron.timetravel/HistoryMachine, kotlin/Long, actron.timetravel/HistoryDetails, #A, kotlin.time/Instant = ..., kotlin/Function0<kotlin/Unit> = ...) // actron.timetravel/HistoryTimeline.append|append(actron.timetravel.HistoryMachine;kotlin.Long;actron.timetravel.HistoryDetails;1:0;kotlin.time.Instant;kotlin.Function0<kotlin.Unit>){}[0]
     final fun clear() // actron.timetravel/HistoryTimeline.clear|clear(){}[0]
-    final fun machine(kotlin/String, actron.timetravel/HistorySourceKind = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryTimeline.machine|machine(kotlin.String;actron.timetravel.HistorySourceKind){}[0]
+    final fun machine(kotlin/String, actron.timetravel/HistorySourceKind = ..., kotlin/String = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryTimeline.machine|machine(kotlin.String;actron.timetravel.HistorySourceKind;kotlin.String){}[0]
     final fun truncateAfter(kotlin/Long, kotlin/Long = ...) // actron.timetravel/HistoryTimeline.truncateAfter|truncateAfter(kotlin.Long;kotlin.Long){}[0]
 }
 
@@ -2097,7 +2097,7 @@ final class actron.timetravel/HistoryDetails { // actron.timetravel/HistoryDetai
 }
 
 final class actron.timetravel/HistoryMachine { // actron.timetravel/HistoryMachine|null[0]
-    constructor <init>(kotlin/Long, kotlin/String, actron.timetravel/HistorySourceKind = ...) // actron.timetravel/HistoryMachine.<init>|<init>(kotlin.Long;kotlin.String;actron.timetravel.HistorySourceKind){}[0]
+    constructor <init>(kotlin/Long, kotlin/String, actron.timetravel/HistorySourceKind = ..., kotlin/String = ...) // actron.timetravel/HistoryMachine.<init>|<init>(kotlin.Long;kotlin.String;actron.timetravel.HistorySourceKind;kotlin.String){}[0]
 
     final val id // actron.timetravel/HistoryMachine.id|{}id[0]
         final fun <get-id>(): kotlin/Long // actron.timetravel/HistoryMachine.id.<get-id>|<get-id>(){}[0]
@@ -2105,11 +2105,14 @@ final class actron.timetravel/HistoryMachine { // actron.timetravel/HistoryMachi
         final fun <get-kind>(): actron.timetravel/HistorySourceKind // actron.timetravel/HistoryMachine.kind.<get-kind>|<get-kind>(){}[0]
     final val name // actron.timetravel/HistoryMachine.name|{}name[0]
         final fun <get-name>(): kotlin/String // actron.timetravel/HistoryMachine.name.<get-name>|<get-name>(){}[0]
+    final val stableId // actron.timetravel/HistoryMachine.stableId|{}stableId[0]
+        final fun <get-stableId>(): kotlin/String // actron.timetravel/HistoryMachine.stableId.<get-stableId>|<get-stableId>(){}[0]
 
     final fun component1(): kotlin/Long // actron.timetravel/HistoryMachine.component1|component1(){}[0]
     final fun component2(): kotlin/String // actron.timetravel/HistoryMachine.component2|component2(){}[0]
     final fun component3(): actron.timetravel/HistorySourceKind // actron.timetravel/HistoryMachine.component3|component3(){}[0]
-    final fun copy(kotlin/Long = ..., kotlin/String = ..., actron.timetravel/HistorySourceKind = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryMachine.copy|copy(kotlin.Long;kotlin.String;actron.timetravel.HistorySourceKind){}[0]
+    final fun component4(): kotlin/String // actron.timetravel/HistoryMachine.component4|component4(){}[0]
+    final fun copy(kotlin/Long = ..., kotlin/String = ..., actron.timetravel/HistorySourceKind = ..., kotlin/String = ...): actron.timetravel/HistoryMachine // actron.timetravel/HistoryMachine.copy|copy(kotlin.Long;kotlin.String;actron.timetravel.HistorySourceKind;kotlin.String){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryMachine.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // actron.timetravel/HistoryMachine.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // actron.timetravel/HistoryMachine.toString|toString(){}[0]

@@ -10,7 +10,12 @@ replay → experiment → return workflow, `GroupReplayControls` for replay only
 
 `HistoryPanel(timeline, state, onContinue)` displays a bounded, session-wide
 `HistoryTimeline<S>` across machine instances. It provides a machine filter, chronological
-inputs, full selected action payload, before/after states and field changes.
+inputs, expandable action payloads, before/after states and field changes.
+Register each lifetime with `timeline.machine("City Weather", stableId = "city-weather")`.
+Use the same stable ID across recreations of one logical machine and distinct IDs for unrelated
+machines, even when their display names match. The default stable ID is the supplied name.
+The filter groups all lifetimes by this ID and shows only their display name; instance IDs
+remain available in recorded entries. Continuing from history preserves the logical filter.
 UI labels follow the device language: Russian and English are supported, with English as the fallback. Machine names, payloads and diagnostic data remain verbatim. `formatHistoryTime` uses the device locale and local time zone;
 Android also respects the system 12/24-hour preference.
 

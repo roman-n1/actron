@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +45,11 @@ class HistoryPanelState<S : Any> {
         preview = selection
     }
 
+    internal fun clearSelection() {
+        selection = emptyList()
+        preview = emptyList()
+    }
+
     fun previewSelected() {
         preview = selection
     }
@@ -62,10 +69,10 @@ fun <S : Any> HistoryPanel(
     canContinue: (S) -> Boolean = { true },
 ) {
     val entries by timeline.entries.collectAsState()
-    var filter by remember { mutableStateOf(0L) }
+    var filter by remember { mutableStateOf(emptyList<String>()) }
     var picker by remember { mutableStateOf(false) }
-    val machines = entries.map { it.machine }.filter { it.kind == HistorySourceKind.Machine }.distinctBy { it.id }
-    val visible = entries.filter { filter == 0L || it.machine.id == filter }
+    val machines = entries.map { it.machine }.filter { it.kind == HistorySourceKind.Machine }.distinctBy { it.stableId }
+    val visible = entries.filter { filter.isEmpty() || (it.machine.kind == HistorySourceKind.Machine && it.machine.stableId in filter) }
     Surface(modifier.testTag("history-panel"), color = MaterialTheme.colorScheme.surface) {
         Column {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -75,12 +82,12 @@ fun <S : Any> HistoryPanel(
                 }
                 HistoryModeSwitch(
                     history = state.preview.isNotEmpty(),
-                    historyAvailable = state.selection.isNotEmpty() || entries.isNotEmpty(),
+                    historyAvailable = state.selection.isNotEmpty() || visible.isNotEmpty(),
                     onHistory = {
                         if (state.selection.isNotEmpty()) {
                             state.previewSelected()
-                        } else if (entries.isNotEmpty()) {
-                            state.select(entries.last())
+                        } else if (visible.isNotEmpty()) {
+                            state.select(visible.last())
                         }
                     },
                     onLive = state::returnToLive,
@@ -90,16 +97,20 @@ fun <S : Any> HistoryPanel(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     TextButton(onClick = { picker = true }, modifier = Modifier.testTag("history-machine-filter")) {
-                        Text(if (filter == 0L) "${historyText(HistoryText.AllMachines)} ▾" else machines.filter { it.id == filter }.fold("${historyText(HistoryText.PreviousInstance)} ▾") { _, machine -> "${machine.name} #${machine.id} ▾" })
+                        Text(if (filter.isEmpty()) historyText(HistoryText.AllMachines) else machines.filter { it.stableId in filter }.fold(historyText(HistoryText.PreviousInstance)) { _, machine -> machine.name })
+                        Spacer(Modifier.width(8.dp))
+                        HistoryArrow(down = true)
                     }
                     DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
                         DropdownMenuItem(text = { Text(historyText(HistoryText.AllMachines)) }, onClick = {
-                            filter = 0L
+                            if (filter.isNotEmpty()) state.clearSelection()
+                            filter = emptyList()
                             picker = false
                         })
                         machines.forEach { machine ->
-                            DropdownMenuItem(text = { Text("${machine.name} #${machine.id}") }, onClick = {
-                                filter = machine.id
+                            DropdownMenuItem(text = { Text(machine.name) }, onClick = {
+                                if (filter != listOf(machine.stableId)) state.clearSelection()
+                                filter = listOf(machine.stableId)
                                 picker = false
                             })
                         }
@@ -112,7 +123,7 @@ fun <S : Any> HistoryPanel(
                     Column(listModifier) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Muted("${historyText(HistoryText.Timeline)} (${entries.size} / ${timeline.capacity})")
-                            Muted("${visible.size} ${historyText(HistoryText.Events)} ↓")
+                            Muted("${visible.size} ${historyText(HistoryText.Events)}")
                         }
                         LazyColumn(Modifier.weight(1f).testTag("history-events")) {
                             items(visible, key = { it.id }) { entry ->
@@ -136,6 +147,7 @@ fun <S : Any> HistoryPanel(
                                 val previousHead = timeline.entries.value.fold(selected.id) { id, item -> maxOf(id, item.id) }
                                 onContinue(selected)
                                 timeline.truncateAfter(selected.id, previousHead)
+                                state.clearSelection()
                             }, canContinue, detailModifier)
                         }
                     }
@@ -188,8 +200,12 @@ private fun <S : Any> EventRow(
         Box(Modifier.width(3.dp).fillMaxHeight().background(if (selected) colors.primary else colors.surface))
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Muted("#${entry.id} · ${entry.machine.name}" + if (entry.machine.kind == HistorySourceKind.Navigation) " · ${historyText(HistoryText.AppEvent)}" else "")
-            Text(entry.details.input, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Muted("${entry.details.activeBefore()} → ${entry.details.activeAfter()}")
+            Text(actionSummary(entry.details.input), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Muted(entry.details.activeBefore(), Modifier.weight(1f))
+                HistoryArrow()
+                Muted(entry.details.activeAfter(), Modifier.weight(1f))
+            }
             Muted(formatHistoryTime(entry.at))
         }
     }
@@ -213,14 +229,16 @@ private fun <S : Any> EventDetail(
                 Text("${historyText(HistoryText.Event)} #${entry.id}", style = MaterialTheme.typography.titleSmall)
                 Muted(entry.machine.name)
             }
-            TextButton(onClick = { state.select(visible[index - 1]) }, enabled = index > 0) { Text("←") }
-            TextButton(onClick = { state.select(visible[index + 1]) }, enabled = index >= 0 && index < visible.lastIndex) { Text("→") }
+            val previousLabel = historyText(HistoryText.PreviousEvent)
+            val nextLabel = historyText(HistoryText.NextEvent)
+            IconButton(onClick = { state.select(visible[index - 1]) }, enabled = index > 0, modifier = Modifier.semantics { contentDescription = previousLabel }) { HistoryArrow(back = true) }
+            IconButton(onClick = { state.select(visible[index + 1]) }, enabled = index >= 0 && index < visible.lastIndex, modifier = Modifier.semantics { contentDescription = nextLabel }) { HistoryArrow() }
         }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TransitionDiagram(entry.details)
+            key(entry.id) { TransitionDiagram(entry.details) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !full, onClick = { full = false }, label = { Text(historyText(HistoryText.Changes)) })
                 FilterChip(selected = full, onClick = { full = true }, label = { Text(historyText(HistoryText.FullState)) })
@@ -244,8 +262,8 @@ private fun <S : Any> EventDetail(
                     changes.forEach { change ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(change.path, Modifier.weight(0.8f), style = MaterialTheme.typography.bodySmall)
-                            Text(change.before, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(change.after, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text(if (full) change.before else compactFieldValue(change.path, change.before), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (full) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
+                            Text(if (full) change.after else compactFieldValue(change.path, change.after), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = if (full) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     }
@@ -329,6 +347,7 @@ private fun HistoryModeSwitch(
 
 @Composable
 private fun TransitionDiagram(details: HistoryDetails) {
+    var expanded by remember { mutableStateOf(false) }
     val lineColor = MaterialTheme.colorScheme.outline
     Column(Modifier.fillMaxWidth().testTag("history-transition"), horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
@@ -339,7 +358,12 @@ private fun TransitionDiagram(details: HistoryDetails) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Muted(historyText(HistoryText.Action))
                 SelectionContainer {
-                    Text(details.input, Modifier.testTag("history-selected-input"), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                    Text(if (expanded) details.input else actionSummary(details.input), Modifier.testTag("history-selected-input"), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                }
+                if (actionSummary(details.input) != details.input) {
+                    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("history-action-payload")) {
+                        Text(historyText(if (expanded) HistoryText.HidePayload else HistoryText.ShowPayload))
+                    }
                 }
             }
         }
@@ -359,5 +383,34 @@ private fun TransitionDiagram(details: HistoryDetails) {
             StateCard(historyText(HistoryText.StateBefore), details.activeBefore(), Modifier.weight(1f))
             StateCard(historyText(HistoryText.StateAfter), details.activeAfter(), Modifier.weight(1f))
         }
+    }
+}
+
+/** Short inputs stay intact; complete payloads remain available on demand. */
+internal fun actionSummary(input: String): String = if (input.length <= 100 && '\n' !in input) input else input.substringBefore('(').substringBefore('\n').take(80)
+
+/** Shorten serializer type discriminators only; ordinary domain values remain untouched. */
+internal fun compactFieldValue(
+    path: String,
+    value: String,
+): String = if (path == "type" || path.endsWith(".type")) value.replace(Regex("(?<![A-Za-z0-9_])(?:[a-z_][A-Za-z0-9_]*\\.)+"), "") else value
+
+/** Drawn geometry works even when the platform font lacks arrow glyphs. */
+@Composable
+private fun HistoryArrow(
+    back: Boolean = false,
+    down: Boolean = false,
+) {
+    val color = LocalContentColor.current
+    Canvas(Modifier.size(18.dp)) {
+        val stroke = 1.6.dp.toPx()
+
+        fun point(
+            x: Float,
+            y: Float,
+        ): Offset = if (down) Offset(y * size.width, x * size.height) else Offset((if (back) 1f - x else x) * size.width, y * size.height)
+        if (!down) drawLine(color, point(0.15f, 0.5f), point(0.8f, 0.5f), stroke)
+        drawLine(color, point(0.5f, 0.2f), point(0.8f, 0.5f), stroke)
+        drawLine(color, point(0.5f, 0.8f), point(0.8f, 0.5f), stroke)
     }
 }

@@ -9,11 +9,12 @@ import kotlin.time.Instant
 
 enum class HistorySourceKind { Machine, Navigation }
 
-/** Identity distinguishes multiple lifetimes of the same machine definition. */
+/** [id] identifies a lifetime; [stableId] groups lifetimes of one logical machine, independently of its display name. */
 data class HistoryMachine(
     val id: Long,
     val name: String,
     val kind: HistorySourceKind = HistorySourceKind.Machine,
+    val stableId: String = name,
 )
 
 data class StateField(
@@ -88,6 +89,7 @@ class HistoryTimeline<S : Any>(
     fun machine(
         name: String,
         kind: HistorySourceKind = HistorySourceKind.Machine,
+        stableId: String = name,
     ): HistoryMachine =
         locked {
             val id =
@@ -95,7 +97,7 @@ class HistoryTimeline<S : Any>(
                     HistorySourceKind.Machine -> ++nextMachine
                     HistorySourceKind.Navigation -> --nextNavigation
                 }
-            HistoryMachine(id, name, kind)
+            HistoryMachine(id, name, kind, stableId)
         }
 
     fun append(
