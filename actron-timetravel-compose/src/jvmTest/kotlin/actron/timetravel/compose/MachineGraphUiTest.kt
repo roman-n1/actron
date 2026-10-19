@@ -15,6 +15,28 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class MachineGraphUiTest {
     @Test
+    fun coverageFollowsHistoricalSnapshotIndependentlyOfActiveState() =
+        runComposeUiTest {
+            val idle = StateId("Idle")
+            val chart = StateChartDefinition(idle, listOf(AtomicState(idle)), listOf(Transition(idle, idle, ActionMatcher("Again"))))
+            val timeline = HistoryTimeline<Map<actron.statechart.machine.TransitionId, Long>>()
+            val machine = timeline.machine("Counter")
+            val details = HistoryDetails("Again", "Action", "Handled", emptyList(), emptyList())
+            timeline.append(machine, 0, details, emptyMap())
+            timeline.append(machine, 0, details, mapOf(actron.statechart.machine.TransitionId(0) to 2L))
+            val state = HistoryPanelState<Map<actron.statechart.machine.TransitionId, Long>>()
+            setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.size(1000.dp, 800.dp), graph = { HistoryGraph.Machine(chart, setOf(idle), HistoryGraphCoverage.Recorded(it.snapshot)) }) } }
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("history-graph-tab").performClick()
+            onNodeWithTag("graph-coverage").assertTextContains("0 / 1", substring = true)
+            onNodeWithTag("history-entry-2").performClick()
+            onNodeWithTag("graph-coverage").assertTextContains("1 / 1", substring = true)
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Idle", substring = true)
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("graph-coverage").assertTextContains("0 / 1", substring = true)
+        }
+
+    @Test
     fun historySelectionChangesHighlightAndTabsPreserveViewportWithoutContinuing() =
         runComposeUiTest {
             val idle = StateId("Idle")

@@ -245,3 +245,24 @@ Selecting entries or switching History/Live does not remove history. After the c
 callback succeeds, the panel removes the abandoned future, keeping the selected event,
 earlier entries and any new events emitted during restoration. Event IDs are never reused.
 Technical diagnostics remain in the recording model but are not displayed by HistoryPanel.
+
+### Transition coverage
+
+Supply `HistoryGraphCoverage.Recorded(hits)` to `HistoryGraph.Machine.coverage` to show
+executed/declared transition counts. Keys are `TransitionId` indices in that exact graph
+version; absent keys mean zero executions. Omit coverage to retain the ordinary graph.
+Executed arrows are solid and accented, unexecuted arrows dashed. Selecting an arrow still
+highlights it separately and its card shows the exact execution count, including self-loops.
+This is observed coverage, not proof that unexecuted declarations are unreachable.
+
+Production code can accumulate immutable `TransitionCoverage` from committed decisions
+without a test dependency or re-evaluating guards. Record each decision exactly once; do not
+register the same accumulator for both explanation and commit callbacks. Keep it scoped to
+the definition/version. Test scenarios already return `MachineCoverage`; use
+`HistoryGraphCoverage.Recorded(report.transitions.covered.associateWith { 1L })` to display
+binary test coverage (the report does not retain execution frequencies).
+
+Weather stores cumulative counts in each history frame, grouped by stable machine identity.
+The graph shows counts up to the selected event, including earlier events evicted from the
+ring buffer. Continuing from history branches from those counts; discarded future decisions
+are excluded. Counts are session-only diagnostic data and reset on process restoration.
