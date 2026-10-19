@@ -5,6 +5,7 @@ package actron.example.weather.core.debug
 import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.weather.presentation.*
 import actron.statechart.machine.MachineClock
+import actron.timetravel.checkpointGroup
 import actron.timetravel.machinePersistence
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.instancekeeper.getOrCreate
@@ -13,45 +14,33 @@ import kotlinx.serialization.Serializable
 /** Only the current application checkpoint is saved; the debug timeline is session-local. */
 @Serializable
 internal data class WeatherSavedState(
-    val format: Int = 1,
-    val search: String,
-    val weather: List<String>,
+    val format: Int = 3,
+    val checkpoints: String,
     val branch: Long,
 )
 
 internal object WeatherSavedStateCodec {
-    private val searchMachine = CitySearchMachine.create()
-    private val weatherMachine = CityWeatherMachine.create()
-    private val searchPersistence = machinePersistence(searchMachine)
-    private val weatherPersistence = machinePersistence(weatherMachine)
-
-    fun encode(history: WeatherHistory): WeatherSavedState {
-        val frame = history.persistenceFrame()
-        return WeatherSavedState(
-            search = searchPersistence.save(frame.search),
-            weather =
+    private val group =
+        checkpointGroup(::WeatherFrame) {
+            machine(machinePersistence(CitySearchMachine.create()), read = { it.search }, write = { frame, search -> frame.copy(search = search) })
+            machines(machinePersistence(CityWeatherMachine.create()), read = { frame ->
                 when (val route = frame.route) {
                     WeatherRoute.Search -> emptyList()
-                    is WeatherRoute.Weather -> listOf(weatherPersistence.save(route.checkpoint))
-                },
-            branch = history.branch,
-        )
-    }
+                    is WeatherRoute.Weather -> listOf(route.checkpoint)
+                }
+            }, write = { frame, weather ->
+                frame.copy(route = if (weather.isEmpty()) WeatherRoute.Search else WeatherRoute.Weather(weather.single()))
+            })
+        }
+
+    fun encode(history: WeatherHistory): WeatherSavedState = WeatherSavedState(checkpoints = group.save(history.persistenceFrame()), branch = history.branch)
 
     fun decode(
         saved: WeatherSavedState,
         clockFactory: () -> MachineClock = { MachineClock.monotonic() },
     ): WeatherHistory {
-        require(saved.format == 1)
-        require(saved.weather.size <= 1 && saved.branch >= 0)
-        val frame =
-            WeatherFrame(
-                search = searchPersistence.restore(saved.search),
-                route =
-                    saved.weather.fold<String, WeatherRoute>(WeatherRoute.Search) { _, text ->
-                        WeatherRoute.Weather(weatherPersistence.restore(text))
-                    },
-            )
+        require(saved.format == 3 && saved.branch >= 0)
+        val frame = group.restore(saved.checkpoints)
         require(frame.canResume())
         return WeatherHistory(initialFrame = frame, initialBranch = saved.branch, clockFactory = clockFactory)
     }

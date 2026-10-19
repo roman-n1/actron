@@ -37,6 +37,44 @@ public final class actron/timetravel/Branch {
 	public final fun reuseRecordedAnswers-hs9yZvY (J)Ljava/util/List;
 }
 
+public final class actron/timetravel/CheckpointGroup {
+	public final fun restore (Ljava/lang/String;)Ljava/lang/Object;
+	public final fun save (Ljava/lang/Object;)Ljava/lang/String;
+}
+
+public final class actron/timetravel/CheckpointGroupBuilder {
+	public final fun invocation (Lactron/timetravel/InvocationPersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
+	public final fun machine (Lactron/timetravel/MachinePersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
+	public final fun machines (Lactron/timetravel/MachinePersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
+}
+
+public final class actron/timetravel/CheckpointGroupKt {
+	public static final fun checkpointGroup (Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lactron/timetravel/CheckpointGroup;
+}
+
+public abstract interface class actron/timetravel/ChildCheckpoint {
+}
+
+public final class actron/timetravel/ChildCheckpoint$Active : actron/timetravel/ChildCheckpoint {
+	public synthetic fun <init> (JLactron/statechart/machine/ExecutorCheckpoint;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-o9jAptg ()J
+	public final fun component2 ()Lactron/statechart/machine/ExecutorCheckpoint;
+	public final fun copy-p7xSWGE (JLactron/statechart/machine/ExecutorCheckpoint;)Lactron/timetravel/ChildCheckpoint$Active;
+	public static synthetic fun copy-p7xSWGE$default (Lactron/timetravel/ChildCheckpoint$Active;JLactron/statechart/machine/ExecutorCheckpoint;ILjava/lang/Object;)Lactron/timetravel/ChildCheckpoint$Active;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckpoint ()Lactron/statechart/machine/ExecutorCheckpoint;
+	public final fun getOwner-o9jAptg ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/ChildCheckpoint$Dormant : actron/timetravel/ChildCheckpoint {
+	public static final field INSTANCE Lactron/timetravel/ChildCheckpoint$Dormant;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class actron/timetravel/Compatibility {
 }
 
@@ -431,6 +469,27 @@ public final class actron/timetravel/HistoryTimeline {
 
 public final class actron/timetravel/HistoryTimelineKt {
 	public static final fun historyFields (Lkotlinx/serialization/json/JsonElement;)Ljava/util/List;
+}
+
+public final class actron/timetravel/InvocationCheckpoint {
+	public fun <init> (Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/ChildCheckpoint;)V
+	public synthetic fun <init> (Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/ChildCheckpoint;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lactron/statechart/machine/ExecutorCheckpoint;
+	public final fun component2 ()Lactron/timetravel/ChildCheckpoint;
+	public final fun copy (Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/ChildCheckpoint;)Lactron/timetravel/InvocationCheckpoint;
+	public static synthetic fun copy$default (Lactron/timetravel/InvocationCheckpoint;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/ChildCheckpoint;ILjava/lang/Object;)Lactron/timetravel/InvocationCheckpoint;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getChild ()Lactron/timetravel/ChildCheckpoint;
+	public final fun getParent ()Lactron/statechart/machine/ExecutorCheckpoint;
+	public final fun getSnapshot ()Lactron/statechart/machine/InvocationSnapshot;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/InvocationPersistence {
+	public fun <init> (Lactron/statechart/machine/InvokedMachine;Lactron/timetravel/RecordingCodec;Lactron/timetravel/RecordingCodec;)V
+	public final fun restore (Ljava/lang/String;)Lactron/timetravel/InvocationCheckpoint;
+	public final fun save (Lactron/timetravel/InvocationCheckpoint;)Ljava/lang/String;
 }
 
 public final class actron/timetravel/MachinePersistence {
