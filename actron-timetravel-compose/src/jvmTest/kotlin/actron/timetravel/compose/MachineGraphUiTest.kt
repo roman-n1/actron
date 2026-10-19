@@ -1,6 +1,7 @@
 package actron.timetravel.compose
 
 import actron.statechart.*
+import actron.statechart.machine.TransitionId
 import actron.timetravel.*
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +24,7 @@ class MachineGraphUiTest {
             val trigger = ActionMatcher("Go")
             val chart = StateChartDefinition(idle, listOf(AtomicState(idle), AtomicState(done), AtomicState(lost)), listOf(Transition(idle, done, trigger), Transition(idle, done, trigger)))
             val viewport = GraphViewport()
-            setContent { MaterialTheme { MachineGraph(HistoryGraph.Machine(chart, setOf(idle)), viewport, Modifier.size(900.dp, 800.dp)) } }
+            setContent { MaterialTheme { MachineGraph(HistoryGraph.Machine(chart, setOf(idle), HistoryGraphCoverage.Recorded(mapOf(TransitionId(0) to 3L, TransitionId(1) to 7L))), viewport, Modifier.size(900.dp, 800.dp)) } }
             onNodeWithTag("graph-diagnostics-toggle").performClick()
             onNodeWithTag("graph-issue-0").performClick()
             onNodeWithTag("graph-state-transitions").assertExists()
@@ -33,6 +34,7 @@ class MachineGraphUiTest {
             onNodeWithTag("graph-issue-2").performClick()
             onNodeWithTag("graph-transition-details").assertExists()
             onNodeWithText("#2", substring = true).assertExists()
+            onNodeWithTag("graph-transition-hits").assertTextContains("7", substring = true)
             runOnIdle { assertNotEquals(previousOffset, viewport.offset) }
         }
 
@@ -43,6 +45,28 @@ class MachineGraphUiTest {
             val chart = StateChartDefinition(done, listOf(FinalState(done)), emptyList())
             setContent { MaterialTheme { MachineGraph(HistoryGraph.Machine(chart, setOf(done)), GraphViewport(), Modifier.size(900.dp, 800.dp)) } }
             onNodeWithTag("graph-diagnostics").assertDoesNotExist()
+        }
+
+    @Test
+    fun coverageFollowsHistoricalSnapshotIndependentlyOfActiveState() =
+        runComposeUiTest {
+            val idle = StateId("Idle")
+            val chart = StateChartDefinition(idle, listOf(AtomicState(idle)), listOf(Transition(idle, idle, ActionMatcher("Again"))))
+            val timeline = HistoryTimeline<Map<actron.statechart.machine.TransitionId, Long>>()
+            val machine = timeline.machine("Counter")
+            val details = HistoryDetails("Again", "Action", "Handled", emptyList(), emptyList())
+            timeline.append(machine, 0, details, emptyMap())
+            timeline.append(machine, 0, details, mapOf(actron.statechart.machine.TransitionId(0) to 2L))
+            val state = HistoryPanelState<Map<actron.statechart.machine.TransitionId, Long>>()
+            setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.size(1000.dp, 800.dp), graph = { HistoryGraph.Machine(chart, setOf(idle), HistoryGraphCoverage.Recorded(it.snapshot)) }) } }
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("history-graph-tab").performClick()
+            onNodeWithTag("graph-coverage").assertTextContains("0 / 1", substring = true)
+            onNodeWithTag("history-entry-2").performClick()
+            onNodeWithTag("graph-coverage").assertTextContains("1 / 1", substring = true)
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Idle", substring = true)
+            onNodeWithTag("history-entry-1").performClick()
+            onNodeWithTag("graph-coverage").assertTextContains("0 / 1", substring = true)
         }
 
     @Test

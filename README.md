@@ -247,7 +247,7 @@ Every library module has its own README with setup, examples and its contract.
 | [actron-test](actron-test/README.md) | Await processing, record states/events and diagnose handlers |
 | [actron-statechart](actron-statechart/README.md) | Declarative model, validation, diagrams, chart runtime and pure Machines |
 | [actron-statechart-compose](actron-statechart-compose/README.md) | Retained Machine effects delivered to Compose |
-| [actron-statechart-test](actron-statechart-test/README.md) | Scripted commands, virtual time and Machine test driver |
+| [actron-statechart-test](actron-statechart-test/README.md) | Scenario DSL, scripted commands, virtual time and transition coverage |
 | [actron-diagnostics](actron-diagnostics/README.md) | KMP causal traces for decisions, commands, timers and bridge effects |
 | [actron-diagnostics-sdk](actron-diagnostics-sdk/README.md) | Optional OpenTelemetry and Sentry adapters for JVM/Android |
 | [actron-diagnostics-crashlytics](actron-diagnostics-crashlytics/README.md) | Optional Android Crashlytics adapter |

@@ -368,6 +368,11 @@ public final class actron/statechart/test/MachineTestDriver {
 	public final fun start (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
+public final class actron/statechart/test/MachineTestDslKt {
+	public static final fun test (Lactron/statechart/machine/Machine;Lkotlinx/coroutines/test/TestScope;Ljava/lang/Object;ZLkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun test$default (Lactron/statechart/machine/Machine;Lkotlinx/coroutines/test/TestScope;Ljava/lang/Object;ZLkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
 public final class actron/statechart/test/MachineTestPlan {
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/Set;Ljava/util/Set;Ljava/util/List;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun assertReady (Z)V
@@ -395,6 +400,18 @@ public final class actron/statechart/test/MachineTestPlan {
 	public final fun getVersion-o3eglpc ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/statechart/test/MachineTestScenario {
+	public final fun advanceTimeBy-VtjQ1oo (JLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun completeCommand (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun completeCommand$default (Lactron/statechart/test/MachineTestScenario;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun dispatch (Lactron/core/Action;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun expectActive (Ljava/util/Set;)V
+	public final fun expectContext (Ljava/lang/Object;)V
+	public final fun getContext ()Ljava/lang/Object;
+	public final fun getCoverage ()Lactron/statechart/test/MachineCoverage;
+	public final fun getDriver ()Lactron/statechart/test/MachineTestDriver;
 }
 
 public final class actron/statechart/test/ModelSource {

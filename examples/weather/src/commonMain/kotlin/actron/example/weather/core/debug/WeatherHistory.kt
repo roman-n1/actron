@@ -10,6 +10,7 @@ import actron.example.weather.feature.weather.presentation.*
 import actron.statechart.machine.*
 import actron.timetravel.*
 import actron.timetravel.compose.HistoryGraph
+import actron.timetravel.compose.HistoryGraphCoverage
 import actron.timetravel.compose.HistoryPanelState
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ sealed interface WeatherRoute {
 data class WeatherFrame(
     val search: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(CitySearchMachine.create().initialSnapshot(CitySearchState())),
     val route: WeatherRoute = WeatherRoute.Search,
+    val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
 ) {
     fun at(time: MachineTime): WeatherFrame =
         copy(
@@ -102,6 +104,11 @@ class WeatherHistory(
                     searchChart,
                     entry.snapshot.search.snapshot.configuration.active
                         .toSet(),
+                    HistoryGraphCoverage.Recorded(
+                        entry.snapshot.coverage[DefinitionId("city-search")]
+                            ?.hits
+                            .orEmpty(),
+                    ),
                 )
             }
 
@@ -116,6 +123,11 @@ class WeatherHistory(
                             weatherChart,
                             route.checkpoint.snapshot.configuration.active
                                 .toSet(),
+                            HistoryGraphCoverage.Recorded(
+                                entry.snapshot.coverage[DefinitionId("city-weather")]
+                                    ?.hits
+                                    .orEmpty(),
+                            ),
                         )
                     }
                 }
@@ -199,7 +211,8 @@ class WeatherHistory(
                     }
                 val after = previous.carriedPast(step)
                 update(after)
-                frame = frame.at(after.now)
+                val coverage = frame.coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
+                frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage))
                 if (frame.canResume()) resumableFrame = frame
 
                 fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)

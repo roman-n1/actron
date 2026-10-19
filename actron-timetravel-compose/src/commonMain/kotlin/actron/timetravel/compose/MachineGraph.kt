@@ -1,6 +1,7 @@
 package actron.timetravel.compose
 
 import actron.statechart.*
+import actron.statechart.machine.TransitionId
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +27,19 @@ import androidx.compose.ui.text.*
 import androidx.compose.ui.unit.*
 import kotlin.math.pow
 
+/** Coverage is optional. Counts refer to the supplied definition's transition indices. */
+sealed interface HistoryGraphCoverage {
+    data object Unavailable : HistoryGraphCoverage
+
+    data class Recorded(
+        val hits: Map<TransitionId, Long>,
+    ) : HistoryGraphCoverage {
+        init {
+            require(hits.values.all { it > 0 })
+        }
+    }
+}
+
 /** Explicit graph data for the selected immutable history entry; no parsing of diagnostic text. */
 sealed interface HistoryGraph {
     data object Unavailable : HistoryGraph
@@ -33,6 +47,7 @@ sealed interface HistoryGraph {
     data class Machine(
         val definition: StateChartDefinition,
         val active: Set<StateId>,
+        val coverage: HistoryGraphCoverage = HistoryGraphCoverage.Unavailable,
     ) : HistoryGraph
 }
 
@@ -43,7 +58,7 @@ internal data class GraphNode(
 
 internal data class GraphEdge(
     val transition: Transition,
-    val definitionIndex: Int,
+    val id: TransitionId,
     val points: List<Offset>,
     val label: Rect,
 )
@@ -167,7 +182,7 @@ internal fun layoutGraph(
             val to = port(transition.target, 20f)
             val labelSize = labelSizes[index]
             val label = Rect(Offset(right + 12f + labelColumn(transition, parent) * (labelWidth(parent) + 24f), from.y - labelSize.height / 2f), labelSize)
-            GraphEdge(transition, indexedTransitions[index].index, listOf(from, Offset(lane, from.y), Offset(lane, to.y), to), label)
+            GraphEdge(transition, TransitionId(indexedTransitions[index].index), listOf(from, Offset(lane, from.y), Offset(lane, to.y), to), label)
         }
     return GraphLayout(nodes, edges, Size(width + gutter(StateParent.Root), maxOf(200f, y)))
 }
@@ -240,9 +255,14 @@ private fun GraphCanvas(
     val zoomOut = historyText(HistoryText.ZoomOut)
     val nativeZoom = nativeGraphZoom { anchor, zoom -> viewport.transform(anchor, Offset.Zero, zoom) }
     val activeLabel = historyText(HistoryText.ActiveStates)
+    val counts =
+        when (val coverage = graph.coverage) {
+            HistoryGraphCoverage.Unavailable -> emptyMap()
+            is HistoryGraphCoverage.Recorded -> coverage.hits
+        }
     Column(modifier) {
         GraphDiagnosticsPanel(graph.definition.diagnostics) { issue ->
-            selectedEdges = layout.edges.indices.filter { index -> issue.transitions.any { it.index == layout.edges[index].definitionIndex } }
+            selectedEdges = layout.edges.indices.filter { index -> layout.edges[index].id in issue.transitions }
             selected = if (selectedEdges.isEmpty()) issue.states.toList() else emptyList()
             val boxes = if (selectedEdges.isNotEmpty()) selectedEdges.map { layout.edges[it].label } else layout.nodes.filter { it.state.id in selected }.map { it.bounds }
             if (boxes.isNotEmpty()) {
@@ -250,6 +270,12 @@ private fun GraphCanvas(
                 val anchor = box.center * viewport.scale + viewport.offset
                 viewport.transform(anchor, view.center - anchor, maxOf(viewport.scale, 0.8f) / viewport.scale)
             }
+        }
+        if (graph.coverage is HistoryGraphCoverage.Recorded) {
+            val covered =
+                graph.definition.transitions.indices
+                    .count { counts.getOrElse(TransitionId(it)) { 0 } > 0 }
+            Text("${historyText(HistoryText.Coverage)}: $covered / ${graph.definition.transitions.size} · ${historyText(HistoryText.CoverageLegend)}", Modifier.padding(horizontal = 8.dp).testTag("graph-coverage"), style = MaterialTheme.typography.labelSmall)
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
             TextButton({ viewport.transform(view.center, Offset.Zero, 1f / 1.25f) }, Modifier.testTag("graph-zoom-out").semantics { contentDescription = zoomOut }) { Text("−") }
@@ -343,9 +369,29 @@ private fun GraphCanvas(
                                 edge.points.drop(1).forEach { lineTo(it.x, it.y) }
                             }
                         val highlighted = index in selectedEdges || edge.transition.source in selected
-                        val edgeColor = if (highlighted) colors.primary else colors.outline.copy(alpha = if (selectedEdges.isEmpty()) 1f else 0.25f)
+                        val covered = counts.getOrElse(edge.id) { 0 } > 0
+                        val edgeColor = if (highlighted) colors.primary else (if (covered) colors.tertiary else colors.outline).copy(alpha = if (selectedEdges.isEmpty()) 1f else 0.25f)
                         drawPath(path, colors.surface, style = Stroke(5f))
-                        drawPath(path, edgeColor, style = Stroke(if (highlighted) 3f else 1.3f))
+                        val stroke =
+                            if (graph.coverage is HistoryGraphCoverage.Recorded && !covered && !highlighted) {
+                                Stroke(
+                                    1.3f,
+                                    pathEffect =
+                                        androidx.compose.ui.graphics.PathEffect
+                                            .dashPathEffect(floatArrayOf(6f, 5f)),
+                                )
+                            } else {
+                                Stroke(
+                                    if (highlighted) {
+                                        3f
+                                    } else if (covered) {
+                                        2.5f
+                                    } else {
+                                        1.3f
+                                    },
+                                )
+                            }
+                        drawPath(path, edgeColor, style = stroke)
                         val end = edge.points.last()
                         drawLine(edgeColor, end, end + Offset(8f, -5f), 1.5f)
                         drawLine(edgeColor, end, end + Offset(8f, 5f), 1.5f)
@@ -377,6 +423,9 @@ private fun GraphCanvas(
             ) {
                 Text("${historyText(HistoryText.Transition)} #${index + 1}", style = MaterialTheme.typography.titleSmall, color = colors.primary)
                 Spacer(Modifier.height(6.dp))
+                if (graph.coverage is HistoryGraphCoverage.Recorded) {
+                    Text("${historyText(HistoryText.Executions)}: ${counts.getOrElse(layout.edges[index].id) { 0 }}", Modifier.testTag("graph-transition-hits"), style = MaterialTheme.typography.bodySmall)
+                }
                 Text("${historyText(HistoryText.FromState)}: ${transition.source.value}", style = MaterialTheme.typography.bodySmall)
                 Text("${historyText(HistoryText.ToState)}: ${transition.target.value}", style = MaterialTheme.typography.bodySmall)
                 Text("${historyText(HistoryText.Action)}: ${transition.triggerLabel}", style = MaterialTheme.typography.bodySmall)

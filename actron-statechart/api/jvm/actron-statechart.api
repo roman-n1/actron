@@ -3436,6 +3436,23 @@ public final class actron/statechart/machine/TransitionCandidate {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/statechart/machine/TransitionCoverage {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-xjbjqhw ()Ljava/lang/String;
+	public final fun component2-o3eglpc ()Ljava/lang/String;
+	public final fun component3 ()Ljava/util/Map;
+	public final fun copy-GDdLHKM (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;)Lactron/statechart/machine/TransitionCoverage;
+	public static synthetic fun copy-GDdLHKM$default (Lactron/statechart/machine/TransitionCoverage;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lactron/statechart/machine/TransitionCoverage;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDefinition-xjbjqhw ()Ljava/lang/String;
+	public final fun getHits ()Ljava/util/Map;
+	public final fun getVersion-o3eglpc ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun record (Lactron/statechart/machine/Decision;)Lactron/statechart/machine/TransitionCoverage;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class actron/statechart/machine/TransitionId {
 	public static final synthetic fun box-impl (I)Lactron/statechart/machine/TransitionId;
 	public static fun constructor-impl (I)I
