@@ -234,6 +234,12 @@ An arbitrary coroutine Store can be inspected, but deterministic replay needs th
 Machine path and compatible definitions/codecs. Debug tooling belongs in debug dependencies;
 the CI checks that production modules do not depend on it.
 
+## Skills for your AI
+
+Reusable agent instructions live in [skills/](skills/README.md): modeling with the typed DSL,
+virtual-time testing and coverage, and extracting graph/recording diagnostics. The skills
+include module routing and check the current API version before proposing code.
+
 ## Modules
 
 Every library module has its own README with setup, examples and its contract.

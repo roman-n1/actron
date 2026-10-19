@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Actron machines"
+  short_description: "Test behavior with virtual time and coverage"
+  default_prompt: "Use $actron-test to test this machine and report transition coverage."
