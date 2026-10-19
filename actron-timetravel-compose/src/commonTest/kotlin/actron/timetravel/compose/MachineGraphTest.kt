@@ -67,6 +67,34 @@ class MachineGraphTest {
     }
 
     @Test
+    fun measuredLabelsGrowLayoutAndNeverOverlapIncludingSelfLoops() {
+        val a = StateId("A")
+        val b = StateId("B")
+        val chart =
+            StateChartDefinition(
+                a,
+                listOf(AtomicState(a), AtomicState(b)),
+                listOf(
+                    Transition(a, b, ActionMatcher("same")),
+                    Transition(a, b, ActionMatcher("same")),
+                    Transition(a, a, ActionMatcher("self")),
+                    Transition(b, a, ActionMatcher("back")),
+                ),
+            )
+        val compact = layoutGraph(chart) { Size(40f, 20f) }
+        val expanded = layoutGraph(chart) { Size(320f, 100f) }
+        assertTrue(expanded.size.width > compact.size.width)
+        assertTrue(expanded.size.height > compact.size.height)
+        expanded.edges.forEachIndexed { index, edge ->
+            assertEquals(Size(344f, 116f), edge.label.size)
+            expanded.edges.drop(index + 1).forEach { assertFalse(edge.label.overlaps(it.label)) }
+            expanded.nodes.forEach { assertFalse(edge.label.overlaps(it.bounds)) }
+            assertTrue(edge.label.right < expanded.size.width)
+            assertTrue(edge.label.bottom < expanded.size.height)
+        }
+    }
+
+    @Test
     fun zoomKeepsPointerAnchorAndClampsWhileFitRecenters() {
         val viewport = GraphViewport()
         viewport.fit(Size(800f, 600f), Size(1000f, 800f))

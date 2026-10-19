@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
@@ -57,6 +58,61 @@ class MachineGraphUiTest {
                 assertEquals(0, continued)
                 assertEquals(loading, state.preview.single().snapshot)
             }
+        }
+
+    @Test
+    fun longActionLabelsSelectExactDuplicateTransitionAfterPanAndZoom() =
+        runComposeUiTest {
+            val a = StateId("A")
+            val b = StateId("B")
+            val action = "A long action name that must wrap without being truncated ".repeat(3)
+            val chart =
+                StateChartDefinition(
+                    a,
+                    listOf(AtomicState(a), AtomicState(b)),
+                    listOf(
+                        Transition(a, b, ActionMatcher(action)),
+                        Transition(a, b, ActionMatcher(action)),
+                    ),
+                )
+            val viewport = GraphViewport()
+            var layouts = emptyList<GraphLayout>()
+            setContent {
+                MaterialTheme {
+                    val measurer =
+                        androidx.compose.ui.text
+                            .rememberTextMeasurer()
+                    val style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp)
+                    layouts =
+                        listOf(
+                            layoutGraph(chart) { transition ->
+                                val text =
+                                    measurer.measure(
+                                        transition.triggerLabel,
+                                        style,
+                                        constraints =
+                                            androidx.compose.ui.unit
+                                                .Constraints(maxWidth = 320),
+                                    )
+                                androidx.compose.ui.geometry
+                                    .Size(text.size.width.toFloat(), text.size.height.toFloat())
+                            },
+                        )
+                    MachineGraph(HistoryGraph.Machine(chart, setOf(a)), viewport, Modifier.size(700.dp, 800.dp))
+                }
+            }
+            runOnIdle { viewport.transform(Offset(250f, 250f), Offset(10f, 15f), 1.1f) }
+            onNodeWithTag("machine-graph").performTouchInput {
+                click(
+                    layouts
+                        .single()
+                        .edges[1]
+                        .label.center * viewport.scale + viewport.offset,
+                )
+            }
+            onNodeWithTag("graph-transition-details").assertExists()
+            onNodeWithText("#2", substring = true).assertExists()
+            onNodeWithText(action, substring = true).assertExists()
         }
 
     @Test

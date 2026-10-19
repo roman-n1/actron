@@ -52,14 +52,36 @@ Live mode lets the application run independently.
 The renderer uses Compose Canvas, with no WebView or graph-engine dependency. Compound and
 parallel containers retain declaration order; local transitions stay in their own container.
 Routes use separate ports and lanes. Crossing edges have a background gap; arbitrary graphs
-can still have crossings. Very short labels are omitted, and long labels are truncated to
-their lane: select a state to read its full outgoing actions and targets below the canvas.
+can still have crossings. Horizontal action badges are measured before layout; long text wraps
+and containers grow to reserve the full label width and height. No action label is omitted or
+ellipsized. Parallel regions reserve separate label columns for cross-region transitions.
+Click an action badge to isolate its exact transition and endpoints, including when several
+transitions have the same name. The detail area shows source, target, trigger, guard, effect
+and transition kind. Selecting a state instead shows all its outgoing actions.
 This is a diagram of declared transitions, not a prediction that every guard will pass.
 
 Drag or scroll to pan; pinch, Ctrl/Command + scroll, or use +/− to zoom (10–400%). **Fit**
 centers the whole diagram. Zoom is anchored at the pointer and preserved per logical machine
 across history selection and tabs while the panel remains mounted. Active IDs are highlighted
 from the selected checkpoint; graph inspection never dispatches actions or resumes execution.
+
+### macOS desktop trackpad
+
+Touch pinch and native macOS trackpad magnification are separate input paths. The JVM renderer
+registers the JDK's `MagnificationListener` on the containing Swing root pane while the graph
+is mounted and removes it on disposal. Only gestures over the graph affect its viewport.
+For a modern JDK, a macOS host application must export that platform API at startup:
+
+```kotlin
+compose.desktop.application {
+    if (System.getProperty("os.name", "").startsWith("Mac")) {
+        jvmArgs += "--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED"
+    }
+}
+```
+
+Weather already sets this flag. Other targets do not load Apple classes. Without the export,
+zoom buttons and Ctrl/Command-scroll remain available; the native listener is not installed.
 
 ## Embeddable panel
 

@@ -40,7 +40,7 @@ internal data class GraphNode(
 internal data class GraphEdge(
     val transition: Transition,
     val points: List<Offset>,
-    val label: Offset,
+    val label: Rect,
 )
 
 internal data class GraphLayout(
@@ -50,7 +50,10 @@ internal data class GraphLayout(
 )
 
 /** Declaration order is stable across snapshots. Containers reserve routing space beside children. */
-internal fun layoutGraph(chart: StateChartDefinition): GraphLayout {
+internal fun layoutGraph(
+    chart: StateChartDefinition,
+    measureLabel: (Transition) -> Size = { Size(it.triggerLabel.length * 8f, 20f) },
+): GraphLayout {
     val nodes = mutableListOf<GraphNode>()
     val visited = mutableSetOf<StateId>()
     val transitions = chart.transitions.filter { chart.hasNode(it.source) && chart.hasNode(it.target) }
@@ -63,9 +66,29 @@ internal fun layoutGraph(chart: StateChartDefinition): GraphLayout {
             .fold<StateId, StateParent>(StateParent.Root) { _, id -> id }
     val owners = transitions.map(::owner)
 
-    fun gutter(parent: StateParent) = 48f + owners.count { it == parent } * 28f
+    val labelSizes = transitions.map { measureLabel(it).let { size -> Size(size.width + 24f, size.height + 16f) } }
 
-    fun ports(id: StateId) = transitions.sumOf { (if (it.source == id) 1 else 0) + (if (it.target == id) 1 else 0) }
+    fun labelWidth(parent: StateParent) = labelSizes.filterIndexed { index, _ -> owners[index] == parent }.fold(0f) { width, size -> maxOf(width, size.width) }
+
+    fun labelColumn(
+        edge: Transition,
+        parent: StateParent,
+    ): Int {
+        if (parent !is StateId || !chart.nodeSatisfies(parent) { it is ParallelState }) return 0
+        val regions = chart.childrenOf(parent)
+        return regions.indexOfFirst { it.id == edge.source || it.id in chart.ancestorsOf(edge.source) }.coerceAtLeast(0)
+    }
+
+    fun columns(parent: StateParent) = transitions.indices.filter { owners[it] == parent }.fold(1) { count, index -> maxOf(count, labelColumn(transitions[index], parent) + 1) }
+
+    fun labelSpace(parent: StateParent) = columns(parent) * (labelWidth(parent) + 24f)
+
+    fun gutter(parent: StateParent) = 48f + labelSpace(parent) + owners.count { it == parent } * 28f
+
+    fun portHeight(id: StateId): Float =
+        transitions.indices.fold(0f) { height, index ->
+            height + (if (transitions[index].source == id) labelSizes[index].height + 12f else 0f) + (if (transitions[index].target == id) 20f else 0f)
+        }
 
     fun place(
         state: StateNode,
@@ -74,7 +97,7 @@ internal fun layoutGraph(chart: StateChartDefinition): GraphLayout {
     ): Size {
         if (!visited.add(state.id)) return Size.Zero
         val children = chart.childrenOf(state.id).filter { it.id !in visited }
-        val header = maxOf(76f, 32f + ports(state.id) * 20f)
+        val header = maxOf(76f, 32f + portHeight(state.id))
         if (children.isEmpty()) {
             val size = Size(240f, header)
             nodes.add(GraphNode(state, Rect(Offset(x, y), size)))
@@ -115,14 +138,17 @@ internal fun layoutGraph(chart: StateChartDefinition): GraphLayout {
         width = maxOf(width, size.width + 80f)
     }
     val byId = nodes.associateBy { it.state.id }
-    val usedPorts = mutableMapOf<StateId, Int>()
+    val usedPorts = mutableMapOf<StateId, Float>()
     val usedLanes = mutableMapOf<StateParent, Int>()
 
-    fun port(id: StateId): Offset {
-        val index = usedPorts.getOrElse(id) { 0 }
-        usedPorts[id] = index + 1
+    fun port(
+        id: StateId,
+        height: Float,
+    ): Offset {
+        val previous = usedPorts.getOrElse(id) { 0f }
+        usedPorts[id] = previous + height
         val rect = byId.getValue(id).bounds
-        return Offset(rect.right, rect.top + 24f + index * 20f)
+        return Offset(rect.right, rect.top + 16f + previous + height / 2f)
     }
     val edges =
         transitions.mapIndexed { index, transition ->
@@ -130,10 +156,12 @@ internal fun layoutGraph(chart: StateChartDefinition): GraphLayout {
             val laneIndex = usedLanes.getOrElse(parent) { 0 }
             usedLanes[parent] = laneIndex + 1
             val right = if (parent is StateId) byId.getValue(parent).bounds.right - gutter(parent) else width
-            val lane = right + 20f + laneIndex * 28f
-            val from = port(transition.source)
-            val to = port(transition.target)
-            GraphEdge(transition, listOf(from, Offset(lane, from.y), Offset(lane, to.y), to), Offset(lane + 4f, maxOf(from.y, to.y) - 8f))
+            val lane = right + labelSpace(parent) + 20f + laneIndex * 28f
+            val from = port(transition.source, labelSizes[index].height + 12f)
+            val to = port(transition.target, 20f)
+            val labelSize = labelSizes[index]
+            val label = Rect(Offset(right + 12f + labelColumn(transition, parent) * (labelWidth(parent) + 24f), from.y - labelSize.height / 2f), labelSize)
+            GraphEdge(transition, listOf(from, Offset(lane, from.y), Offset(lane, to.y), to), label)
         }
     return GraphLayout(nodes, edges, Size(width + gutter(StateParent.Root), maxOf(200f, y)))
 }
@@ -186,14 +214,25 @@ private fun GraphCanvas(
     viewport: GraphViewport,
     modifier: Modifier,
 ) {
-    val layout = remember(graph.definition) { layoutGraph(graph.definition) }
     var view by remember { mutableStateOf(Size.Zero) }
     var selected by remember(graph.definition) { mutableStateOf(emptyList<StateId>()) }
     val measurer = rememberTextMeasurer()
     val colors = MaterialTheme.colorScheme
     val style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, color = colors.onSurface)
+    val labelStyle = style.copy(fontSize = 13.sp)
+    val labels =
+        remember(graph.definition, measurer, labelStyle) {
+            graph.definition.transitions.associateWith { measurer.measure(it.triggerLabel, labelStyle, constraints = Constraints(maxWidth = 320)) }
+        }
+    val layout =
+        remember(graph.definition, labels) {
+            layoutGraph(graph.definition) { transition -> labels.getValue(transition).size.let { Size(it.width.toFloat(), it.height.toFloat()) } }
+        }
+    var selectedEdges by remember(graph.definition) { mutableStateOf(emptyList<Int>()) }
+    val endpoints = selectedEdges.flatMap { index -> layout.edges[index].transition.let { listOf(it.source, it.target) } }
     val zoomIn = historyText(HistoryText.ZoomIn)
     val zoomOut = historyText(HistoryText.ZoomOut)
+    val nativeZoom = nativeGraphZoom { anchor, zoom -> viewport.transform(anchor, Offset.Zero, zoom) }
     val activeLabel = historyText(HistoryText.ActiveStates)
     Column(modifier) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
@@ -207,6 +246,7 @@ private fun GraphCanvas(
                 .weight(1f)
                 .fillMaxWidth()
                 .testTag("machine-graph")
+                .then(nativeZoom)
                 .semantics { contentDescription = "$activeLabel: ${graph.active.joinToString { it.value }}" }
                 .onSizeChanged {
                     val first = view == Size.Zero
@@ -215,12 +255,20 @@ private fun GraphCanvas(
                 }.pointerInput(viewport, layout) {
                     detectTapGestures { point ->
                         val location = (point - viewport.offset) / viewport.scale
-                        selected =
-                            layout.nodes
-                                .asReversed()
-                                .filter { it.bounds.contains(location) }
+                        selectedEdges =
+                            layout.edges.indices
+                                .filter { layout.edges[it].label.contains(location) }
                                 .take(1)
-                                .map { it.state.id }
+                        selected =
+                            if (selectedEdges.isNotEmpty()) {
+                                emptyList()
+                            } else {
+                                layout.nodes
+                                    .asReversed()
+                                    .filter { it.bounds.contains(location) }
+                                    .take(1)
+                                    .map { it.state.id }
+                            }
                     }
                 }.pointerInput(viewport) {
                     detectTransformGestures { centroid, pan, zoom, _ -> viewport.transform(centroid, pan, zoom) }
@@ -251,7 +299,7 @@ private fun GraphCanvas(
                         val active = node.state.id in graph.active
                         val rect = node.bounds
                         drawRoundRect(if (active) colors.primaryContainer else colors.surfaceContainerLow, rect.topLeft, rect.size, CornerRadius(12f))
-                        drawRoundRect(if (node.state.id in selected || active) colors.primary else colors.outlineVariant, rect.topLeft, rect.size, CornerRadius(12f), style = Stroke(if (active) 3f else 1f))
+                        drawRoundRect(if (node.state.id in selected || node.state.id in endpoints || active) colors.primary else colors.outlineVariant, rect.topLeft, rect.size, CornerRadius(12f), style = Stroke(if (active || node.state.id in endpoints) 3f else 1f))
                         val kind =
                             when (node.state) {
                                 is ParallelState -> ""
@@ -272,31 +320,49 @@ private fun GraphCanvas(
                         val initial = node.state.id == graph.definition.initial || graph.definition.states.any { it is CompoundState && it.initial == node.state.id }
                         if (initial) drawCircle(colors.primary, 4f, rect.topLeft + Offset(5f, 34f))
                     }
-                    layout.edges.forEach { edge ->
+                    layout.edges.forEachIndexed { index, edge ->
                         val path =
                             Path().apply {
                                 moveTo(edge.points.first().x, edge.points.first().y)
                                 edge.points.drop(1).forEach { lineTo(it.x, it.y) }
                             }
-                        val edgeColor = if (edge.transition.source in selected) colors.primary else colors.outline
+                        val highlighted = index in selectedEdges || edge.transition.source in selected
+                        val edgeColor = if (highlighted) colors.primary else colors.outline.copy(alpha = if (selectedEdges.isEmpty()) 1f else 0.25f)
                         drawPath(path, colors.surface, style = Stroke(5f))
-                        drawPath(path, edgeColor, style = Stroke(if (edge.transition.source in selected) 2.5f else 1.3f))
+                        drawPath(path, edgeColor, style = Stroke(if (highlighted) 3f else 1.3f))
                         val end = edge.points.last()
                         drawLine(edgeColor, end, end + Offset(8f, -5f), 1.5f)
                         drawLine(edgeColor, end, end + Offset(8f, 5f), 1.5f)
                     }
-                    // Labels are painted last so crossing routes never strike through their text.
-                    layout.edges.forEach { edge ->
-                        val available = kotlin.math.abs(edge.points.first().y - edge.points.last().y) - 16f
-                        val text = measurer.measure(edge.transition.triggerLabel, style.copy(fontSize = 11.sp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, constraints = Constraints(maxWidth = maxOf(1, available.toInt())))
-                        if (available > 40f) {
-                            rotate(-90f, edge.label) {
-                                drawRect(colors.surface, edge.label - Offset(2f, 1f), Size(text.size.width + 4f, text.size.height + 2f))
-                                drawText(text, topLeft = edge.label)
-                            }
-                        }
+                    // Each label has measured, reserved space, independent of viewport zoom.
+                    layout.edges.forEachIndexed { index, edge ->
+                        val focused = index in selectedEdges
+                        val rect = edge.label
+                        drawRoundRect(if (focused) colors.secondaryContainer else colors.surface, rect.topLeft, rect.size, CornerRadius(8f))
+                        drawRoundRect(if (focused) colors.primary else colors.outlineVariant, rect.topLeft, rect.size, CornerRadius(8f), style = Stroke(if (focused) 2f else 1f))
+                        drawText(labels.getValue(edge.transition), topLeft = rect.topLeft + Offset(12f, 8f))
                     }
                 }
+            }
+        }
+        selectedEdges.forEach { index ->
+            val transition = layout.edges[index].transition
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 180.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(12.dp)
+                    .testTag("graph-transition-details"),
+            ) {
+                Text("${historyText(HistoryText.Transition)} #${index + 1}", style = MaterialTheme.typography.titleSmall)
+                Text("${historyText(HistoryText.FromState)}: ${transition.source.value}", style = MaterialTheme.typography.bodySmall)
+                Text("${historyText(HistoryText.ToState)}: ${transition.target.value}", style = MaterialTheme.typography.bodySmall)
+                Text("${historyText(HistoryText.Action)}: ${transition.triggerLabel}", style = MaterialTheme.typography.bodySmall)
+                Text("${historyText(HistoryText.Guard)}: ${transition.guard.displayLabel}", style = MaterialTheme.typography.bodySmall)
+                Text("${historyText(HistoryText.Effect)}: ${transition.effect.displayLabel}", style = MaterialTheme.typography.bodySmall)
+                Text("${historyText(HistoryText.TransitionKind)}: ${transition.kind}", style = MaterialTheme.typography.bodySmall)
+                Text(historyText(HistoryText.DeclaredTransition), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             }
         }
         selected.forEach { id ->
