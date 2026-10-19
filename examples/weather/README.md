@@ -164,3 +164,33 @@ with `collectAsUiState`, explicitly separating UI collection from the machine di
 The shared history adapter is UI-confined together with navigation. See the
 [library's threading and command contract](../../doc/guides/machine-mvi.md) before configuring
 a background processor in a different host.
+
+## Share a view-only recording
+
+Enable the inspector through Settings. **Import** and **Export** are on the right of its
+machine filter, not in Settings. Export suggests `Weather_yyyy-MM-dd_HH-mm-ss.actron.json`
+using the local time zone. Configure the project name through
+`WeatherHistory(exportSettings = HistoryExportSettings("My project"))`; the library has no
+Weather-specific project name. Project name and export instant are also stored in JSON.
+
+Import opens a separate read-only session: selecting a recorded event renders the original
+search or weather screen, including pending, failed and successful requests. No stores,
+HTTP requests, subscriptions, commands or timers are started by import. Existing live work
+may complete independently in the background. Back to session restores the existing live
+view; closing or failing an import never replaces its state or history. A file cannot be used
+with Continue here. Export while viewing a file re-exports its display recording.
+
+The viewer validates the file format, display schema, both machine versions and structural
+graph declarations. Incompatible files are rejected, including changes to a graph without a
+version bump. Reducer/handler behavior changes with the same graph still require an explicit
+machine version bump. The file is a display recording, not a runnable test or checkpoint.
+
+Validation:
+
+- `:actron-timetravel:jvmTest`: round trips, original event IDs, invalid UTF-8/JSON, bounds,
+  metadata, incompatible schemas/versions/graphs and redaction.
+- `:weather-example:jvmTest`: screen selection, no continuation controls, live request and
+  component isolation, cancelled/failed import preservation and Desktop file I/O.
+- `:weather-android:connectedDebugAndroidTest`: actual system document picker save/open and
+  cancellation on an Android emulator; no intercepted intents.
+- Browser and macOS native file dialogs are additionally exercised manually during development.

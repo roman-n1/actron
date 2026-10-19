@@ -378,7 +378,43 @@ public final class actron/timetravel/GroupStep {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/timetravel/HistoryDefinition {
+	public static final field Companion Lactron/timetravel/HistoryDefinition$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lkotlinx/serialization/json/JsonObject;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;)Lactron/timetravel/HistoryDefinition;
+	public static synthetic fun copy$default (Lactron/timetravel/HistoryDefinition;Ljava/lang/String;Ljava/lang/String;Lkotlinx/serialization/json/JsonObject;ILjava/lang/Object;)Lactron/timetravel/HistoryDefinition;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getStructure ()Lkotlinx/serialization/json/JsonObject;
+	public final fun getVersion ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class actron/timetravel/HistoryDefinition$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lactron/timetravel/HistoryDefinition$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/HistoryDefinition;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/HistoryDefinition;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryDefinition$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryDefinitionKt {
+	public static final fun historyDefinition (Lactron/statechart/StateChartDefinition;Ljava/lang/String;Ljava/lang/String;)Lactron/timetravel/HistoryDefinition;
+}
+
 public final class actron/timetravel/HistoryDetails {
+	public static final field Companion Lactron/timetravel/HistoryDetails$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/lang/String;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
@@ -403,6 +439,21 @@ public final class actron/timetravel/HistoryDetails {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final synthetic class actron/timetravel/HistoryDetails$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lactron/timetravel/HistoryDetails$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/HistoryDetails;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/HistoryDetails;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryDetails$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class actron/timetravel/HistoryEntry {
 	public fun <init> (JLactron/timetravel/HistoryMachine;JLkotlin/time/Instant;Lactron/timetravel/HistoryDetails;Ljava/lang/Object;Lkotlin/jvm/functions/Function0;)V
 	public final fun getAt ()Lkotlin/time/Instant;
@@ -413,7 +464,24 @@ public final class actron/timetravel/HistoryEntry {
 	public final fun getSnapshot ()Ljava/lang/Object;
 }
 
+public final class actron/timetravel/HistoryExportSettings {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lactron/timetravel/HistoryExportSettings;
+	public static synthetic fun copy$default (Lactron/timetravel/HistoryExportSettings;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/HistoryExportSettings;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun fileName (Ljava/lang/String;)Ljava/lang/String;
+	public final fun getProjectName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun metadata (Lkotlin/time/Instant;)Lactron/timetravel/HistoryRecordingMetadata;
+	public static synthetic fun metadata$default (Lactron/timetravel/HistoryExportSettings;Lkotlin/time/Instant;ILjava/lang/Object;)Lactron/timetravel/HistoryRecordingMetadata;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class actron/timetravel/HistoryMachine {
+	public static final field Companion Lactron/timetravel/HistoryMachine$Companion;
 	public fun <init> (JLjava/lang/String;Ljava/lang/String;)V
 	public synthetic fun <init> (JLjava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()J
@@ -429,7 +497,143 @@ public final class actron/timetravel/HistoryMachine {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final synthetic class actron/timetravel/HistoryMachine$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lactron/timetravel/HistoryMachine$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/HistoryMachine;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/HistoryMachine;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryMachine$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryRecord {
+	public static final field Companion Lactron/timetravel/HistoryRecord$Companion;
+	public fun <init> (JLactron/timetravel/HistoryMachine;JLjava/lang/String;Lactron/timetravel/HistoryDetails;Ljava/lang/Object;)V
+	public final fun component1 ()J
+	public final fun component2 ()Lactron/timetravel/HistoryMachine;
+	public final fun component3 ()J
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Lactron/timetravel/HistoryDetails;
+	public final fun component6 ()Ljava/lang/Object;
+	public final fun copy (JLactron/timetravel/HistoryMachine;JLjava/lang/String;Lactron/timetravel/HistoryDetails;Ljava/lang/Object;)Lactron/timetravel/HistoryRecord;
+	public static synthetic fun copy$default (Lactron/timetravel/HistoryRecord;JLactron/timetravel/HistoryMachine;JLjava/lang/String;Lactron/timetravel/HistoryDetails;Ljava/lang/Object;ILjava/lang/Object;)Lactron/timetravel/HistoryRecord;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAt ()Ljava/lang/String;
+	public final fun getBranch ()J
+	public final fun getDetails ()Lactron/timetravel/HistoryDetails;
+	public final fun getId ()J
+	public final fun getMachine ()Lactron/timetravel/HistoryMachine;
+	public final fun getSnapshot ()Ljava/lang/Object;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class actron/timetravel/HistoryRecord$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public fun <init> (Lkotlinx/serialization/KSerializer;)V
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/HistoryRecord;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/HistoryRecord;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryRecord$Companion {
+	public final fun serializer (Lkotlinx/serialization/KSerializer;)Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryRecording {
+	public static final field Companion Lactron/timetravel/HistoryRecording$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/util/List;Lactron/timetravel/HistoryRecordingMetadata;ILjava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Lactron/timetravel/HistoryRecordingMetadata;ILjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Lactron/timetravel/HistoryRecordingMetadata;
+	public final fun component4 ()I
+	public final fun component5 ()Ljava/util/List;
+	public final fun copy (Ljava/lang/String;Ljava/util/List;Lactron/timetravel/HistoryRecordingMetadata;ILjava/util/List;)Lactron/timetravel/HistoryRecording;
+	public static synthetic fun copy$default (Lactron/timetravel/HistoryRecording;Ljava/lang/String;Ljava/util/List;Lactron/timetravel/HistoryRecordingMetadata;ILjava/util/List;ILjava/lang/Object;)Lactron/timetravel/HistoryRecording;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDefinitions ()Ljava/util/List;
+	public final fun getEntries ()Ljava/util/List;
+	public final fun getFormat ()I
+	public final fun getMetadata ()Lactron/timetravel/HistoryRecordingMetadata;
+	public final fun getSchema ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+	public final fun validate ()V
+}
+
+public final synthetic class actron/timetravel/HistoryRecording$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public fun <init> (Lkotlinx/serialization/KSerializer;)V
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/HistoryRecording;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/HistoryRecording;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryRecording$Companion {
+	public final fun serializer (Lkotlinx/serialization/KSerializer;)Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryRecordingCodec {
+	public fun <init> (Ljava/lang/String;Lkotlinx/serialization/KSerializer;IIILjava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Lkotlinx/serialization/KSerializer;IIILjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun decode ([B)Lactron/timetravel/HistoryRecording;
+	public final fun encode (Lactron/timetravel/HistoryRecording;)[B
+	public final fun getDefinitions ()Ljava/util/List;
+	public final fun getMaxBytes ()I
+	public final fun getMaxDepth ()I
+	public final fun getMaxEntries ()I
+	public final fun getSchema ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/HistoryRecordingKt {
+	public static final fun recording (Lactron/timetravel/HistoryTimeline;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lactron/timetravel/HistoryRecordingMetadata;)Lactron/timetravel/HistoryRecording;
+	public static synthetic fun recording$default (Lactron/timetravel/HistoryTimeline;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lactron/timetravel/HistoryRecordingMetadata;ILjava/lang/Object;)Lactron/timetravel/HistoryRecording;
+}
+
+public final class actron/timetravel/HistoryRecordingMetadata {
+	public static final field Companion Lactron/timetravel/HistoryRecordingMetadata$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lactron/timetravel/HistoryRecordingMetadata;
+	public static synthetic fun copy$default (Lactron/timetravel/HistoryRecordingMetadata;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/HistoryRecordingMetadata;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExportedAt ()Ljava/lang/String;
+	public final fun getProjectName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class actron/timetravel/HistoryRecordingMetadata$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lactron/timetravel/HistoryRecordingMetadata$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/HistoryRecordingMetadata;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/HistoryRecordingMetadata;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/HistoryRecordingMetadata$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class actron/timetravel/HistoryTimeline {
+	public static final field Companion Lactron/timetravel/HistoryTimeline$Companion;
 	public fun <init> ()V
 	public fun <init> (I)V
 	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -442,6 +646,10 @@ public final class actron/timetravel/HistoryTimeline {
 	public static synthetic fun machine$default (Lactron/timetravel/HistoryTimeline;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/HistoryMachine;
 	public final fun truncateAfter (JJ)V
 	public static synthetic fun truncateAfter$default (Lactron/timetravel/HistoryTimeline;JJILjava/lang/Object;)V
+}
+
+public final class actron/timetravel/HistoryTimeline$Companion {
+	public final fun fromRecording (Lactron/timetravel/HistoryRecording;)Lactron/timetravel/HistoryTimeline;
 }
 
 public final class actron/timetravel/HistoryTimelineKt {
@@ -717,6 +925,7 @@ public final class actron/timetravel/StateChange {
 }
 
 public final class actron/timetravel/StateField {
+	public static final field Companion Lactron/timetravel/StateField$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
@@ -727,6 +936,21 @@ public final class actron/timetravel/StateField {
 	public final fun getValue ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class actron/timetravel/StateField$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lactron/timetravel/StateField$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lactron/timetravel/StateField;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lactron/timetravel/StateField;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class actron/timetravel/StateField$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
 public abstract class actron/timetravel/file/DecodedGroupSegment {

@@ -51,6 +51,7 @@ kotlin {
             implementation("io.ktor:ktor-client-cio:3.5.0")
         }
         androidMain.dependencies {
+            implementation("androidx.activity:activity-compose:1.13.0")
             implementation("io.ktor:ktor-client-okhttp:3.5.0")
         }
         jsMain.dependencies {

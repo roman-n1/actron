@@ -279,3 +279,18 @@ Weather stores cumulative counts in each history frame, grouped by stable machin
 The graph shows counts up to the selected event, including earlier events evicted from the
 ring buffer. Continuing from history branches from those counts; discarded future decisions
 are excluded. Counts are session-only diagnostic data and reset on process restoration.
+
+### Imported recordings
+
+`HistoryRecordingPanel(recording, state, graph = ..., actions = ...)` is a separate inspection
+surface. It provides event selection, differences, graph and filtering, with no live switch,
+continuation callback, truncation or effect execution. The header explains why imported files
+cannot continue execution. Render `state.selection.single().snapshot` using your stateless
+screen composables, with interactions disabled. Do not instantiate screen components or stores
+from an imported snapshot. Keep the existing application's state and inspector separate and
+return to them when the viewer closes.
+
+Both panel variants accept an `actions` slot on the right of the machine filter. Weather places
+Import and Export with directional icons there, plus Back to session while inspecting a file.
+File dialogs remain in the host, outside the library. Weather uses Android's Storage Access
+Framework, Desktop's native file dialog and the browser's file input/download mechanism.

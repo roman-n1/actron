@@ -416,3 +416,44 @@ These policies are executable application configuration, not serialized lambdas.
 failure uses the normal command-failure path. They do not promise exactly-once external IO:
 reconciliation/idempotency still needs domain identifiers and external service support. The
 existing durable outbox/receipt API remains a separate contract.
+
+### Portable recordings for inspection
+
+`HistoryRecordingCodec` exports display snapshots, event IDs, machine identities, wall-clock
+instants and before/after details. It does not restore stores or start effects. Keep export
+DTOs separate from executable checkpoints; select and redact both snapshot data and action
+payloads before sharing a file.
+
+```kotlin
+val settings = HistoryExportSettings(projectName = "My application")
+val definitions = listOf(machine.chart.historyDefinition(machine.id.value, machine.version.value))
+val codec = HistoryRecordingCodec("my-app/display/1", DisplaySnapshot.serializer(), definitions = definitions)
+val recording = timeline.recording(
+    schema = codec.schema,
+    snapshot = { frame -> frame.toDisplaySnapshot() },
+    details = { details -> details.redacted() },
+    metadata = settings.metadata(),
+).copy(definitions = definitions)
+val bytes = codec.encode(recording)
+val imported = codec.decode(bytes)
+```
+
+`DisplaySnapshot`, `toDisplaySnapshot` and `redacted` are application-owned in this sketch.
+The core has no navigation, Android, Decompose or file-picker dependency. A platform shell
+reads/writes the returned bytes. `HistoryExportSettings.fileName(localTimestamp)` creates a
+path-safe suggested name; the host formats the instant in the user's time zone. The JSON
+metadata keeps the original project name and an absolute export instant.
+
+Compatibility is strict: format version, application snapshot schema, explicit machine
+versions and structural definitions must match. The structure includes node kinds, hierarchy,
+initial states, history defaults, ordered transitions, triggers, timer delays and declared
+guard/effect labels. Reordering transitions is incompatible because coverage uses their indices.
+Changing reducer/guard/handler code without changing the declaration cannot be detected by this
+structural comparison: **bump the machine version for semantic changes**, and bump the snapshot
+schema for changes to the display DTO or its interpretation. There is no unsafe force-import.
+
+The default limits are 8 MiB, 10,000 events and nesting depth 64. UTF-8, event order, machine
+identity consistency and timestamps are validated. A ring-buffer recording is self-contained
+for viewing because every retained event contains a complete display snapshot; original event
+IDs and gaps are preserved. The codec is not an authenticity check or a credential scrubber.
+Import into a detached viewer and replace its old recording only after full validation succeeds.

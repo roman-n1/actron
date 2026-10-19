@@ -9,6 +9,7 @@ internal enum class HistoryText(
     val russian: String,
 ) {
     Title("Actron Inspector", "Инспектор Actron"),
+    ImportedRecording("Imported recording · preview only. Continuing is unavailable: this file contains display snapshots and is not connected to the live session.", "Импортированная запись · только просмотр. Продолжить отсюда нельзя: файл содержит снимки экранов и не подключён к рабочему сеансу."),
     Session("State machines · current session", "Машины состояний · текущий запуск"),
     AllMachines("All machines", "Все машины"),
     PreviousInstance("Previous instance", "Предыдущий экземпляр"),
