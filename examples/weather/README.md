@@ -123,8 +123,9 @@ running session is replaced. This is an at-least-once restart of read-only
 work, not replay of arbitrary external side effects. Unsupported checkpoints with pending
 effects or terminal command outcomes cannot be continued.
 
-The example uses the platform-independent `machinePersistence(machine)` API for each machine;
-its host adapter only combines checkpoints with the route and branch.
+The example declares a typed `checkpointGroup` for search and optional weather checkpoints.
+One `save(frame)` / `restore(text)` call handles all machines and compatibility checks.
+Its host adapter maps the application route and retains branch metadata.
 The root registers a versioned current checkpoint with Essenty `StateKeeper`, which the Android
 host connects to saved instance state. After system-initiated process death, a new
 `InstanceKeeper` restores search data, weather data and pending commands before creating children.

@@ -18,6 +18,8 @@ class MachinePersistence<C : Any, A : Action, CMD : Any, E : Event>(
     private val machine: Machine<C, A, CMD, E>,
     private val codec: RecordingCodec<C, A, CMD, E>,
 ) {
+    internal val definitionKey: String get() = machine.id.value
+
     /** Captures the executor through its ordered mailbox before serializing it. */
     suspend fun save(store: MachineStore<C, A, CMD, E>): String = save(store.checkpoint())
 

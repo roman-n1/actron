@@ -132,6 +132,6 @@ class WeatherCheckpointPersistenceTest {
     fun rejectsUnsupportedOrCorruptCheckpoint() {
         val saved = WeatherSavedStateCodec.encode(WeatherHistory())
         assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decode(saved.copy(format = 99)) }
-        assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decode(saved.copy(search = "broken")) }
+        assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decode(saved.copy(checkpoints = "broken")) }
     }
 }

@@ -37,6 +37,20 @@ public final class actron/timetravel/Branch {
 	public final fun reuseRecordedAnswers-hs9yZvY (J)Ljava/util/List;
 }
 
+public final class actron/timetravel/CheckpointGroup {
+	public final fun restore (Ljava/lang/String;)Ljava/lang/Object;
+	public final fun save (Ljava/lang/Object;)Ljava/lang/String;
+}
+
+public final class actron/timetravel/CheckpointGroupBuilder {
+	public final fun machine (Lactron/timetravel/MachinePersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
+	public final fun machines (Lactron/timetravel/MachinePersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
+}
+
+public final class actron/timetravel/CheckpointGroupKt {
+	public static final fun checkpointGroup (Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lactron/timetravel/CheckpointGroup;
+}
+
 public abstract interface class actron/timetravel/Compatibility {
 }
 

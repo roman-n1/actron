@@ -314,3 +314,34 @@ application reconciliation because restarting a command is at-least-once executi
 The checkpoint excludes accepted-but-undecided inputs and the debug timeline. Persistence must
 complete in the host's storage before it can survive process loss. Neither `resume` nor `save`
 closes a previous store, and `resume` returns a store that the host must start explicitly.
+
+### Several machines in one snapshot
+
+Define a typed schema once, then save and restore one string:
+
+```kotlin
+val persistence = checkpointGroup(::AppFrame) {
+    machine(machinePersistence(searchMachine),
+        read = { it.search },
+        write = { frame, checkpoint -> frame.copy(search = checkpoint) })
+    machines(machinePersistence(workerMachine),
+        read = { it.workers },
+        write = { frame, checkpoints -> frame.copy(workers = checkpoints) })
+}
+val saved = persistence.save(frame)
+val restoredFrame = persistence.restore(saved)
+```
+
+`machine` requires exactly one checkpoint; `machines` supports an ordered list, including
+an empty list for an inactive feature. Each definition appears once in the schema and supplies
+its own stable ID. Repeated instances of that definition belong in its list. Different members
+may have entirely different context, action and command types; no caller casts are needed.
+All checkpoint payloads are validated before calling the frame factory or any writer. Invalid
+formats, missing/extra definitions, incompatible machine versions and incorrect singular
+cardinality are rejected. Supply pure frame factories/writers; storage and replacement of live
+executors remain the host's responsibility.
+
+This API packages a consistent immutable frame provided by the host. It does not atomically
+capture independently running stores, start executors, navigate screens or persist data by
+itself. Application metadata can wrap the returned string. The group format is versioned;
+changes to the member schema require application migration or an explicit fresh-start policy.
