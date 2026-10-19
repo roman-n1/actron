@@ -50,10 +50,11 @@ class MachinePersistence<C : Any, A : Action, CMD : Any, E : Event>(
         coroutineContext: CoroutineContext = scope.coroutineContext,
         clock: MachineClock = MachineClock.monotonic(),
         observers: List<DecisionObserver<C, A, CMD, E>> = emptyList(),
+        recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
     ): MachineStore<C, A, CMD, E> {
         val checkpoint = restore(saved)
         return if (checkpoint.snapshot.isStarted) {
-            resumeMachineStore(machine, checkpoint, handler, scope, coroutineContext, clock, observers)
+            resumeMachineStore(machine, checkpoint, handler, scope, coroutineContext, clock, observers, recovery)
         } else {
             MachineStore(machine, checkpoint.snapshot.context, handler, scope, coroutineContext = coroutineContext, observers = observers, clock = clock)
         }

@@ -27,6 +27,8 @@ behavior as a graph that the executor, diagrams, tests, and recordings share.
 | Several phases share behavior | Nested states, parent transitions, history and final states | Transition selection, exit/entry ordering, and composite completion |
 | The UI and debug graph disagree about the phase | One sealed state value bound with `typedStateMachine` | Derived graph IDs and invariant checks; no handwritten `GuardKey`, `EffectKey`, or action casts |
 | A bug depends on a particular sequence of responses | Record machine inputs, decisions and checkpoints | Bounded recording, replay verification, and inspection of Before / Action / After |
+| A parent owns a child workflow | Typed `invoke` + `InvokedMachineStore` | One atomic snapshot, scoped command/timer execution and restoration of both sides |
+| A pending operation must not be blindly repeated | A command recovery strategy | Restart, reconciliation or cancellable waiting for an application decision |
 | You want to continue from a past point | Restore a compatible executor checkpoint | Restartable commands and remaining timer delays; the host restores navigation |
 
 This is a modeling choice, not a claim that other MVI libraries lack debugging or safety.

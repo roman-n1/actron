@@ -160,7 +160,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore(
     builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit = {},
 ): MachineStore<C, A, CMD, E> = MachineStoreImpl(machine, context, handler, scope, clock, coroutineContext, admission, observers, mailbox, builder)
 
-@OptIn(InternalActronApi::class)
+@OptIn(InternalActronApi::class, ExperimentalActronApi::class)
 internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val machine: Machine<C, A, CMD, E>,
     context: C,
@@ -173,6 +173,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     mailboxConfig: MailboxConfig<E>,
     builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit,
     private val origin: StoreOrigin<C, CMD> = StoreOrigin.Fresh,
+    recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
 ) : MachineStore<C, A, CMD, E>,
     StoreInternalApi<MachineSnapshot<C>, A, E> {
     init {
@@ -228,6 +229,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
             mailboxImpl,
             feed = ::enqueue,
             report = ::report,
+            recovery = recovery,
             onClosed = { queued, running -> observe { it.onClosed(queued, running) } },
         )
 

@@ -348,32 +348,33 @@ changes to the member schema require application migration or an explicit fresh-
 
 ### Invoked parent and child
 
-`invoke` is a pure composition with an `InvocationSnapshot`, rather than two independent
-live stores. Its persistence adapter keeps both executor checkpoints and the child's owner
-activation together:
+`InvokedMachineStore` runs an `InvokedMachine` through one mailbox and commits its parent and
+child snapshot atomically. Persistence captures both executors through that same mailbox:
 
 ```kotlin
+val store = InvokedMachineStore(composition, initialContext, parentHandler, childHandler, scope)
+store.start()
 val persistence = invocationPersistence(composition)
-val saved = persistence.save(invocationCheckpoint)
-val restored = persistence.restore(saved)
-val next = composition.decide(restored.snapshot, input)
+val saved = persistence.save(store) // suspend: one consistent cut
+store.close()
+
+val restored = persistence.resume(saved, parentHandler, childHandler, scope)
+restored.start()
 ```
 
-The host supplies an `InvocationCheckpoint(parent, child)` at a committed decision boundary.
-`child` is `ChildCheckpoint.Dormant` or `ChildCheckpoint.Active(owner, checkpoint)`. Active
-parent and child checkpoints must share the same logical clock instant. Both keep context,
-active states, shallow/deep history, activation IDs, running/queued command registrations and
-timers. Restoring does not re-enter states. Owner mismatches, incompatible definitions/versions,
-unknown formats and undelivered effects or terminal command outcomes are rejected. Even a
-currently dormant child's definition/version is checked.
+No host command or timer scheduler is needed. Resume preserves active configuration, context,
+shallow/deep history, ownership, queued work and remaining timer delays. It restarts pending
+commands according to each side's recovery strategy, without executing entry hooks again.
+Child results are qualified by their owner, so late replies from an old child cannot reach a
+replacement. Parent/child feedback settles before any command from the decision starts.
+Parent events are available through `event` and `mailbox`; child events route inside the
+composition. Persistence still rejects unacknowledged effects and undelivered terminal outcomes.
 
-The existing invocation API has no built-in coroutine executor. This adapter restores the
-complete data for the invocation host; it does not introduce one or launch work itself. The
-host restarts pending commands, retains queue ordering, rebases the shared clock to keep the
-remaining timer delays, and routes inputs through `InvokedMachine.decide`, qualifying child
-inputs with the saved owner. Starting independent parent/child `MachineStore`s would bypass
-that composition and is not a replacement. Completed work is absent from the checkpoints;
-external operations that restart retain the same at-least-once contract as a single machine.
+The pure data API remains available: `save(checkpoint)`, `restore(saved)` and
+`composition.decide(checkpoint.snapshot, input)`. `InvocationCheckpoint` and `ChildCheckpoint`
+now live in `actron.statechart.machine`, alongside the executor; update imports from the
+experimental timetravel types. The serialized format is unchanged. Both definitions and their
+versions are validated, including when the child is dormant.
 
 Use `invocation(persistence, read, write)` inside `checkpointGroup` to register the whole
 composition as one member, keyed by the parent definition. Custom serializers can be supplied
@@ -383,3 +384,35 @@ Common persistence tests cover fresh and completed machines, nested hierarchy, s
 history, parallel regions with partial completion, cascading completion, and active/dormant
 invocations. They serialize, rebuild definitions, restore and continue with actions, command
 results or timers; invocation tests additionally check owner replacement and stale results.
+
+### Command recovery policies
+
+Both `MachinePersistence.resume(recovery = ...)` and invocation resume
+(`parentRecovery` / `childRecovery`) accept `CommandRecoveryStrategy`. It is consulted **only for
+commands that were running in the checkpoint**. Queued commands have never started and use the
+normal handler; completed work does not reappear.
+
+```kotlin
+val recovery = CommandRecoveryStrategy<Request, Action> { command ->
+    when (command.command) {
+        is Request.Load -> CommandRecoveryDecision.Restart
+        is Request.Submit -> CommandRecoveryDecision.Reconcile(checkOperationStatus)
+        is Request.NeedsApproval -> CommandRecoveryDecision.AwaitDecision { envelope ->
+            approval.awaitDecision(envelope.command)
+        }
+    }
+}
+```
+
+`Restart` executes the original handler (the default). `Reconcile` executes the supplied
+handler instead, using the same command identity and result sink: it can query an operation ID
+and return a typed result without submitting the operation again. `AwaitDecision` suspends
+until application code returns a recovery decision. It occupies the lane, is cancellable on
+exit/close, and remains saveable as pending work. Saving it does not serialize the suspended
+coroutine: after another restore the strategy is consulted again. Selectors and callbacks run
+in the command scope; decisions/state commits remain on the processing dispatcher.
+
+These policies are executable application configuration, not serialized lambdas. Recovery
+failure uses the normal command-failure path. They do not promise exactly-once external IO:
+reconciliation/idempotency still needs domain identifiers and external service support. The
+existing durable outbox/receipt API remains a separate contract.

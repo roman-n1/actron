@@ -251,4 +251,53 @@ class MachinePersistenceTest {
                 scope.cancel()
             }
         }
+
+    @Test
+    fun singleMachineCanAwaitApprovalThenRestartOrReconcile() =
+        runTest {
+            for (reconcile in listOf(false, true)) {
+                val persistence = machinePersistence(worker())
+                val original = MachineStore(worker(), 0, CommandHandler { _, _ -> kotlinx.coroutines.awaitCancellation() }, backgroundScope, coroutineContext = coroutineContext)
+                original.start()
+                testScheduler.runCurrent()
+                val saved = persistence.save(original)
+                original.close()
+                val choice = CompletableDeferred<CommandRecoveryDecision<String, Tick>>()
+                var repeats = 0
+                var reconciliations = 0
+                val restored =
+                    persistence.resume(
+                        saved,
+                        CommandHandler { _, results ->
+                            repeats++
+                            results.result(Tick)
+                        },
+                        backgroundScope,
+                        recovery = CommandRecoveryStrategy { CommandRecoveryDecision.AwaitDecision { choice.await() } },
+                    )
+                restored.start()
+                testScheduler.runCurrent()
+                assertEquals(0, repeats)
+                assertEquals(0, restored.currentState.context)
+                assertEquals(1, persistence.restore(persistence.save(restored)).registrations.size)
+                choice.complete(
+                    if (reconcile) {
+                        CommandRecoveryDecision.Reconcile(
+                            CommandHandler { _, results ->
+                                reconciliations++
+                                results.result(Tick)
+                            },
+                        )
+                    } else {
+                        CommandRecoveryDecision.Restart
+                    },
+                )
+                testScheduler.runCurrent()
+                assertEquals(if (reconcile) 0 else 1, repeats)
+                assertEquals(if (reconcile) 1 else 0, reconciliations)
+                assertEquals(1, restored.currentState.context)
+                assertTrue(persistence.restore(persistence.save(restored)).registrations.isEmpty())
+                restored.close()
+            }
+        }
 }

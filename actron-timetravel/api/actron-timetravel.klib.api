@@ -151,30 +151,6 @@ sealed interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: ac
     }
 }
 
-sealed interface <#A: out kotlin/Any, #B: out kotlin/Any> actron.timetravel/ChildCheckpoint { // actron.timetravel/ChildCheckpoint|null[0]
-    final class <#A1: kotlin/Any, #B1: kotlin/Any> Active : actron.timetravel/ChildCheckpoint<#A1, #B1> { // actron.timetravel/ChildCheckpoint.Active|null[0]
-        constructor <init>(actron.statechart.machine/ActivationId, actron.statechart.machine/ExecutorCheckpoint<#A1, #B1>) // actron.timetravel/ChildCheckpoint.Active.<init>|<init>(actron.statechart.machine.ActivationId;actron.statechart.machine.ExecutorCheckpoint<1:0,1:1>){}[0]
-
-        final val checkpoint // actron.timetravel/ChildCheckpoint.Active.checkpoint|{}checkpoint[0]
-            final fun <get-checkpoint>(): actron.statechart.machine/ExecutorCheckpoint<#A1, #B1> // actron.timetravel/ChildCheckpoint.Active.checkpoint.<get-checkpoint>|<get-checkpoint>(){}[0]
-        final val owner // actron.timetravel/ChildCheckpoint.Active.owner|{}owner[0]
-            final fun <get-owner>(): actron.statechart.machine/ActivationId // actron.timetravel/ChildCheckpoint.Active.owner.<get-owner>|<get-owner>(){}[0]
-
-        final fun component1(): actron.statechart.machine/ActivationId // actron.timetravel/ChildCheckpoint.Active.component1|component1(){}[0]
-        final fun component2(): actron.statechart.machine/ExecutorCheckpoint<#A1, #B1> // actron.timetravel/ChildCheckpoint.Active.component2|component2(){}[0]
-        final fun copy(actron.statechart.machine/ActivationId = ..., actron.statechart.machine/ExecutorCheckpoint<#A1, #B1> = ...): actron.timetravel/ChildCheckpoint.Active<#A1, #B1> // actron.timetravel/ChildCheckpoint.Active.copy|copy(actron.statechart.machine.ActivationId;actron.statechart.machine.ExecutorCheckpoint<1:0,1:1>){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/ChildCheckpoint.Active.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/ChildCheckpoint.Active.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/ChildCheckpoint.Active.toString|toString(){}[0]
-    }
-
-    final object Dormant : actron.timetravel/ChildCheckpoint<kotlin/Nothing, kotlin/Nothing> { // actron.timetravel/ChildCheckpoint.Dormant|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/ChildCheckpoint.Dormant.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/ChildCheckpoint.Dormant.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/ChildCheckpoint.Dormant.toString|toString(){}[0]
-    }
-}
-
 sealed interface actron.timetravel.file/GroupBoundary { // actron.timetravel.file/GroupBoundary|null[0]
     abstract fun withCut(kotlin/Function1<actron.timetravel.file/RecordedCut, kotlin/Unit>): kotlin/Boolean // actron.timetravel.file/GroupBoundary.withCut|withCut(kotlin.Function1<actron.timetravel.file.RecordedCut,kotlin.Unit>){}[0]
 
@@ -1420,8 +1396,10 @@ sealed interface actron.timetravel/RecordingOrigin { // actron.timetravel/Record
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event, #E: kotlin/Any, #F: actron.core/Action, #G: kotlin/Any, #H: actron.core/Event> actron.timetravel/InvocationPersistence { // actron.timetravel/InvocationPersistence|null[0]
     constructor <init>(actron.statechart.machine/InvokedMachine<#A, #B, #C, #D, #E, #F, #G, #H>, actron.timetravel/RecordingCodec<#A, #B, #C, #D>, actron.timetravel/RecordingCodec<#E, #F, #G, #H>) // actron.timetravel/InvocationPersistence.<init>|<init>(actron.statechart.machine.InvokedMachine<1:0,1:1,1:2,1:3,1:4,1:5,1:6,1:7>;actron.timetravel.RecordingCodec<1:0,1:1,1:2,1:3>;actron.timetravel.RecordingCodec<1:4,1:5,1:6,1:7>){}[0]
 
-    final fun restore(kotlin/String): actron.timetravel/InvocationCheckpoint<#A, #C, #E, #G> // actron.timetravel/InvocationPersistence.restore|restore(kotlin.String){}[0]
-    final fun save(actron.timetravel/InvocationCheckpoint<#A, #C, #E, #G>): kotlin/String // actron.timetravel/InvocationPersistence.save|save(actron.timetravel.InvocationCheckpoint<1:0,1:2,1:4,1:6>){}[0]
+    final fun restore(kotlin/String): actron.statechart.machine/InvocationCheckpoint<#A, #C, #E, #G> // actron.timetravel/InvocationPersistence.restore|restore(kotlin.String){}[0]
+    final fun resume(kotlin/String, actron.statechart.machine/CommandHandler<#C, #B>, actron.statechart.machine/CommandHandler<#G, #F>, kotlinx.coroutines/CoroutineScope, kotlin.coroutines/CoroutineContext = ..., actron.statechart.machine/MachineClock = ..., actron.statechart.machine/CommandRecoveryStrategy<#C, #B> = ..., actron.statechart.machine/CommandRecoveryStrategy<#G, #F> = ..., actron.statechart.machine/MailboxConfig<#D> = ..., kotlin/Function1<kotlin/Throwable, kotlin/Unit> = ...): actron.statechart.machine/InvokedMachineStore<#A, #B, #C, #D, #E, #F, #G, #H> // actron.timetravel/InvocationPersistence.resume|resume(kotlin.String;actron.statechart.machine.CommandHandler<1:2,1:1>;actron.statechart.machine.CommandHandler<1:6,1:5>;kotlinx.coroutines.CoroutineScope;kotlin.coroutines.CoroutineContext;actron.statechart.machine.MachineClock;actron.statechart.machine.CommandRecoveryStrategy<1:2,1:1>;actron.statechart.machine.CommandRecoveryStrategy<1:6,1:5>;actron.statechart.machine.MailboxConfig<1:3>;kotlin.Function1<kotlin.Throwable,kotlin.Unit>){}[0]
+    final fun save(actron.statechart.machine/InvocationCheckpoint<#A, #C, #E, #G>): kotlin/String // actron.timetravel/InvocationPersistence.save|save(actron.statechart.machine.InvocationCheckpoint<1:0,1:2,1:4,1:6>){}[0]
+    final suspend fun save(actron.statechart.machine/InvokedMachineStore<#A, #B, #C, #D, #E, #F, #G, #H>): kotlin/String // actron.timetravel/InvocationPersistence.save|save(actron.statechart.machine.InvokedMachineStore<1:0,1:1,1:2,1:3,1:4,1:5,1:6,1:7>){}[0]
 }
 
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel.file/RecordingFileSink : actron.statechart.machine/DecisionObserver<#A, #B, #C, #D> { // actron.timetravel.file/RecordingFileSink|null[0]
@@ -1493,7 +1471,7 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
     constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.timetravel/RecordingCodec<#A, #B, #C, #D>) // actron.timetravel/MachinePersistence.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;actron.timetravel.RecordingCodec<1:0,1:1,1:2,1:3>){}[0]
 
     final fun restore(kotlin/String): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/MachinePersistence.restore|restore(kotlin.String){}[0]
-    final fun resume(kotlin/String, actron.statechart.machine/CommandHandler<#C, #B>, kotlinx.coroutines/CoroutineScope, kotlin.coroutines/CoroutineContext = ..., actron.statechart.machine/MachineClock = ..., kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> = ...): actron.statechart.machine/MachineStore<#A, #B, #C, #D> // actron.timetravel/MachinePersistence.resume|resume(kotlin.String;actron.statechart.machine.CommandHandler<1:2,1:1>;kotlinx.coroutines.CoroutineScope;kotlin.coroutines.CoroutineContext;actron.statechart.machine.MachineClock;kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>){}[0]
+    final fun resume(kotlin/String, actron.statechart.machine/CommandHandler<#C, #B>, kotlinx.coroutines/CoroutineScope, kotlin.coroutines/CoroutineContext = ..., actron.statechart.machine/MachineClock = ..., kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> = ..., actron.statechart.machine/CommandRecoveryStrategy<#C, #B> = ...): actron.statechart.machine/MachineStore<#A, #B, #C, #D> // actron.timetravel/MachinePersistence.resume|resume(kotlin.String;actron.statechart.machine.CommandHandler<1:2,1:1>;kotlinx.coroutines.CoroutineScope;kotlin.coroutines.CoroutineContext;actron.statechart.machine.MachineClock;kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>;actron.statechart.machine.CommandRecoveryStrategy<1:2,1:1>){}[0]
     final fun save(actron.statechart.machine/ExecutorCheckpoint<#A, #C>): kotlin/String // actron.timetravel/MachinePersistence.save|save(actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>){}[0]
     final suspend fun save(actron.statechart.machine/MachineStore<#A, #B, #C, #D>): kotlin/String // actron.timetravel/MachinePersistence.save|save(actron.statechart.machine.MachineStore<1:0,1:1,1:2,1:3>){}[0]
 }
@@ -1619,31 +1597,13 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
     final fun withNext(kotlin/Function1<actron.timetravel/RecordedStep<#A, #B, #C, #D>, kotlin/Unit>): kotlin/Boolean // actron.timetravel/ReplaySession.withNext|withNext(kotlin.Function1<actron.timetravel.RecordedStep<1:0,1:1,1:2,1:3>,kotlin.Unit>){}[0]
 }
 
-final class <#A: kotlin/Any, #B: kotlin/Any, #C: kotlin/Any, #D: kotlin/Any> actron.timetravel/InvocationCheckpoint { // actron.timetravel/InvocationCheckpoint|null[0]
-    constructor <init>(actron.statechart.machine/ExecutorCheckpoint<#A, #B>, actron.timetravel/ChildCheckpoint<#C, #D> = ...) // actron.timetravel/InvocationCheckpoint.<init>|<init>(actron.statechart.machine.ExecutorCheckpoint<1:0,1:1>;actron.timetravel.ChildCheckpoint<1:2,1:3>){}[0]
-
-    final val child // actron.timetravel/InvocationCheckpoint.child|{}child[0]
-        final fun <get-child>(): actron.timetravel/ChildCheckpoint<#C, #D> // actron.timetravel/InvocationCheckpoint.child.<get-child>|<get-child>(){}[0]
-    final val parent // actron.timetravel/InvocationCheckpoint.parent|{}parent[0]
-        final fun <get-parent>(): actron.statechart.machine/ExecutorCheckpoint<#A, #B> // actron.timetravel/InvocationCheckpoint.parent.<get-parent>|<get-parent>(){}[0]
-    final val snapshot // actron.timetravel/InvocationCheckpoint.snapshot|{}snapshot[0]
-        final fun <get-snapshot>(): actron.statechart.machine/InvocationSnapshot<#A, #C> // actron.timetravel/InvocationCheckpoint.snapshot.<get-snapshot>|<get-snapshot>(){}[0]
-
-    final fun component1(): actron.statechart.machine/ExecutorCheckpoint<#A, #B> // actron.timetravel/InvocationCheckpoint.component1|component1(){}[0]
-    final fun component2(): actron.timetravel/ChildCheckpoint<#C, #D> // actron.timetravel/InvocationCheckpoint.component2|component2(){}[0]
-    final fun copy(actron.statechart.machine/ExecutorCheckpoint<#A, #B> = ..., actron.timetravel/ChildCheckpoint<#C, #D> = ...): actron.timetravel/InvocationCheckpoint<#A, #B, #C, #D> // actron.timetravel/InvocationCheckpoint.copy|copy(actron.statechart.machine.ExecutorCheckpoint<1:0,1:1>;actron.timetravel.ChildCheckpoint<1:2,1:3>){}[0]
-    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/InvocationCheckpoint.equals|equals(kotlin.Any?){}[0]
-    final fun hashCode(): kotlin/Int // actron.timetravel/InvocationCheckpoint.hashCode|hashCode(){}[0]
-    final fun toString(): kotlin/String // actron.timetravel/InvocationCheckpoint.toString|toString(){}[0]
-}
-
 final class <#A: kotlin/Any> actron.timetravel/CheckpointGroup { // actron.timetravel/CheckpointGroup|null[0]
     final fun restore(kotlin/String): #A // actron.timetravel/CheckpointGroup.restore|restore(kotlin.String){}[0]
     final fun save(#A): kotlin/String // actron.timetravel/CheckpointGroup.save|save(1:0){}[0]
 }
 
 final class <#A: kotlin/Any> actron.timetravel/CheckpointGroupBuilder { // actron.timetravel/CheckpointGroupBuilder|null[0]
-    final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event, #E1: kotlin/Any, #F1: actron.core/Action, #G1: kotlin/Any, #H1: actron.core/Event> invocation(actron.timetravel/InvocationPersistence<#A1, #B1, #C1, #D1, #E1, #F1, #G1, #H1>, kotlin/Function1<#A, actron.timetravel/InvocationCheckpoint<#A1, #C1, #E1, #G1>>, kotlin/Function2<#A, actron.timetravel/InvocationCheckpoint<#A1, #C1, #E1, #G1>, #A>) // actron.timetravel/CheckpointGroupBuilder.invocation|invocation(actron.timetravel.InvocationPersistence<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7>;kotlin.Function1<1:0,actron.timetravel.InvocationCheckpoint<0:0,0:2,0:4,0:6>>;kotlin.Function2<1:0,actron.timetravel.InvocationCheckpoint<0:0,0:2,0:4,0:6>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>;4§<kotlin.Any>;5§<actron.core.Action>;6§<kotlin.Any>;7§<actron.core.Event>}[0]
+    final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event, #E1: kotlin/Any, #F1: actron.core/Action, #G1: kotlin/Any, #H1: actron.core/Event> invocation(actron.timetravel/InvocationPersistence<#A1, #B1, #C1, #D1, #E1, #F1, #G1, #H1>, kotlin/Function1<#A, actron.statechart.machine/InvocationCheckpoint<#A1, #C1, #E1, #G1>>, kotlin/Function2<#A, actron.statechart.machine/InvocationCheckpoint<#A1, #C1, #E1, #G1>, #A>) // actron.timetravel/CheckpointGroupBuilder.invocation|invocation(actron.timetravel.InvocationPersistence<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7>;kotlin.Function1<1:0,actron.statechart.machine.InvocationCheckpoint<0:0,0:2,0:4,0:6>>;kotlin.Function2<1:0,actron.statechart.machine.InvocationCheckpoint<0:0,0:2,0:4,0:6>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>;4§<kotlin.Any>;5§<actron.core.Action>;6§<kotlin.Any>;7§<actron.core.Event>}[0]
     final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> machine(actron.timetravel/MachinePersistence<#A1, #B1, #C1, #D1>, kotlin/Function1<#A, actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>>, kotlin/Function2<#A, actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>, #A>) // actron.timetravel/CheckpointGroupBuilder.machine|machine(actron.timetravel.MachinePersistence<0:0,0:1,0:2,0:3>;kotlin.Function1<1:0,actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>>;kotlin.Function2<1:0,actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
     final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> machines(actron.timetravel/MachinePersistence<#A1, #B1, #C1, #D1>, kotlin/Function1<#A, kotlin.collections/List<actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>>>, kotlin/Function2<#A, kotlin.collections/List<actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>>, #A>) // actron.timetravel/CheckpointGroupBuilder.machines|machines(actron.timetravel.MachinePersistence<0:0,0:1,0:2,0:3>;kotlin.Function1<1:0,kotlin.collections.List<actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>>>;kotlin.Function2<1:0,kotlin.collections.List<actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 }
