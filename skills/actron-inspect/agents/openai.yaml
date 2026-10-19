@@ -1,0 +1,4 @@
+interface:
+  display_name: "Inspect Actron behavior"
+  short_description: "Inspect graphs, recordings and causal traces"
+  default_prompt: "Use $actron-inspect to explain this machine transition and its diagnostics."

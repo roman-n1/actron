@@ -1,0 +1,4 @@
+interface:
+  display_name: "Model Actron machines"
+  short_description: "Choose modules and build typed state machines"
+  default_prompt: "Use $actron-model to implement a typed Actron machine for this feature."
