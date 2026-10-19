@@ -17,6 +17,12 @@ class RecordingFilesTest {
     private val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     private val timeout = 10_000L
 
+    private fun awaitDocumentsUi() {
+        // AOSP and Google APIs emulator images ship different DocumentsUI packages.
+        val picker = By.pkg(Pattern.compile("com\\.(android|google\\.android)\\.documentsui"))
+        assertTrue("System document picker did not appear; foreground=${device.currentPackageName}", device.wait(Until.hasObject(picker), timeout))
+    }
+
     private fun enableInspector() {
         compose.onNodeWithTag("debug-settings").performClick()
         compose.onNodeWithTag("debug-panel-switch").performClick()
@@ -33,25 +39,25 @@ class RecordingFilesTest {
         enableInspector()
         val name = "actron-e2e-${System.nanoTime()}.json"
         compose.onNodeWithTag("recording-save").performClick()
-        assertTrue(device.wait(Until.hasObject(By.pkg("com.android.documentsui")), timeout))
+        awaitDocumentsUi()
         downloads()
         checkNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), timeout)).text = name
         checkNotNull(device.wait(Until.findObject(By.text(Pattern.compile("(?i)save"))), timeout)).click()
         compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-open").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("recording-open").performClick()
-        assertTrue(device.wait(Until.hasObject(By.pkg("com.android.documentsui")), timeout))
+        awaitDocumentsUi()
         downloads()
         checkNotNull(device.wait(Until.findObject(By.text(name)), timeout)).click()
         compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-close").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("history-live").assertDoesNotExist()
         compose.onNodeWithTag("history-continue").assertDoesNotExist()
         compose.onNodeWithTag("recording-open").performClick()
-        assertTrue(device.wait(Until.hasObject(By.pkg("com.android.documentsui")), timeout))
+        awaitDocumentsUi()
         device.pressBack()
         compose.onNodeWithTag("recording-close").assertExists().performClick()
         compose.onNodeWithTag("history-live").assertExists()
         compose.onNodeWithTag("recording-save").performClick()
-        assertTrue(device.wait(Until.hasObject(By.pkg("com.android.documentsui")), timeout))
+        awaitDocumentsUi()
         device.pressBack()
         compose.onNodeWithTag("recording-save").assertIsEnabled()
     }
@@ -72,7 +78,7 @@ class RecordingFilesTest {
                 stream.write("""{"schema":"actron.weather.display/1","entries":[],"format":99,"definitions":[],"metadata":{"projectName":"Weather","exportedAt":"2026-10-20T00:00:00Z"}}""".toByteArray())
             }
             compose.onNodeWithTag("recording-open").performClick()
-            assertTrue(device.wait(Until.hasObject(By.pkg("com.android.documentsui")), timeout))
+            awaitDocumentsUi()
             downloads()
             checkNotNull(device.wait(Until.findObject(By.text(name)), timeout)).click()
             compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-error").fetchSemanticsNodes().isNotEmpty() }
