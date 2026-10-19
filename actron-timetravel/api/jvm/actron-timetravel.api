@@ -433,6 +433,15 @@ public final class actron/timetravel/HistoryTimelineKt {
 	public static final fun historyFields (Lkotlinx/serialization/json/JsonElement;)Ljava/util/List;
 }
 
+public final class actron/timetravel/MachinePersistence {
+	public fun <init> (Lactron/statechart/machine/Machine;Lactron/timetravel/RecordingCodec;)V
+	public final fun restore (Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
+	public final fun resume (Ljava/lang/String;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;)Lactron/statechart/machine/MachineStore;
+	public static synthetic fun resume$default (Lactron/timetravel/MachinePersistence;Ljava/lang/String;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
+	public final fun save (Lactron/statechart/machine/ExecutorCheckpoint;)Ljava/lang/String;
+	public final fun save (Lactron/statechart/machine/MachineStore;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
 public final class actron/timetravel/MachineRecorder : actron/statechart/machine/DecisionObserver {
 	public fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;)V
 	public final fun getOrigin ()Lactron/timetravel/RecordingOrigin;
