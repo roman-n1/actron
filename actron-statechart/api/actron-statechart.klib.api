@@ -136,6 +136,36 @@ final enum class actron.statechart.machine/RepeatSafety : kotlin/Enum<actron.sta
     final fun values(): kotlin/Array<actron.statechart.machine/RepeatSafety> // actron.statechart.machine/RepeatSafety.values|values#static(){}[0]
 }
 
+final enum class actron.statechart/GraphIssueCode : kotlin/Enum<actron.statechart/GraphIssueCode> { // actron.statechart/GraphIssueCode|null[0]
+    enum entry AnalysisLimit // actron.statechart/GraphIssueCode.AnalysisLimit|null[0]
+    enum entry DuplicateState // actron.statechart/GraphIssueCode.DuplicateState|null[0]
+    enum entry InvalidHierarchy // actron.statechart/GraphIssueCode.InvalidHierarchy|null[0]
+    enum entry InvalidHistory // actron.statechart/GraphIssueCode.InvalidHistory|null[0]
+    enum entry InvalidTransition // actron.statechart/GraphIssueCode.InvalidTransition|null[0]
+    enum entry NoExit // actron.statechart/GraphIssueCode.NoExit|null[0]
+    enum entry ShadowedTransition // actron.statechart/GraphIssueCode.ShadowedTransition|null[0]
+    enum entry UnknownEndpoint // actron.statechart/GraphIssueCode.UnknownEndpoint|null[0]
+    enum entry UnknownInitial // actron.statechart/GraphIssueCode.UnknownInitial|null[0]
+    enum entry Unreachable // actron.statechart/GraphIssueCode.Unreachable|null[0]
+
+    final val entries // actron.statechart/GraphIssueCode.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<actron.statechart/GraphIssueCode> // actron.statechart/GraphIssueCode.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): actron.statechart/GraphIssueCode // actron.statechart/GraphIssueCode.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<actron.statechart/GraphIssueCode> // actron.statechart/GraphIssueCode.values|values#static(){}[0]
+}
+
+final enum class actron.statechart/GraphIssueSeverity : kotlin/Enum<actron.statechart/GraphIssueSeverity> { // actron.statechart/GraphIssueSeverity|null[0]
+    enum entry Error // actron.statechart/GraphIssueSeverity.Error|null[0]
+    enum entry Warning // actron.statechart/GraphIssueSeverity.Warning|null[0]
+
+    final val entries // actron.statechart/GraphIssueSeverity.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<actron.statechart/GraphIssueSeverity> // actron.statechart/GraphIssueSeverity.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): actron.statechart/GraphIssueSeverity // actron.statechart/GraphIssueSeverity.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<actron.statechart/GraphIssueSeverity> // actron.statechart/GraphIssueSeverity.values|values#static(){}[0]
+}
+
 final enum class actron.statechart/TransitionKind : kotlin/Enum<actron.statechart/TransitionKind> { // actron.statechart/TransitionKind|null[0]
     enum entry External // actron.statechart/TransitionKind.External|null[0]
     enum entry Internal // actron.statechart/TransitionKind.Internal|null[0]
@@ -3450,6 +3480,28 @@ final class actron.statechart/FinalState : actron.statechart/StateNode { // actr
     final fun toString(): kotlin/String // actron.statechart/FinalState.toString|toString(){}[0]
 }
 
+final class actron.statechart/GraphDiagnostic { // actron.statechart/GraphDiagnostic|null[0]
+    constructor <init>(actron.statechart/GraphIssueCode, actron.statechart/GraphIssueSeverity, kotlin.collections/Set<actron.statechart/StateId> = ..., kotlin.collections/Set<actron.statechart.machine/TransitionId> = ...) // actron.statechart/GraphDiagnostic.<init>|<init>(actron.statechart.GraphIssueCode;actron.statechart.GraphIssueSeverity;kotlin.collections.Set<actron.statechart.StateId>;kotlin.collections.Set<actron.statechart.machine.TransitionId>){}[0]
+
+    final val code // actron.statechart/GraphDiagnostic.code|{}code[0]
+        final fun <get-code>(): actron.statechart/GraphIssueCode // actron.statechart/GraphDiagnostic.code.<get-code>|<get-code>(){}[0]
+    final val severity // actron.statechart/GraphDiagnostic.severity|{}severity[0]
+        final fun <get-severity>(): actron.statechart/GraphIssueSeverity // actron.statechart/GraphDiagnostic.severity.<get-severity>|<get-severity>(){}[0]
+    final val states // actron.statechart/GraphDiagnostic.states|{}states[0]
+        final fun <get-states>(): kotlin.collections/Set<actron.statechart/StateId> // actron.statechart/GraphDiagnostic.states.<get-states>|<get-states>(){}[0]
+    final val transitions // actron.statechart/GraphDiagnostic.transitions|{}transitions[0]
+        final fun <get-transitions>(): kotlin.collections/Set<actron.statechart.machine/TransitionId> // actron.statechart/GraphDiagnostic.transitions.<get-transitions>|<get-transitions>(){}[0]
+
+    final fun component1(): actron.statechart/GraphIssueCode // actron.statechart/GraphDiagnostic.component1|component1(){}[0]
+    final fun component2(): actron.statechart/GraphIssueSeverity // actron.statechart/GraphDiagnostic.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/Set<actron.statechart/StateId> // actron.statechart/GraphDiagnostic.component3|component3(){}[0]
+    final fun component4(): kotlin.collections/Set<actron.statechart.machine/TransitionId> // actron.statechart/GraphDiagnostic.component4|component4(){}[0]
+    final fun copy(actron.statechart/GraphIssueCode = ..., actron.statechart/GraphIssueSeverity = ..., kotlin.collections/Set<actron.statechart/StateId> = ..., kotlin.collections/Set<actron.statechart.machine/TransitionId> = ...): actron.statechart/GraphDiagnostic // actron.statechart/GraphDiagnostic.copy|copy(actron.statechart.GraphIssueCode;actron.statechart.GraphIssueSeverity;kotlin.collections.Set<actron.statechart.StateId>;kotlin.collections.Set<actron.statechart.machine.TransitionId>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.statechart/GraphDiagnostic.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.statechart/GraphDiagnostic.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.statechart/GraphDiagnostic.toString|toString(){}[0]
+}
+
 final class actron.statechart/HistoryState : actron.statechart/StateNode { // actron.statechart/HistoryState|null[0]
     constructor <init>(actron.statechart/StateId, actron.statechart/StateId, kotlin/Boolean = ..., actron.statechart/HistoryFallback = ...) // actron.statechart/HistoryState.<init>|<init>(actron.statechart.StateId;actron.statechart.StateId;kotlin.Boolean;actron.statechart.HistoryFallback){}[0]
 
@@ -3545,6 +3597,8 @@ final class actron.statechart/StateChartBuilder { // actron.statechart/StateChar
 final class actron.statechart/StateChartDefinition { // actron.statechart/StateChartDefinition|null[0]
     constructor <init>(actron.statechart/StateId, kotlin.collections/List<actron.statechart/StateNode>, kotlin.collections/List<actron.statechart/Transition>) // actron.statechart/StateChartDefinition.<init>|<init>(actron.statechart.StateId;kotlin.collections.List<actron.statechart.StateNode>;kotlin.collections.List<actron.statechart.Transition>){}[0]
 
+    final val diagnostics // actron.statechart/StateChartDefinition.diagnostics|{}diagnostics[0]
+        final fun <get-diagnostics>(): kotlin.collections/List<actron.statechart/GraphDiagnostic> // actron.statechart/StateChartDefinition.diagnostics.<get-diagnostics>|<get-diagnostics>(){}[0]
     final val initial // actron.statechart/StateChartDefinition.initial|{}initial[0]
         final fun <get-initial>(): actron.statechart/StateId // actron.statechart/StateChartDefinition.initial.<get-initial>|<get-initial>(){}[0]
     final val states // actron.statechart/StateChartDefinition.states|{}states[0]
@@ -3976,6 +4030,7 @@ final object actron.statechart/ChartInitialization : actron.core/Action { // act
 
 final fun (actron.statechart/StateChartDefinition).actron.statechart/activeLeaves(actron.statechart/StateConfiguration): kotlin.collections/List<actron.statechart/StateId> // actron.statechart/activeLeaves|activeLeaves@actron.statechart.StateChartDefinition(actron.statechart.StateConfiguration){}[0]
 final fun (actron.statechart/StateChartDefinition).actron.statechart/analyzeReachability(kotlin/Int = ..., kotlin/Int = ...): actron.statechart/ReachabilityAnalysis // actron.statechart/analyzeReachability|analyzeReachability@actron.statechart.StateChartDefinition(kotlin.Int;kotlin.Int){}[0]
+final fun (actron.statechart/StateChartDefinition).actron.statechart/diagnose(kotlin/Int = ..., kotlin/Int = ...): kotlin.collections/List<actron.statechart/GraphDiagnostic> // actron.statechart/diagnose|diagnose@actron.statechart.StateChartDefinition(kotlin.Int;kotlin.Int){}[0]
 final fun (actron.statechart/StateChartDefinition).actron.statechart/diffTo(actron.statechart/StateChartDefinition): actron.statechart/DefinitionDiff // actron.statechart/diffTo|diffTo@actron.statechart.StateChartDefinition(actron.statechart.StateChartDefinition){}[0]
 final fun (actron.statechart/StateChartDefinition).actron.statechart/impactTo(actron.statechart/StateChartDefinition): actron.statechart/BehaviouralImpact // actron.statechart/impactTo|impactTo@actron.statechart.StateChartDefinition(actron.statechart.StateChartDefinition){}[0]
 final fun (actron.statechart/StateChartDefinition).actron.statechart/isComplete(actron.statechart/StateConfiguration, actron.statechart/StateId): kotlin/Boolean // actron.statechart/isComplete|isComplete@actron.statechart.StateChartDefinition(actron.statechart.StateConfiguration;actron.statechart.StateId){}[0]

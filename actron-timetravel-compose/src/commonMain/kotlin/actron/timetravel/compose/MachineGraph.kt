@@ -261,6 +261,16 @@ private fun GraphCanvas(
             is HistoryGraphCoverage.Recorded -> coverage.hits
         }
     Column(modifier) {
+        GraphDiagnosticsPanel(graph.definition.diagnostics) { issue ->
+            selectedEdges = layout.edges.indices.filter { index -> layout.edges[index].id in issue.transitions }
+            selected = if (selectedEdges.isEmpty()) issue.states.toList() else emptyList()
+            val boxes = if (selectedEdges.isNotEmpty()) selectedEdges.map { layout.edges[it].label } else layout.nodes.filter { it.state.id in selected }.map { it.bounds }
+            if (boxes.isNotEmpty()) {
+                val box = boxes.first()
+                val anchor = box.center * viewport.scale + viewport.offset
+                viewport.transform(anchor, view.center - anchor, maxOf(viewport.scale, 0.8f) / viewport.scale)
+            }
+        }
         if (graph.coverage is HistoryGraphCoverage.Recorded) {
             val covered =
                 graph.definition.transitions.indices
