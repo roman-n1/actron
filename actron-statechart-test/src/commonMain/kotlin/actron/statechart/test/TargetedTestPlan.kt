@@ -29,7 +29,7 @@ data class TargetedTestPlanResult<C : Any, A : Action>(
     }
 }
 
-private fun CoverageRequirements.items(): Set<String> =
+internal fun CoverageRequirements.items(): Set<String> =
     states.map { "state:${it.value}" }.toSet() +
         transitions.map { "transition:${it.index}" } + guards.map { "guard:${it.transition.index}:${it.result}" }
 

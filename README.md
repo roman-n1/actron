@@ -80,7 +80,7 @@ engine that gives them structure.
 | Connect a Store to Compose | [actron-compose](actron-compose/README.md) |
 | Reproduce a bug from a saved run | [The runnable Time Travel example](examples/time-travel/README.md) |
 | Explore MVI, a live API and an embeddable debug panel | [The Multiplatform weather demo](examples/weather/README.md) |
-| Reproduce cancellation, failure and recovery for a Time Travel walkthrough | [The scripted article scenario](examples/weather/README.md#a-repeatable-story-for-an-article) |
+| Generate tests from a graph and inspect a late-response scenario | [Weather's generated tests and recordings](examples/weather/README.md#automatically-generated-tests-and-recordings) |
 | Handle retained effects across process death | [The durable outbox example](examples/durable-effects/README.md) |
 | Look up the full original Store DSL | [Store API guide](doc/guides/store-api.md) |
 
@@ -253,7 +253,7 @@ Every library module has its own README with setup, examples and its contract.
 | [actron-test](actron-test/README.md) | Await processing, record states/events and diagnose handlers |
 | [actron-statechart](actron-statechart/README.md) | Declarative model, validation, diagrams, chart runtime and pure Machines |
 | [actron-statechart-compose](actron-statechart-compose/README.md) | Retained Machine effects delivered to Compose |
-| [actron-statechart-test](actron-statechart-test/README.md) | Scenario DSL, scripted commands, virtual time and transition coverage |
+| [actron-statechart-test](actron-statechart-test/README.md) | Scripted/generated scenarios, data and rules DSL, virtual time, coverage and view-only recordings |
 | [actron-diagnostics](actron-diagnostics/README.md) | KMP causal traces for decisions, commands, timers and bridge effects |
 | [actron-diagnostics-sdk](actron-diagnostics-sdk/README.md) | Optional OpenTelemetry and Sentry adapters for JVM/Android |
 | [actron-diagnostics-crashlytics](actron-diagnostics-crashlytics/README.md) | Optional Android Crashlytics adapter |

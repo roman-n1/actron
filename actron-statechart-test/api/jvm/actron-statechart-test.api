@@ -252,6 +252,30 @@ public final class actron/statechart/test/ExplorationStrategy$RandomWalk : actro
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/statechart/test/GeneratedScenarios {
+	public fun <init> (Lactron/statechart/test/ExplorationReport;Ljava/util/List;Ljava/util/Map;Ljava/util/Set;Lactron/statechart/test/CoverageRequirements;)V
+	public final fun assertSuccess ()V
+	public final fun component1 ()Lactron/statechart/test/ExplorationReport;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/Map;
+	public final fun component4 ()Ljava/util/Set;
+	public final fun component5 ()Lactron/statechart/test/CoverageRequirements;
+	public final fun copy (Lactron/statechart/test/ExplorationReport;Ljava/util/List;Ljava/util/Map;Ljava/util/Set;Lactron/statechart/test/CoverageRequirements;)Lactron/statechart/test/GeneratedScenarios;
+	public static synthetic fun copy$default (Lactron/statechart/test/GeneratedScenarios;Lactron/statechart/test/ExplorationReport;Ljava/util/List;Ljava/util/Map;Ljava/util/Set;Lactron/statechart/test/CoverageRequirements;ILjava/lang/Object;)Lactron/statechart/test/GeneratedScenarios;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExploration ()Lactron/statechart/test/ExplorationReport;
+	public final fun getMissingGoals ()Ljava/util/Set;
+	public final fun getRequirements ()Lactron/statechart/test/CoverageRequirements;
+	public final fun getScenarios ()Ljava/util/List;
+	public final fun getWitnesses ()Ljava/util/Map;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/statechart/test/GeneratedScenariosKt {
+	public static final fun scenarios (Lactron/statechart/machine/Machine;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Lactron/statechart/test/ScenarioModel;
+}
+
 public final class actron/statechart/test/GuardOutcome {
 	public synthetic fun <init> (IZLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1-sw1waRg ()I
@@ -427,6 +451,15 @@ public final class actron/statechart/test/ModelSource {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/statechart/test/ReplyMode : java/lang/Enum {
+	public static final field Active Lactron/statechart/test/ReplyMode;
+	public static final field LateAction Lactron/statechart/test/ReplyMode;
+	public static final field LateCommand Lactron/statechart/test/ReplyMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lactron/statechart/test/ReplyMode;
+	public static fun values ()[Lactron/statechart/test/ReplyMode;
+}
+
 public final class actron/statechart/test/ScenarioCoverage {
 	public fun <init> (Lactron/statechart/test/MachineScenario;Ljava/util/Set;)V
 	public final fun component1 ()Lactron/statechart/test/MachineScenario;
@@ -438,6 +471,29 @@ public final class actron/statechart/test/ScenarioCoverage {
 	public final fun getTransitions ()Ljava/util/Set;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/statechart/test/ScenarioModel {
+	public final fun generate (Lactron/statechart/test/CoverageTarget;II)Lactron/statechart/test/GeneratedScenarios;
+	public static synthetic fun generate$default (Lactron/statechart/test/ScenarioModel;Lactron/statechart/test/CoverageTarget;IIILjava/lang/Object;)Lactron/statechart/test/GeneratedScenarios;
+	public final fun getInitial ()Ljava/lang/Object;
+	public final fun getMachine ()Lactron/statechart/machine/Machine;
+	public final fun record (Lactron/statechart/test/MachineScenario;)Lactron/statechart/test/ScenarioTrace;
+}
+
+public final class actron/statechart/test/ScenarioModelBuilder {
+	public final fun actions (Lkotlin/jvm/functions/Function1;)V
+	public final fun actions ([Lactron/core/Action;)V
+	public final fun goal (Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V
+	public final fun inputs (Lkotlin/jvm/functions/Function3;)V
+	public final fun replies (Ljava/util/Set;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun replies$default (Lactron/statechart/test/ScenarioModelBuilder;Ljava/util/Set;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+	public final fun rule (Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V
+}
+
+public final class actron/statechart/test/ScenarioRecordingKt {
+	public static final fun recording (Lactron/statechart/test/ScenarioTrace;Ljava/lang/String;Ljava/util/List;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/timetravel/HistoryExportSettings;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/jvm/functions/Function1;)Lactron/timetravel/HistoryRecording;
+	public static synthetic fun recording$default (Lactron/statechart/test/ScenarioTrace;Ljava/lang/String;Ljava/util/List;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/timetravel/HistoryExportSettings;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/timetravel/HistoryRecording;
 }
 
 public abstract interface class actron/statechart/test/ScenarioResult {
@@ -478,6 +534,42 @@ public final class actron/statechart/test/ScenarioResult$Passed : actron/statech
 	public fun getSnapshot ()Lactron/statechart/machine/MachineSnapshot;
 	public fun hashCode ()I
 	public fun onFailure (Lkotlin/jvm/functions/Function1;)V
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/statechart/test/ScenarioStep {
+	public fun <init> (Lactron/statechart/machine/MachineSnapshot;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/ExplainedDecision;)V
+	public final fun component1 ()Lactron/statechart/machine/MachineSnapshot;
+	public final fun component2 ()Lactron/statechart/machine/MachineInput;
+	public final fun component3 ()Lactron/statechart/machine/ExplainedDecision;
+	public final fun copy (Lactron/statechart/machine/MachineSnapshot;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/ExplainedDecision;)Lactron/statechart/test/ScenarioStep;
+	public static synthetic fun copy$default (Lactron/statechart/test/ScenarioStep;Lactron/statechart/machine/MachineSnapshot;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/ExplainedDecision;ILjava/lang/Object;)Lactron/statechart/test/ScenarioStep;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAfter ()Lactron/statechart/machine/MachineSnapshot;
+	public final fun getBefore ()Lactron/statechart/machine/MachineSnapshot;
+	public final fun getExplained ()Lactron/statechart/machine/ExplainedDecision;
+	public final fun getInput ()Lactron/statechart/machine/MachineInput;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/statechart/test/ScenarioTrace {
+	public fun <init> (Lactron/statechart/test/MachineScenario;Lactron/statechart/machine/MachineSnapshot;Ljava/util/List;Lactron/statechart/test/MachineCoverage;Ljava/util/List;)V
+	public final fun assertSuccess ()V
+	public final fun component1 ()Lactron/statechart/test/MachineScenario;
+	public final fun component2 ()Lactron/statechart/machine/MachineSnapshot;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Lactron/statechart/test/MachineCoverage;
+	public final fun component5 ()Ljava/util/List;
+	public final fun copy (Lactron/statechart/test/MachineScenario;Lactron/statechart/machine/MachineSnapshot;Ljava/util/List;Lactron/statechart/test/MachineCoverage;Ljava/util/List;)Lactron/statechart/test/ScenarioTrace;
+	public static synthetic fun copy$default (Lactron/statechart/test/ScenarioTrace;Lactron/statechart/test/MachineScenario;Lactron/statechart/machine/MachineSnapshot;Ljava/util/List;Lactron/statechart/test/MachineCoverage;Ljava/util/List;ILjava/lang/Object;)Lactron/statechart/test/ScenarioTrace;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCoverage ()Lactron/statechart/test/MachineCoverage;
+	public final fun getFailures ()Ljava/util/List;
+	public final fun getInitial ()Lactron/statechart/machine/MachineSnapshot;
+	public final fun getScenario ()Lactron/statechart/test/MachineScenario;
+	public final fun getSteps ()Ljava/util/List;
+	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 

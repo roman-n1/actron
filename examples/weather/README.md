@@ -92,8 +92,8 @@ city data: [GeoNames](https://www.geonames.org/).
 
 Tests cover HTTP decoding, debounce and revisions, cancellation and timeouts, independent
 parallel requests, generic serialization, navigation, host recreation and request cleanup.
-The Actron library retains its own recording/replay facilities and tests; the weather application
-has no recording coordinator or debug UI dependency.
+The example integrates the library's recording/replay and inspector APIs; its host adapter
+owns only Weather display frames, screen restoration and platform file access.
 
 ## Session history and replay
 
@@ -194,3 +194,45 @@ Validation:
 - `:weather-android:connectedDebugAndroidTest`: actual system document picker save/open and
   cancellation on an Android emulator; no intercepted intents.
 - Browser and macOS native file dialogs are additionally exercised manually during development.
+
+## Automatically generated tests and recordings
+
+[GeneratedWeatherScenarios.kt](src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt)
+shows the developer-facing `machine.scenarios(initial) { ... }` API:
+
+- `actions`: finite search values (empty, Moscow, Kazan), refresh and forecast retry.
+- `replies`: success/failure data derived from commands actually emitted by the machine.
+- `rule`: old search answers cannot change context; forecast replies/retries preserve current weather.
+- `goal`: require a late Moscow reply during Kazan's request, subsequent Kazan success, and
+  both orders of the two parallel weather responses.
+
+Actron discovers the order of actions, real debounce/timeout timers and command responses from
+the graph and decisions. The tests do not prescribe the Moscow→Kazan sequence. They verify
+both a stale command result (rejected by command identity) and a detached stale action (rejected
+by the search revision guard). The test library's own deliberately broken-guard fixture proves
+that the generator detects and reproduces this kind of bug.
+
+With the checked-in data and bounds, search explores 763 decisions and selects 14 scenarios,
+covering **16/16 transitions**; weather explores 59 decisions and selects 12 scenarios, covering
+**21/21 transitions**. Both machines cover all declared timer transitions. This is bounded pure
+model coverage, not exhaustive payload/guard coverage or verification of executor scheduling.
+Existing queued-store tests continue to cover actual command execution and cancellation.
+
+Run the tests and produce ready-to-import recordings:
+
+```sh
+./gradlew :weather-example:jvmTest --tests '*Generated*'
+```
+
+Files appear in `examples/weather/build/generated-scenarios/`:
+
+- `late-moscow-command.actron.json`: search Moscow, switch to Kazan, ignore Moscow's late
+  command result, then display Kazan's result.
+- `late-moscow-action.actron.json`: the independent revision-guard check.
+- `parallel-forecast-first.actron.json`: forecast succeeds while current weather is still loading.
+
+Enable the inspector and use **Import** beside the machine filter. Select events to see the
+recorded search/weather screen, before/action/after and graph coverage. The export includes
+states and event details, so the ignored Moscow reply is visible even though it changes no data.
+These files use Weather's existing schema/version/graph validation and remain view-only.
+Importing them runs no test, command or HTTP request. Executable typed scenarios remain in the tests.
