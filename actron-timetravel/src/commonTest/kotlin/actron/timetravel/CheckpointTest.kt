@@ -23,6 +23,7 @@ import actron.statechart.machine.MachineClock
 import actron.statechart.machine.MachineStore
 import actron.statechart.machine.MachineTime
 import actron.statechart.test.VirtualMachineClock
+import actron.test.dispatchAndAwait
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +50,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 /**
  * The live executor's checkpoint against the one a recording carries forward with the same
@@ -295,39 +297,59 @@ class CheckpointTest {
                     exceptionHandler(ExceptionHandler { handled.trySend(it) })
                 }
             val checkpoints = mutableListOf<ExecutorCheckpoint<Unit, Cmd>>()
+            val started = TimeSource.Monotonic.markNow()
 
-            withContext(Dispatchers.Default) {
-                coroutineScope {
-                    repeat(4) { sender ->
-                        launch {
-                            repeat(100) { index ->
-                                store.dispatch(if (index % 9 == 8 && sender == 1) Act.Done else Act.Go)
-                                if (index % 10 == 0) delay(1.milliseconds)
+            val recording =
+                try {
+                    withContext(Dispatchers.Default) {
+                        // Bound the whole concurrent phase, including checkpoint replies.
+                        withTimeout(20_000) {
+                            coroutineScope {
+                                repeat(4) { sender ->
+                                    launch {
+                                        repeat(100) { index ->
+                                            store.dispatch(if (index % 9 == 8 && sender == 1) Act.Done else Act.Go)
+                                            if (index % 10 == 0) delay(1.milliseconds)
+                                        }
+                                    }
+                                }
+                                launch {
+                                    repeat(200) {
+                                        checkpoints += store.checkpoint()
+                                        yield()
+                                    }
+                                }
                             }
+                            // An earlier Idle snapshot must not satisfy first() while inputs
+                            // from the storm are still queued ahead of this final Done.
+                            store.dispatchAndAwait(Act.Done)
+                            store.state.first { it.commands.isEmpty() && it.isActive(idle) }
                         }
                     }
-                    launch {
-                        repeat(200) {
-                            checkpoints += store.checkpoint()
-                            yield()
-                        }
-                    }
+                    println("checkpoint storm: captured ${checkpoints.size} cuts in ${started.elapsedNow()}")
+                    recorder.recording()
+                } finally {
+                    store.close()
+                    executionScope.cancel()
                 }
-                withTimeout(20_000) {
-                    store.dispatch(Act.Done)
-                    store.state.first { it.commands.isEmpty() && it.isActive(idle) }
-                }
-            }
-            val recording = recorder.recording()
-            store.close()
-            executionScope.cancel()
 
             kotlin.test.assertIs<actron.timetravel.RecordingOrigin.InitialSnapshot>(recorder.origin)
             assertEquals(200, checkpoints.size)
+            assertTrue(recording.snapshotAt(recording.length).isActive(idle), "the recording includes the final Done")
+            val verifiedRevisions = mutableSetOf<Long>()
+            println("checkpoint storm: ${recording.length} steps, ${checkpoints.map { it.snapshot.revision }.distinct().size} distinct revisions")
             for ((index, checkpoint) in checkpoints.withIndex()) {
+                // Validate every cut, including different scheduler lanes at the same revision.
                 val since = recording.since(checkpoint)
-                kotlin.test.assertFalse(ReplaySession(machine, since).verify { error("Unexpected replay mismatch: $it") }, "checkpoint $index at revision ${checkpoint.snapshot.revision}")
+                // since() matches the entire snapshot and validates command registrations.
+                // Equal revisions in this one recording therefore replay the same inputs from
+                // the same snapshot. Pure replay does not execute the scheduler lanes; deciding
+                // that identical suffix again adds CPU cost but no additional assertion.
+                if (verifiedRevisions.add(checkpoint.snapshot.revision)) {
+                    kotlin.test.assertFalse(ReplaySession(machine, since).verify { error("Unexpected replay mismatch: $it") }, "checkpoint $index at revision ${checkpoint.snapshot.revision}")
+                }
             }
+            println("checkpoint storm: verified all cuts in ${started.elapsedNow()}")
             // How much the storm exercised depends on the platform's threads; informational.
             println("checkpoints with a full lane: ${checkpoints.count { it.lanes.queued.isNotEmpty() }}, with a command ending: ${checkpoints.count { it.ending.isNotEmpty() }} of ${checkpoints.size}")
             assertTrue(handled.tryReceive().isFailure, "nothing was reported")

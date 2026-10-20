@@ -31,6 +31,8 @@ object WeatherRecording {
     private val search = CitySearchMachine.create()
     private val weather = CityWeatherMachine.create()
     val definitions = listOf(search.chart.historyDefinition(search.id.value, search.version.value), weather.chart.historyDefinition(weather.id.value, weather.version.value))
+
+    // Display schema plus machine versions/graphs reject incompatible files before preview.
     val codec = HistoryRecordingCodec("actron.weather.display/1", WeatherRecordingFrame.serializer(), definitions = definitions)
 
     fun export(

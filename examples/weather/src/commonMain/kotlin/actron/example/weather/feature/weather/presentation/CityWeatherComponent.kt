@@ -54,6 +54,7 @@ class DefaultCityWeatherComponent(
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
     private val machine =
         instanceKeeper.getOrCreate {
+            // A restored executor already knows its pending work; only a fresh screen needs Refresh.
             val checkpoint = history.weatherCheckpoint(city)
             MachineInstance(
                 CityWeatherMachine.create(),

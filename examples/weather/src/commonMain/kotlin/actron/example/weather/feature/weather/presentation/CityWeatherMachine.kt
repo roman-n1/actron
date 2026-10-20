@@ -51,6 +51,7 @@ sealed interface WeatherCommand {
     ) : WeatherCommand
 }
 
+/** One machine with two concurrently active regions; all input decisions are still sequential. */
 object CityWeatherMachine {
     fun create(): Machine<WeatherContext, WeatherAction, WeatherCommand, NoEvent> =
         parallelStateMachine(
@@ -61,11 +62,13 @@ object CityWeatherMachine {
                 "Current",
                 initial = RequestState.Idle,
                 readState = { context: WeatherContext -> context.current },
+                // Each writer preserves the other region, including its data and pending state.
                 writeState = { context, state: RequestState<WeatherReading> -> context.copy(current = state) },
             ) {
                 state<RequestState.Idle> { currentInputs() }
                 state<RequestState.Loading> {
                     currentInputs()
+                    // This command and timeout belong to Current.Loading's activation.
                     onEnter { command(WeatherCommand.Current(context.city), LaneId("current"), ConcurrencyPolicy.Latest) }
                     on<WeatherAction.Loaded, RequestState.Success<WeatherReading>>(
                         guard = { context, action -> action.reading.city == context.city },
@@ -100,11 +103,13 @@ object CityWeatherMachine {
         }
 
     private fun TypedMachineStateBuilder<WeatherContext, RequestState<WeatherReading>, WeatherAction, WeatherCommand, NoEvent>.currentInputs() {
+        // Refresh is declared in both regions, so one action reloads both.
         on<WeatherAction.Refresh, RequestState.Loading> { _, _ -> RequestState.Loading }
     }
 
     private fun TypedMachineStateBuilder<WeatherContext, RequestState<HourlyForecast>, WeatherAction, WeatherCommand, NoEvent>.hourlyInputs() {
         on<WeatherAction.Refresh, RequestState.Loading> { _, _ -> RequestState.Loading }
+        // No matching declaration in Current: retry only replaces the forecast request.
         on<WeatherAction.RetryForecast, RequestState.Loading> { _, _ -> RequestState.Loading }
     }
 }

@@ -56,6 +56,8 @@ class DefaultWeatherRootComponent(
 
     private val searchBridge = ParentBridge<Nothing, CitySearchComponent.News>()
     private val weatherBridge = ParentBridge<Nothing, CityWeatherComponent.News>()
+
+    // Navigation is a host concern, independent of the two Actron machine definitions.
     private val navigation = StackNavigation<ChildConfiguration>()
     private val stack =
         childStack(
@@ -115,6 +117,7 @@ class DefaultWeatherRootComponent(
     }
 
     fun continueFrom(frame: WeatherFrame) {
+        // New branch keys replace retained children; their MachineInstances resume saved checkpoints.
         history.beginBranch(frame)
         when (val route = frame.route) {
             WeatherRoute.Search -> navigation.replaceAll(ChildConfiguration.Search(history.branch))

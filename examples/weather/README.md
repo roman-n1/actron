@@ -5,6 +5,32 @@ Search for a city, open its current weather and six-hour forecast, refresh or go
 Settings contains an optional debug history panel, shown only on the right. Recording starts
 with the machines, independently of panel visibility.
 
+## Read the example
+
+Start with [How Weather uses Actron](docs/architecture.md): the path from UI intent to machine
+decision and HTTP result, the typed search DSL, parallel weather regions, component lifetime,
+and the distinction between preview and restoration.
+
+For tests, read [the test-source README](src/commonTest/README.md). It maps the scripted,
+generated and HTTP-cancellation examples to the library APIs and shows how to inspect a
+generated scenario in the running application. Source comments mark the integration points;
+the guides explain the contracts behind those calls.
+
+Suggested source order:
+
+1. [CitySearchMachine](src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt):
+   context, actions, command data, transitions, debounce and cancellation.
+2. [CitySearchEffects](src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchEffects.kt)
+   and [CitySearchComponent](src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchComponent.kt):
+   execute a use case, dispatch actions and collect state.
+3. [CityWeatherMachine](src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt):
+   independent regions in one machine.
+4. [MachineInstance](src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
+   and [WeatherRootComponent](src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt):
+   connect Actron execution to Decompose lifetime and navigation.
+5. [GeneratedWeatherScenarios](src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt):
+   describe test data and properties, then let the graph explorer discover sequences.
+
 ## Run
 
 ```sh

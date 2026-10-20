@@ -21,8 +21,10 @@ internal data class WeatherSavedState(
 
 internal object WeatherSavedStateCodec {
     private val group =
+        // Generic codecs validate all machines; these read/write adapters alone know Weather's frame.
         checkpointGroup(::WeatherFrame) {
             machine(machinePersistence(CitySearchMachine.create()), read = { it.search }, write = { frame, search -> frame.copy(search = search) })
+            // A collection models an optional weather child without introducing a nullable checkpoint.
             machines(machinePersistence(CityWeatherMachine.create()), read = { frame ->
                 when (val route = frame.route) {
                     WeatherRoute.Search -> emptyList()

@@ -18,6 +18,7 @@ class CitySearchScenarioTest {
     fun searchSuccessUsesVirtualTimeAndScriptedCommand() =
         runTest {
             val report =
+                // The DSL owns a real queued Store with scripted IO and closes it after assertions.
                 CitySearchMachine.create().test(this, CitySearchState()) {
                     expectState<RequestState.Idle> { it.phase }
                     dispatch(CitySearchAction.ChangeQuery("London"))

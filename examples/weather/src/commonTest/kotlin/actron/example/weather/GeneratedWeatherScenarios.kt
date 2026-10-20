@@ -9,7 +9,11 @@ import actron.example.weather.feature.weather.presentation.*
 import actron.statechart.machine.MachineInput
 import actron.statechart.test.*
 
-/** The developer supplies data and properties, never an ordered list of test steps. */
+/**
+ * Developer-authored finite data and properties for the pure graph explorer, not a test script.
+ * actions/replies supply choices; rule checks every decision; goal requires a concrete path.
+ * See src/commonTest/README.md for running, coverage limits and recording export.
+ */
 object GeneratedWeatherScenarios {
     val moscow = City("Москва", 55.75, 37.62)
     val kazan = City("Казань", 55.79, 49.12)
@@ -21,6 +25,7 @@ object GeneratedWeatherScenarios {
                 if (state.context.revision < 2) listOf("", moscow.name, kazan.name).map(CitySearchAction::ChangeQuery) else emptyList()
             }
             replies(setOf(ReplyMode.Active, ReplyMode.LateCommand, ReplyMode.LateAction)) { command ->
+                // Use the emitted command's revision; inventing a current revision would hide stale replies.
                 val city = if (command.query == moscow.name) moscow else kazan
                 listOf(
                     CitySearchAction.Found(command.revision, listOf(CityOption(city))),
@@ -55,6 +60,7 @@ object GeneratedWeatherScenarios {
                 phase !is RequestState.Success || phase.value.all { it.city.name == state.query }
             }
             goal("late-moscow-command") { steps ->
+                // This goal prevents a vacuous pass when no stale reply was ever exercised.
                 steps.last().let { step ->
                     val input = step.input
                     if (input !is MachineInput.CommandResult) {
@@ -98,6 +104,7 @@ object GeneratedWeatherScenarios {
         CityWeatherMachine.create().scenarios(WeatherContext(kazan)) {
             actions(WeatherAction.Refresh, WeatherAction.RetryForecast)
             replies { command ->
+                // Real command registrations let the explorer choose either region's response first.
                 when (command) {
                     is WeatherCommand.Current -> {
                         listOf(

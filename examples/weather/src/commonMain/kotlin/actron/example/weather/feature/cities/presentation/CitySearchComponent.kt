@@ -52,6 +52,7 @@ class DefaultCitySearchComponent(
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
     private val machine =
+        // Retain the Store across host recreation instead of creating it on every composition.
         instanceKeeper.getOrCreate {
             MachineInstance(
                 CitySearchMachine.create(),
@@ -73,14 +74,18 @@ class DefaultCitySearchComponent(
     override fun onUiEvent(event: CitySearchIntent) {
         if (!state.value.isStarted) return
         when (event) {
+            // Enqueue an intent; the machine is the only writer of the search context.
             is CitySearchIntent.QueryChanged -> machine.store.dispatch(CitySearchAction.ChangeQuery(event.query))
+
             CitySearchIntent.Retry -> machine.store.dispatch(CitySearchAction.ChangeQuery(state.value.context.query))
+
             is CitySearchIntent.SelectCity -> scope.launch { endpoint.news.emit(CitySearchComponent.News.CitySelected(event.city)) }
         }
     }
 
     @Composable
     override fun Render() {
+        // The library collects snapshots for UI; formatting is a pure context -> UI projection.
         val snapshot by state.collectAsUiState()
         CitySearchScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent)
     }
