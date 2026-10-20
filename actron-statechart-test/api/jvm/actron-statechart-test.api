@@ -491,11 +491,6 @@ public final class actron/statechart/test/ScenarioModelBuilder {
 	public final fun rule (Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V
 }
 
-public final class actron/statechart/test/ScenarioRecordingKt {
-	public static final fun recording (Lactron/statechart/test/ScenarioTrace;Ljava/lang/String;Ljava/util/List;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/timetravel/HistoryExportSettings;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/jvm/functions/Function1;)Lactron/timetravel/HistoryRecording;
-	public static synthetic fun recording$default (Lactron/statechart/test/ScenarioTrace;Ljava/lang/String;Ljava/util/List;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lactron/timetravel/HistoryExportSettings;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/timetravel/HistoryRecording;
-}
-
 public abstract interface class actron/statechart/test/ScenarioResult {
 	public abstract fun getCoverage ()Lactron/statechart/test/MachineCoverage;
 	public abstract fun getScenario ()Lactron/statechart/test/MachineScenario;

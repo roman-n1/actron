@@ -62,7 +62,6 @@ kotlin {
             implementation(libs.serialization.json)
             api(project(":actron-statechart"))
             api(project(":actron-test"))
-            api(project(":actron-timetravel"))
             api(libs.coroutines.test)
         }
         commonTest.dependencies {

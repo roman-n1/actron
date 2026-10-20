@@ -287,6 +287,10 @@ initial context and deterministic callbacks. Keep machine definitions/version ch
 
 ## View generated scenarios in Time Travel
 
+Add the optional [`actron-timetravel-test`](../actron-timetravel-test/README.md) dependency in
+your test source set and import `actron.timetravel.test.recording`. The generator module
+itself has no dependency on Time Travel.
+
 `trace.recording(...)` projects a typed in-memory trace into the existing `HistoryRecording<S>`
 format. Supply the application's display schema, current graph definitions, context serializer
 and a projection to its display frame:

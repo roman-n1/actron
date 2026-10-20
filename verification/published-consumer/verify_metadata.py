@@ -8,7 +8,7 @@ from pathlib import Path
 
 repo, group, version, target = Path(sys.argv[1]), *sys.argv[2:]
 production = {"actron-core", "actron-compose", "actron-logging", "actron-message", "actron-statechart", "actron-observability", "actron-statechart-compose"}
-tooling = {"actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-compose"}
+tooling = {"actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-test", "actron-timetravel-compose"}
 modules = production | tooling
 suffixes = {"jvm": ["jvm"], "android": ["android"], "js": ["js"], "wasm": ["wasm-js"], "ios": ["iosarm64", "iossimulatorarm64"]}[target]
 ns = {"m": "http://maven.apache.org/POM/4.0.0"}

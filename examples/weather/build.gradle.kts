@@ -41,6 +41,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(project(":actron-statechart-test"))
+            implementation(project(":actron-timetravel-test"))
             implementation(libs.kotlin.test)
             implementation(libs.coroutines.test)
             implementation("io.ktor:ktor-client-mock:3.5.0")

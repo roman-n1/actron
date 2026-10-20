@@ -19,7 +19,7 @@ tasks.register("verifyPublishedGraphs") {
     group = "verification"
     doLast {
         val productionNames = setOf("actron-core", "actron-compose", "actron-message", "actron-logging", "actron-observability", "actron-statechart", "actron-statechart-compose")
-        val allNames = productionNames + setOf("actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-compose")
+        val allNames = productionNames + setOf("actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-test", "actron-timetravel-compose")
 
         fun modules(projectName: String): Set<String> {
             val configurationName = mapOf("jvm" to "jvmCompileClasspath", "android" to "androidCompileClasspath", "js" to "jsCompileClasspath", "wasm" to "wasmJsCompileClasspath", "ios" to "iosSimulatorArm64CompileKlibraries").getValue(target)

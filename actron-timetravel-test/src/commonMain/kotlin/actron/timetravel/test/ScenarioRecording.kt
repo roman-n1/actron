@@ -1,8 +1,10 @@
-package actron.statechart.test
+package actron.timetravel.test
 
 import actron.core.Action
 import actron.core.Event
 import actron.statechart.machine.*
+import actron.statechart.test.ScenarioStep
+import actron.statechart.test.ScenarioTrace
 import actron.timetravel.*
 import kotlinx.serialization.json.JsonElement
 import kotlin.time.Clock

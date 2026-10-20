@@ -3,11 +3,8 @@ package actron.statechart.test
 import actron.core.Action
 import actron.core.Event
 import actron.statechart.machine.*
-import actron.timetravel.*
-import kotlinx.serialization.json.*
 import kotlin.test.*
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 class GeneratedScenariosTest {
     sealed interface Phase {
@@ -206,58 +203,5 @@ class GeneratedScenariosTest {
             machine().scenarios(Context()) { inputs { _, _, _ -> listOf(MachineInput.Dispatch(Act.Edit("A"), MachineTime((-1).milliseconds))) } }.generate()
         }
         assertFailsWith<IllegalArgumentException> { model().record(MachineScenario("no-start", emptyList())) }
-    }
-
-    @Test fun recordingKeepsEveryBeforeInputAfterAndVirtualTimestampIncludingIgnoredStep() {
-        val model = model()
-        val generated = model.generate(maxDepth = 5, maxDecisions = 20_000)
-        generated.assertSuccess()
-        val trace = model.record(generated.witnesses.getValue("late-A-after-B"))
-        val started = Instant.parse("2026-10-20T00:00:00Z")
-        val definition = model.machine.chart.historyDefinition(model.machine.id.value, model.machine.version.value)
-
-        fun describe(context: Context) =
-            buildJsonObject {
-                put("query", context.query)
-                put("result", context.result)
-            }
-        val recording =
-            trace.recording(
-                "test/1",
-                listOf(definition),
-                ::describe,
-                { step, _ -> describe(step.after.context) },
-                HistoryExportSettings("Tests"),
-                startedAt = started,
-            )
-        val codec = HistoryRecordingCodec("test/1", JsonObject.serializer(), definitions = listOf(definition))
-        val restored = codec.decode(codec.encode(recording))
-        assertEquals(trace.steps.size, restored.entries.size)
-        for ((step, entry) in trace.steps.zip(restored.entries)) {
-            assertEquals(started + step.input.now.sinceStart, Instant.parse(entry.at))
-            assertEquals(describe(step.after.context), entry.snapshot)
-        }
-        assertEquals(
-            restored.entries
-                .last()
-                .details.before,
-            restored.entries
-                .last()
-                .details.after,
-        )
-        assertTrue(
-            restored.entries
-                .last()
-                .details.outcome
-                .contains("Ignored"),
-        )
-        assertEquals("Tests", restored.metadata.projectName)
-        assertEquals(
-            restored.entries.size,
-            HistoryTimeline
-                .fromRecording(restored)
-                .entries.value.size,
-        )
-        assertFailsWith<IllegalArgumentException> { trace.recording("test/1", emptyList(), ::describe, { step, _ -> describe(step.after.context) }) }
     }
 }
