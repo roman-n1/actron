@@ -294,3 +294,14 @@ Both panel variants accept an `actions` slot on the right of the machine filter.
 Import and Export with directional icons there, plus Back to session while inspecting a file.
 File dialogs remain in the host, outside the library. Weather uses Android's Storage Access
 Framework, Desktop's native file dialog and the browser's file input/download mechanism.
+
+## Profiling on the graph
+
+Supply a frozen `HistoryGraphProfile.Recorded(MachineProfileSnapshot)` on each
+`HistoryGraph.Machine` to enable **Profile**. Edges use relative average input-processing
+cost; selecting an edge or state displays separate queue, processing, residence and command
+measurements. Missing samples display an em dash. Keep these snapshots with their history
+frames so navigating the past cannot display future measurements. Imported recordings that
+omit profiles use `HistoryGraphProfile.Unavailable`.
+
+See [profiling semantics and the Weather integration](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).

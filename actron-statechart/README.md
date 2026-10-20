@@ -1144,3 +1144,11 @@ The search assumes opaque guards can succeed. On budget exhaustion it reports in
 analysis and never labels unseen states as proven unreachable. A warning does not prove a
 bug (for example a non-final terminal can be intentional). This adds inspection metadata;
 existing execution validation remains responsible for rejecting invalid runtime models.
+
+## Runtime profiling
+
+`MachineProfiler` observes queue delay, input processing, state residence and command
+handler lifetime separately. Attach its observer, `profileWith(profiler)` Store configuration,
+and wrapped command handler. Both `MachineStore` and `resumeMachineStore` support this setup.
+It retains bounded correlations and immutable aggregates, without action/command payloads.
+See [measurement semantics and inspector integration](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).

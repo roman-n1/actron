@@ -11,6 +11,7 @@ MockEngine; none of these tests needs the public weather server.
 
 | File | What it demonstrates |
 | --- | --- |
+| [AdvancedWeatherTestingTest](kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt) | Temporal obligations, executor ordering/errors/timeout/restart, mutation testing |
 | [CitySearchScenarioTest](kotlin/actron/example/weather/CitySearchScenarioTest.kt) | Handwritten `machine.test` scenario, virtual debounce, command answers and assertions |
 | [WeatherScenarioTest](kotlin/actron/example/weather/WeatherScenarioTest.kt) | Select which parallel command completes; preserve the other region |
 | [GeneratedWeatherScenarios](kotlin/actron/example/weather/GeneratedWeatherScenarios.kt) | Finite input data, command answers, rules and required goals |
@@ -125,3 +126,19 @@ platform file-picker dependency.
 Run all Weather tests with `./gradlew :weather-example:jvmTest`. For library-level changes,
 also run the affected `:actron-statechart-test` or `:actron-timetravel-test` target. Test API
 contracts and generation limits are documented in the [library guide](../../../../actron-statechart-test/README.md).
+
+## Temporal, executor-order and mutation examples
+
+Start with [the developer guide](../../../../doc/guides/temporal-schedules-and-profiling.md).
+`AdvancedWeatherTestingTest` supplies finite reply fixtures and checks the actual executor
+under both weather response orders, query replacement and restart during debounce/HTTP.
+Its temporal rule correlates search generations, and its mutation test proves the assertions
+notice removal of the guard that rejects another city's weather.
+
+```shell
+./gradlew :weather-example:jvmTest --tests '*AdvancedWeatherTestingTest'
+```
+
+These checks are bounded. They do not claim correctness for every possible city, arbitrary
+thread interleavings or unbounded future events. The tests assert that required schedules
+were actually visited, in addition to asserting the absence of violations.

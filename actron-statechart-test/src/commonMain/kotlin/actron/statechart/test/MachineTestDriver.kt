@@ -18,6 +18,7 @@ import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MachineStore
 import actron.statechart.machine.MailboxConfig
 import actron.statechart.machine.PendingEffect
+import actron.statechart.machine.resumeMachineStore
 import actron.test.StoreRecorder
 import actron.test.createRecorder
 import actron.test.dispatchAndAwait
@@ -57,6 +58,7 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     val handler: ScriptedCommandHandler<CMD, A> = ScriptedCommandHandler(),
     admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
     mailbox: MailboxConfig<E> = MailboxConfig(),
+    checkpoint: ExecutorCheckpoint<C, CMD> = ExecutorCheckpoint.initial(machine.initialSnapshot(context)),
     builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit = {},
 ) {
     private val scheduler = scope.testScheduler
@@ -64,7 +66,7 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     private val executionScope = CoroutineScope(dispatcher + SupervisorJob())
 
     /** Immutable starting model data for independent, IO-free generated scenarios. */
-    val initialSnapshot: MachineSnapshot<C> = machine.initialSnapshot(context)
+    val initialSnapshot: MachineSnapshot<C> = checkpoint.snapshot
     private val coverageRecorder = MachineCoverageRecorder(machine)
 
     /** Behavioural coverage accumulated from this driver's actual Store decisions. */
@@ -76,19 +78,16 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
 
     /** The store; every action a test sends goes through its admission. */
     val store: MachineStore<C, A, CMD, E> =
-        MachineStore(
-            machine,
-            context,
-            handler,
-            executionScope,
-            VirtualMachineClock(scheduler),
-            dispatcher,
-            admission = admission,
-            mailbox = mailbox,
-            observers = listOf(coverageRecorder),
-        ) {
-            exceptionHandler(ExceptionHandler { failureList += it })
-            builder()
+        if (checkpoint.snapshot.isStarted) {
+            resumeMachineStore(machine, checkpoint, handler, executionScope, dispatcher, VirtualMachineClock.startingNow(scheduler), listOf(coverageRecorder), admission = admission, mailbox = mailbox) {
+                exceptionHandler(ExceptionHandler { failureList += it })
+                builder()
+            }
+        } else {
+            MachineStore(machine, checkpoint.snapshot.context, handler, executionScope, VirtualMachineClock.startingNow(scheduler), dispatcher, admission = admission, mailbox = mailbox, observers = listOf(coverageRecorder)) {
+                exceptionHandler(ExceptionHandler { failureList += it })
+                builder()
+            }
         }
 
     /** Every snapshot and every effect, transient and retained, in decision order; [receiveEvent] walks the effects. */
