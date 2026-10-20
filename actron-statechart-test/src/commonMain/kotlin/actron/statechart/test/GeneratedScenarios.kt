@@ -65,6 +65,7 @@ class ScenarioModelBuilder<C : Any, A : Action, CMD : Any, E : Event> internal c
     internal val actions = mutableListOf<(MachineSnapshot<C>) -> List<A>>()
     internal val replies = mutableListOf<Pair<Set<ReplyMode>, (CMD) -> List<A>>>()
     internal val rules = mutableListOf<ScenarioRule<C, A, CMD, E>>()
+    internal val temporal = mutableListOf<TemporalRules<C, A, CMD, E>>()
     internal val goals = linkedMapOf<String, (List<ScenarioStep<C, A, CMD, E>>) -> Boolean>()
     internal val extras = mutableListOf<(MachineSnapshot<C>, MachineTime, List<ScenarioStep<C, A, CMD, E>>) -> List<MachineInput<A>>>()
 
@@ -93,6 +94,11 @@ class ScenarioModelBuilder<C : Any, A : Action, CMD : Any, E : Event> internal c
     ) {
         require(name.isNotBlank() && rules.none { it.name == name }) { "[Actron] Rule names must be unique and nonblank" }
         rules += ScenarioRule(name, predicate)
+    }
+
+    /** Checks violated temporal obligations during exploration. Use rules.check(trace) to reject pending obligations at the end. */
+    fun temporal(rules: TemporalRules<C, A, CMD, E>) {
+        temporal += rules
     }
 
     /** Requires an actual executable witness; useful when transition coverage alone misses a race. */
@@ -124,6 +130,7 @@ class ScenarioModel<C : Any, A : Action, CMD : Any, E : Event> internal construc
     private val actions = builder.actions.toList()
     private val replies = builder.replies.toList()
     private val rules = builder.rules.toList()
+    private val temporal = builder.temporal.map { it.frozen() }
     private val goals = builder.goals.toMap()
     private val extras = builder.extras.toList()
 
@@ -187,9 +194,9 @@ class ScenarioModel<C : Any, A : Action, CMD : Any, E : Event> internal construc
                 1,
                 MachineTime.Zero,
                 retainSteps = true,
-                checksPerStep = rules.size,
+                checksPerStep = rules.size + temporal.sumOf { it.size },
                 inspect = { steps ->
-                    val violations = rules.flatMap { it.check(steps.last()) }
+                    val violations = rules.flatMap { it.check(steps.last()) } + temporalViolations(steps)
                     if (violations.isEmpty()) {
                         for ((name, reached) in goals) {
                             if (name !in witnesses && reached(steps)) witnesses[name] = MachineScenario(name, steps.map { it.input })
@@ -228,7 +235,7 @@ class ScenarioModel<C : Any, A : Action, CMD : Any, E : Event> internal construc
             snapshot = step.after
             val problems = mutableListOf<SequenceProblem>()
             machine.sequenceFailure(steps.map { it.input }, explained.decision) { problems += it.problems }
-            val violations = rules.flatMap { it.check(step) }
+            val violations = rules.flatMap { it.check(step) } + temporalViolations(steps)
             if (violations.isNotEmpty()) problems += SequenceProblem.Invariants(violations)
             if (problems.isNotEmpty()) {
                 failures += SequenceFailure(steps.map { it.input }, snapshot, problems)
@@ -237,4 +244,6 @@ class ScenarioModel<C : Any, A : Action, CMD : Any, E : Event> internal construc
         }
         return ScenarioTrace(scenario, start, steps.toList(), coverage.snapshot(), failures.toList())
     }
+
+    private fun temporalViolations(steps: List<ScenarioStep<C, A, CMD, E>>): List<InvariantViolation> = temporal.flatMap { it.check(steps).violations }.map { InvariantViolation.Rejected("temporal:${it.rule}@${it.triggerStep}") }
 }

@@ -2137,6 +2137,23 @@ public final class actron/statechart/machine/DurableStatus : java/lang/Enum {
 	public static fun values ()[Lactron/statechart/machine/DurableStatus;
 }
 
+public final class actron/statechart/machine/DurationProfile {
+	public synthetic fun <init> (JJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JJJLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2-UwyO8pc ()J
+	public final fun component3-UwyO8pc ()J
+	public final fun copy-5qebJ5I (JJJ)Lactron/statechart/machine/DurationProfile;
+	public static synthetic fun copy-5qebJ5I$default (Lactron/statechart/machine/DurationProfile;JJJILjava/lang/Object;)Lactron/statechart/machine/DurationProfile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAverage-UwyO8pc ()J
+	public final fun getMaximum-UwyO8pc ()J
+	public final fun getSamples ()J
+	public final fun getTotal-UwyO8pc ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class actron/statechart/machine/EffectDiscardReason : java/lang/Enum {
 	public static final field Exhausted Lactron/statechart/machine/EffectDiscardReason;
 	public static final field Overflow Lactron/statechart/machine/EffectDiscardReason;
@@ -2706,6 +2723,7 @@ public final class actron/statechart/machine/Machine {
 	public final fun guardRejectionReason (Ljava/lang/String;)Ljava/lang/String;
 	public final fun initialSnapshot (Ljava/lang/Object;)Lactron/statechart/machine/MachineSnapshot;
 	public final fun isComplete (Lactron/statechart/machine/MachineSnapshot;)Z
+	public final fun withTestChart (Lactron/statechart/StateChartDefinition;)Lactron/statechart/machine/Machine;
 }
 
 public abstract interface class actron/statechart/machine/MachineActionScope {
@@ -2970,6 +2988,44 @@ public final class actron/statechart/machine/MachineInvariant {
 public final class actron/statechart/machine/MachineKt {
 	public static final fun Machine-jlvHTy0 (Ljava/lang/String;Ljava/lang/String;Lactron/statechart/StateChartDefinition;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/Machine;
 	public static synthetic fun Machine-jlvHTy0$default (Ljava/lang/String;Ljava/lang/String;Lactron/statechart/StateChartDefinition;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/statechart/machine/Machine;
+}
+
+public final class actron/statechart/machine/MachineProfileSnapshot {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;JILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;JLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-xjbjqhw ()Ljava/lang/String;
+	public final fun component2-o3eglpc ()Ljava/lang/String;
+	public final fun component3 ()Ljava/util/Map;
+	public final fun component4 ()Ljava/util/Map;
+	public final fun component5 ()J
+	public final fun copy-RooK0rw (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;J)Lactron/statechart/machine/MachineProfileSnapshot;
+	public static synthetic fun copy-RooK0rw$default (Lactron/statechart/machine/MachineProfileSnapshot;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;JILjava/lang/Object;)Lactron/statechart/machine/MachineProfileSnapshot;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDefinition-xjbjqhw ()Ljava/lang/String;
+	public final fun getDroppedCorrelations ()J
+	public final fun getStates ()Ljava/util/Map;
+	public final fun getTransitions ()Ljava/util/Map;
+	public final fun getVersion-o3eglpc ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/statechart/machine/MachineProfiler : actron/statechart/machine/DecisionTraceObserver {
+	public fun <init> (Lactron/statechart/machine/Machine;ILkotlin/jvm/functions/Function0;)V
+	public synthetic fun <init> (Lactron/statechart/machine/Machine;ILkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun beginAt (Lactron/statechart/machine/MachineSnapshot;)V
+	public final fun commands (Lactron/statechart/machine/CommandHandler;)Lactron/statechart/machine/CommandHandler;
+	public fun onClosed (Ljava/util/List;Ljava/util/List;)V
+	public fun onCommitted (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/Decision;)V
+	public fun onDecided (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/ExplainedDecision;)V
+	public fun onFailed (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/observability/FailureDescriptor;)V
+	public fun onIgnored (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/IgnoreReason;)V
+	public fun onRejected (Lactron/core/Action;Lactron/statechart/machine/Admission$Rejected;)V
+	public final fun snapshot ()Lactron/statechart/machine/MachineProfileSnapshot;
+}
+
+public final class actron/statechart/machine/MachineProfilerKt {
+	public static final fun profileWith (Lactron/statechart/StoreConfiguration;Lactron/statechart/machine/MachineProfiler;)V
 }
 
 public final class actron/statechart/machine/MachineSnapshot : actron/core/State {
@@ -3269,8 +3325,8 @@ public abstract interface class actron/statechart/machine/ResultSink {
 }
 
 public final class actron/statechart/machine/ResumeMachineStoreKt {
-	public static final fun resumeMachineStore (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;Lactron/statechart/machine/CommandRecoveryStrategy;)Lactron/statechart/machine/MachineStore;
-	public static synthetic fun resumeMachineStore$default (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;Lactron/statechart/machine/CommandRecoveryStrategy;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
+	public static final fun resumeMachineStore (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;Lactron/statechart/machine/CommandRecoveryStrategy;Lactron/statechart/machine/AdmissionPolicy;Lactron/statechart/machine/MailboxConfig;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/MachineStore;
+	public static synthetic fun resumeMachineStore$default (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;Lactron/statechart/machine/CommandRecoveryStrategy;Lactron/statechart/machine/AdmissionPolicy;Lactron/statechart/machine/MailboxConfig;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
 }
 
 public abstract interface class actron/statechart/machine/RetryBudget {
@@ -3377,6 +3433,27 @@ public final class actron/statechart/machine/StateMachineDslKt {
 	public static final fun stateMachine-rhbeRwY (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/Machine;
 }
 
+public final class actron/statechart/machine/StateProfile {
+	public fun <init> ()V
+	public fun <init> (JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;J)V
+	public synthetic fun <init> (JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;JILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Lactron/statechart/machine/DurationProfile;
+	public final fun component3 ()Lactron/statechart/machine/DurationProfile;
+	public final fun component4 ()Lactron/statechart/machine/DurationProfile;
+	public final fun component5 ()J
+	public final fun copy (JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;J)Lactron/statechart/machine/StateProfile;
+	public static synthetic fun copy$default (Lactron/statechart/machine/StateProfile;JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;JILjava/lang/Object;)Lactron/statechart/machine/StateProfile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCancelledCommands ()J
+	public final fun getCommandExecution ()Lactron/statechart/machine/DurationProfile;
+	public final fun getCommandQueue ()Lactron/statechart/machine/DurationProfile;
+	public final fun getResidence ()Lactron/statechart/machine/DurationProfile;
+	public final fun getVisits ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class actron/statechart/machine/TimerId {
 	public static final synthetic fun box-impl (J)Lactron/statechart/machine/TimerId;
 	public static fun constructor-impl (J)J
@@ -3465,6 +3542,23 @@ public final class actron/statechart/machine/TransitionId {
 	public fun toString ()Ljava/lang/String;
 	public static fun toString-impl (I)Ljava/lang/String;
 	public final synthetic fun unbox-impl ()I
+}
+
+public final class actron/statechart/machine/TransitionProfile {
+	public fun <init> ()V
+	public fun <init> (JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;)V
+	public synthetic fun <init> (JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Lactron/statechart/machine/DurationProfile;
+	public final fun component3 ()Lactron/statechart/machine/DurationProfile;
+	public final fun copy (JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;)Lactron/statechart/machine/TransitionProfile;
+	public static synthetic fun copy$default (Lactron/statechart/machine/TransitionProfile;JLactron/statechart/machine/DurationProfile;Lactron/statechart/machine/DurationProfile;ILjava/lang/Object;)Lactron/statechart/machine/TransitionProfile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getHits ()J
+	public final fun getProcessing ()Lactron/statechart/machine/DurationProfile;
+	public final fun getQueue ()Lactron/statechart/machine/DurationProfile;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class actron/statechart/machine/TransitionSelectionExplanation {

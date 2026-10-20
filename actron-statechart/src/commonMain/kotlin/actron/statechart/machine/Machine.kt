@@ -352,6 +352,22 @@ class Machine<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
 
     private val runtime = StateChartRuntime<MachineSnapshot<C>>(chart, { chart.activeLeaves(it.configuration).first() }, guards)
 
+    /** Test-tooling hook: a separate graph with the same immutable rule bindings. Never restore production snapshots into this variant. */
+    @actron.core.InternalActronApi
+    fun withTestChart(definition: StateChartDefinition): Machine<C, A, CMD, E> {
+        val bindings = MachineBuilder<C, A, CMD, E>()
+        bindings.invariants.putAll(invariants.associateBy { it.name })
+        bindings.enforceInvariants = enforceInvariants
+        bindings.maxMicrosteps = maxMicrosteps
+        bindings.guards.putAll(guards)
+        bindings.guardRejections.putAll(guardRejections)
+        bindings.effects.putAll(effects)
+        entries.forEach { (node, rules) -> bindings.entries[node] = rules.toMutableList() }
+        exits.forEach { (node, rules) -> bindings.exits[node] = rules.toMutableList() }
+        handlers.forEach { (node, rules) -> bindings.handlers[node] = rules.toMutableList() }
+        return Machine(id, version, definition, bindings)
+    }
+
     /** Application-authored guard metadata; reading it never evaluates the guard. */
     fun guardRejectionReason(label: String): String = guardRejections[label].orEmpty()
 

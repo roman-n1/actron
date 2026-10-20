@@ -31,14 +31,17 @@ class MachineInstance<C : Any, A : Action, CMD : Any, E : Event>(
 ) : InstanceKeeper.Instance {
     private val scope = CoroutineScope(context + SupervisorJob())
 
+    private val profiler = MachineProfiler(machine).apply { beginAt(checkpoint.snapshot) }
+    private val profiledHandler = profiler.commands(handler)
+
     // Attach before start/resume so even the first decision appears in history.
-    private val observer = history.observer(machine, checkpoint, describe, update)
+    private val observer = history.observer(machine, checkpoint, describe, update, profiler)
     val store =
         if (checkpoint.snapshot.isStarted) {
             // Restore executor work/timers as well as context; do not re-enter completed states.
-            resumeMachineStore(machine, checkpoint, handler, scope, context, clock, listOf(observer))
+            resumeMachineStore(machine, checkpoint, profiledHandler, scope, context, clock, listOf(profiler, observer), builder = { profileWith(profiler) })
         } else {
-            MachineStore(machine, checkpoint.snapshot.context, handler, scope, coroutineContext = context, observers = listOf(observer), clock = clock)
+            MachineStore(machine, checkpoint.snapshot.context, profiledHandler, scope, coroutineContext = context, observers = listOf(profiler, observer), clock = clock) { profileWith(profiler) }
         }
 
     init {

@@ -316,3 +316,16 @@ see its screens and highlighted graph. This is a **view-only recording**: it can
 execution, start HTTP or restore commands. The typed `MachineScenario` is the executable test
 artifact in memory/source; the exported JSON is its display artifact. Weather includes an
 [executable exporter](../examples/weather/src/jvmTest/kotlin/actron/example/weather/GeneratedRecordingFilesTest.kt).
+
+## Temporal rules, executor schedules and mutation testing
+
+Use `TemporalRules` for bounded response obligations and prefix safety rules,
+`exploreSchedules` for actual executor response orders/cancellation/restart, and
+`testMutations` to measure whether your assertions detect a changed graph declaration.
+These are complementary to pure graph scenario generation. Unfinished obligations,
+truncated exploration, surviving mutants and harness errors remain explicit.
+
+The [guide with Weather examples](../doc/guides/temporal-schedules-and-profiling.md)
+explains inputs, assertions, result interpretation and scope. `MachineTestDriver` also
+accepts a settled `checkpoint` for a restored executor. Each driver begins its own
+virtual time at zero; a restored driver preserves the checkpoint's logical time.

@@ -1,7 +1,11 @@
 package actron.timetravel.compose
 
 import actron.statechart.*
+import actron.statechart.machine.DurationProfile
+import actron.statechart.machine.MachineProfileSnapshot
+import actron.statechart.machine.StateProfile
 import actron.statechart.machine.TransitionId
+import actron.statechart.machine.TransitionProfile
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,7 +52,17 @@ sealed interface HistoryGraph {
         val definition: StateChartDefinition,
         val active: Set<StateId>,
         val coverage: HistoryGraphCoverage = HistoryGraphCoverage.Unavailable,
+        val profile: HistoryGraphProfile = HistoryGraphProfile.Unavailable,
     ) : HistoryGraph
+}
+
+/** Frozen measurements supplied by the host, independent of live profiler state. */
+sealed interface HistoryGraphProfile {
+    data object Unavailable : HistoryGraphProfile
+
+    data class Recorded(
+        val snapshot: MachineProfileSnapshot,
+    ) : HistoryGraphProfile
 }
 
 internal data class GraphNode(
@@ -250,6 +264,14 @@ private fun GraphCanvas(
             layoutGraph(graph.definition) { transition -> labels.getValue(transition).size.let { Size(it.width.toFloat(), it.height.toFloat()) } }
         }
     var selectedEdges by remember(graph.definition) { mutableStateOf(emptyList<Int>()) }
+    var profiling by remember(graph.definition) { mutableStateOf(false) }
+    val profiles =
+        when (val profile = graph.profile) {
+            HistoryGraphProfile.Unavailable -> emptyList()
+            is HistoryGraphProfile.Recorded -> listOf(profile.snapshot)
+        }
+    val measuredTransitions = profiles.flatMap { it.transitions.entries }.associate { it.toPair() }
+    val maximumProcessing = measuredTransitions.values.fold(0L) { maximum, value -> maxOf(maximum, value.processing.average.inWholeNanoseconds) }
     val endpoints = selectedEdges.flatMap { index -> layout.edges[index].transition.let { listOf(it.source, it.target) } }
     val zoomIn = historyText(HistoryText.ZoomIn)
     val zoomOut = historyText(HistoryText.ZoomOut)
@@ -278,10 +300,18 @@ private fun GraphCanvas(
             Text("${historyText(HistoryText.Coverage)}: $covered / ${graph.definition.transitions.size} · ${historyText(HistoryText.CoverageLegend)}", Modifier.padding(horizontal = 8.dp).testTag("graph-coverage"), style = MaterialTheme.typography.labelSmall)
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
+            if (profiles.isNotEmpty()) {
+                HistoryChoice(profiling, { profiling = !profiling }, { Text(historyText(HistoryText.Profile)) }, Modifier.testTag("graph-profile-toggle"))
+                Spacer(Modifier.weight(1f))
+            }
             TextButton({ viewport.transform(view.center, Offset.Zero, 1f / 1.25f) }, Modifier.testTag("graph-zoom-out").semantics { contentDescription = zoomOut }) { Text("−") }
             Text("${(viewport.scale * 100).toInt()}%", Modifier.padding(top = 12.dp).testTag("graph-scale"))
             TextButton({ viewport.transform(view.center, Offset.Zero, 1.25f) }, Modifier.testTag("graph-zoom-in").semantics { contentDescription = zoomIn }) { Text("+") }
             TextButton({ viewport.fit(view, layout.size) }, Modifier.testTag("graph-fit")) { Text(historyText(HistoryText.Fit)) }
+        }
+        if (profiling && profiles.isNotEmpty()) {
+            Text(historyText(HistoryText.ProfileWindow), Modifier.padding(horizontal = 8.dp).testTag("graph-profile-window"), style = MaterialTheme.typography.labelSmall)
+            for (profile in profiles) if (profile.droppedCorrelations > 0) Text("${historyText(HistoryText.ProfileDropped)}: ${profile.droppedCorrelations}", color = colors.error, style = MaterialTheme.typography.labelSmall)
         }
         Canvas(
             Modifier
@@ -370,7 +400,29 @@ private fun GraphCanvas(
                             }
                         val highlighted = index in selectedEdges || edge.transition.source in selected
                         val covered = counts.getOrElse(edge.id) { 0 } > 0
-                        val edgeColor = if (highlighted) colors.primary else (if (covered) colors.tertiary else colors.outline).copy(alpha = if (selectedEdges.isEmpty()) 1f else 0.25f)
+                        val timing = measuredTransitions.getOrElse(edge.id) { TransitionProfile() }
+                        val heat =
+                            if (profiling && maximumProcessing > 0) {
+                                timing.processing.average.inWholeNanoseconds
+                                    .toFloat() / maximumProcessing
+                            } else {
+                                0f
+                            }
+                        val edgeColor =
+                            if (highlighted) {
+                                colors.primary
+                            } else {
+                                (
+                                    if (heat > 0f) {
+                                        androidx.compose.ui.graphics
+                                            .lerp(colors.outline, colors.error, heat)
+                                    } else if (covered) {
+                                        colors.tertiary
+                                    } else {
+                                        colors.outline
+                                    }
+                                ).copy(alpha = if (selectedEdges.isEmpty()) 1f else 0.25f)
+                            }
                         drawPath(path, colors.surface, style = Stroke(5f))
                         val stroke =
                             if (graph.coverage is HistoryGraphCoverage.Recorded && !covered && !highlighted) {
@@ -426,6 +478,15 @@ private fun GraphCanvas(
                 if (graph.coverage is HistoryGraphCoverage.Recorded) {
                     Text("${historyText(HistoryText.Executions)}: ${counts.getOrElse(layout.edges[index].id) { 0 }}", Modifier.testTag("graph-transition-hits"), style = MaterialTheme.typography.bodySmall)
                 }
+                if (profiling) {
+                    for (profile in profiles) {
+                        profile.transitions.getOrElse(layout.edges[index].id) { TransitionProfile() }.let { measured ->
+                            Text("${historyText(HistoryText.ProfileExecutions)}: ${measured.hits}", style = MaterialTheme.typography.bodySmall)
+                            ProfileDuration(HistoryText.InputQueue, measured.queue)
+                            ProfileDuration(HistoryText.InputProcessing, measured.processing)
+                        }
+                    }
+                }
                 Text("${historyText(HistoryText.FromState)}: ${transition.source.value}", style = MaterialTheme.typography.bodySmall)
                 Text("${historyText(HistoryText.ToState)}: ${transition.target.value}", style = MaterialTheme.typography.bodySmall)
                 Text("${historyText(HistoryText.Action)}: ${transition.triggerLabel}", style = MaterialTheme.typography.bodySmall)
@@ -450,6 +511,17 @@ private fun GraphCanvas(
             ) {
                 Text("${historyText(HistoryText.State)}: ${id.value}", style = MaterialTheme.typography.titleSmall, color = colors.primary)
                 Spacer(Modifier.height(6.dp))
+                if (profiling) {
+                    for (profile in profiles) {
+                        profile.states.getOrElse(id) { StateProfile() }.let { measured ->
+                            Text("${historyText(HistoryText.Visits)}: ${measured.visits}", style = MaterialTheme.typography.bodySmall)
+                            ProfileDuration(HistoryText.Residence, measured.residence)
+                            ProfileDuration(HistoryText.CommandQueue, measured.commandQueue)
+                            ProfileDuration(HistoryText.CommandExecution, measured.commandExecution)
+                            Text("${historyText(HistoryText.CancelledCommands)}: ${measured.cancelledCommands}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
                 graph.definition.transitionsFrom(id).forEach { transition ->
                     Text("${transition.triggerLabel}: ${transition.target.value}", style = MaterialTheme.typography.bodySmall)
                 }
@@ -457,4 +529,16 @@ private fun GraphCanvas(
         }
         Text(historyText(HistoryText.GraphHint), Modifier.padding(8.dp), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun ProfileDuration(
+    label: HistoryText,
+    profile: DurationProfile,
+) {
+    Text(
+        "${historyText(label)}: " + if (profile.samples == 0L) "—" else "${historyText(HistoryText.Average)} ${profile.average}, max ${profile.maximum} (n=${profile.samples})",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("profile-duration-${label.name}"),
+    )
 }

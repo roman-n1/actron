@@ -11,6 +11,7 @@ import actron.statechart.machine.*
 import actron.timetravel.*
 import actron.timetravel.compose.HistoryGraph
 import actron.timetravel.compose.HistoryGraphCoverage
+import actron.timetravel.compose.HistoryGraphProfile
 import actron.timetravel.compose.HistoryPanelState
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,7 @@ data class WeatherFrame(
     val search: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(CitySearchMachine.create().initialSnapshot(CitySearchState())),
     val route: WeatherRoute = WeatherRoute.Search,
     val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
+    val profiles: Map<DefinitionId, MachineProfileSnapshot> = emptyMap(),
 ) {
     fun at(time: MachineTime): WeatherFrame =
         copy(
@@ -98,6 +100,8 @@ class WeatherHistory(
     private val searchChart = CitySearchMachine.create().chart
     private val weatherChart = CityWeatherMachine.create().chart
 
+    private fun profile(entry: HistoryEntry<WeatherFrame>): HistoryGraphProfile = entry.snapshot.profiles[DefinitionId(entry.machine.stableId)]?.let { HistoryGraphProfile.Recorded(it) } ?: HistoryGraphProfile.Unavailable
+
     fun graph(entry: HistoryEntry<WeatherFrame>): HistoryGraph =
         when (entry.machine.stableId) {
             "city-search" -> {
@@ -110,6 +114,7 @@ class WeatherHistory(
                             ?.hits
                             .orEmpty(),
                     ),
+                    profile(entry),
                 )
             }
 
@@ -129,6 +134,7 @@ class WeatherHistory(
                                     ?.hits
                                     .orEmpty(),
                             ),
+                            profile(entry),
                         )
                     }
                 }
@@ -172,6 +178,7 @@ class WeatherHistory(
         checkpoint: ExecutorCheckpoint<C, CMD>,
         describe: (C) -> List<StateField>,
         update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+        profiler: MachineProfiler<C, A, CMD, E> = MachineProfiler(machine),
     ): DecisionTraceObserver<C, A, CMD, E> {
         val identity =
             timeline.machine(
@@ -215,7 +222,9 @@ class WeatherHistory(
                 val after = previous.carriedPast(step)
                 update(after)
                 val coverage = frame.coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
-                frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage))
+                // Freeze completed measurements before this event. They never follow the live store
+                // when an old frame is selected; imported display recordings omit profiling.
+                frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage), profiles = frame.profiles + (machine.id to profiler.snapshot()))
                 if (frame.canResume()) resumableFrame = frame
 
                 fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)
