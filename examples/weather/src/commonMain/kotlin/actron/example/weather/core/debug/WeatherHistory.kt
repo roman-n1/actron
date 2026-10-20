@@ -183,6 +183,7 @@ class WeatherHistory(
                 stableId = machine.id.value,
             )
         val generation = branch
+        // The per-instance ring buffer retains executable decisions; timeline stores host frames.
         val recorder = BoundedMachineRecorder(machine, checkpoint, capacity)
         var previous = checkpoint
         return object : DecisionTraceObserver<C, A, CMD, E> {
@@ -210,6 +211,7 @@ class WeatherHistory(
                             RecordedStep.Failed(machineInput, outcome.failure)
                         }
                     }
+                // Apply the recorded outcome to checkpoint bookkeeping without executing IO again.
                 val after = previous.carriedPast(step)
                 update(after)
                 val coverage = frame.coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
@@ -243,6 +245,7 @@ class WeatherHistory(
                     )
                 previous = after
                 val index = recorder.nextStep
+                // Global eviction trims the corresponding recorder too, bounding both histories.
                 timeline.append(identity, generation, details, frame, discard = { recorder.discardBefore(index) })
             }
         }

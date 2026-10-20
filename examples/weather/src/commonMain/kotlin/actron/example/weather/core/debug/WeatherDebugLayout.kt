@@ -66,9 +66,11 @@ fun WeatherDebugLayout(
                     panel = {
                         Column(Modifier.fillMaxSize()) {
                             if (viewer.imported.isEmpty()) {
+                                // The reusable panel delegates continuation/navigation to the host.
                                 HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.weight(1f).testTag("weather-history-panel"), WeatherFrame::canResume, graph = { history.graph(it).withDiagnosticDemo(diagnosticDemo) }, actions = { RecordingActions(viewer, files, history) })
                             } else {
                                 val imported = viewer.imported.single()
+                                // Display-only records have no executor checkpoint or continuation callback.
                                 key(imported) { HistoryRecordingPanel(imported.recording, imported.panel, Modifier.weight(1f), WeatherRecording::graph, actions = { RecordingActions(viewer, files, history) }) }
                             }
                         }

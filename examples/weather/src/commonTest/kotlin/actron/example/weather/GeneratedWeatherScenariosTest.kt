@@ -17,8 +17,10 @@ import kotlin.test.*
 class GeneratedWeatherScenariosTest {
     @Test fun discoversAllSearchTransitionsAndBothLateMoscowDeliveryPaths() {
         val model = GeneratedWeatherScenarios.search()
+        // Generate from declarations/data; assert coverage and all required witnesses within these bounds.
         val generated = model.generate(maxDepth = 6, maxDecisions = 100_000)
         generated.assertSuccess()
+        // Re-run selected inputs and merge observed decisions, rather than copying declared graph edges.
         val coverage = generated.scenarios.map { model.record(it).also { trace -> trace.assertSuccess() }.coverage }.reduce { a, b -> a.merge(b) }
         coverage.assertTransitionsCovered()
         println("Generated City Search: ${generated.exploration.decisions} decisions, ${generated.scenarios.size} scenarios\n${coverage.describe(model.machine.chart)}")
@@ -97,6 +99,7 @@ class GeneratedWeatherScenariosTest {
 }
 
 fun <CMD : Any, E : actron.core.Event> searchRecording(trace: ScenarioTrace<CitySearchState, CitySearchAction, CMD, E>) =
+    // Optional library bridge; Weather supplies its codec contract and display-only screen projection.
     trace.recording(
         WeatherRecording.codec.schema,
         WeatherRecording.definitions,

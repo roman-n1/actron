@@ -42,27 +42,35 @@ data class SearchCitiesCommand(
     val revision: Long,
 )
 
-/** Every edit is a decision; only the HTTP command is debounced. Timers and answers are recorded. */
+/**
+ * Pure screen behavior: edits/results/timers produce a new context and descriptions of work.
+ * HTTP runs in citySearchHandler, not in this DSL. See docs/architecture.md for the full flow.
+ */
 object CitySearchMachine {
     fun create(): Machine<CitySearchState, CitySearchAction, SearchCitiesCommand, NoEvent> =
         typedStateMachine(
+            // Stable identity groups instances in the inspector; version protects persisted data.
             DefinitionId("city-search"),
             DefinitionVersion("8"),
             initial = RequestState.Idle,
+            // phase is the single state value; the DSL derives its graph nodes from state<T>.
             readState = { context: CitySearchState -> context.phase },
             writeState = { context, phase: RequestState<List<CityOption>> -> context.copy(phase = phase) },
         ) {
             state<RequestState.Idle> { queryChanges() }
             state<RequestState.Debouncing> {
                 queryChanges()
+                // Leaving/re-entering Debouncing cancels/restarts this activation's timer.
                 after<RequestState.Loading>(350.milliseconds) { RequestState.Loading }
             }
             state<RequestState.Loading> {
                 queryChanges()
                 onEnter {
+                    // Register data for the executor. Exiting Loading cancels its command immediately.
                     command(SearchCitiesCommand(context.query.trim(), context.revision), LaneId("city-search"), ConcurrencyPolicy.Latest)
                 }
                 on<CitySearchAction.Found, RequestState.Success<List<CityOption>>>(
+                    // Defense for old callbacks delivered outside normal command-result identity checks.
                     guard = { context, action -> action.revision == context.revision },
                 ) { _, action -> RequestState.Success(action.results) }
                 on<CitySearchAction.Failed, RequestState.Error>(
@@ -76,6 +84,8 @@ object CitySearchMachine {
         }
 
     private fun TypedMachineStateBuilder<CitySearchState, RequestState<List<CityOption>>, CitySearchAction, SearchCitiesCommand, NoEvent>.queryChanges() {
+        // Two guarded targets for the same action: clear to Idle, otherwise start a new debounce.
+        // reduce changes query data; the target lambda supplies phase through writeState.
         on<CitySearchAction.ChangeQuery, RequestState.Idle>(
             guard = { _, action -> action.query.isBlank() },
             reduce = { context, action -> context.copy(query = action.query, revision = context.revision + 1) },

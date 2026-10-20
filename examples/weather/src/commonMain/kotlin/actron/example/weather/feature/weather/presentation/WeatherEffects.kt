@@ -11,6 +11,7 @@ fun cityWeatherHandler(
     hourly: HourlyForecastRepository,
 ): CommandHandler<WeatherCommand, WeatherAction> =
     commandHandlers {
+        // Typed routing replaces command casts; the executor gives each region its own lifetime.
         handle<WeatherCommand.Current>(
             onFailure = { _, error -> WeatherAction.Unavailable(error.message ?: "Weather request failed") },
         ) { request -> WeatherAction.Loaded(current.load(request.city)) }
