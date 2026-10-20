@@ -200,6 +200,20 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
     maxDecisions: Int = 10_000,
     maxFailures: Int = 1,
     now: MachineTime = MachineTime.Zero,
+): BehaviouralExplorationReport<C, A> = explorePaths(initial, { snapshot, time, _ -> generator.inputs(snapshot, time) }, strategy, maxDepth, maxDecisions, maxFailures, now)
+
+internal fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.explorePaths(
+    initial: MachineSnapshot<C>,
+    generator: (MachineSnapshot<C>, MachineTime, List<ScenarioStep<C, A, CMD, E>>) -> List<MachineInput<A>>,
+    strategy: ExplorationStrategy,
+    maxDepth: Int,
+    maxDecisions: Int,
+    maxFailures: Int,
+    now: MachineTime,
+    retainSteps: Boolean = false,
+    checksPerStep: Int = 0,
+    inspect: (List<ScenarioStep<C, A, CMD, E>>) -> List<InvariantViolation> = { emptyList() },
+    goalsMet: () -> Boolean = { true },
 ): BehaviouralExplorationReport<C, A> {
     require(maxDepth >= 0 && maxDecisions > 0 && maxFailures > 0) { "[Actron] Invalid exploration limits" }
     val coverage = MachineCoverageRecorder(this)
@@ -228,20 +242,21 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
             }
         }
 
-    data class Path<C : Any, A : Action>(
+    data class Path<C : Any, A : Action, CMD : Any, E : Event>(
         val snapshot: MachineSnapshot<C>,
         val inputs: List<MachineInput<A>>,
         val now: MachineTime,
         val depth: Int,
         val transitions: Set<TransitionId> = emptySet(),
         val localCoverage: MachineCoverage,
+        val steps: List<ScenarioStep<C, A, CMD, E>> = emptyList(),
     )
 
     fun decidePath(
-        path: Path<C, A>,
+        path: Path<C, A, CMD, E>,
         input: MachineInput<A>,
         depth: Int,
-        advance: (Path<C, A>) -> Unit,
+        advance: (Path<C, A, CMD, E>) -> Unit,
     ): Boolean {
         if (decisions >= maxDecisions || failures.size >= maxFailures) {
             truncated = true
@@ -251,7 +266,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
         val explained = decideExplained(path.snapshot, input)
         decisions++
         coverage.accept(explained)
-        checked += invariants.size
+        checked += invariants.size + checksPerStep
         val inputs = path.inputs + input
         val covered = path.transitions + explained.decision.transitions
         val local =
@@ -279,13 +294,21 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
             val previous = scenarios.getValue(local)
             if (inputs.size < previous.inputs.size) scenarios[local] = previous.copy(inputs = inputs.toList())
         }
-        if (sequenceFailure(inputs, explained.decision, failures::add)) return false
-        advance(Path(explained.decision.snapshot, inputs, input.now, depth, covered, local))
+        val steps = if (retainSteps) path.steps + ScenarioStep(path.snapshot, input, explained) else emptyList()
+        val violations = inspect(steps)
+        val problems = mutableListOf<SequenceProblem>()
+        sequenceFailure(inputs, explained.decision) { problems += it.problems }
+        if (violations.isNotEmpty()) problems += SequenceProblem.Invariants(violations)
+        if (problems.isNotEmpty()) {
+            failures += SequenceFailure(inputs, explained.decision.snapshot, problems)
+            return false
+        }
+        advance(Path(explained.decision.snapshot, inputs, input.now, depth, covered, local, steps))
         return true
     }
 
     require(initial.definition == id && initial.version == version) { "[Actron] Snapshot belongs to another machine or version" }
-    val initialPath = Path<C, A>(initial, emptyList(), now, 0, localCoverage = emptyCoverage.copy(states = emptyCoverage.states.copy(covered = initial.configuration.active)))
+    val initialPath = Path<C, A, CMD, E>(initial, emptyList(), now, 0, localCoverage = emptyCoverage.copy(states = emptyCoverage.states.copy(covered = initial.configuration.active)))
     var start = initialPath
     var mayExplore = true
     if (!initial.isStarted) {
@@ -302,15 +325,15 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
     }
     when (strategy) {
         ExplorationStrategy.BreadthFirst, ExplorationStrategy.AllTransitions, is ExplorationStrategy.Cover -> {
-            val queue = ArrayDeque<Path<C, A>>()
+            val queue = ArrayDeque<Path<C, A, CMD, E>>()
             if (mayExplore) queue.addLast(start)
             while (queue.isNotEmpty() && !truncated) {
-                if (goalMet()) break
+                if (goalMet() && goalsMet()) break
                 val path = queue.removeFirst()
                 if (path.depth == maxDepth) continue
-                for (input in generator.inputs(path.snapshot, path.now)) {
+                for (input in generator(path.snapshot, path.now, path.steps)) {
                     decidePath(path, input, path.depth + 1, queue::addLast)
-                    if (truncated || goalMet()) break
+                    if (truncated || (goalMet() && goalsMet())) break
                 }
             }
         }
@@ -321,7 +344,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.exploreDet
                 var path = start
                 var advancing = mayExplore
                 while (advancing && path.depth < maxDepth && !truncated) {
-                    val choices = generator.inputs(path.snapshot, path.now)
+                    val choices = generator(path.snapshot, path.now, path.steps)
                     if (choices.isEmpty()) break
                     advancing = decidePath(path, choices[random.nextInt(choices.size)], path.depth + 1) { path = it }
                 }

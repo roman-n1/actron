@@ -62,6 +62,9 @@ fun aLoad_fetches_andShowsTheContent() = runTest {
 
 ## Model-based testing
 
+For automatic scenario discovery, start with [data, rules and goals](#generate-scenarios-from-data-rules-and-goals).
+The lower-level generator below remains available for custom exploration strategies.
+
 Declare pure predicates once on the machine; tests, replay and debug tools share them:
 
 ```kotlin
@@ -183,3 +186,133 @@ allows ending a scenario with work still running; the scope is still closed afte
 
 See executable Weather examples: `CitySearchScenarioTest` (debounce/success/error/clear/timeout)
 and `WeatherScenarioTest` (two parallel requests, selective completion and independent timeout).
+
+## Generate scenarios from data, rules and goals
+
+The graph supplies declared actions, transitions and timers. The developer supplies a finite
+domain of typed payloads and command answers, plus the properties the application must preserve.
+Actron explores executable prefixes through the real pure machine decision function, starting
+from its initial context. No ordered test script or fabricated command IDs are needed.
+
+```kotlin
+val model = CitySearchMachine.create().scenarios(CitySearchState()) {
+    actions { snapshot ->
+        // Limit the data domain and number of edits, not their order.
+        if (snapshot.context.revision < 2) {
+            listOf("", "Москва", "Казань").map(CitySearchAction::ChangeQuery)
+        } else {
+            emptyList()
+        }
+    }
+    replies(ReplyMode.entries.toSet()) { command ->
+        // An actual SearchCitiesCommand emitted on this path, with its real revision.
+        listOf(
+            CitySearchAction.Found(command.revision, fixtures.getValue(command.query)),
+            CitySearchAction.Failed(command.revision, "offline"),
+        )
+    }
+    rule("results-belong-to-query") { step ->
+        val state = step.after.context
+        val phase = state.phase
+        phase !is RequestState.Success || phase.value.all { it.city.name == state.query }
+    }
+}
+val generated = model.generate(maxDepth = 6, maxDecisions = 100_000)
+generated.assertSuccess()
+for (scenario in generated.scenarios) {
+    val trace = model.record(scenario)
+    trace.assertSuccess()
+    println(trace.coverage.describe(model.machine.chart))
+}
+```
+
+`actions` are filtered to the action types declared at active nodes; guards are evaluated only
+by the decision function. Timers are automatically supplied with their registered identity and
+deadline. `replies` receives the original typed command payload, never a guessed response revision.
+Its modes distinguish:
+
+- `Active` (default): a result for a currently registered command.
+- `LateCommand`: a result with the original command ID after that command is no longer registered.
+  This checks stale-command rejection by the machine.
+- `LateAction`: the same old payload delivered as an action after its command is gone.
+  This independently checks application guards when callbacks bypass command-result delivery.
+
+Late modes inject a result after a command is gone; they do not keep a cancelled request alive.
+Cancellation must also be asserted: Weather checks that a query edit removes the old command
+and emits its cancelled scope immediately, then separately verifies propagation through its
+real command handler/repository into Ktor MockEngine before the next debounce expires.
+
+Each distinct reply per command, and each distinct detached reply, is offered once per path.
+The generator does not infer command completion, stream repetition, invoke routing or executor
+lane order. Supply those inputs explicitly through `inputs { snapshot, now, steps -> ... }`,
+or use `MachineTestDriver` to test the real queued executor. Data generators and predicates must
+be deterministic, finite and free of IO; contexts and actions must be immutable.
+
+**Rules check every explored decision; goals require a concrete witness.** A rule that rejects
+stale results can pass without any stale result arriving. Add a goal to require that situation:
+
+```kotlin
+goal("late-moscow-command") { steps ->
+    val step = steps.last()
+    val input = step.input
+    if (input !is MachineInput.CommandResult) {
+        false
+    } else {
+        val action = input.action
+        action is CitySearchAction.Found &&
+            action.results.any { it.city.name == "Москва" } &&
+            step.before.context.query == "Казань" &&
+            step.before.context.phase is RequestState.Loading &&
+            input.command !in step.before.commands
+    }
+}
+```
+
+The full Weather model also requires Kazan to succeed after that stale reply, checks that old
+revisions leave context unchanged, and explores both response orders of the parallel weather
+machine. See [GeneratedWeatherScenarios.kt](../examples/weather/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt).
+
+The default target is every declared transition. Change `target` to require states, guard
+outcomes or custom obligations. Generation stops once the requested coverage and all goals
+are reached, or a bound/failure stops exploration. `assertSuccess()` rejects failures,
+exhausted decision budgets, missing coverage and missing goals. Reaching the target is **not**
+exhaustive verification of every sequence, arbitrary payloads or deeper histories. The selected
+scenario set covers the reached obligations and includes goal witnesses; minimality is not promised.
+
+Inspect `generated.exploration.failures` for exact failing typed inputs and snapshots.
+`model.record(MachineScenario("regression", failure.inputs))` reproduces a counterexample,
+including external rules. `record` retains every actual before/input/after decision, even ignored
+actions and stale replies; recording stops at the first failure. Replay requires the same machine,
+initial context and deterministic callbacks. Keep machine definitions/version changes explicit.
+
+## View generated scenarios in Time Travel
+
+Add the optional [`actron-timetravel-test`](../actron-timetravel-test/README.md) dependency in
+your test source set and import `actron.timetravel.test.recording`. The generator module
+itself has no dependency on Time Travel.
+
+`trace.recording(...)` projects a typed in-memory trace into the existing `HistoryRecording<S>`
+format. Supply the application's display schema, current graph definitions, context serializer
+and a projection to its display frame:
+
+```kotlin
+val recording = trace.recording(
+    schema = codec.schema,
+    definitions = definitions,
+    describe = { Json.encodeToJsonElement(Context.serializer(), it) },
+    snapshot = { step, coverage -> displayFrame(step.after, coverage) },
+    settings = HistoryExportSettings("My project"),
+)
+val bytes = codec.encode(recording)
+```
+
+The recording contains event labels, before/after fields, actual transition coverage and display
+snapshots. Virtual input times become offsets from `startedAt`. Use the `details` transform and
+the display projection to redact sensitive values before encoding. File saving remains a host
+responsibility; the test module has no Android, Decompose or platform file-picker dependency.
+
+Import the file into the compatible application inspector to scrub the generated sequence and
+see its screens and highlighted graph. This is a **view-only recording**: it cannot continue
+execution, start HTTP or restore commands. The typed `MachineScenario` is the executable test
+artifact in memory/source; the exported JSON is its display artifact. Weather includes an
+[executable exporter](../examples/weather/src/jvmTest/kotlin/actron/example/weather/GeneratedRecordingFilesTest.kt).

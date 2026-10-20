@@ -16,7 +16,7 @@ trap 'rm -rf "$WORK"' EXIT
 value() { python3 "$ROOT/verification/published-consumer/config.py" "$ROOT" "$1"; }
 GROUP=$(value group)
 VERSION=$(value version)
-MODULES=(actron-core actron-compose actron-logging actron-message actron-test actron-statechart actron-observability actron-timetravel actron-statechart-test actron-timetravel-compose actron-statechart-compose)
+MODULES=(actron-core actron-compose actron-logging actron-message actron-test actron-statechart actron-observability actron-timetravel actron-statechart-test actron-timetravel-test actron-timetravel-compose actron-statechart-compose)
 PUBLISH_TASKS=()
 for module in "${MODULES[@]}"; do
   for publication in KotlinMultiplatform "${PUBLICATIONS[@]}"; do

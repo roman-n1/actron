@@ -1,0 +1,9 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, js, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.roman-n1:actron-timetravel-test>
+final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event, #E: kotlin/Any> (actron.statechart.test/ScenarioTrace<#A, #B, #C, #D>).actron.timetravel.test/recording(kotlin/String, kotlin.collections/List<actron.timetravel/HistoryDefinition>, kotlin/Function1<#A, kotlinx.serialization.json/JsonElement>, kotlin/Function2<actron.statechart.test/ScenarioStep<#A, #B, #C, #D>, actron.statechart.machine/TransitionCoverage, #E>, actron.timetravel/HistoryExportSettings = ..., kotlin/String = ..., kotlin.time/Instant = ..., kotlin/Function1<actron.timetravel/HistoryDetails, actron.timetravel/HistoryDetails> = ...): actron.timetravel/HistoryRecording<#E> // actron.timetravel.test/recording|recording@actron.statechart.test.ScenarioTrace<0:0,0:1,0:2,0:3>(kotlin.String;kotlin.collections.List<actron.timetravel.HistoryDefinition>;kotlin.Function1<0:0,kotlinx.serialization.json.JsonElement>;kotlin.Function2<actron.statechart.test.ScenarioStep<0:0,0:1,0:2,0:3>,actron.statechart.machine.TransitionCoverage,0:4>;actron.timetravel.HistoryExportSettings;kotlin.String;kotlin.time.Instant;kotlin.Function1<actron.timetravel.HistoryDetails,actron.timetravel.HistoryDetails>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>;4§<kotlin.Any>}[0]
