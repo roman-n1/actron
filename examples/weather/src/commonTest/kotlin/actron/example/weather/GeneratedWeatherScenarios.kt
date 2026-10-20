@@ -27,6 +27,13 @@ object GeneratedWeatherScenarios {
                     CitySearchAction.Failed(command.revision, "offline"),
                 )
             }
+            rule("query-edit-immediately-cancels-previous-request") { step ->
+                val input = step.input
+                input !is MachineInput.Dispatch || input.action !is CitySearchAction.ChangeQuery ||
+                    step.before.commands.all { (id, command) ->
+                        id !in step.after.commands && command.scope in step.explained.decision.cancelledScopes
+                    }
+            }
             rule("old-search-answer-does-not-change-context") { step ->
                 val action =
                     when (val input = step.input) {

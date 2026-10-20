@@ -31,6 +31,22 @@ class GeneratedWeatherScenariosTest {
             val outcome = assertIs<DecisionOutcome.Ignored>(last.explained.decision.outcome)
             assertEquals(if (name == "late-moscow-command") IgnoreReason.StaleCommand else IgnoreReason.NoTransition, outcome.reason)
             assertTrue(trace.steps.flatMap { it.explained.decision.commands }.any { it.command.query == "Москва" })
+            val edit =
+                trace.steps.single { step ->
+                    val input = step.input
+                    input is MachineInput.Dispatch && input.action == CitySearchAction.ChangeQuery("Казань")
+                }
+            assertIs<RequestState.Loading>(edit.before.context.phase)
+            assertIs<RequestState.Debouncing>(edit.after.context.phase)
+            assertTrue(edit.before.commands.isNotEmpty())
+            assertTrue(edit.after.commands.isEmpty())
+            assertTrue(
+                edit.explained.decision.cancelledScopes
+                    .containsAll(
+                        edit.before.commands.values
+                            .map { it.scope },
+                    ),
+            )
         }
         val recording = searchRecording(model.record(generated.witnesses.getValue("kazan-success-after-late-moscow")))
         val imported = WeatherRecording.import(WeatherRecording.codec.encode(recording))

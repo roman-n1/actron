@@ -237,6 +237,11 @@ Its modes distinguish:
 - `LateAction`: the same old payload delivered as an action after its command is gone.
   This independently checks application guards when callbacks bypass command-result delivery.
 
+Late modes inject a result after a command is gone; they do not keep a cancelled request alive.
+Cancellation must also be asserted: Weather checks that a query edit removes the old command
+and emits its cancelled scope immediately, then separately verifies propagation through its
+real command handler/repository into Ktor MockEngine before the next debounce expires.
+
 Each distinct reply per command, and each distinct detached reply, is offered once per path.
 The generator does not infer command completion, stream repetition, invoke routing or executor
 lane order. Supply those inputs explicitly through `inputs { snapshot, now, steps -> ... }`,

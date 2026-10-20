@@ -202,7 +202,8 @@ shows the developer-facing `machine.scenarios(initial) { ... }` API:
 
 - `actions`: finite search values (empty, Moscow, Kazan), refresh and forecast retry.
 - `replies`: success/failure data derived from commands actually emitted by the machine.
-- `rule`: old search answers cannot change context; forecast replies/retries preserve current weather.
+- `rule`: each query edit immediately cancels the old request; old search answers cannot
+  change context; forecast replies/retries preserve current weather.
 - `goal`: require a late Moscow reply during Kazan's request, subsequent Kazan success, and
   both orders of the two parallel weather responses.
 
@@ -211,6 +212,15 @@ the graph and decisions. The tests do not prescribe the Moscow→Kazan sequence.
 both a stale command result (rejected by command identity) and a detached stale action (rejected
 by the search revision guard). The test library's own deliberately broken-guard fixture proves
 that the generator detects and reproduces this kind of bug.
+
+Cancellation is the primary behavior: editing Moscow to Kazan exits `Loading`, cancels Moscow's
+command and HTTP coroutine immediately, and only then waits 350 ms before starting Kazan.
+The generated traces assert the cancelled scope and removal of the old command at that edit.
+`CitySearchTest.changingCityCancelsHttpBeforeNextDebounceAndOnlyNewRequestCanFinish` also drives
+the actual Store → handler → use case → repository → Ktor MockEngine chain, verifying that the
+suspended HTTP operation receives cancellation before Kazan starts. Late-answer injection is a
+separate defensive check for an already queued callback or a source that ignores cancellation;
+it does not mean the obsolete HTTP request is intentionally kept running.
 
 With the checked-in data and bounds, search explores 763 decisions and selects 14 scenarios,
 covering **16/16 transitions**; weather explores 59 decisions and selects 12 scenarios, covering

@@ -19,8 +19,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -29,6 +31,82 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class CitySearchTest {
+    @Test
+    fun changingCityCancelsHttpBeforeNextDebounceAndOnlyNewRequestCanFinish() =
+        runTest {
+            val calls = mutableListOf<String>()
+            val cancelled = mutableListOf<String>()
+            val kazanResponse = CompletableDeferred<Unit>()
+            val client =
+                HttpClient(MockEngine) {
+                    engine {
+                        dispatcher = StandardTestDispatcher(testScheduler)
+                        addHandler { request ->
+                            val query = requireNotNull(request.url.parameters["name"])
+                            calls += query
+                            when (query) {
+                                "Москва" -> {
+                                    try {
+                                        awaitCancellation()
+                                    } finally {
+                                        cancelled += query
+                                    }
+                                }
+
+                                "Казань" -> {
+                                    kazanResponse.await()
+                                    respond("""{"results":[{"name":"Казань","latitude":55.79,"longitude":49.12}]}""")
+                                }
+
+                                else -> {
+                                    error("Unexpected query: $query")
+                                }
+                            }
+                        }
+                    }
+                }
+            val store = searchStore(OpenMeteoCitySearchRepository(client))
+            try {
+                store.start()
+                store.dispatch(CitySearchAction.ChangeQuery("Москва"))
+                testScheduler.runCurrent()
+                testScheduler.advanceTimeBy(350)
+                testScheduler.runCurrent()
+                assertEquals(listOf("Москва"), calls)
+                assertEquals(RequestState.Loading, store.currentState.context.phase)
+                val oldRevision = store.currentState.context.revision
+
+                store.dispatch(CitySearchAction.ChangeQuery("Казань"))
+                testScheduler.runCurrent()
+                // Cancellation reaches the HTTP engine immediately, before Kazan's debounce.
+                assertEquals(listOf("Москва"), cancelled)
+                assertTrue(store.currentState.commands.isEmpty())
+                assertEquals(RequestState.Debouncing, store.currentState.context.phase)
+                testScheduler.advanceTimeBy(349)
+                testScheduler.runCurrent()
+                assertEquals(listOf("Москва"), calls)
+                testScheduler.advanceTimeBy(1)
+                testScheduler.runCurrent()
+                assertEquals(listOf("Москва", "Казань"), calls)
+                assertEquals(RequestState.Loading, store.currentState.context.phase)
+
+                // Separately simulate a callback already queued outside the cancelled request.
+                store.dispatch(CitySearchAction.Found(oldRevision, listOf(CityOption(City("Москва", 55.75, 37.62)))))
+                testScheduler.runCurrent()
+                assertEquals("Казань", store.currentState.context.query)
+                assertEquals(RequestState.Loading, store.currentState.context.phase)
+                kazanResponse.complete(Unit)
+                testScheduler.runCurrent()
+                assertEquals(
+                    RequestState.Success(listOf(CityOption(City("Казань", 55.79, 49.12)))),
+                    store.currentState.context.phase,
+                )
+            } finally {
+                store.close()
+                client.close()
+            }
+        }
+
     @Test
     fun phasesRoundTripWithoutIndependentFlags() {
         val phases =
