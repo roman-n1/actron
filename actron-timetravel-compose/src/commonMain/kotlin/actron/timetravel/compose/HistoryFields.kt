@@ -43,7 +43,7 @@ internal fun <S : Any> HistoryFields(
     OutlinedTextField(
         inspection.fieldQuery,
         { inspection.fieldQuery = it },
-        Modifier.fillMaxWidth().testTag("history-field-search"),
+        Modifier.fillMaxWidth().historyTextInput().testTag("history-field-search"),
         label = { Text(historyText(HistoryText.SearchFields)) },
         singleLine = true,
     )

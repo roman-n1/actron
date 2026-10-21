@@ -13,6 +13,37 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class HistoryInspectionUiTest {
     @Test
+    fun textEditorsIsolateAllHistoryShortcutsWhileEventRowsKeepKeyboardNavigation() =
+        runComposeUiTest {
+            val timeline = HistoryTimeline<String>()
+            val machine = timeline.machine("Search")
+            timeline.append(machine, 0, details("", "Paris"), "Paris")
+            timeline.append(machine, 0, details("Paris", "Oslo"), "Oslo")
+            val state = HistoryPanelState<String>()
+            setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.size(1000.dp, 800.dp)) } }
+            onNodeWithTag("history-entry-2").performClick()
+            onNodeWithTag("history-entry-1").performClick()
+            for (tag in listOf("history-search", "history-field-search")) {
+                if (tag == "history-field-search") onNodeWithTag(tag).performScrollTo()
+                onNodeWithTag(tag).performClick().assertIsFocused()
+                for (arrow in listOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown)) {
+                    onNodeWithTag(tag).performKeyInput {
+                        keyDown(Key.AltLeft)
+                        pressKey(arrow)
+                        keyUp(Key.AltLeft)
+                    }
+                    runOnIdle { assertEquals(1L, state.selection.single().id, "Text editor $tag must isolate $arrow") }
+                }
+            }
+            onNodeWithTag("history-entry-1").performClick().performKeyInput {
+                keyDown(Key.AltLeft)
+                pressKey(Key.DirectionDown)
+                keyUp(Key.AltLeft)
+            }
+            runOnIdle { assertEquals(2L, state.selection.single().id) }
+        }
+
+    @Test
     fun cursorNavigationScrollsTheEventListToTheSelectedMoment() =
         runComposeUiTest {
             val timeline = HistoryTimeline<String>()

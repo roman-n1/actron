@@ -254,7 +254,11 @@ private fun <S : Any> HistoryPanelContent(
                         OutlinedTextField(
                             inspection.query,
                             { inspection.query = it },
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).testTag("history-search"),
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .historyTextInput()
+                                .testTag("history-search"),
                             label = { Text(historyText(HistoryText.Search)) },
                             singleLine = true,
                         )
