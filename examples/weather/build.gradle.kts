@@ -28,9 +28,10 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
+            api(project(":weather-app"))
             implementation(project(":actron-statechart"))
             implementation(project(":actron-compose"))
-            implementation(project(":actron-timetravel-compose"))
+            api(project(":actron-timetravel-compose"))
             implementation("com.arkivanov.decompose:decompose:3.5.0")
             implementation("com.arkivanov.decompose:extensions-compose:3.5.0")
             implementation(compose.foundation)

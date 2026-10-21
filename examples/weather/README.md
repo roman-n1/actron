@@ -2,8 +2,9 @@
 
 A two-screen Compose Multiplatform application for Android, Desktop and the browser.
 Search for a city, open its current weather and six-hour forecast, refresh or go back.
-Settings contains an optional debug history panel, shown only on the right. Recording starts
-with the machines, independently of panel visibility.
+In debug builds, Settings contains an optional debug history panel, shown only on the right.
+Recording starts with the machines, independently of panel visibility. Android release contains
+neither the panel/settings button nor the recording modules.
 
 ## Read the example
 
@@ -18,15 +19,15 @@ the guides explain the contracts behind those calls.
 
 Suggested source order:
 
-1. [CitySearchMachine](src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt):
+1. [CitySearchMachine](../weather-app/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt):
    context, actions, command data, transitions, debounce and cancellation.
-2. [CitySearchEffects](src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchEffects.kt)
-   and [CitySearchComponent](src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchComponent.kt):
+2. [CitySearchEffects](../weather-app/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchEffects.kt)
+   and [CitySearchComponent](../weather-app/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchComponent.kt):
    execute a use case, dispatch actions and collect state.
-3. [CityWeatherMachine](src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt):
+3. [CityWeatherMachine](../weather-app/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt):
    independent regions in one machine.
-4. [MachineInstance](src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
-   and [WeatherRootComponent](src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt):
+4. [MachineInstance](../weather-app/src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
+   and [WeatherRootComponent](../weather-app/src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt):
    connect Actron execution to Decompose lifetime and navigation.
 5. [GeneratedWeatherScenarios](src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt):
    describe test data and properties, then let the graph explorer discover sequences.
@@ -44,6 +45,71 @@ In Android Studio select the `weather-android` application module. The debug APK
 `examples/weather-android/build/outputs/apk/debug/weather-android-debug.apk` (Android 7.0+).
 Live data uses Open-Meteo without an API key. `--offline` selects explicit local fixtures on
 Desktop. The old article, replay and CLI-check modes have been removed from this application.
+
+## Debug and release initialization
+
+The production `weather-app` module owns execution, screens and current-checkpoint persistence.
+The `weather-example` module adds the debugger and is also the Desktop/browser debug launcher.
+Android wires the two variants in `weather-android`:
+
+```kotlin
+implementation(project(":weather-app"))
+debugImplementation(project(":weather-example"))
+```
+
+`src/debug/.../WeatherInitialization.kt` explicitly opts in:
+
+```kotlin
+DebugWeatherRootComponent(
+    context, weather, cities, hourly,
+    configuration = HistoryConfiguration(capacity = 1000),
+)
+```
+
+`src/release/.../WeatherInitialization.kt` calls `DefaultWeatherRootComponent(...)`.
+It has no debug imports or runtime toggle. Release cannot open the panel, and does not
+allocate a timeline or record previous states. The current checkpoint still supports
+process restoration through `actron-persistence`, which contains no recording engine or UI.
+
+The startup limit defaults to **500** and must be positive. The same limit bounds the global
+timeline and each machine recorder; global eviction also trims its corresponding recorder.
+It is applied when a retained session is first created, including after process death.
+Recreating the Activity keeps that session and its configuration. This is not a live settings
+slider. Closing the panel only hides it; recording continues in a debug session.
+
+Desktop/browser launch `DebugWeatherRootComponent` too; pass `configuration` at those entry
+points to change their limit. No global library singleton or automatic initialization is needed.
+
+```sh
+./gradlew :weather-android:assembleRelease
+./gradlew :weather-android:checkReleaseDebugGraph
+./gradlew :weather-app:jvmTest :weather-example:jvmTest
+```
+
+Every Android release build checks its resolved dependencies and rejects time-travel modules
+or the debug example, including transitive dependencies. Production JVM tests also verify
+that recorder/panel classes cannot be loaded and that no debug control appears on screen.
+
+### History memory estimate
+
+Measured on Desktop JVM with actual Weather models/observer, after at least three times the
+configured capacity had been emitted. An instrumentation agent walked strongly reachable
+objects by identity, counting shared state only once. The figures are additional retained
+memory relative to the same live roots after clearing history; two repetitions agreed.
+
+| Workload | 500 entries | 1000 entries | 5000 entries |
+| --- | ---: | ---: | ---: |
+| Query edits | 1.87 MiB | 3.74 MiB | 18.71 MiB |
+| Searches returning 30 cities | 9.13 MiB | 18.29 MiB | 91.49 MiB |
+| Weather with six forecast points | 5.10 MiB | 10.20 MiB | 50.99 MiB |
+| Opening successive city screens | 6.75 MiB | 13.53 MiB | 67.81 MiB |
+
+This is not process RSS or Android/iOS memory: Compose/native rendering, allocation churn,
+and debugger selections retaining evicted entries are outside this measurement. Entry size
+depends on payload. Structured text for before/after fields was a substantial contributor
+(roughly 31–78% depending on workload); immutable state itself often shares objects.
+Keep 500 as the default. A developer can choose 1000 or 5000 with an appropriate memory
+budget; 5000 is not a negligible allocation. Release does not retain this history.
 
 ## Responsibilities
 
