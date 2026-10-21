@@ -104,6 +104,8 @@ memory relative to the same live roots after clearing history; two repetitions a
 | Weather with six forecast points | 5.10 MiB | 10.20 MiB | 50.99 MiB |
 | Opening successive city screens | 6.75 MiB | 13.53 MiB | 67.81 MiB |
 
+These are baseline measurements taken before graph profiling was integrated; retained profile
+snapshots in the current debug executor add memory beyond these figures.
 This is not process RSS or Android/iOS memory: Compose/native rendering, allocation churn,
 and debugger selections retaining evicted entries are outside this measurement. Entry size
 depends on payload. Structured text for before/after fields was a substantial contributor
@@ -338,3 +340,15 @@ recorded search/weather screen, before/action/after and graph coverage. The expo
 states and event details, so the ignored Moscow reply is visible even though it changes no data.
 These files use Weather's existing schema/version/graph validation and remain view-only.
 Importing them runs no test, command or HTTP request. Executable typed scenarios remain in the tests.
+
+## Temporal rules and graph profiling
+
+[AdvancedWeatherTestingTest](src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt)
+demonstrates bounded temporal rules, real executor schedule exploration and mutation testing.
+See the [developer guide](../../doc/guides/temporal-schedules-and-profiling.md) for API usage.
+
+In the inspector, select an event, open **Graph**, then enable **Profile**. Click a state or
+transition to inspect completed queue/processing/command samples. Weather stores immutable
+measurements before each event, per executor instance; old history never follows live metrics.
+Imported display recordings currently omit profiling. Continuing from history starts a new
+measurement window with the recreated executor.

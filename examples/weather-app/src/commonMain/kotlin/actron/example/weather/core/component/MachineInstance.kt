@@ -32,15 +32,8 @@ class MachineInstance<C : Any, A : Action, CMD : Any, E : Event>(
 ) : InstanceKeeper.Instance {
     private val scope = CoroutineScope(context + SupervisorJob())
 
-    // Attach before start/resume so even the first decision appears in history.
-    private val observer = history.observe(machine, checkpoint, describe, update)
-    val store =
-        if (checkpoint.snapshot.isStarted) {
-            // Restore executor work/timers as well as context; do not re-enter completed states.
-            resumeMachineStore(machine, checkpoint, handler, scope, context, clock, listOf(observer))
-        } else {
-            MachineStore(machine, checkpoint.snapshot.context, handler, scope, coroutineContext = context, observers = listOf(observer), clock = clock)
-        }
+    // The session installs production checkpoint tracking or the optional debug instrumentation.
+    val store = history.createStore(machine, checkpoint, handler, scope, context, clock, describe, update)
 
     init {
         store.start()

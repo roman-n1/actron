@@ -3,6 +3,7 @@
 package actron.example.weather
 
 import actron.core.InputAttribution
+import actron.example.weather.core.component.MachineInstance
 import actron.example.weather.core.debug.*
 import actron.example.weather.core.session.*
 import actron.example.weather.feature.cities.presentation.*
@@ -13,10 +14,51 @@ import actron.timetravel.historyFields
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.statekeeper.StateKeeperDispatcher
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlin.test.*
 
 class WeatherHistoryTest {
+    @Test
+    fun debugExecutorCapturesGraphProfilesAndKeepsOldFramesFrozen() =
+        runTest {
+            val history = WeatherHistory()
+            val instance =
+                MachineInstance(
+                    CitySearchMachine.create(),
+                    CitySearchState(),
+                    CommandHandler<SearchCitiesCommand, CitySearchAction> { _, _ -> },
+                    coroutineContext,
+                    history,
+                    checkpoint = history.searchCheckpoint(),
+                    update = history::updateSearch,
+                )
+            try {
+                testScheduler.runCurrent()
+                instance.store.dispatch(CitySearchAction.ChangeQuery("Pa"))
+                testScheduler.runCurrent()
+                // Frames contain completed measurements before the current event.
+                instance.store.dispatch(CitySearchAction.ChangeQuery("Paris"))
+                testScheduler.runCurrent()
+                val selected =
+                    history.timeline.entries.value
+                        .last()
+                val profile = selected.snapshot.profiles.getValue(DefinitionId("city-search"))
+                assertTrue(profile.transitions.values.sumOf { it.hits } > 0)
+                instance.store.dispatch(CitySearchAction.ChangeQuery("Berlin"))
+                testScheduler.runCurrent()
+                assertEquals(profile, selected.snapshot.profiles.getValue(DefinitionId("city-search")))
+                assertTrue(
+                    history.frame.profiles
+                        .getValue(DefinitionId("city-search"))
+                        .transitions.values
+                        .sumOf { it.hits } > profile.transitions.values.sumOf { it.hits },
+                )
+            } finally {
+                instance.onDestroy()
+            }
+        }
+
     @Test
     fun startupLimitBoundsHistoryAndIsAppliedAfterProcessRestore() {
         val configuration = HistoryConfiguration(capacity = 3)

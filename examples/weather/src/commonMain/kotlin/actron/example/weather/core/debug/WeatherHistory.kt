@@ -12,9 +12,13 @@ import actron.statechart.machine.*
 import actron.timetravel.*
 import actron.timetravel.compose.HistoryGraph
 import actron.timetravel.compose.HistoryGraphCoverage
+import actron.timetravel.compose.HistoryGraphProfile
 import actron.timetravel.compose.HistoryPanelState
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.json.JsonElement
+import kotlin.coroutines.CoroutineContext
 
 /** App adapter: owns typed machine checkpoints and Decompose route; UI lives in the library. */
 class WeatherHistory(
@@ -31,6 +35,8 @@ class WeatherHistory(
     private val searchChart = CitySearchMachine.create().chart
     private val weatherChart = CityWeatherMachine.create().chart
 
+    private fun profile(entry: HistoryEntry<WeatherFrame>): HistoryGraphProfile = entry.snapshot.profiles[DefinitionId(entry.machine.stableId)]?.let { HistoryGraphProfile.Recorded(it) } ?: HistoryGraphProfile.Unavailable
+
     fun graph(entry: HistoryEntry<WeatherFrame>): HistoryGraph =
         when (entry.machine.stableId) {
             "city-search" -> {
@@ -43,6 +49,7 @@ class WeatherHistory(
                             ?.hits
                             .orEmpty(),
                     ),
+                    profile(entry),
                 )
             }
 
@@ -62,6 +69,7 @@ class WeatherHistory(
                                     ?.hits
                                     .orEmpty(),
                             ),
+                            profile(entry),
                         )
                     }
                 }
@@ -80,6 +88,27 @@ class WeatherHistory(
         WeatherDebugLayout(this, onContinue, content = content)
     }
 
+    @OptIn(actron.core.ExperimentalActronApi::class)
+    override fun <C : Any, A : Action, CMD : Any, E : Event> createStore(
+        machine: Machine<C, A, CMD, E>,
+        checkpoint: ExecutorCheckpoint<C, CMD>,
+        handler: CommandHandler<CMD, A>,
+        scope: CoroutineScope,
+        context: CoroutineContext,
+        clock: MachineClock,
+        describe: (C) -> JsonElement,
+        update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+    ): MachineStore<C, A, CMD, E> {
+        val profiler = MachineProfiler(machine).apply { beginAt(checkpoint.snapshot) }
+        val profiledHandler = profiler.commands(handler)
+        val observer = observer(machine, checkpoint, { historyFields(describe(it)) }, update, profiler)
+        return if (checkpoint.snapshot.isStarted) {
+            resumeMachineStore(machine, checkpoint, profiledHandler, scope, context, clock, listOf(profiler, observer), builder = { profileWith(profiler) })
+        } else {
+            MachineStore(machine, checkpoint.snapshot.context, profiledHandler, scope, coroutineContext = context, observers = listOf(profiler, observer), clock = clock) { profileWith(profiler) }
+        }
+    }
+
     override fun <C : Any, A : Action, CMD : Any, E : Event> observe(
         machine: Machine<C, A, CMD, E>,
         checkpoint: ExecutorCheckpoint<C, CMD>,
@@ -92,6 +121,7 @@ class WeatherHistory(
         checkpoint: ExecutorCheckpoint<C, CMD>,
         describe: (C) -> List<StateField>,
         update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+        profiler: MachineProfiler<C, A, CMD, E> = MachineProfiler(machine),
     ): DecisionTraceObserver<C, A, CMD, E> {
         val identity =
             timeline.machine(
@@ -135,7 +165,9 @@ class WeatherHistory(
                 val after = previous.carriedPast(step)
                 update(after)
                 val coverage = frame.coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
-                frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage))
+                // Freeze completed measurements before this event. They never follow the live store
+                // when an old frame is selected; imported display recordings omit profiling.
+                frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage), profiles = frame.profiles + (machine.id to profiler.snapshot()))
                 if (frame.canResume()) resumableFrame = frame
 
                 fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)

@@ -13,7 +13,9 @@ import actron.timetravel.carriedPast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonElement
+import kotlin.coroutines.CoroutineContext
 
 sealed interface WeatherRoute {
     data object Search : WeatherRoute
@@ -27,6 +29,7 @@ data class WeatherFrame(
     val search: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(CitySearchMachine.create().initialSnapshot(CitySearchState())),
     val route: WeatherRoute = WeatherRoute.Search,
     val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
+    val profiles: Map<DefinitionId, MachineProfileSnapshot> = emptyMap(),
 ) {
     fun at(time: MachineTime): WeatherFrame =
         copy(
@@ -114,6 +117,25 @@ open class WeatherSession(
     fun back() {
         frame = frame.copy(route = WeatherRoute.Search).at(clock.now())
         if (frame.canResume()) resumableFrame = frame
+    }
+
+    @OptIn(actron.core.ExperimentalActronApi::class)
+    open fun <C : Any, A : Action, CMD : Any, E : Event> createStore(
+        machine: Machine<C, A, CMD, E>,
+        checkpoint: ExecutorCheckpoint<C, CMD>,
+        handler: CommandHandler<CMD, A>,
+        scope: CoroutineScope,
+        context: CoroutineContext,
+        clock: MachineClock,
+        describe: (C) -> JsonElement,
+        update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+    ): MachineStore<C, A, CMD, E> {
+        val observer = observe(machine, checkpoint, describe, update)
+        return if (checkpoint.snapshot.isStarted) {
+            resumeMachineStore(machine, checkpoint, handler, scope, context, clock, listOf(observer))
+        } else {
+            MachineStore(machine, checkpoint.snapshot.context, handler, scope, coroutineContext = context, observers = listOf(observer), clock = clock)
+        }
     }
 
     open fun <C : Any, A : Action, CMD : Any, E : Event> observe(

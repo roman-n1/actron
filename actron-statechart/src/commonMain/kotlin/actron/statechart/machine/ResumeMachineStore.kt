@@ -32,6 +32,9 @@ fun <C : Any, A : Action, CMD : Any, E : Event> resumeMachineStore(
     clock: MachineClock = MachineClock.monotonic(),
     observers: List<DecisionObserver<C, A, CMD, E>> = emptyList(),
     recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
+    admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
+    mailbox: MailboxConfig<E> = MailboxConfig(),
+    builder: actron.statechart.StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit = {},
 ): MachineStore<C, A, CMD, E> {
     require(checkpoint.snapshot.definition == machine.id && checkpoint.snapshot.version == machine.version) { "Checkpoint belongs to a different machine" }
     require(checkpoint.snapshot.isStarted) { "Resume requires a started snapshot" }
@@ -46,10 +49,10 @@ fun <C : Any, A : Action, CMD : Any, E : Event> resumeMachineStore(
         scope,
         resumedClock,
         coroutineContext,
-        AdmissionPolicy.Unbounded,
+        admission,
         observers,
-        MailboxConfig(),
-        {},
+        mailbox,
+        builder,
         StoreOrigin.Resumed(checkpoint),
         recovery,
     )

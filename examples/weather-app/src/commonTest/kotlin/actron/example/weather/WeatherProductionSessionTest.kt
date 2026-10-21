@@ -26,6 +26,7 @@ class WeatherProductionSessionTest {
         repeat(1000) { decide(MachineInput.Dispatch(CitySearchAction.ChangeQuery("City $it"), MachineTime.Zero)) }
         assertEquals("City 999", session.frame.search.snapshot.context.query)
         assertTrue(session.frame.coverage.isEmpty())
+        assertTrue(session.frame.profiles.isEmpty())
         val restored = WeatherSavedStateCodec.decode(WeatherSavedStateCodec.encode(session))
         assertEquals(session.frame.search.snapshot, restored.frame.search.snapshot)
     }
