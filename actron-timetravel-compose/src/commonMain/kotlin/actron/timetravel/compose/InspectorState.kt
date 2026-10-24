@@ -40,7 +40,7 @@ enum class InspectorMode {
 /**
  * The state of an [InspectorScreen]: the [inspector] it shows, the selected position, the Store
  * the timeline is narrowed to, and the mode. Plain Compose state; [refresh] replaces the
- * inspector when the journal grew, keeping the selection where it still exists.
+ * inspector when the journal grew, following the same journal event while it is retained.
  */
 @ExperimentalActronApi
 @Stable
@@ -67,11 +67,10 @@ class InspectorState(
     val visibleTimeline: List<IndexedValue<TimelineItem>>
         get() = inspector.timeline.withIndex().filter { (_, item) -> filter.includes(item.subject) }
 
-    /** Shows [inspector] from now on; the selection stays if it is still a position. */
+    /** Follows the selected event in the same run; eviction or an unidentifiable event clears it. */
     fun refresh(inspector: Inspector) {
+        selection = retainInspectorSelection(this.inspector, inspector, selection)
         this.inspector = inspector
-        val current = selection
-        if (current is InspectorSelection.Position && current.index >= inspector.timeline.size) clearSelection()
     }
 
     /** Selects the position [index] of the whole timeline, or nothing. */

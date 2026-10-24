@@ -1,7 +1,6 @@
 package actron.timetravel.compose
 
 import actron.core.ExperimentalActronApi
-import actron.observability.StoreInstanceId
 import actron.timetravel.RecordedStep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +38,6 @@ fun GroupReplayBar(
     replay: GroupReplayControls,
     modifier: Modifier = Modifier,
 ) {
-    var seeking by remember(replay) { mutableStateOf<SeekGesture>(SeekGesture.Idle) }
     Column(modifier = modifier.fillMaxWidth().padding(8.dp).testTag("group-replay-bar")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = replay::stepBackward, enabled = replay.canStepBackward, modifier = Modifier.testTag("group-replay-back")) { Text("◀ back") }
@@ -47,27 +45,10 @@ fun GroupReplayBar(
             OutlinedButton(onClick = replay::verify, modifier = Modifier.testTag("group-replay-verify")) { Text("verify group") }
             Text("${replay.position} / ${replay.length} of group", modifier = Modifier.padding(top = 12.dp).testTag("group-replay-position"))
         }
-        Slider(
-            value = if (seeking is SeekGesture.Dragging) (seeking as SeekGesture.Dragging).value else replay.position.toFloat(),
-            onValueChange = { seeking = SeekGesture.Dragging(it) },
-            onValueChangeFinished = {
-                val current = seeking
-                if (current is SeekGesture.Dragging) replay.seek(current.value.toInt())
-                seeking = SeekGesture.Idle
-            },
-            valueRange = 0f..replay.length.toFloat().coerceAtLeast(1f),
-            steps = (replay.length - 1).coerceAtLeast(0),
-            enabled = replay.length > 0,
-            modifier = Modifier.testTag("group-replay-seek"),
-        )
+        GroupReplaySeek(replay)
         val availability = replay.forwardAvailability
         if (availability is actron.timetravel.inspect.Availability.Unavailable) for (reason in availability.reasons) Text(reason, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("group-replay-why"))
-        val verification = replay.verification
-        if (verification is GroupVerification.Checked) {
-            val problems = verification.problems
-            val verdict = if (problems.isEmpty()) "no divergence in ${replay.length} group steps" else problems.joinToString("\n") { it.explain() }
-            Text(verdict, modifier = Modifier.testTag("group-replay-verdict"))
-        }
+        GroupReplayVerdict(replay)
     }
 }
 
@@ -95,7 +76,7 @@ fun GroupTimelinePanel(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(if (replay.hasSelection && replay.selectedPosition().index == item.index) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                            .background(if (groupReplayRowSelected(replay, item.index)) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                             .clickable { replay.seek(item.index + 1) }
                             .padding(vertical = 4.dp)
                             .testTag("group-step-${item.index}"),
@@ -115,9 +96,7 @@ fun GroupPositionPanel(
     Column(modifier = modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
         Column(modifier = Modifier.semantics(mergeDescendants = true) {}.testTag("group-position")) {
             Text("Group state at ${replay.position}", style = MaterialTheme.typography.titleSmall)
-            if (!replay.hasSelection) {
-                Text("before the first input")
-            } else {
+            if (replay.hasSelection) {
                 val item = replay.selectedPosition()
                 Text("#${item.index} ${item.store.value}: ${item.recorded.input}")
                 Text("recorded before: ${item.before.context}", fontFamily = FontFamily.Monospace)
@@ -137,6 +116,8 @@ fun GroupPositionPanel(
                         Text("failed: ${step.failure}")
                     }
                 }
+            } else {
+                Text("before the first input")
             }
         }
         for (store in replay.members) {
@@ -168,4 +149,34 @@ internal sealed interface SeekGesture {
     data class Dragging(
         val value: Float,
     ) : SeekGesture
+}
+
+@ExperimentalActronApi
+@Composable
+private fun GroupReplaySeek(replay: GroupReplayControls) {
+    var seeking by remember(replay) { mutableStateOf<SeekGesture>(SeekGesture.Idle) }
+    Slider(
+        value = if (seeking is SeekGesture.Dragging) (seeking as SeekGesture.Dragging).value else replay.position.toFloat(),
+        onValueChange = { seeking = SeekGesture.Dragging(it) },
+        onValueChangeFinished = {
+            val current = seeking
+            if (current is SeekGesture.Dragging) replay.seek(current.value.toInt())
+            seeking = SeekGesture.Idle
+        },
+        valueRange = 0f..replay.length.toFloat().coerceAtLeast(1f),
+        steps = (replay.length - 1).coerceAtLeast(0),
+        enabled = replay.length > 0,
+        modifier = Modifier.testTag("group-replay-seek"),
+    )
+}
+
+@ExperimentalActronApi
+@Composable
+private fun GroupReplayVerdict(replay: GroupReplayControls) {
+    val verification = replay.verification
+    if (verification is GroupVerification.Checked) {
+        val problems = verification.problems
+        val verdict = if (problems.isEmpty()) "no divergence in ${replay.length} group steps" else problems.joinToString("\n") { it.explain() }
+        Text(verdict, modifier = Modifier.testTag("group-replay-verdict"))
+    }
 }

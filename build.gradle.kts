@@ -111,3 +111,9 @@ subprojects {
 apply(from = "gradle/ktlint.gradle.kts")
 
 apply(from = "gradle/detekt.gradle.kts")
+
+// Uses the existing Kotlin PSI verification runtime; all Compose modules share this policy.
+tasks.register("checkComposeNoBooleanLogic") {
+    group = "verification"
+    dependsOn(":nullability-guard:checkComposeNoBooleanLogic")
+}
