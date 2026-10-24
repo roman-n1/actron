@@ -7,14 +7,9 @@
     <ID>CognitiveComplexMethod:ExternalSourceCutStormTest.kt:ExternalSourceCutStormTest$@Test fun everyCut_hasTheSourceWhereTheMemberHadIt_andReplaysFromThere</ID>
     <ID>CognitiveComplexMethod:GroupBranch.kt:GroupBranch$private fun route: List&lt;Decision&lt;*, *, *&gt;&gt;</ID>
     <ID>CognitiveComplexMethod:GroupCheckpointStormTest.kt:GroupCheckpointStormTest$@Test fun everyCutOfAStorm_isConsistent_andTheGroupKeepsRunning</ID>
-    <ID>CognitiveComplexMethod:GroupRecordingFiles.kt:GroupRecordingFileFormat$fun decodeSegment: DecodedGroupSegment</ID>
-    <ID>CognitiveComplexMethod:GroupRecordingFiles.kt:GroupRecordingFiles$fun read: GroupRecordingFileContents</ID>
-    <ID>CognitiveComplexMethod:GroupReplaySession.kt:GroupReplaySession$private fun verifyBridge: List&lt;GroupMismatch&gt;</ID>
     <ID>CognitiveComplexMethod:GroupRequestReplyStormTest.kt:GroupRequestReplyStormTest$@Test fun everyReplyOfAStorm_followsItsRequest_inTheJournalAndInEveryCutsReplay</ID>
     <ID>CognitiveComplexMethod:HistoryDefinition.kt:fun StateChartDefinition.historyDefinition: HistoryDefinition</ID>
     <ID>CognitiveComplexMethod:HistoryTimeline.kt:fun historyFields: List&lt;StateField&gt;</ID>
-    <ID>CognitiveComplexMethod:Inspector.kt:Inspector$private fun enrich: Enrichment</ID>
-    <ID>CognitiveComplexMethod:Inspector.kt:Inspector$private fun groupReasons: List&lt;Incompleteness&gt;</ID>
     <ID>CognitiveComplexMethod:InspectorText.kt:InspectorText$fun detail: List&lt;String&gt;</ID>
     <ID>CognitiveComplexMethod:InspectorText.kt:InspectorText$fun line: String</ID>
     <ID>CognitiveComplexMethod:InspectorText.kt:InspectorText$private fun diff: String</ID>
@@ -24,38 +19,25 @@
     <ID>CognitiveComplexMethod:RecordingFileFailureTest.kt:RecordingFileFailureTest$@Test fun failuresWhileOpeningWritingFlushingOrClosingReleaseEveryOutput</ID>
     <ID>CognitiveComplexMethod:RecordingFileFailureTest.kt:RecordingFileFailureTest$@Test fun partialWriteFailureLeavesOnlyTheValidPrefixReadable</ID>
     <ID>CognitiveComplexMethod:RecordingFiles.kt:RecordingFiles$fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; read: RecordingFileContents&lt;C, A, CMD, E&gt;</ID>
-    <ID>CognitiveComplexMethod:ReplaySession.kt:ReplaySession$private fun compare: List&lt;String&gt;</ID>
-    <ID>CognitiveComplexMethod:ReplaySession.kt:ReplaySession$private fun differences: List&lt;String&gt;</ID>
-    <ID>ComplexCondition:GroupRecordingFiles.kt:GroupRecordingFileSink$item.beginSegment || segmentWriter is SegmentWriter.Detached || (segmentEntries &gt; 0 &amp;&amp; segmentBytes + frame.size &gt; config.maxSegmentBytes)</ID>
     <ID>ComplexCondition:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess.GateStorage.&lt;no name provided&gt;$name.endsWith(extension) &amp;&amp; cut == "buffered" &amp;&amp; frame &amp;&amp; frames == 1</ID>
     <ID>ComplexCondition:RecordingFileSink.kt:RecordingFileSink$item.beginSegment || (segmentSteps &gt; 0 &amp;&amp; segmentBytes + frame.size &gt; config.maxSegmentBytes) || segmentWriter is SegmentWriter.Detached</ID>
-    <ID>CyclomaticComplexMethod:GroupRecordingFiles.kt:GroupRecordingFiles$fun read: GroupRecordingFileContents</ID>
-    <ID>CyclomaticComplexMethod:GroupReplaySession.kt:GroupReplaySession$private fun verifyBridge: List&lt;GroupMismatch&gt;</ID>
     <ID>CyclomaticComplexMethod:HistoryDefinition.kt:fun StateChartDefinition.historyDefinition: HistoryDefinition</ID>
-    <ID>CyclomaticComplexMethod:Inspector.kt:Inspector$private fun enrich: Enrichment</ID>
-    <ID>CyclomaticComplexMethod:Inspector.kt:Inspector.Builder$private fun record</ID>
     <ID>CyclomaticComplexMethod:InspectorText.kt:InspectorText$fun detail: List&lt;String&gt;</ID>
     <ID>CyclomaticComplexMethod:InspectorText.kt:InspectorText$fun line: String</ID>
     <ID>CyclomaticComplexMethod:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess$private suspend fun full</ID>
-    <ID>CyclomaticComplexMethod:ReplaySession.kt:ReplaySession$private fun compare: List&lt;String&gt;</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess$val (phase, kind, cut, path, controlPath) = args.toList()</ID>
     <ID>DoubleNegativeLambda:RecordingFiles.kt:RecordingFileContents$none { it !is RecordingFileMark.Damaged || it.mark !is SegmentMark.Unfinished }</ID>
     <ID>EmptyWhileBlock:HistoryTimeline.kt:HistoryTimeline${ }</ID>
     <ID>ExplicitItLambdaParameter:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess${ it: Throwable -&gt; it is IOException &amp;&amp; it.message.orEmpty().contains("No space left on device") }</ID>
-    <ID>LongMethod:GroupRecordingFiles.kt:GroupRecordingFiles$fun read: GroupRecordingFileContents</ID>
     <ID>LongMethod:HistoryDefinition.kt:fun StateChartDefinition.historyDefinition: HistoryDefinition</ID>
-    <ID>LongMethod:Inspector.kt:Inspector.Builder$private fun record</ID>
     <ID>LongMethod:InspectorText.kt:InspectorText$fun line: String</ID>
     <ID>TooGenericExceptionCaught:GroupRecordingFiles.kt:GroupRecordingFileSink$e: Exception</ID>
     <ID>TooGenericExceptionCaught:GroupRecordingFiles.kt:GroupRecordingFileSink$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:HistoryRecording.kt:HistoryRecordingCodec$error: Exception</ID>
     <ID>TooGenericExceptionCaught:RecordingFileSink.kt:RecordingFileSink$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RecordingFileSink.kt:RecordingFileSink$t: Throwable</ID>
-    <ID>TooManyFunctions:GroupRecordingFiles.kt:GroupRecordingFileSink</ID>
-    <ID>TooManyFunctions:GroupReplaySession.kt:GroupReplaySession</ID>
     <ID>TooManyFunctions:InspectorText.kt:InspectorText</ID>
     <ID>TooManyFunctions:RecordingFileSink.kt:RecordingFileSink&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : DecisionObserver</ID>
-    <ID>UnusedParameter:ReplaySession.kt:ReplaySession$index: Int</ID>
     <ID>WildcardImport:BoundedMachineRecorder.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:BoundedMachineRecorderTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:BoundedMachineRecorderTest.kt:import kotlin.test.*</ID>

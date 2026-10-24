@@ -55,7 +55,7 @@ replace old nullable arguments and return values:
 | `MachineRecorder.problem` / `RecordingFileSink.problem` | `origin.withProblem`; `RecordingOrigin.InitialSnapshot` or `UnknownBeginning(reason)` |
 | `ReplaySession.next` | `withNext(accept): Boolean` |
 | `ReplaySession.stepForward(): ReplayStep?` | `Matched`, `Diverged` or `Finished(position)` |
-| `ReplaySession.verify(): ReplayMismatch?` | `verify { mismatch -> ... }: Boolean`; `true` means a mismatch was reported |
+| `ReplaySession.verify(): ReplayMismatch?` | `verification(): ReplayVerification` (`Passed` / `Diverged`); compatible `verify { mismatch -> ... }: Boolean` remains |
 | `ReplaySession.explainNext(): ExplainedDecision?` | `explainNext(accept): Boolean` |
 | Nullable recording on `Branch` | Omit it for caller-supplied answers, or use the recording overload |
 | `reuseRecordedAnswers(): List<Decision>?` | A real decision batch; empty means no recorded answer was applied |
