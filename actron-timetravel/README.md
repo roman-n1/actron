@@ -4,6 +4,28 @@ Use this module to **reproduce a recorded Machine decision**, find the first dif
 try another input from its historical checkpoint. A replay is an offline computation, not a
 live Store rewound in place. Ordinary Store logging alone cannot supply a replay recording.
 
+## Initialization and build variants
+
+There is no global initialization or automatic recorder. Attach observers explicitly before
+starting a machine, only in the build that needs debugging. Configure bounded histories once:
+
+```kotlin
+val configuration = HistoryConfiguration(capacity = 1000) // default: 500, must be > 0
+val timeline = HistoryTimeline<AppFrame>(configuration)
+val recorder = BoundedMachineRecorder(machine, checkpoint, configuration)
+```
+
+Capacity counts entries, not bytes. A timeline and recorder remain separate owners; when
+combining machines, trim each recorder as its global timeline entries are evicted (the Weather
+adapter demonstrates this). Captures, pinned entries and external references can outlive a ring.
+
+On Android put the inspector and recorder integration in `src/debug` and use
+`debugImplementation` for the time-travel artifacts. Release should not refer to these types
+or construct an observer. A visibility flag alone does not stop recording or remove code.
+For production checkpoint persistence use [actron-persistence](../actron-persistence/README.md),
+which is re-exported here for existing callers. See [Weather initialization](../examples/weather/README.md#debug-and-release-initialization)
+for a complete implementation and a resolved release dependency check.
+
 New here? Run the [disk-to-inspector example](../examples/time-travel/README.md) before
 integrating the APIs below. It closes its live Stores, loads real files, compares reducers,
 and experiments without re-running the command handler. See [installation](../README.md#installation)

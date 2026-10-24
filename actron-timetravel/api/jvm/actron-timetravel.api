@@ -1,8 +1,10 @@
 public final class actron/timetravel/BoundedMachineRecorder : actron/statechart/machine/DecisionObserver {
 	public fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;I)V
 	public synthetic fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/HistoryConfiguration;)V
 	public fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;I)V
 	public synthetic fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;Lactron/timetravel/HistoryConfiguration;)V
 	public final fun capture ()Lactron/timetravel/RecordingWindow;
 	public final fun clear ()V
 	public final fun discardBefore (J)V
@@ -35,102 +37,6 @@ public final class actron/timetravel/Branch {
 	public final fun getQueued ()Ljava/util/Map;
 	public final fun getSnapshot ()Lactron/statechart/machine/MachineSnapshot;
 	public final fun reuseRecordedAnswers-hs9yZvY (J)Ljava/util/List;
-}
-
-public final class actron/timetravel/CheckpointGroup {
-	public final fun restore (Ljava/lang/String;)Ljava/lang/Object;
-	public final fun save (Ljava/lang/Object;)Ljava/lang/String;
-}
-
-public final class actron/timetravel/CheckpointGroupBuilder {
-	public final fun invocation (Lactron/timetravel/InvocationPersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
-	public final fun machine (Lactron/timetravel/MachinePersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
-	public final fun machines (Lactron/timetravel/MachinePersistence;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
-}
-
-public final class actron/timetravel/CheckpointGroupKt {
-	public static final fun checkpointGroup (Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lactron/timetravel/CheckpointGroup;
-}
-
-public abstract interface class actron/timetravel/Compatibility {
-}
-
-public final class actron/timetravel/Compatibility$InspectableOnly : actron/timetravel/Compatibility {
-	public fun <init> (Ljava/lang/String;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lactron/timetravel/Compatibility$InspectableOnly;
-	public static synthetic fun copy$default (Lactron/timetravel/Compatibility$InspectableOnly;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/Compatibility$InspectableOnly;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getReason ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/Compatibility$Replayable : actron/timetravel/Compatibility {
-	public static final field INSTANCE Lactron/timetravel/Compatibility$Replayable;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/Compatibility$Unsupported : actron/timetravel/Compatibility {
-	public fun <init> (Ljava/lang/String;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lactron/timetravel/Compatibility$Unsupported;
-	public static synthetic fun copy$default (Lactron/timetravel/Compatibility$Unsupported;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/Compatibility$Unsupported;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getReason ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public abstract interface class actron/timetravel/DecodedRecording {
-}
-
-public final class actron/timetravel/DecodedRecording$Decoded : actron/timetravel/DecodedRecording {
-	public fun <init> (Lactron/timetravel/Recording;)V
-	public final fun component1 ()Lactron/timetravel/Recording;
-	public final fun copy (Lactron/timetravel/Recording;)Lactron/timetravel/DecodedRecording$Decoded;
-	public static synthetic fun copy$default (Lactron/timetravel/DecodedRecording$Decoded;Lactron/timetravel/Recording;ILjava/lang/Object;)Lactron/timetravel/DecodedRecording$Decoded;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getRecording ()Lactron/timetravel/Recording;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/DecodedRecording$Invalid : actron/timetravel/DecodedRecording {
-	public fun <init> (Ljava/lang/String;Lactron/timetravel/RecordingLocation;)V
-	public synthetic fun <init> (Ljava/lang/String;Lactron/timetravel/RecordingLocation;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lactron/timetravel/RecordingLocation;
-	public final fun copy (Ljava/lang/String;Lactron/timetravel/RecordingLocation;)Lactron/timetravel/DecodedRecording$Invalid;
-	public static synthetic fun copy$default (Lactron/timetravel/DecodedRecording$Invalid;Ljava/lang/String;Lactron/timetravel/RecordingLocation;ILjava/lang/Object;)Lactron/timetravel/DecodedRecording$Invalid;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getLocation ()Lactron/timetravel/RecordingLocation;
-	public final fun getReason ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/DecodedRecording$Unsupported : actron/timetravel/DecodedRecording {
-	public fun <init> (ILjava/lang/String;)V
-	public final fun component1 ()I
-	public final fun component2 ()Ljava/lang/String;
-	public final fun copy (ILjava/lang/String;)Lactron/timetravel/DecodedRecording$Unsupported;
-	public static synthetic fun copy$default (Lactron/timetravel/DecodedRecording$Unsupported;ILjava/lang/String;ILjava/lang/Object;)Lactron/timetravel/DecodedRecording$Unsupported;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getFormatVersion ()I
-	public final fun getReason ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/FormatMigration {
-	public fun <init> (IILkotlin/jvm/functions/Function1;)V
-	public final fun getFrom ()I
-	public final fun getMigrate ()Lkotlin/jvm/functions/Function1;
-	public final fun getTo ()I
 }
 
 public final class actron/timetravel/GroupBranch {
@@ -374,6 +280,19 @@ public final class actron/timetravel/GroupStep {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getStep ()I
 	public final fun getStore-9ScXe1c ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/HistoryConfiguration {
+	public fun <init> ()V
+	public fun <init> (I)V
+	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun copy (I)Lactron/timetravel/HistoryConfiguration;
+	public static synthetic fun copy$default (Lactron/timetravel/HistoryConfiguration;IILjava/lang/Object;)Lactron/timetravel/HistoryConfiguration;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCapacity ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -637,6 +556,7 @@ public final class actron/timetravel/HistoryTimeline {
 	public fun <init> ()V
 	public fun <init> (I)V
 	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lactron/timetravel/HistoryConfiguration;)V
 	public final fun append (Lactron/timetravel/HistoryMachine;JLactron/timetravel/HistoryDetails;Ljava/lang/Object;Lkotlin/time/Instant;Lkotlin/jvm/functions/Function0;)V
 	public static synthetic fun append$default (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/HistoryMachine;JLactron/timetravel/HistoryDetails;Ljava/lang/Object;Lkotlin/time/Instant;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)V
 	public final fun clear ()V
@@ -656,24 +576,6 @@ public final class actron/timetravel/HistoryTimelineKt {
 	public static final fun historyFields (Lkotlinx/serialization/json/JsonElement;)Ljava/util/List;
 }
 
-public final class actron/timetravel/InvocationPersistence {
-	public fun <init> (Lactron/statechart/machine/InvokedMachine;Lactron/timetravel/RecordingCodec;Lactron/timetravel/RecordingCodec;)V
-	public final fun restore (Ljava/lang/String;)Lactron/statechart/machine/InvocationCheckpoint;
-	public final fun resume (Ljava/lang/String;Lactron/statechart/machine/CommandHandler;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Lactron/statechart/machine/CommandRecoveryStrategy;Lactron/statechart/machine/CommandRecoveryStrategy;Lactron/statechart/machine/MailboxConfig;Lkotlin/jvm/functions/Function1;)Lactron/statechart/machine/InvokedMachineStore;
-	public static synthetic fun resume$default (Lactron/timetravel/InvocationPersistence;Ljava/lang/String;Lactron/statechart/machine/CommandHandler;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Lactron/statechart/machine/CommandRecoveryStrategy;Lactron/statechart/machine/CommandRecoveryStrategy;Lactron/statechart/machine/MailboxConfig;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/statechart/machine/InvokedMachineStore;
-	public final fun save (Lactron/statechart/machine/InvocationCheckpoint;)Ljava/lang/String;
-	public final fun save (Lactron/statechart/machine/InvokedMachineStore;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-}
-
-public final class actron/timetravel/MachinePersistence {
-	public fun <init> (Lactron/statechart/machine/Machine;Lactron/timetravel/RecordingCodec;)V
-	public final fun restore (Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
-	public final fun resume (Ljava/lang/String;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;Lactron/statechart/machine/CommandRecoveryStrategy;)Lactron/statechart/machine/MachineStore;
-	public static synthetic fun resume$default (Lactron/timetravel/MachinePersistence;Ljava/lang/String;Lactron/statechart/machine/CommandHandler;Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Ljava/util/List;Lactron/statechart/machine/CommandRecoveryStrategy;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
-	public final fun save (Lactron/statechart/machine/ExecutorCheckpoint;)Ljava/lang/String;
-	public final fun save (Lactron/statechart/machine/MachineStore;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-}
-
 public final class actron/timetravel/MachineRecorder : actron/statechart/machine/DecisionObserver {
 	public fun <init> (Lactron/statechart/machine/Machine;Ljava/lang/Object;)V
 	public final fun getOrigin ()Lactron/timetravel/RecordingOrigin;
@@ -688,108 +590,6 @@ public final class actron/timetravel/MachineRecorder : actron/statechart/machine
 public final class actron/timetravel/RecordInputsKt {
 	public static final fun recordInputs (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Ljava/util/List;)Lactron/timetravel/Recording;
 	public static final fun recordInputs (Lactron/statechart/machine/Machine;Lactron/statechart/machine/MachineSnapshot;Ljava/util/List;)Lactron/timetravel/Recording;
-}
-
-public abstract interface class actron/timetravel/RecordedStep {
-	public abstract fun getInput ()Lactron/statechart/machine/MachineInput;
-}
-
-public final class actron/timetravel/RecordedStep$Committed : actron/timetravel/RecordedStep {
-	public fun <init> (Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/Decision;)V
-	public final fun component1 ()Lactron/statechart/machine/MachineInput;
-	public final fun component2 ()Lactron/statechart/machine/Decision;
-	public final fun copy (Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/Decision;)Lactron/timetravel/RecordedStep$Committed;
-	public static synthetic fun copy$default (Lactron/timetravel/RecordedStep$Committed;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/Decision;ILjava/lang/Object;)Lactron/timetravel/RecordedStep$Committed;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getDecision ()Lactron/statechart/machine/Decision;
-	public fun getInput ()Lactron/statechart/machine/MachineInput;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/RecordedStep$Failed : actron/timetravel/RecordedStep {
-	public fun <init> (Lactron/statechart/machine/MachineInput;Lactron/observability/FailureDescriptor;)V
-	public final fun component1 ()Lactron/statechart/machine/MachineInput;
-	public final fun component2 ()Lactron/observability/FailureDescriptor;
-	public final fun copy (Lactron/statechart/machine/MachineInput;Lactron/observability/FailureDescriptor;)Lactron/timetravel/RecordedStep$Failed;
-	public static synthetic fun copy$default (Lactron/timetravel/RecordedStep$Failed;Lactron/statechart/machine/MachineInput;Lactron/observability/FailureDescriptor;ILjava/lang/Object;)Lactron/timetravel/RecordedStep$Failed;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getFailure ()Lactron/observability/FailureDescriptor;
-	public fun getInput ()Lactron/statechart/machine/MachineInput;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/RecordedStep$Ignored : actron/timetravel/RecordedStep {
-	public fun <init> (Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/IgnoreReason;)V
-	public final fun component1 ()Lactron/statechart/machine/MachineInput;
-	public final fun component2 ()Lactron/statechart/machine/IgnoreReason;
-	public final fun copy (Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/IgnoreReason;)Lactron/timetravel/RecordedStep$Ignored;
-	public static synthetic fun copy$default (Lactron/timetravel/RecordedStep$Ignored;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/IgnoreReason;ILjava/lang/Object;)Lactron/timetravel/RecordedStep$Ignored;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun getInput ()Lactron/statechart/machine/MachineInput;
-	public final fun getReason ()Lactron/statechart/machine/IgnoreReason;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/Recording {
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lactron/statechart/machine/ExecutorCheckpoint;Ljava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lactron/statechart/machine/MachineSnapshot;Ljava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun checkpointAt (I)Lactron/statechart/machine/ExecutorCheckpoint;
-	public final fun compatibilityWith (Lactron/statechart/machine/Machine;)Lactron/timetravel/Compatibility;
-	public final fun getDefinition-xjbjqhw ()Ljava/lang/String;
-	public final fun getInitial ()Lactron/statechart/machine/MachineSnapshot;
-	public final fun getLength ()I
-	public final fun getStart ()Lactron/statechart/machine/ExecutorCheckpoint;
-	public final fun getSteps ()Ljava/util/List;
-	public final fun getVersion-o3eglpc ()Ljava/lang/String;
-	public final fun since (Lactron/statechart/machine/ExecutorCheckpoint;)Lactron/timetravel/Recording;
-	public final fun snapshotAt (I)Lactron/statechart/machine/MachineSnapshot;
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/timetravel/RecordingCodec {
-	public fun <init> (Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Ljava/util/List;)V
-	public synthetic fun <init> (Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun decode (Ljava/lang/String;)Lactron/timetravel/DecodedRecording;
-	public final fun decodeCheckpoint-iuOhK6o (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
-	public final fun decodeStep-iuOhK6o (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lactron/timetravel/RecordedStep;
-	public final fun encode (Lactron/timetravel/Recording;)Ljava/lang/String;
-	public final fun encodeCheckpoint (Lactron/statechart/machine/ExecutorCheckpoint;)Ljava/lang/String;
-	public final fun encodeStep (Lactron/timetravel/RecordedStep;)Ljava/lang/String;
-}
-
-public final class actron/timetravel/RecordingCodecKt {
-	public static final field RECORDING_FORMAT_VERSION I
-}
-
-public final class actron/timetravel/RecordingKt {
-	public static final fun carriedPast (Lactron/statechart/machine/ExecutorCheckpoint;Lactron/timetravel/RecordedStep;)Lactron/statechart/machine/ExecutorCheckpoint;
-}
-
-public abstract interface class actron/timetravel/RecordingLocation {
-	public abstract fun withPart (Lkotlin/jvm/functions/Function1;)V
-}
-
-public final class actron/timetravel/RecordingLocation$Document : actron/timetravel/RecordingLocation {
-	public static final field INSTANCE Lactron/timetravel/RecordingLocation$Document;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-	public fun withPart (Lkotlin/jvm/functions/Function1;)V
-}
-
-public final class actron/timetravel/RecordingLocation$Part : actron/timetravel/RecordingLocation {
-	public fun <init> (Ljava/lang/String;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lactron/timetravel/RecordingLocation$Part;
-	public static synthetic fun copy$default (Lactron/timetravel/RecordingLocation$Part;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/RecordingLocation$Part;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getPath ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-	public fun withPart (Lkotlin/jvm/functions/Function1;)V
 }
 
 public abstract interface class actron/timetravel/RecordingOrigin {

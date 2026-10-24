@@ -24,11 +24,19 @@ import actron.statechart.compose.MailboxEffect
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineGroup
 import actron.statechart.machine.MachineStore
+import actron.timetravel.MachinePersistence
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.CoroutineScope
+
+// Compile the persistence boundary from the production Maven graph, without recorder artifacts.
+fun <C : Any, A : Action, CMD : Any, E : Event> restorePublishedCheckpoint(
+    persistence: MachinePersistence<C, A, CMD, E>,
+    checkpoint: ExecutorCheckpoint<C, CMD>,
+): ExecutorCheckpoint<C, CMD> = persistence.restore(persistence.save(checkpoint))
 
 // [*] --> Counting; Counting --> Counting: Increment / count++
 data class Counter(

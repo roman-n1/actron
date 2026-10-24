@@ -119,5 +119,5 @@ For subscriptions with multiple results, retain `CommandHandler { envelope, resu
 It also cannot write store state. Timers, lane policies, checkpoint identities and history
 work identically with both handler APIs.
 
-See the [actual search machine](../../examples/weather/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt)
-and [parallel weather machine](../../examples/weather/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt).
+See the [actual search machine](../../examples/weather-app/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt)
+and [parallel weather machine](../../examples/weather-app/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt).

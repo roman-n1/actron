@@ -1,0 +1,13 @@
+package actron.timetravel.compose
+
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.*
+
+/** Let the editor handle native text shortcuts, then stop unused Alt+arrows reaching history.
+ * Linux/Windows editors do not consume all the Option+arrow combinations used on macOS.
+ */
+internal fun Modifier.historyTextInput(): Modifier =
+    onKeyEvent { event ->
+        event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed &&
+            (event.key == Key.DirectionLeft || event.key == Key.DirectionRight || event.key == Key.DirectionUp || event.key == Key.DirectionDown)
+    }

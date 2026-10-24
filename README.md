@@ -259,10 +259,12 @@ Every library module has its own README with setup, examples and its contract.
 | [actron-diagnostics-sdk](actron-diagnostics-sdk/README.md) | Optional OpenTelemetry and Sentry adapters for JVM/Android |
 | [actron-diagnostics-crashlytics](actron-diagnostics-crashlytics/README.md) | Optional Android Crashlytics adapter |
 | [actron-observability](actron-observability/README.md) | Ordered, bounded diagnostic journal and file storage |
-| [actron-timetravel](actron-timetravel/README.md) | Recording, codecs, checkpoints, replay and isolated branches |
+| [actron-persistence](actron-persistence/README.md) | Current-checkpoint codecs and restoration without debugger dependencies |
+| [actron-timetravel](actron-timetravel/README.md) | Debug recording, replay and isolated branches |
 | [actron-timetravel-compose](actron-timetravel-compose/README.md) | Inspector UI and group replay/experiment controls |
 | [time-travel-example](examples/time-travel/README.md) | Runnable JVM debug application; not a published library |
-| [weather-example](examples/weather/README.md) | Compose Multiplatform MVI weather app with a live API and resizable debug panel; not a published library |
+| [weather-app](examples/weather-app/README.md) | Production weather screens, execution and checkpoint persistence; no debugger |
+| [weather-example](examples/weather/README.md) | Optional weather debugger and Desktop/browser demo launcher; Android debug-only |
 | [durable-effects-example](examples/durable-effects/README.md) | Runnable JVM outbox and idempotent-effect application; not a published library |
 
 ## Installation

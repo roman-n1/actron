@@ -39,7 +39,7 @@ not make synchronous blocking work in a reducer appropriate. See the library's
 
 ## Define a machine once
 
-Start with [CitySearchMachine.kt](../src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt).
+Start with [CitySearchMachine.kt](../../weather-app/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt).
 
 | Declaration | Meaning in Weather |
 | --- | --- |
@@ -87,7 +87,7 @@ injects an old result does not mean Weather intentionally leaves obsolete reques
 
 ### Parallel weather
 
-[CityWeatherMachine.kt](../src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt)
+[CityWeatherMachine.kt](../../weather-app/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt)
 uses `parallelStateMachine`. `Current` selects `context.current`; `Hourly` selects `context.hourly`.
 Each region declares its own Idle/Loading/Success/Error/TimedOut states, command and timeout.
 The region writers copy only their own field, preserving the other region.
@@ -98,12 +98,12 @@ time. Parallel regions represent concurrently active behavior, not concurrent wr
 
 ## Components and lifetime
 
-[WeatherRootComponent.kt](../src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt)
+[WeatherRootComponent.kt](../../weather-app/src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt)
 creates the Decompose stack and feature factories. Selection/back events travel through the
 example's `ParentBridge`/`BridgeEndpoint` to the root; they are not Actron actions controlling
 navigation. `BaseComponent.Render()` and `StackComponent` render the active child.
 
-[MachineInstance.kt](../src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
+[MachineInstance.kt](../../weather-app/src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
 is the host adapter. It creates a `MachineStore` with its handler, scope, clock and observer, or
 uses `resumeMachineStore` with an existing checkpoint. Essenty's `InstanceKeeper` retains it
 across host recreation. Destruction closes the store and cancels its scope. The search child
@@ -111,6 +111,14 @@ stays on the back stack while weather is open; popping weather destroys that wea
 A restored weather component does not dispatch a fresh `Refresh` over the restored state.
 
 ## Recording, preview and restoration
+
+The shared `weather-app` artifact initializes `WeatherSession`, which tracks current checkpoints
+without recording a timeline, requesting explanations or serializing before/after fields.
+`DefaultWeatherRootComponent` is the production entry point. The optional `weather-example`
+artifact supplies `WeatherHistory` and `DebugWeatherRootComponent`. Android depends on it only
+through `debugImplementation`; release uses `src/release` wiring and excludes the debugger.
+See [startup configuration](../README.md#debug-and-release-initialization).
+
 
 These are different representations with different capabilities:
 
@@ -123,7 +131,8 @@ These are different representations with different capabilities:
 
 [WeatherHistory.kt](../src/commonMain/kotlin/actron/example/weather/core/debug/WeatherHistory.kt)
 attaches `DecisionTraceObserver` before the store starts. `BoundedMachineRecorder` retains the
-machine trace; `HistoryTimeline` combines instances into a session-wide limit of 500 entries.
+machine trace; `HistoryTimeline` combines instances into a session-wide limit (500 by default,
+set by `HistoryConfiguration` at startup).
 The host supplies field projections and a `WeatherFrame`; Actron does not interpret its route.
 
 Selecting a history entry renders its saved data without running commands. Continuing from a
@@ -132,7 +141,7 @@ recreates executors from their checkpoints. Pending read requests restart; compl
 completed; timers retain their remaining delay. This does not restore a suspended call stack or
 guarantee exactly-once external side effects. Later history is removed after successful continuation.
 
-[WeatherSavedState.kt](../src/commonMain/kotlin/actron/example/weather/core/debug/WeatherSavedState.kt)
+[WeatherSavedState.kt](../../weather-app/src/commonMain/kotlin/actron/example/weather/core/session/WeatherSavedState.kt)
 declares `checkpointGroup` with one search checkpoint and zero or one weather checkpoints.
 `machinePersistence` validates/serializes each machine. The host maps those checkpoints into its
 frame and registers the encoded result with Essenty `StateKeeper`; Android supplies the saved

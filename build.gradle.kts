@@ -24,6 +24,7 @@ apiValidation {
     ignoredProjects += "resource-soak" // device verification harness, not a published API
     ignoredProjects += "time-travel-example" // runnable debug application, not a published API
     ignoredProjects += "weather-android" // runnable Android host
+    ignoredProjects += "weather-app" // production weather application
     ignoredProjects += "weather-example" // weather application, not a published API
     ignoredProjects += "durable-effects-example" // application-owned persistence example
     ignoredProjects += "nullability-guard" // internal Kotlin syntax policy checker
@@ -68,7 +69,8 @@ gradle.projectsEvaluated {
 
 // The time-travel modules are debug tooling (handoff §11, §12): no production module may depend
 // on them, so an app that keeps them in a debug source set keeps them out of its release graph.
-// The time-travel and weather examples intentionally demonstrate this tooling on every target.
+// The weather-app artifact stays production-only; weather-android additionally verifies its
+// resolved release graph, while its debug variant may depend on weather-example.
 // `checkDebugGraph` fails on a dependency in the wrong direction; CI runs it next to `apiCheck`.
 val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":actron-timetravel-test", ":time-travel-example", ":weather-example", ":weather-android")
 // Collected once every project is evaluated, at configuration time, so the task's action holds

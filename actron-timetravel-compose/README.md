@@ -11,6 +11,31 @@ replay → experiment → return workflow, `GroupReplayControls` for replay only
 `HistoryPanel(timeline, state, onContinue)` displays a bounded, session-wide
 `HistoryTimeline<S>` across machine instances. It provides a machine filter, chronological
 inputs, expandable action payloads, before/after states and field changes.
+The complete interactive graph and the graphical **state before → action → state after**
+diagram share one event cursor. Previous/next buttons work in either tab; **More** also provides
+first/last visible event and navigation back/forward. Alt+Up/Down moves through visible events;
+Alt+Left/Right returns through inspection locations. Text editing keeps its own keyboard behavior.
+
+Search matches action, source, outcome, machine name/ID and changed field paths/values. Terms
+are combined; `#12` matches event 12 exactly. Search and machine/bookmark filters change only
+the list: the selected snapshot and graph remain pinned. A banner identifies a hidden selection
+or a snapshot outside the retained window. **Show in history** clears filters to reveal a retained
+selection. Search covers only retained entries and the structured fields supplied by the host.
+
+Click the small bookmark icon on an event row to add or remove its bookmark without changing
+selection or preview. A filled icon marks a bookmarked event; **Bookmarks only** filters the list.
+**More** can pin an event's state after the event as comparison **A**. Selecting
+another event supplies **B**. A/B compares fields of the same logical machine; the graphical
+transition above always describes the selected event's original before/action/after. A different
+machine falls back to that event's own changes and displays an explanation. Clear A to return
+to ordinary before/after comparisons. Each field has search, focus, full-value expansion and
+previous/next change navigation. Field navigation searches the same logical machine across the
+retained history, independently of list filters, using recorded before/after changes.
+
+Bookmarks and the last 50 inspection locations retain event IDs and are pruned on eviction.
+One comparison A retains display fields, not an executable snapshot. Navigation restores filters,
+the event/graph tab and field inspection settings; A remains pinned until cleared or replaced.
+These annotations last for this panel state and are not exported with recordings.
 Register each lifetime with `timeline.machine("City Weather", stableId = "city-weather")`.
 Use the same stable ID across recreations of one logical machine and distinct IDs for unrelated
 machines, even when their display names match. The default stable ID is the supplied name.
@@ -27,6 +52,13 @@ without interactive handlers. Switching to Live clears preview. Continue here in
 callback for the selected preview; `canContinue` can reject unsupported checkpoints. The library records only machine events and has no screen or navigation model. The host owns
 navigation, cancellation and safe executor restart. The weather example demonstrates this
 using `resumeMachineStore` and read-only weather requests.
+For a precise explanation use the additive overload with
+`continuation = { snapshot -> HistoryContinuation.Available("Unfinished reads will restart.") }`
+or `HistoryContinuation.Unavailable("A command completion has not been processed.")`.
+The host supplies localized messages based on its actual executor constraints; the panel also
+shows how many later retained events will be removed. The Boolean overload remains supported
+with a generic explanation. `HistoryRecordingPanel` exposes the inspection tools without Live
+or continuation controls.
 
 The timeline is bounded by entry count, not bytes. It stores no files and does not automatically
 capture machines. Keep snapshots immutable and install recording even when the panel is hidden.
@@ -34,7 +66,9 @@ The panel should receive bounded layout constraints (for example a right-hand ap
 
 ## Interactive machine graph
 
-The event list stays visible while the detail area switches between **Event** and **Graph**.
+On wide panels the event list stays visible while the detail area switches between **Event**
+and **Graph**. Below 640 dp, selecting an event collapses the list to give the graph and transition
+more height; **Show event list** reopens it without losing selection.
 Supply typed graph data for each selected entry:
 
 ```kotlin

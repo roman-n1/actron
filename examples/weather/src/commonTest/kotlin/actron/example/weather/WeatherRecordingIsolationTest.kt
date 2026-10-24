@@ -2,8 +2,8 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
 import actron.example.weather.core.debug.*
+import actron.example.weather.core.debug.DebugWeatherRootComponent
 import actron.example.weather.feature.cities.domain.CitySearchRepository
 import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.weather.domain.*
@@ -24,7 +24,7 @@ class WeatherRecordingIsolationTest {
             val lifecycle = LifecycleRegistry()
             val history = WeatherHistory()
             val root =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(lifecycle),
                     WeatherRepository {
                         weatherCalls++
@@ -39,7 +39,7 @@ class WeatherRecordingIsolationTest {
                         awaitCancellation()
                     },
                     coroutineContext,
-                    history,
+                    history = history,
                 )
             lifecycle.resume()
             try {

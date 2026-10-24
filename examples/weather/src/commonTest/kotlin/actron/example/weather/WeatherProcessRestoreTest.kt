@@ -2,8 +2,8 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
 import actron.example.weather.core.debug.*
+import actron.example.weather.core.debug.DebugWeatherRootComponent
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -44,7 +44,7 @@ class WeatherProcessRestoreTest {
             var state = StateKeeperDispatcher()
 
             fun create() =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(lifecycle, instanceKeeper = keeper, stateKeeper = state),
                     current,
                     LocalCitySearchRepository,
@@ -145,7 +145,7 @@ class WeatherProcessRestoreTest {
             val keeper = InstanceKeeperDispatcher()
             val lifecycle = LifecycleRegistry()
             val state = StateKeeperDispatcher()
-            val root = DefaultWeatherRootComponent(DefaultComponentContext(lifecycle, instanceKeeper = keeper, stateKeeper = state), current, LocalCitySearchRepository, forecast, coroutineContext)
+            val root = DebugWeatherRootComponent(DefaultComponentContext(lifecycle, instanceKeeper = keeper, stateKeeper = state), current, LocalCitySearchRepository, forecast, coroutineContext)
             lifecycle.resume()
             testScheduler.runCurrent()
             assertIs<CitySearchComponent>(
@@ -166,7 +166,7 @@ class WeatherProcessRestoreTest {
             testScheduler.runCurrent()
             val newKeeper = InstanceKeeperDispatcher()
             val newLifecycle = LifecycleRegistry()
-            val restored = DefaultWeatherRootComponent(DefaultComponentContext(newLifecycle, instanceKeeper = newKeeper, stateKeeper = StateKeeperDispatcher(Json.decodeFromString(SerializableContainer.serializer(), bytes))), current, LocalCitySearchRepository, forecast, coroutineContext)
+            val restored = DebugWeatherRootComponent(DefaultComponentContext(newLifecycle, instanceKeeper = newKeeper, stateKeeper = StateKeeperDispatcher(Json.decodeFromString(SerializableContainer.serializer(), bytes))), current, LocalCitySearchRepository, forecast, coroutineContext)
             newLifecycle.resume()
             testScheduler.runCurrent()
             assertEquals(

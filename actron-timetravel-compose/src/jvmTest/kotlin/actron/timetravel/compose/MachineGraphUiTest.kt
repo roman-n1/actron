@@ -100,9 +100,16 @@ class MachineGraphUiTest {
                     .single()
                     .text
             assertNotEquals(initial, zoomed)
-            onNodeWithTag("history-entry-2").performClick()
+            onRoot().performKeyInput {
+                keyDown(Key.AltLeft)
+                pressKey(Key.DirectionDown)
+                keyUp(Key.AltLeft)
+            }
             onNodeWithTag("machine-graph").assertContentDescriptionContains("Loading", substring = true)
             onNodeWithTag("graph-scale").assertTextEquals(zoomed)
+            onNodeWithTag("history-previous").performClick()
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Idle", substring = true)
+            onNodeWithTag("history-next").performClick()
             onNodeWithTag("history-event-tab").performClick()
             onNodeWithTag("history-transition").assertExists()
             onNodeWithTag("history-graph-tab").performClick()

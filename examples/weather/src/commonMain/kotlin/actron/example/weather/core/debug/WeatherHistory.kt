@@ -5,6 +5,7 @@ import actron.core.Event
 import actron.core.InputAttribution
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.NoEvent
+import actron.example.weather.core.session.*
 import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.weather.presentation.*
 import actron.statechart.machine.*
@@ -14,39 +15,10 @@ import actron.timetravel.compose.HistoryGraphCoverage
 import actron.timetravel.compose.HistoryGraphProfile
 import actron.timetravel.compose.HistoryPanelState
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-
-sealed interface WeatherRoute {
-    data object Search : WeatherRoute
-
-    data class Weather(
-        val checkpoint: ExecutorCheckpoint<WeatherContext, WeatherCommand>,
-    ) : WeatherRoute
-}
-
-data class WeatherFrame(
-    val search: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(CitySearchMachine.create().initialSnapshot(CitySearchState())),
-    val route: WeatherRoute = WeatherRoute.Search,
-    val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
-    val profiles: Map<DefinitionId, MachineProfileSnapshot> = emptyMap(),
-) {
-    fun at(time: MachineTime): WeatherFrame =
-        copy(
-            search = search.copy(now = maxOf(time, search.now)),
-            route =
-                when (val screen = route) {
-                    WeatherRoute.Search -> WeatherRoute.Search
-                    is WeatherRoute.Weather -> WeatherRoute.Weather(screen.checkpoint.copy(now = maxOf(time, screen.checkpoint.now)))
-                },
-        )
-
-    fun canResume(): Boolean =
-        search.ending.isEmpty() && search.effects.isEmpty() &&
-            when (val screen = route) {
-                WeatherRoute.Search -> true
-                is WeatherRoute.Weather -> screen.checkpoint.ending.isEmpty() && screen.checkpoint.effects.isEmpty()
-            }
-}
+import kotlinx.serialization.json.JsonElement
+import kotlin.coroutines.CoroutineContext
 
 /** App adapter: owns typed machine checkpoints and Decompose route; UI lives in the library. */
 class WeatherHistory(
@@ -54,49 +26,12 @@ class WeatherHistory(
     val exportSettings: HistoryExportSettings = HistoryExportSettings("Weather"),
     initialFrame: WeatherFrame = WeatherFrame(),
     initialBranch: Long = 0,
-    private val clockFactory: () -> MachineClock = { MachineClock.monotonic() },
-) : InstanceKeeper.Instance {
-    var clock: MachineClock = MachineClock.monotonic()
-        private set
+    clockFactory: () -> MachineClock = { MachineClock.monotonic() },
+) : WeatherSession(initialFrame, initialBranch, clockFactory) {
     val timeline = HistoryTimeline<WeatherFrame>(capacity)
     val panel = HistoryPanelState<WeatherFrame>()
     val panelLayout = actron.timetravel.compose.HistoryPanelLayoutState()
     val panelVisible = MutableStateFlow(false)
-    var frame = initialFrame
-        private set
-    var branch = initialBranch
-        private set
-
-    private var resumableFrame = initialFrame
-
-    init {
-        require(initialFrame.canResume())
-        resetClock(initialFrame)
-    }
-
-    /** Pause logical time while the process is absent, preserving remaining timer delays. */
-    fun persistenceFrame(): WeatherFrame = resumableFrame.at(clock.now())
-
-    fun beginBranch(snapshot: WeatherFrame) {
-        require(snapshot.canResume())
-        branch++
-        frame = snapshot
-        resumableFrame = snapshot
-        resetClock(snapshot)
-    }
-
-    private fun resetClock(snapshot: WeatherFrame) {
-        val base = clockFactory()
-        val baseStart = base.now()
-        val origin = snapshot.search.now
-        clock =
-            object : MachineClock {
-                override fun now(): MachineTime = origin + (base.now() - baseStart)
-
-                override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(baseStart + (deadline - origin))
-            }
-    }
-
     private val searchChart = CitySearchMachine.create().chart
     private val weatherChart = CityWeatherMachine.create().chart
 
@@ -145,33 +80,41 @@ class WeatherHistory(
             }
         }
 
-    fun searchCheckpoint() = frame.search
+    @androidx.compose.runtime.Composable
+    override fun Render(
+        onContinue: (WeatherFrame) -> Unit,
+        content: @androidx.compose.runtime.Composable () -> Unit,
+    ) {
+        WeatherDebugLayout(this, onContinue, content = content)
+    }
 
-    fun weatherCheckpoint(city: City): ExecutorCheckpoint<WeatherContext, WeatherCommand> =
-        when (val route = frame.route) {
-            is WeatherRoute.Weather -> if (route.checkpoint.snapshot.context.city == city) route.checkpoint else freshWeather(city)
-            WeatherRoute.Search -> freshWeather(city)
+    @OptIn(actron.core.ExperimentalActronApi::class)
+    override fun <C : Any, A : Action, CMD : Any, E : Event> createStore(
+        machine: Machine<C, A, CMD, E>,
+        checkpoint: ExecutorCheckpoint<C, CMD>,
+        handler: CommandHandler<CMD, A>,
+        scope: CoroutineScope,
+        context: CoroutineContext,
+        clock: MachineClock,
+        describe: (C) -> JsonElement,
+        update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+    ): MachineStore<C, A, CMD, E> {
+        val profiler = MachineProfiler(machine).apply { beginAt(checkpoint.snapshot) }
+        val profiledHandler = profiler.commands(handler)
+        val observer = observer(machine, checkpoint, { historyFields(describe(it)) }, update, profiler)
+        return if (checkpoint.snapshot.isStarted) {
+            resumeMachineStore(machine, checkpoint, profiledHandler, scope, context, clock, listOf(profiler, observer), builder = { profileWith(profiler) })
+        } else {
+            MachineStore(machine, checkpoint.snapshot.context, profiledHandler, scope, coroutineContext = context, observers = listOf(profiler, observer), clock = clock) { profileWith(profiler) }
         }
-
-    private fun freshWeather(city: City): ExecutorCheckpoint<WeatherContext, WeatherCommand> = ExecutorCheckpoint.initial(CityWeatherMachine.create().initialSnapshot(WeatherContext(city)))
-
-    fun updateSearch(checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand>) {
-        frame = frame.copy(search = checkpoint)
     }
 
-    fun updateWeather(checkpoint: ExecutorCheckpoint<WeatherContext, WeatherCommand>) {
-        frame = frame.copy(route = WeatherRoute.Weather(checkpoint))
-    }
-
-    fun openCity(city: City) {
-        frame = frame.copy(route = WeatherRoute.Weather(freshWeather(city))).at(clock.now())
-        if (frame.canResume()) resumableFrame = frame
-    }
-
-    fun back() {
-        frame = frame.copy(route = WeatherRoute.Search).at(clock.now())
-        if (frame.canResume()) resumableFrame = frame
-    }
+    override fun <C : Any, A : Action, CMD : Any, E : Event> observe(
+        machine: Machine<C, A, CMD, E>,
+        checkpoint: ExecutorCheckpoint<C, CMD>,
+        describe: (C) -> kotlinx.serialization.json.JsonElement,
+        update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+    ): DecisionObserver<C, A, CMD, E> = observer(machine, checkpoint, { historyFields(describe(it)) }, update)
 
     fun <C : Any, A : Action, CMD : Any, E : Event> observer(
         machine: Machine<C, A, CMD, E>,

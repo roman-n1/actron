@@ -18,7 +18,7 @@ val suffix = mapOf("jvm" to "jvm", "android" to "android", "js" to "js", "wasm" 
 tasks.register("verifyPublishedGraphs") {
     group = "verification"
     doLast {
-        val productionNames = setOf("actron-core", "actron-compose", "actron-message", "actron-logging", "actron-observability", "actron-statechart", "actron-statechart-compose")
+        val productionNames = setOf("actron-core", "actron-compose", "actron-message", "actron-logging", "actron-observability", "actron-statechart", "actron-statechart-compose", "actron-persistence")
         val allNames = productionNames + setOf("actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-test", "actron-timetravel-compose")
 
         fun modules(projectName: String): Set<String> {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -19,6 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -35,12 +40,14 @@ expect fun formatHistoryTime(instant: Instant): String
 /** Selecting an entry immediately previews its immutable snapshot, including after eviction. */
 @Stable
 class HistoryPanelState<S : Any> {
+    internal val inspection = HistoryInspection()
     var selection: List<HistoryEntry<S>> by mutableStateOf(emptyList())
         private set
     var preview: List<HistoryEntry<S>> by mutableStateOf(emptyList())
         private set
 
     fun select(entry: HistoryEntry<S>) {
+        selection.filter { it.id != entry.id }.forEach { inspection.depart(it.id) }
         selection = listOf(entry)
         preview = selection
     }
@@ -48,6 +55,30 @@ class HistoryPanelState<S : Any> {
     internal fun clearSelection() {
         selection = emptyList()
         preview = emptyList()
+        inspection.clearNavigation()
+    }
+
+    internal fun navigate(
+        entries: List<HistoryEntry<S>>,
+        backward: Boolean,
+    ) {
+        inspection.retain(entries.map { it.id }.toSet())
+        val history = if (backward) inspection.back else inspection.forward
+        if (history.isEmpty()) return
+        val destination = history.last()
+        val current = selection.map { inspection.location(it.id) }
+        if (backward) {
+            inspection.back = history.dropLast(1)
+            inspection.forward = (inspection.forward + current).takeLast(50)
+        } else {
+            inspection.forward = history.dropLast(1)
+            inspection.back = (inspection.back + current).takeLast(50)
+        }
+        inspection.restore(destination)
+        entries.filter { it.id == destination.id }.forEach {
+            selection = listOf(it)
+            preview = selection
+        }
     }
 
     fun previewSelected() {
@@ -70,7 +101,25 @@ fun <S : Any> HistoryPanel(
     graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    HistoryPanelContent(timeline, state, onContinue, modifier, canContinue, graph, false, actions)
+    val ready = historyText(HistoryText.ContinueReady)
+    val unavailable = historyText(HistoryText.Unsafe)
+    HistoryPanelContent(timeline, state, onContinue, modifier, { snapshot ->
+        if (canContinue(snapshot)) HistoryContinuation.Available(ready) else HistoryContinuation.Unavailable(unavailable)
+    }, graph, false, actions)
+}
+
+/** Inspector with explicit host-supplied restoration consequences or an unavailable reason. */
+@Composable
+fun <S : Any> HistoryPanel(
+    timeline: HistoryTimeline<S>,
+    state: HistoryPanelState<S>,
+    onContinue: (HistoryEntry<S>) -> Unit,
+    continuation: (S) -> HistoryContinuation,
+    modifier: Modifier = Modifier,
+    graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    HistoryPanelContent(timeline, state, onContinue, modifier, continuation, graph, false, actions)
 }
 
 /** Detached recording viewer: deliberately exposes no continuation callback or live mode. */
@@ -83,7 +132,8 @@ fun <S : Any> HistoryRecordingPanel(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val timeline = remember(recording) { HistoryTimeline.fromRecording(recording) }
-    HistoryPanelContent(timeline, state, {}, modifier, { false }, graph, true, actions)
+    val unavailable = historyText(HistoryText.ImportedRecording)
+    HistoryPanelContent(timeline, state, {}, modifier, { HistoryContinuation.Unavailable(unavailable) }, graph, true, actions)
 }
 
 @Composable
@@ -92,24 +142,58 @@ private fun <S : Any> HistoryPanelContent(
     state: HistoryPanelState<S>,
     onContinue: (HistoryEntry<S>) -> Unit,
     modifier: Modifier,
-    canContinue: (S) -> Boolean,
+    continuation: (S) -> HistoryContinuation,
     graph: (HistoryEntry<S>) -> HistoryGraph,
     readOnly: Boolean,
     actions: @Composable RowScope.() -> Unit,
 ) {
     val entries by timeline.entries.collectAsState()
-    var filter by remember { mutableStateOf(emptyList<String>()) }
+    val inspection = state.inspection
     val graphViewports = remember { mutableMapOf<String, GraphViewport>() }
-    var graphSelected by remember { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
     val machines = entries.map { it.machine }.distinctBy { it.stableId }
-    val visible = entries.filter { filter.isEmpty() || it.machine.stableId in filter }
-    Surface(modifier.testTag("history-panel"), color = MaterialTheme.colorScheme.surface) {
+    val visible = remember(entries, inspection.filter, inspection.query, inspection.bookmarksOnly, inspection.bookmarks) { entries.filter(inspection::includes) }
+    SideEffect { inspection.retain(entries.map { it.id }.toSet()) }
+    // Bubble shortcuts after children: a text editor or the graph can consume its own keys first.
+    Surface(
+        modifier.testTag("history-panel").onKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown || !event.isAltPressed || event.isCtrlPressed || event.isMetaPressed) {
+                false
+            } else {
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        state.navigate(entries, true)
+                        true
+                    }
+
+                    Key.DirectionRight -> {
+                        state.navigate(entries, false)
+                        true
+                    }
+
+                    Key.DirectionUp -> {
+                        state.selection.forEach { selected -> visible.lastOrNull { it.id < selected.id }?.let(state::select) }
+                        true
+                    }
+
+                    Key.DirectionDown -> {
+                        state.selection.forEach { selected -> visible.firstOrNull { it.id > selected.id }?.let(state::select) }
+                        true
+                    }
+
+                    else -> {
+                        false
+                    }
+                }
+            }
+        },
+        color = MaterialTheme.colorScheme.surface,
+    ) {
         Column {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(historyText(HistoryText.Title), style = MaterialTheme.typography.titleMedium)
-                    Muted(if (readOnly) historyText(HistoryText.ImportedRecording) else historyText(HistoryText.Session))
+                    Muted(if (readOnly) historyText(HistoryText.ImportedRecording) else historyText(if (state.preview.isEmpty()) HistoryText.AppLive else HistoryText.AppPreview))
                 }
                 if (!readOnly) {
                     HistoryModeSwitch(
@@ -130,20 +214,23 @@ private fun <S : Any> HistoryPanelContent(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     TextButton(onClick = { picker = true }, modifier = Modifier.testTag("history-machine-filter")) {
-                        Text(if (filter.isEmpty()) historyText(HistoryText.AllMachines) else machines.filter { it.stableId in filter }.fold(historyText(HistoryText.PreviousInstance)) { _, machine -> machine.name })
+                        Text(
+                            when (val filter = inspection.filter) {
+                                HistoryMachineFilter.All -> historyText(HistoryText.AllMachines)
+                                is HistoryMachineFilter.Machine -> machines.filter { it.stableId == filter.stableId }.fold(historyText(HistoryText.PreviousInstance)) { _, machine -> machine.name }
+                            },
+                        )
                         Spacer(Modifier.width(8.dp))
                         HistoryArrow(down = true)
                     }
                     DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
                         DropdownMenuItem(text = { Text(historyText(HistoryText.AllMachines)) }, onClick = {
-                            if (filter.isNotEmpty()) state.clearSelection()
-                            filter = emptyList()
+                            inspection.filter = HistoryMachineFilter.All
                             picker = false
                         })
                         machines.forEach { machine ->
                             DropdownMenuItem(text = { Text(machine.name) }, onClick = {
-                                if (filter != listOf(machine.stableId)) state.clearSelection()
-                                filter = listOf(machine.stableId)
+                                inspection.filter = HistoryMachineFilter.Machine(machine.stableId)
                                 picker = false
                             })
                         }
@@ -153,18 +240,42 @@ private fun <S : Any> HistoryPanelContent(
             }
             HorizontalDivider()
             BoxWithConstraints(Modifier.weight(1f)) {
+                val narrow = maxWidth < 640.dp
+                var listExpanded by remember { mutableStateOf(true) }
+                val listState = rememberLazyListState()
+                LaunchedEffect(state.selection, inspection.filter, inspection.query, inspection.bookmarksOnly, if (inspection.bookmarksOnly) inspection.bookmarks else emptySet<Long>(), listExpanded) {
+                    state.selection.forEach { selected ->
+                        val index = visible.indexOfFirst { it.id == selected.id }
+                        if (index >= 0) listState.scrollToItem(index)
+                    }
+                }
                 val list: @Composable (Modifier) -> Unit = { listModifier ->
                     Column(listModifier) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Muted("${historyText(HistoryText.Timeline)} (${entries.size} / ${timeline.capacity})")
-                            Muted("${visible.size} ${historyText(HistoryText.Events)}")
+                        OutlinedTextField(
+                            inspection.query,
+                            { inspection.query = it },
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .historyTextInput()
+                                .testTag("history-search"),
+                            label = { Text(historyText(HistoryText.Search)) },
+                            singleLine = true,
+                        )
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Muted("${visible.size} / ${entries.size} ${historyText(HistoryText.Events)} · ${historyText(HistoryText.Capacity)} ${timeline.capacity}", Modifier.weight(1f))
+                            Checkbox(inspection.bookmarksOnly, { inspection.bookmarksOnly = it }, Modifier.testTag("history-bookmarks-only"))
+                            Text(historyText(HistoryText.Bookmarks), style = MaterialTheme.typography.labelMedium)
                         }
-                        LazyColumn(Modifier.weight(1f).testTag("history-events")) {
+                        LazyColumn(Modifier.weight(1f).testTag("history-events"), state = listState) {
                             items(visible, key = { it.id }) { entry ->
-                                EventRow(entry, state.selection.any { it.id == entry.id }) { state.select(entry) }
+                                EventRow(entry, state.selection.any { it.id == entry.id }, entry.id in inspection.bookmarks, onBookmark = { inspection.toggleBookmark(entry.id) }) {
+                                    state.select(entry)
+                                    if (narrow) listExpanded = false
+                                }
                             }
                         }
-                        if (visible.isEmpty()) Text(historyText(HistoryText.Empty), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+                        if (visible.isEmpty()) Text(historyText(if (entries.isEmpty()) HistoryText.Empty else HistoryText.NoMatches), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 val detail: @Composable (Modifier) -> Unit = { detailModifier ->
@@ -178,36 +289,47 @@ private fun <S : Any> HistoryPanelContent(
                     } else {
                         state.selection.forEach { entry ->
                             Column(detailModifier) {
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    HistoryChoice(!graphSelected, { graphSelected = false }, { Text(historyText(HistoryText.Event)) }, modifier = Modifier.testTag("history-event-tab"))
-                                    HistoryChoice(graphSelected, { graphSelected = true }, { Text(historyText(HistoryText.Graph)) }, modifier = Modifier.testTag("history-graph-tab"))
+                                HistoryNavigation(entry, entries, visible, state) {
+                                    inspection.reveal()
+                                    listExpanded = true
                                 }
-                                if (graphSelected) {
-                                    Text("${entry.machine.name} · #${entry.id}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleSmall)
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    HistoryChoice(!inspection.graph, { inspection.graph = false }, { Text(historyText(HistoryText.Event)) }, modifier = Modifier.testTag("history-event-tab"))
+                                    HistoryChoice(inspection.graph, { inspection.graph = true }, { Text(historyText(HistoryText.Graph)) }, modifier = Modifier.testTag("history-graph-tab"))
+                                }
+                                if (inspection.graph) {
                                     key(entry.machine.stableId) { MachineGraph(graph(entry), graphViewports.getOrPut(entry.machine.stableId) { GraphViewport() }, Modifier.weight(1f).fillMaxWidth()) }
                                 } else {
-                                    EventDetail(entry, visible, state, { selected ->
+                                    EventDetail(entry, entries, state, { selected ->
                                         val previousHead = timeline.entries.value.fold(selected.id) { id, item -> maxOf(id, item.id) }
                                         onContinue(selected)
                                         timeline.truncateAfter(selected.id, previousHead)
                                         state.clearSelection()
-                                    }, canContinue, Modifier.weight(1f).fillMaxWidth(), readOnly)
+                                    }, continuation, Modifier.weight(1f).fillMaxWidth(), readOnly)
                                 }
                             }
                         }
                     }
                 }
-                if (maxWidth >= 640.dp) {
+                if (!narrow) {
                     Row(Modifier.fillMaxSize()) {
                         list(Modifier.weight(0.4f).fillMaxHeight())
                         VerticalDivider()
                         detail(Modifier.weight(0.6f).fillMaxHeight())
                     }
+                } else if (state.selection.isEmpty()) {
+                    list(Modifier.fillMaxSize())
                 } else {
                     Column(Modifier.fillMaxSize()) {
-                        list(Modifier.weight(0.4f).fillMaxWidth())
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Muted("${visible.size} / ${entries.size} ${historyText(HistoryText.Events)}", Modifier.weight(1f))
+                            TextButton({ listExpanded = !listExpanded }, Modifier.testTag("history-toggle-list")) {
+                                Text(historyText(if (listExpanded) HistoryText.HideEventList else HistoryText.ShowEventList))
+                            }
+                        }
+                        if (listExpanded) list(Modifier.weight(0.4f).fillMaxWidth())
                         HorizontalDivider()
-                        detail(Modifier.weight(0.6f).fillMaxWidth())
+                        detail(Modifier.weight(if (listExpanded) 0.6f else 1f).fillMaxWidth())
                     }
                 }
             }
@@ -227,10 +349,76 @@ private fun HistoryDetails.activeBefore(): String = before.filter { it.path == "
 
 private fun HistoryDetails.activeAfter(): String = after.filter { it.path == "active" || it.path == "screen" }.joinToString { it.value }.ifEmpty { "—" }
 
+/** One cursor bar for both the complete machine graph and the graphical event details. */
+@Composable
+private fun <S : Any> HistoryNavigation(
+    entry: HistoryEntry<S>,
+    entries: List<HistoryEntry<S>>,
+    visible: List<HistoryEntry<S>>,
+    state: HistoryPanelState<S>,
+    onReveal: () -> Unit,
+) {
+    val inspection = state.inspection
+    var menu by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("history-navigation")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("${entry.machine.name} · #${entry.id}", style = MaterialTheme.typography.titleSmall)
+                Muted(formatHistoryTime(entry.at))
+            }
+            IconButton(
+                { visible.lastOrNull { it.id < entry.id }?.let(state::select) },
+                enabled = visible.any { it.id < entry.id },
+                modifier = Modifier.testTag("history-previous").semantics { contentDescription = HistoryText.PreviousEvent.forLanguage(androidx.compose.ui.text.intl.Locale.current.language) },
+            ) { HistoryArrow(back = true) }
+            IconButton(
+                { visible.firstOrNull { it.id > entry.id }?.let(state::select) },
+                enabled = visible.any { it.id > entry.id },
+                modifier = Modifier.testTag("history-next").semantics { contentDescription = HistoryText.NextEvent.forLanguage(androidx.compose.ui.text.intl.Locale.current.language) },
+            ) { HistoryArrow() }
+            Box {
+                TextButton({ menu = true }, Modifier.testTag("history-navigation-menu")) { Text(historyText(HistoryText.More)) }
+                DropdownMenu(menu, { menu = false }) {
+                    DropdownMenuItem(text = { Text(historyText(HistoryText.FirstEvent)) }, onClick = {
+                        visible.firstOrNull()?.let(state::select)
+                        menu = false
+                    }, enabled = visible.isNotEmpty(), modifier = Modifier.testTag("history-first"))
+                    DropdownMenuItem(text = { Text(historyText(HistoryText.LastEvent)) }, onClick = {
+                        visible.lastOrNull()?.let(state::select)
+                        menu = false
+                    }, enabled = visible.isNotEmpty(), modifier = Modifier.testTag("history-last"))
+                    DropdownMenuItem(text = { Text(historyText(HistoryText.NavigationBack)) }, onClick = {
+                        state.navigate(entries, true)
+                        menu = false
+                    }, enabled = inspection.back.isNotEmpty(), modifier = Modifier.testTag("history-navigation-back"))
+                    DropdownMenuItem(text = { Text(historyText(HistoryText.NavigationForward)) }, onClick = {
+                        state.navigate(entries, false)
+                        menu = false
+                    }, enabled = inspection.forward.isNotEmpty())
+                    DropdownMenuItem(text = { Text(historyText(HistoryText.PinComparison)) }, onClick = {
+                        inspection.comparison = HistoryComparison.Against(entry.id, entry.machine.stableId, entry.details.after.toList())
+                        menu = false
+                    }, modifier = Modifier.testTag("history-pin-comparison"))
+                }
+            }
+        }
+        if (visible.none { it.id == entry.id }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Muted(historyText(if (entries.any { it.id == entry.id }) HistoryText.HiddenSelection else HistoryText.OutsideWindow), Modifier.weight(1f).testTag("history-selection-status"))
+                if (entries.any { it.id == entry.id }) {
+                    TextButton(onReveal, Modifier.testTag("history-reveal-selection")) { Text(historyText(HistoryText.Reveal)) }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun <S : Any> EventRow(
     entry: HistoryEntry<S>,
     selected: Boolean,
+    bookmarked: Boolean,
+    onBookmark: () -> Unit,
     onSelect: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -243,7 +431,7 @@ private fun <S : Any> EventRow(
             .height(IntrinsicSize.Min),
     ) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(if (selected) colors.primary else colors.surface))
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Muted("#${entry.id} · ${entry.machine.name}")
             Text(actionSummary(entry.details.input), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -253,6 +441,31 @@ private fun <S : Any> EventRow(
             }
             Muted(formatHistoryTime(entry.at))
         }
+        val bookmarkLabel = historyText(if (bookmarked) HistoryText.RemoveBookmark else HistoryText.AddBookmark)
+        IconToggleButton(
+            checked = bookmarked,
+            onCheckedChange = { onBookmark() },
+            modifier =
+                Modifier
+                    .padding(top = 4.dp, end = 4.dp)
+                    .size(40.dp)
+                    .testTag("history-entry-bookmark-${entry.id}")
+                    .semantics { contentDescription = bookmarkLabel },
+        ) {
+            val color = colors.onSurfaceVariant
+            Canvas(Modifier.size(18.dp)) {
+                val outline =
+                    Path().apply {
+                        moveTo(size.width * 0.2f, size.height * 0.1f)
+                        lineTo(size.width * 0.8f, size.height * 0.1f)
+                        lineTo(size.width * 0.8f, size.height * 0.9f)
+                        lineTo(size.width * 0.5f, size.height * 0.68f)
+                        lineTo(size.width * 0.2f, size.height * 0.9f)
+                        close()
+                    }
+                drawPath(outline, color, style = if (bookmarked) Fill else Stroke(1.5.dp.toPx()))
+            }
+        }
     }
     HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.5f))
 }
@@ -260,83 +473,50 @@ private fun <S : Any> EventRow(
 @Composable
 private fun <S : Any> EventDetail(
     entry: HistoryEntry<S>,
-    visible: List<HistoryEntry<S>>,
+    entries: List<HistoryEntry<S>>,
     state: HistoryPanelState<S>,
     onContinue: (HistoryEntry<S>) -> Unit,
-    canContinue: (S) -> Boolean,
+    continuation: (S) -> HistoryContinuation,
     modifier: Modifier,
     readOnly: Boolean,
 ) {
-    var full by remember { mutableStateOf(false) }
-    val index = visible.indexOfFirst { it.id == entry.id }
     Column(modifier) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("${historyText(HistoryText.Event)} #${entry.id}", style = MaterialTheme.typography.titleSmall)
-                Muted(entry.machine.name)
-            }
-            val previousLabel = historyText(HistoryText.PreviousEvent)
-            val nextLabel = historyText(HistoryText.NextEvent)
-            IconButton(onClick = { state.select(visible[index - 1]) }, enabled = index > 0, modifier = Modifier.semantics { contentDescription = previousLabel }) { HistoryArrow(back = true) }
-            IconButton(onClick = { state.select(visible[index + 1]) }, enabled = index >= 0 && index < visible.lastIndex, modifier = Modifier.semantics { contentDescription = nextLabel }) { HistoryArrow() }
-        }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             key(entry.id) { TransitionDiagram(entry.details) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HistoryChoice(selected = !full, onClick = { full = false }, label = { Text(historyText(HistoryText.Changes)) })
-                HistoryChoice(selected = full, onClick = { full = true }, label = { Text(historyText(HistoryText.FullState)) })
-            }
-            SelectionContainer {
-                Column {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                        Muted(historyText(HistoryText.Field), Modifier.weight(0.8f))
-                        Muted(historyText(HistoryText.Before), Modifier.weight(1f))
-                        Muted(historyText(HistoryText.After), Modifier.weight(1f))
-                    }
-                    HorizontalDivider()
-                    val changes =
-                        if (full) {
-                            val before = entry.details.before.associate { it.path to it.value }
-                            val after = entry.details.after.associate { it.path to it.value }
-                            (before.keys + after.keys).map { StateChange(it, before.getOrElse(it) { "—" }, after.getOrElse(it) { "—" }) }
-                        } else {
-                            entry.details.changes
-                        }
-                    changes.forEach { change ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(change.path, Modifier.weight(0.8f), style = MaterialTheme.typography.bodySmall)
-                            Text(if (full) change.before else compactFieldValue(change.path, change.before), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (full) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
-                            Text(if (full) change.after else compactFieldValue(change.path, change.after), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = if (full) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    }
-                    if (changes.isEmpty()) Muted(historyText(HistoryText.Unchanged), Modifier.padding(vertical = 12.dp))
-                }
-            }
+            Muted("${entry.details.source} · ${entry.details.outcome}")
+            HistoryFields(entry, entries, state)
         }
         if (!readOnly) {
+            val capability = continuation(entry.snapshot)
             HorizontalDivider()
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(
+                OutlinedButton(
                     onClick = {
                         onContinue(entry)
                         state.returnToLive()
                     },
-                    enabled = state.preview.any { it.id == entry.id } && canContinue(entry.snapshot),
+                    enabled = state.preview.any { it.id == entry.id } && capability is HistoryContinuation.Available,
                     modifier = Modifier.fillMaxWidth().testTag("history-continue"),
                     shape = RoundedCornerShape(8.dp),
                 ) { Text(historyText(HistoryText.Continue)) }
                 Muted(
-                    if (!canContinue(entry.snapshot)) {
-                        historyText(HistoryText.Unsafe)
-                    } else if (state.preview.isNotEmpty()) {
-                        historyText(HistoryText.ContinueHint)
-                    } else {
-                        historyText(HistoryText.SelectToView)
+                    when (capability) {
+                        is HistoryContinuation.Unavailable -> {
+                            capability.reason
+                        }
+
+                        is HistoryContinuation.Available -> {
+                            if (state.preview.isNotEmpty()) {
+                                "${capability.consequences}\n${historyText(HistoryText.ContinueHint)} ${entries.count { it.id > entry.id }}"
+                            } else {
+                                historyText(HistoryText.SelectToView)
+                            }
+                        }
                     },
+                    Modifier.testTag("history-continuation-reason"),
                 )
             }
         }

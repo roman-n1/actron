@@ -1,6 +1,6 @@
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
+import actron.example.weather.core.debug.DebugWeatherRootComponent
 import actron.example.weather.core.debug.WeatherHistory
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -32,7 +32,7 @@ class WeatherRootComponentTest {
             val keeper = InstanceKeeperDispatcher()
             val lifecycle = LifecycleRegistry()
             val root =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(lifecycle, instanceKeeper = keeper),
                     WeatherRepository { city ->
                         currentCalls++
@@ -137,7 +137,7 @@ class WeatherRootComponentTest {
                     .StateKeeperDispatcher()
             val firstLifecycle = LifecycleRegistry()
             val first =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(firstLifecycle, instanceKeeper = keeper, stateKeeper = stateKeeper),
                     api,
                     LocalCitySearchRepository,
@@ -165,7 +165,7 @@ class WeatherRootComponentTest {
 
             val lifecycle = LifecycleRegistry()
             val root =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(
                         lifecycle,
                         instanceKeeper = keeper,
@@ -228,7 +228,7 @@ class WeatherRootComponentTest {
                 com.arkivanov.essenty.statekeeper
                     .StateKeeperDispatcher()
             val root =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(lifecycle, instanceKeeper = keeper, backHandler = back, stateKeeper = stateKeeper),
                     SampleWeatherRepository,
                     LocalCitySearchRepository,
@@ -271,7 +271,7 @@ class WeatherRootComponentTest {
 
                 val recreatedLifecycle = LifecycleRegistry()
                 val recreated =
-                    DefaultWeatherRootComponent(
+                    DebugWeatherRootComponent(
                         DefaultComponentContext(
                             recreatedLifecycle,
                             instanceKeeper = keeper,
@@ -317,7 +317,7 @@ class WeatherRootComponentTest {
                 }
             val lifecycle = LifecycleRegistry()
             val root =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(lifecycle),
                     api,
                     LocalCitySearchRepository,
@@ -349,7 +349,7 @@ class WeatherRootComponentTest {
             var cancelled = 0
             val lifecycle = LifecycleRegistry()
             val root =
-                DefaultWeatherRootComponent(
+                DebugWeatherRootComponent(
                     DefaultComponentContext(lifecycle),
                     WeatherRepository { city ->
                         current += city

@@ -75,6 +75,8 @@ class HistoryEntry<S : Any>(
 class HistoryTimeline<S : Any>(
     val capacity: Int = 500,
 ) {
+    constructor(configuration: HistoryConfiguration) : this(configuration.capacity)
+
     init {
         require(capacity > 0)
     }

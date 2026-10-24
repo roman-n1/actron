@@ -2,8 +2,8 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
 import actron.example.weather.app.WeatherTheme
+import actron.example.weather.core.debug.DebugWeatherRootComponent
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -61,7 +61,10 @@ class WeatherAppTest {
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("history-machine-filter").performClick()
             onNodeWithText("City Weather").performClick()
-            onNodeWithTag("history-mode-history").performClick()
+            // Filtering keeps the inspected search snapshot; moving to Weather is explicit.
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Debouncing", substring = true)
+            onNodeWithTag("history-navigation-menu").performClick()
+            onNodeWithTag("history-last").performClick()
             onNodeWithTag("machine-graph").assertContentDescriptionContains("Current.Success", substring = true)
             onNodeWithTag("machine-graph").assertContentDescriptionContains("Hourly.Success", substring = true)
             onNodeWithTag("graph-zoom-in").performClick()
@@ -251,7 +254,7 @@ private fun ComposeUiTest.setRootContent(
     val lifecycle = LifecycleRegistry()
     val root =
         runOnUiThread {
-            DefaultWeatherRootComponent(DefaultComponentContext(lifecycle), api, citySearch, SampleHourlyRepository)
+            DebugWeatherRootComponent(DefaultComponentContext(lifecycle), api, citySearch, SampleHourlyRepository)
         }
     setContent {
         DisposableEffect(root) {
