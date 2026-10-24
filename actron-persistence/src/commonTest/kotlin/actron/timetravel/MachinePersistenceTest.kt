@@ -5,7 +5,24 @@ package actron.timetravel
 import actron.core.Action
 import actron.core.Event
 import actron.statechart.StateId
-import actron.statechart.machine.*
+import actron.statechart.machine.CommandHandler
+import actron.statechart.machine.CommandRecoveryDecision
+import actron.statechart.machine.CommandRecoveryStrategy
+import actron.statechart.machine.ConcurrencyPolicy
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.EffectId
+import actron.statechart.machine.EffectPolicy
+import actron.statechart.machine.ExecutorCheckpoint
+import actron.statechart.machine.IgnoreReason
+import actron.statechart.machine.LaneId
+import actron.statechart.machine.Lanes
+import actron.statechart.machine.MachineClock
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineStore
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.PendingEffect
+import actron.statechart.machine.stateMachine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -16,7 +33,12 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class MachinePersistenceTest {
@@ -300,4 +322,38 @@ class MachinePersistenceTest {
                 restored.close()
             }
         }
+
+    @Test
+    fun invalidCheckpointIsRejectedBeforeApplicationSerialization() {
+        val calls = mutableListOf<String>()
+        val codec = RecordingCodec(Int.serializer().recordPersistenceCalls("context", calls), Tick.serializer(), String.serializer(), Empty.serializer())
+        val persistence = MachinePersistence(machine(), codec)
+        val cp = checkpoint()
+
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                persistence.save(cp.copy(snapshot = cp.snapshot.copy(definition = DefinitionId("other"))))
+            }
+
+        assertEquals("Checkpoint belongs to a different machine", error.message)
+        assertEquals(emptyList(), calls)
+    }
+
+    @Test
+    fun recordedHistoryIsRejectedBeforeCheckingDefinitionCompatibility() {
+        val codec = RecordingCodec(Int.serializer(), Tick.serializer(), String.serializer(), Empty.serializer())
+        val cp = checkpoint()
+        val foreign = DefinitionId("other")
+        val recording =
+            Recording(
+                foreign,
+                cp.snapshot.version,
+                cp.copy(snapshot = cp.snapshot.copy(definition = foreign)),
+                listOf<RecordedStep<Int, Tick, String, Empty>>(RecordedStep.Ignored(MachineInput.Start(cp.now), IgnoreReason.NoTransition)),
+            )
+
+        val error = assertFailsWith<IllegalArgumentException> { machinePersistence(machine()).restore(codec.encode(recording)) }
+
+        assertEquals("Expected a checkpoint, not a recorded history", error.message)
+    }
 }

@@ -2,11 +2,8 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.InputAttribution
-import actron.core.InputId
 import actron.observability.FailureDescriptor
 import actron.statechart.machine.Decision
-import actron.statechart.machine.DecisionObserver
 import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.DefinitionVersion
 import actron.statechart.machine.ExecutorCheckpoint
@@ -14,7 +11,6 @@ import actron.statechart.machine.IgnoreReason
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineSnapshot
-import kotlinx.coroutines.sync.Mutex
 
 /**
  * One input a machine decided during a recorded run, with what came of it.
@@ -54,13 +50,14 @@ sealed interface RecordedStep<C : Any, A : Action, CMD : Any, E : Event> {
  * @property version Its version; another version cannot replay this run
  * @property start Where the run begins: the initial snapshot of a whole run, or a checkpoint of
  * the live executor for a run recorded from there (see [since])
- * @property steps The inputs in processing order with their outcomes
+ * @property steps A snapshot of the inputs in processing order with their outcomes.
+ * Individual steps and their application payloads are not cloned.
  */
 class Recording<C : Any, A : Action, CMD : Any, E : Event>(
     val definition: DefinitionId,
     val version: DefinitionVersion,
     val start: ExecutorCheckpoint<C, CMD>,
-    val steps: List<RecordedStep<C, A, CMD, E>>,
+    steps: List<RecordedStep<C, A, CMD, E>>,
 ) {
     /**
      * A whole run: from [initial], the snapshot before the first decision, with nothing running.
@@ -72,6 +69,8 @@ class Recording<C : Any, A : Action, CMD : Any, E : Event>(
         require(start.snapshot.definition == definition && start.snapshot.version == version) { "[Actron] The start snapshot belongs to ${start.snapshot.definition} ${start.snapshot.version}, not $definition $version" }
     }
 
+    val steps: List<RecordedStep<C, A, CMD, E>> = steps.toList()
+
     /** The snapshot the run starts from: [start]'s. */
     val initial: MachineSnapshot<C> get() = start.snapshot
 
@@ -79,10 +78,10 @@ class Recording<C : Any, A : Action, CMD : Any, E : Event>(
     val length: Int get() = steps.size
 
     private val checkpoints: List<ExecutorCheckpoint<C, CMD>> by lazy {
-        buildList(steps.size + 1) {
+        buildList(this@Recording.steps.size + 1) {
             var current = start
             add(current)
-            for (step in steps) {
+            for (step in this@Recording.steps) {
                 current = current.carriedPast(step)
                 add(current)
             }
