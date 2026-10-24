@@ -5,7 +5,10 @@ import androidx.compose.ui.geometry.Size
 import java.beans.EventHandler
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class MacGraphMagnificationTest {
     @Test

@@ -158,3 +158,17 @@ internal fun historyChanges(
         .filter { full || left[it] != right[it] }
         .map { StateChange(it, left.getOrElse(it) { "<absent>" }, right.getOrElse(it) { "<absent>" }) }
 }
+
+/** Source-local navigation, comparison and filters cannot cross into another recording. */
+internal fun HistoryInspection.resetSource() {
+    filter = HistoryMachineFilter.All
+    query = ""
+    bookmarksOnly = false
+    bookmarks = emptySet()
+    graph = false
+    focus = HistoryFieldFocus.All
+    fieldQuery = ""
+    fullState = false
+    comparison = HistoryComparison.PreviousEvent
+    clearNavigation()
+}

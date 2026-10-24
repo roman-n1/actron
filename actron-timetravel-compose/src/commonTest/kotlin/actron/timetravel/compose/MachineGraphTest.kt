@@ -1,11 +1,62 @@
 package actron.timetravel.compose
 
-import actron.statechart.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.CompoundState
+import actron.statechart.ParallelState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.machine.TransitionId
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class MachineGraphTest {
+    @Test
+    fun declarationGeometryRetainsPaddingPortsAndRoutingLanes() {
+        val a = StateId("A")
+        val b = StateId("B")
+        val chart = StateChartDefinition(a, listOf(AtomicState(a), AtomicState(b)), listOf(Transition(a, b, ActionMatcher("Go"))))
+        val layout = layoutGraph(chart) { Size(40f, 20f) }
+        assertEquals(listOf(a, b), layout.nodes.map { it.state.id })
+        assertEquals(
+            Rect(40f, 40f, 280f, 120f),
+            layout.nodes[0].bounds,
+        )
+        assertEquals(
+            Rect(40f, 168f, 280f, 244f),
+            layout.nodes[1].bounds,
+        )
+        assertEquals(listOf(Offset(280f, 80f), Offset(428f, 80f), Offset(428f, 194f), Offset(280f, 194f)), layout.edges.single().points)
+        assertEquals(
+            Rect(332f, 62f, 396f, 98f),
+            layout.edges.single().label,
+        )
+        assertEquals(Size(484f, 292f), layout.size)
+    }
+
+    @Test
+    fun danglingEdgesKeepOriginalTransitionIdsAndDoNotReserveLabelSpace() {
+        val a = StateId("A")
+        val missing = StateId("Missing")
+        val valid = Transition(a, a, ActionMatcher("Again"))
+        val chart = StateChartDefinition(a, listOf(AtomicState(a)), listOf(Transition(a, missing, ActionMatcher("Invalid")), valid, valid))
+        val measured = mutableListOf<Transition>()
+        val layout =
+            layoutGraph(chart) {
+                measured.add(it)
+                Size(40f, 20f)
+            }
+        assertEquals(listOf(valid, valid), measured)
+        assertEquals(listOf(TransitionId(1), TransitionId(2)), layout.edges.map { it.id })
+        assertEquals(layoutGraph(chart.copy(transitions = listOf(valid, valid))) { Size(40f, 20f) }.size, layout.size)
+    }
+
     @Test
     fun nestedParallelRegionsKeepTheirEdgesInsideAndPortsDistinct() {
         val root = StateId("Parallel")

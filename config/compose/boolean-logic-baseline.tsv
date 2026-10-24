@@ -1,0 +1,10 @@
+examples/time-travel/src/jvmMain/kotlin/actron/example/timetravel/Main.kt	DemoScreen	!busy
+examples/time-travel/src/jvmMain/kotlin/actron/example/timetravel/Main.kt	DemoScreen	!busy
+examples/time-travel/src/jvmMain/kotlin/actron/example/timetravel/Main.kt	DemoScreen	!busy
+examples/time-travel/src/jvmMain/kotlin/actron/example/timetravel/Main.kt	DemoScreen	!busy
+examples/weather-app/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchScreen.kt	CitySearchScreen	!state.enabled
+examples/weather/src/commonMain/kotlin/actron/example/weather/core/debug/WeatherDebugLayout.kt	WeatherDebugLayout	!it
+examples/weather/src/commonMain/kotlin/actron/example/weather/core/debug/WeatherDebugLayout.kt	WeatherDebugLayout	!visible
+examples/weather/src/commonMain/kotlin/actron/example/weather/core/debug/WeatherDebugLayout.kt	WeatherDebugLayout	visible && viewer.imported.isEmpty()
+examples/weather/src/commonMain/kotlin/actron/example/weather/core/debug/WeatherRecordingViewer.kt	RecordingActions	!viewer.busy
+examples/weather/src/commonMain/kotlin/actron/example/weather/core/debug/WeatherRecordingViewer.kt	RecordingActions	!viewer.busy

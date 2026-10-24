@@ -29,3 +29,9 @@ description: "Настройка и диагностика ktlint/Detekt Actron:
 
 До изменения самого правила — позитивный и негативный контроль реальным движком.
 Не перезапускай уже проверенный неизменный периметр без причины.
+
+Compose boolean policy: `./gradlew checkComposeNoBooleanLogic` uses Kotlin PSI and runs with
+`detekt`. The exact initial inventory is `config/compose/boolean-logic-baseline.tsv`;
+`:nullability-guard:pruneComposeBooleanBaseline` can only remove resolved entries.
+Tests cover forbidden/allowed syntax and multiplicity/replacement of baseline entries.
+See [Compose presentation](../compose-presentation/SKILL.md) for ownership and scope.

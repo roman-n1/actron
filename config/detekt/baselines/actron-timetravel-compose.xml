@@ -2,83 +2,8 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CognitiveComplexMethod:GraphDiagnosticsPanel.kt:@Composable internal fun GraphDiagnosticsPanel</ID>
-    <ID>CognitiveComplexMethod:GraphDiagnosticsPanel.kt:private fun issueText: String</ID>
-    <ID>CognitiveComplexMethod:GroupReplayPanels.kt:@ExperimentalActronApi @Composable fun GroupReplayBar</ID>
-    <ID>CognitiveComplexMethod:HistoryPanel.kt:@Composable private fun &lt;S : Any&gt; EventDetail</ID>
-    <ID>CognitiveComplexMethod:HistoryPanel.kt:@Composable private fun &lt;S : Any&gt; HistoryPanelContent</ID>
-    <ID>CognitiveComplexMethod:HistoryPanel.kt:@Composable private fun HistoryModeSwitch</ID>
-    <ID>CognitiveComplexMethod:HistoryPanel.kt:@Composable private fun TransitionDiagram</ID>
-    <ID>CognitiveComplexMethod:InspectorScreen.kt:@ExperimentalActronApi @Composable private fun StoreCard</ID>
-    <ID>CognitiveComplexMethod:InspectorScreen.kt:@OptIn(ExperimentalActronApi::class) @Composable private fun InspectorScreenContent</ID>
-    <ID>CognitiveComplexMethod:InspectorScreen.kt:@OptIn(ExperimentalActronApi::class) @Composable private fun PositionPanelContent</ID>
-    <ID>CognitiveComplexMethod:InspectorScreen.kt:@OptIn(ExperimentalLayoutApi::class) @ExperimentalActronApi @Composable private fun BranchMemberCard</ID>
-    <ID>CognitiveComplexMethod:MachineGraph.kt:@Composable private fun GraphCanvas</ID>
-    <ID>CognitiveComplexMethod:MachineGraph.kt:internal fun layoutGraph: GraphLayout</ID>
-    <ID>CognitiveComplexMethod:ResizableHistoryLayout.kt:@Composable fun ResizableHistoryLayout</ID>
-    <ID>CognitiveComplexMethod:StateChartPanel.kt:@Composable fun &lt;C : Any&gt; StateChartPanel</ID>
-    <ID>CognitiveComplexMethod:TimeTravelPanel.kt:@Composable private fun PanelBranchBody</ID>
-    <ID>CognitiveComplexMethod:TimeTravelPanel.kt:@Composable private fun PanelGroupBody</ID>
-    <ID>CognitiveComplexMethod:TimeTravelPanel.kt:@Composable private fun PanelLayout</ID>
-    <ID>CognitiveComplexMethod:TimeTravelPanel.kt:@ExperimentalActronApi @Composable fun TimeTravelPanel</ID>
-    <ID>CyclomaticComplexMethod:GraphDiagnosticsPanel.kt:private fun issueText: String</ID>
-    <ID>CyclomaticComplexMethod:HistoryPanel.kt:@Composable private fun &lt;S : Any&gt; HistoryPanelContent</ID>
-    <ID>CyclomaticComplexMethod:MachineGraph.kt:@Composable private fun GraphCanvas</ID>
-    <ID>CyclomaticComplexMethod:MachineGraph.kt:internal fun layoutGraph: GraphLayout</ID>
-    <ID>CyclomaticComplexMethod:StateChartPanel.kt:@Composable fun &lt;C : Any&gt; StateChartPanel</ID>
     <ID>EmptyFunctionBlock:ReplayControls.kt:ChartInspection.Checkpoint${}</ID>
-    <ID>MatchingDeclarationName:HistoryStrings.kt:HistoryText</ID>
-    <ID>MatchingDeclarationName:ResizableHistoryLayout.kt:HistoryPanelLayoutState</ID>
     <ID>TooManyFunctions:BranchControls.kt:BranchControls</ID>
-    <ID>TooManyFunctions:HistoryPanel.kt:actron.timetravel.compose.HistoryPanel.kt</ID>
     <ID>TooManyFunctions:InspectorScreen.kt:actron.timetravel.compose.InspectorScreen.kt</ID>
-    <ID>TooManyFunctions:TimeTravelPanel.kt:actron.timetravel.compose.TimeTravelPanel.kt</ID>
-    <ID>WildcardImport:GraphDiagnosticsPanel.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:GraphDiagnosticsPanel.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:GraphDiagnosticsPanel.kt:import androidx.compose.material3.*</ID>
-    <ID>WildcardImport:GraphDiagnosticsPanel.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:GraphProfileUiTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:GraphProfileUiTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:GraphProfileUiTest.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:GraphProfileUiTest.kt:import androidx.compose.ui.test.*</ID>
-    <ID>WildcardImport:GraphProfileUiTest.kt:import androidx.compose.ui.unit.*</ID>
-    <ID>WildcardImport:HistoryChoice.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:HistoryChoice.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:HistoryLocaleLayoutTest.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:HistoryLocaleLayoutTest.kt:import androidx.compose.ui.test.*</ID>
-    <ID>WildcardImport:HistoryPanel.kt:import actron.timetravel.*</ID>
-    <ID>WildcardImport:HistoryPanel.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:HistoryPanel.kt:import androidx.compose.material3.*</ID>
-    <ID>WildcardImport:HistoryPanel.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:HistoryPanelTest.kt:import androidx.compose.ui.test.*</ID>
-    <ID>WildcardImport:HistoryTime.ios.kt:import platform.Foundation.*</ID>
-    <ID>WildcardImport:MacGraphMagnificationTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.material3.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.ui.geometry.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.ui.graphics.drawscope.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.ui.input.pointer.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.ui.text.*</ID>
-    <ID>WildcardImport:MachineGraph.kt:import androidx.compose.ui.unit.*</ID>
-    <ID>WildcardImport:MachineGraphTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:MachineGraphTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:MachineGraphUiTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:MachineGraphUiTest.kt:import actron.timetravel.*</ID>
-    <ID>WildcardImport:MachineGraphUiTest.kt:import androidx.compose.ui.test.*</ID>
-    <ID>WildcardImport:MachineGraphUiTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:NativeGraphZoom.jvm.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:NativeGraphZoom.jvm.kt:import androidx.compose.ui.input.pointer.*</ID>
-    <ID>WildcardImport:ResizableHistoryLayout.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:ResizableHistoryLayout.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:ResizableHistoryLayout.kt:import androidx.compose.ui.semantics.*</ID>
-    <ID>WildcardImport:StateChartPanel.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:StateChartPanel.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:StateChartPanel.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:StateChartPanel.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:StateChartPanelTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:StateChartPanelTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:StateChartPanelTest.kt:import androidx.compose.ui.test.*</ID>
   </CurrentIssues>
 </SmellBaseline>
