@@ -264,6 +264,116 @@ class GroupReplaySessionTest {
             live.close()
         }
 
+    @Test
+    fun bridgeFailurePrecedesDecidingButVerificationKeepsReplayBeforeBridgeAtTheSamePosition() =
+        runTest {
+            val live = GroupFixture.Live(this)
+            try {
+                script(live)
+                val original = live.recorder.recording()
+                val unrouted = GroupRecording(original.members, original.order, original.routes.filter { it.from != pickerId })
+                var decisions = 0
+                val changed =
+                    actron.statechart.machine.Machine<RootCtx, RootAct, Nothing, RootEv>(GroupFixture.rootMachine.id, GroupFixture.rootMachine.version, GroupFixture.rootMachine.chart) {
+                        effect("remember") { context, _ ->
+                            decisions++
+                            context.copy(names = context.names + "changed")
+                        }
+                    }
+                val replay = GroupReplaySession(machines + (rootId to changed), unrouted)
+                val first = replay.verify().first().position
+                replay.seek(first)
+                val positions = replay.members.mapValues { it.value.position }
+                val snapshots = replay.members.mapValues { it.value.snapshot }
+                val mismatches = replay.verify()
+                val samePosition = mismatches.filter { it.position == first }
+                assertEquals(2, samePosition.size)
+                assertIs<GroupMismatch.Replay>(samePosition[0])
+                assertIs<GroupMismatch.NoRoute>(samePosition[1])
+                assertEquals(positions, replay.members.mapValues { it.value.position })
+                decisions = 0
+                val result = assertIs<GroupReplayStep.Diverged>(replay.stepForward())
+                assertEquals(samePosition[1], result.mismatch)
+                assertEquals(0, decisions)
+                assertEquals(first, replay.position)
+                assertEquals(positions, replay.members.mapValues { it.value.position })
+                assertEquals(snapshots, replay.members.mapValues { it.value.snapshot })
+                assertEquals(mismatches, replay.verify())
+            } finally {
+                live.close()
+            }
+        }
+
+    @Test
+    fun duplicateDeliveryTakesPrecedenceOverAnUnknownSenderOrMissingRoute() =
+        runTest {
+            val live = GroupFixture.Live(this)
+            try {
+                script(live)
+                val original = live.recorder.recording()
+                val root = original.members.getValue(rootId) as Recording<RootCtx, RootAct, Nothing, RootEv>
+                val message = MessageId(StoreInstanceId("ghost"), EffectId(1))
+                val first = MachineInput.BridgeReceived(message, RootAct.Apply("x"), MachineTime(1000.milliseconds))
+                val extended = root.appending(first).appending(first.copy(now = MachineTime(1001.milliseconds)))
+                val order = original.order + listOf(GroupStep(rootId, root.length), GroupStep(rootId, root.length + 1))
+                val recording = GroupRecording(original.members + (rootId to extended), order, original.routes)
+                assertEquals(
+                    listOf(
+                        GroupMismatch.SentByNobody(original.length, rootId, message),
+                        GroupMismatch.DeliveredTwice(original.length + 1, rootId, message, original.length),
+                    ),
+                    GroupReplaySession(machines, recording).verify(),
+                )
+            } finally {
+                live.close()
+            }
+        }
+
+    @Test
+    fun aRequestReceivedAfterReplyEmissionCannotAuthorizeThatEarlierReply() {
+        val rootMachine = GroupFixture.rootMachine
+        val picker = GroupFixture.picker
+        val root =
+            Recording<RootCtx, RootAct, Nothing, RootEv>(rootMachine.id, rootMachine.version, rootMachine.initialSnapshot(RootCtx()), emptyList())
+                .appending(MachineInput.Start(MachineTime.Zero))
+                .appending(MachineInput.Dispatch(RootAct.Apply("orphan"), MachineTime(1.milliseconds)))
+                .appending(MachineInput.BridgeReceived(MessageId(pickerId, EffectId(1)), RootAct.Apply("tom"), MachineTime(3.milliseconds)))
+        val pickerRecording =
+            Recording<PickerCtx, PickerAct, GroupFixture.Fetch, GroupFixture.PickerEv>(picker.id, picker.version, picker.initialSnapshot(PickerCtx()), emptyList())
+                .appending(MachineInput.Start(MachineTime.Zero))
+                .appending(MachineInput.Dispatch(PickerAct.Pick("tom"), MachineTime(2.milliseconds)))
+                .appending(MachineInput.BridgeReceived(MessageId(rootId, EffectId(1)), PickerAct.Ack(1), MachineTime(4.milliseconds)))
+        val recording =
+            GroupRecording(
+                mapOf(rootId to root, pickerId to pickerRecording),
+                listOf(GroupStep(rootId, 0), GroupStep(pickerId, 0), GroupStep(rootId, 1), GroupStep(pickerId, 1), GroupStep(rootId, 2), GroupStep(pickerId, 2)),
+                listOf(GroupRoute(pickerId, rootId, RoutePair("apply", PairRole.Request)), GroupRoute(rootId, pickerId, RoutePair("apply", PairRole.Reply))),
+            )
+        assertEquals(listOf(GroupMismatch.ReplyWithoutRequest(5, pickerId, MessageId(rootId, EffectId(1)), "apply")), GroupReplaySession(machines, recording).verify())
+    }
+
+    @Test
+    fun invalidGroupSeekPreservesEveryMemberPositionAndCheckpoint() =
+        runTest {
+            val live = GroupFixture.Live(this)
+            try {
+                script(live)
+                val replay = GroupReplaySession(machines, live.recorder.recording())
+                replay.seek(3)
+                val positions = replay.members.mapValues { it.value.position }
+                val checkpoints = replay.members.mapValues { it.value.checkpoint }
+                for (invalid in listOf(-1, replay.length + 1)) {
+                    val failure = kotlin.test.assertFailsWith<IllegalArgumentException> { replay.seek(invalid) }
+                    assertEquals("[Actron] Position $invalid is outside 0..${replay.length}", failure.message)
+                    assertEquals(3, replay.position)
+                    assertEquals(positions, replay.members.mapValues { it.value.position })
+                    assertEquals(checkpoints, replay.members.mapValues { it.value.checkpoint })
+                }
+            } finally {
+                live.close()
+            }
+        }
+
     private fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> Recording<C, A, CMD, E>.appending(input: MachineInput<A>): Recording<C, A, CMD, E> {
         val machine = machines.getValue(if (definition == GroupFixture.rootMachine.id) rootId else pickerId) as actron.statechart.machine.Machine<C, A, CMD, E>
         val decision = machine.decide(snapshotAt(length), input)

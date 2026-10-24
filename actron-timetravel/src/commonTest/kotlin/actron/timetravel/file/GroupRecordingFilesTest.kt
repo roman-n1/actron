@@ -517,4 +517,84 @@ class GroupRecordingFilesTest {
         val v2 = GroupRecordingFileFormat.decodeSegment("v2", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = 2, routes = unpaired)) + Framing.END)
         assertEquals(header.copy(fileFormatVersion = 2, routes = unpaired), v2.header)
     }
+
+    @Test
+    fun unreadableOrderSegmentStartsANewRangeWithoutLosingEarlierDiagnostics() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 3)
+            live.close()
+            val whole = live.recorder.recording()
+            val name = GroupRecordingFileFormat.segmentName(groupId, 0)
+            val order = assertIs<DecodedGroupSegment.Readable>(GroupRecordingFileFormat.decodeSegment(name, live.storage.read(name)))
+            live.storage.delete(name)
+            writeOrder(live.storage, order.header, order.entries.take(2))
+            live.storage.append(GroupRecordingFileFormat.segmentName(groupId, 1)).use { it.write(GroupRecordingFileFormat.MAGIC + Framing.END) }
+            writeOrder(live.storage, order.header.copy(index = 2, firstEntry = 2), order.entries.drop(2))
+
+            val contents = assertIs<GroupRecordingFileContents.Readable>(GroupRecordingFiles(live.storage).read(groupId, codecs))
+
+            assertEquals(2, contents.position)
+            assertEquals(whole.order.drop(2).map { it.store }, contents.recording.order.map { it.store })
+            assertIs<RecordingFileMark.Damaged>(contents.marks.single())
+            assertEquals(emptyList(), GroupReplaySession(machines, contents.recording).verify())
+        }
+
+    @Test
+    fun unfinishedOrderSegmentCanContinueIntoTheNextSegment() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 2)
+            live.close()
+            val name = GroupRecordingFileFormat.segmentName(groupId, 0)
+            val order = assertIs<DecodedGroupSegment.Readable>(GroupRecordingFileFormat.decodeSegment(name, live.storage.read(name)))
+            live.storage.delete(name)
+            writeOrder(live.storage, order.header, order.entries.take(2), finished = false)
+            writeOrder(live.storage, order.header.copy(index = 1, firstEntry = 2), order.entries.drop(2))
+
+            val contents = assertIs<GroupRecordingFileContents.Readable>(GroupRecordingFiles(live.storage).read(groupId, codecs))
+
+            assertEquals(0, contents.position)
+            assertSameRun(live.recorder.recording(), contents.recording, "continuous order despite missing END")
+            val damage = assertIs<RecordingFileMark.Damaged>(contents.marks.single())
+            assertIs<SegmentMark.Unfinished>(damage.mark)
+        }
+
+    @Test
+    fun inconsistentCutIsMarkedAndExcludedWithoutDiscardingTheRecording() =
+        runTest {
+            val live = Live(this)
+            kicks(live, 2, fed = true)
+            assertIs<actron.statechart.machine.GroupCut.Ready>(live.group.checkpoint())
+            runCurrent()
+            kicks(live, 1, from = 3, fed = true)
+            live.close()
+            val name = GroupRecordingFileFormat.segmentName(groupId, 1)
+            val order = assertIs<DecodedGroupSegment.Readable>(GroupRecordingFileFormat.decodeSegment(name, live.storage.read(name)))
+            val cut = assertIs<RecordedCut>(order.header.boundary)
+            val inconsistent = cut.copy(counts = cut.counts + (pingId to cut.counts.getValue(pingId) + 1))
+            live.storage.delete(name)
+            writeOrder(live.storage, order.header.copy(boundary = inconsistent), order.entries)
+
+            val contents = assertIs<GroupRecordingFileContents.Readable>(GroupRecordingFiles(live.storage).read(groupId, codecs))
+
+            assertTrue(contents.cuts.isEmpty())
+            val mismatch = assertIs<RecordingFileMark.StartMismatch>(contents.marks.single())
+            assertEquals(pingId, mismatch.store)
+            assertSameRun(live.recorder.recording(), contents.recording, "cut failure preserves ordinary history")
+            assertFailsWith<IllegalArgumentException> { contents.since(inconsistent) }
+        }
+
+    private fun writeOrder(
+        storage: InMemorySegmentStorage,
+        header: GroupSegmentHeader,
+        entries: List<GroupOrderEntry>,
+        finished: Boolean = true,
+    ) {
+        storage.append(GroupRecordingFileFormat.segmentName(header.group, header.index)).use { output ->
+            output.write(GroupRecordingFileFormat.header(header))
+            entries.forEach { output.write(GroupRecordingFileFormat.entryFrame(it)) }
+            if (finished) output.write(Framing.END)
+        }
+    }
 }

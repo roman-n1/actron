@@ -199,11 +199,21 @@ public final class actron/timetravel/GroupRecording {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class actron/timetravel/GroupReplayMember {
+	public final fun getCheckpoint ()Lactron/statechart/machine/ExecutorCheckpoint;
+	public final fun getLength ()I
+	public final fun getMachine ()Lactron/statechart/machine/Machine;
+	public final fun getPosition ()I
+	public final fun getRecording ()Lactron/timetravel/Recording;
+	public final fun getSnapshot ()Lactron/statechart/machine/MachineSnapshot;
+}
+
 public final class actron/timetravel/GroupReplaySession {
 	public fun <init> (Ljava/util/Map;Lactron/timetravel/GroupRecording;)V
 	public final fun branch (Ljava/util/List;)Lactron/timetravel/GroupBranch;
 	public final fun checkpointOf-nThWMHI (Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
 	public final fun getLength ()I
+	public final fun getMemberViews ()Ljava/util/Map;
 	public final fun getMembers ()Ljava/util/Map;
 	public final fun getPosition ()I
 	public final fun getRecording ()Lactron/timetravel/GroupRecording;
@@ -666,6 +676,8 @@ public final class actron/timetravel/ReplaySession {
 	public final fun seek (I)V
 	public final fun stepBackward ()Z
 	public final fun stepForward ()Lactron/timetravel/ReplayStep;
+	public final fun verification (II)Lactron/timetravel/ReplayVerification;
+	public static synthetic fun verification$default (Lactron/timetravel/ReplaySession;IIILjava/lang/Object;)Lactron/timetravel/ReplayVerification;
 	public final fun verify (IILkotlin/jvm/functions/Function1;)Z
 	public static synthetic fun verify$default (Lactron/timetravel/ReplaySession;IILkotlin/jvm/functions/Function1;ILjava/lang/Object;)Z
 	public final fun withNext (Lkotlin/jvm/functions/Function1;)Z
@@ -705,6 +717,27 @@ public final class actron/timetravel/ReplayStep$Matched : actron/timetravel/Repl
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDecision ()Lactron/statechart/machine/Decision;
 	public final fun getPosition ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class actron/timetravel/ReplayVerification {
+}
+
+public final class actron/timetravel/ReplayVerification$Diverged : actron/timetravel/ReplayVerification {
+	public fun <init> (Lactron/timetravel/ReplayMismatch;)V
+	public final fun component1 ()Lactron/timetravel/ReplayMismatch;
+	public final fun copy (Lactron/timetravel/ReplayMismatch;)Lactron/timetravel/ReplayVerification$Diverged;
+	public static synthetic fun copy$default (Lactron/timetravel/ReplayVerification$Diverged;Lactron/timetravel/ReplayMismatch;ILjava/lang/Object;)Lactron/timetravel/ReplayVerification$Diverged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMismatch ()Lactron/timetravel/ReplayMismatch;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/ReplayVerification$Passed : actron/timetravel/ReplayVerification {
+	public static final field INSTANCE Lactron/timetravel/ReplayVerification$Passed;
+	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

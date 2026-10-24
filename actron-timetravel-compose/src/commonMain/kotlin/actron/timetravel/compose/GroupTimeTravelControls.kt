@@ -39,7 +39,7 @@ class GroupTimeTravelControls(
     fun branchHere() {
         if (travel is GroupTravel.Experiment) return
         val experiment = replay.session.branch(routes)
-        val controls = BranchControls(experiment, replay.session.members.mapValues { it.value.machine }, inputs)
+        val controls = BranchControls(experiment, replay.session.memberViews.mapValues { it.value.machine }, inputs)
         travel = GroupTravel.Experiment(replay.position, controls)
     }
 

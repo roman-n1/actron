@@ -42,6 +42,9 @@ data class GroupRoute(
  * made in, across the group. A group replay decides the members' inputs again in this order; a
  * group branch continues all of them from one position with a local bridge.
  *
+ * Collections are captured at construction; recordings, source snapshots and application
+ * payloads are not deep-cloned.
+ *
  * @property members The recording of each member
  * @property order Every decision of the group, in the order it was made: the member and the
  * index of its step
@@ -55,23 +58,31 @@ data class GroupRoute(
  * cut: what a branch scripts the sources' next data from
  */
 class GroupRecording(
-    val members: Map<StoreInstanceId, Recording<*, *, *, *>>,
-    val order: List<GroupStep>,
-    val routes: List<GroupRoute> = emptyList(),
-    val inFlight: List<MessageId> = emptyList(),
-    val sourceIds: Set<SourceId> = emptySet(),
-    val sourceSnapshots: Map<SourceId, SourceSnapshot> = emptyMap(),
+    members: Map<StoreInstanceId, Recording<*, *, *, *>>,
+    order: List<GroupStep>,
+    routes: List<GroupRoute> = emptyList(),
+    inFlight: List<MessageId> = emptyList(),
+    sourceIds: Set<SourceId> = emptySet(),
+    sourceSnapshots: Map<SourceId, SourceSnapshot> = emptyMap(),
 ) {
+    /** Collection snapshots; member recordings and application payloads retain their identity. */
+    val members: Map<StoreInstanceId, Recording<*, *, *, *>> = members.toMap()
+    val order: List<GroupStep> = order.toList()
+    val routes: List<GroupRoute> = routes.toList()
+    val inFlight: List<MessageId> = inFlight.toList()
+    val sourceIds: Set<SourceId> = sourceIds.toSet()
+    val sourceSnapshots: Map<SourceId, SourceSnapshot> = sourceSnapshots.toMap()
+
     init {
-        val counts = order.groupingBy { it.store }.eachCount()
-        for ((id, recording) in members) {
+        val counts = this.order.groupingBy { it.store }.eachCount()
+        for ((id, recording) in this.members) {
             require((counts[id] ?: 0) == recording.length) { "[Actron] The order has ${counts[id] ?: 0} steps of $id, its recording ${recording.length}" }
         }
-        for ((index, step) in order.withIndex()) {
-            require(step.store in members) { "[Actron] Step $index belongs to ${step.store}, which is not a member" }
+        for ((index, step) in this.order.withIndex()) {
+            require(step.store in this.members) { "[Actron] Step $index belongs to ${step.store}, which is not a member" }
         }
-        for ((id, _) in members) {
-            val steps = order.filter { it.store == id }.map { it.step }
+        for ((id, _) in this.members) {
+            val steps = this.order.filter { it.store == id }.map { it.step }
             require(steps == steps.indices.toList()) { "[Actron] The steps of $id are not in order: $steps" }
         }
     }

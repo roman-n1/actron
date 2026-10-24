@@ -12,6 +12,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import actron.timetravel.ReplayVerification as SessionVerification
 
 /**
  * The replay of one Store's recording as the screen drives it (handoff §11, v2): the position,
@@ -105,8 +106,11 @@ class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(
     }
 
     fun verify() {
-        verification = ReplayVerification.Checked("no divergence in ${session.length} steps")
-        session.verify { verification = ReplayVerification.Checked(it.describe()) }
+        verification =
+            when (val result = session.verification()) {
+                SessionVerification.Passed -> ReplayVerification.Checked("no divergence in ${session.length} steps")
+                is SessionVerification.Diverged -> ReplayVerification.Checked(result.mismatch.describe())
+            }
     }
 }
 

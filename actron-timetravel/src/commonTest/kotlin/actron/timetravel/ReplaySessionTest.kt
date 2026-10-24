@@ -336,4 +336,145 @@ class ReplaySessionTest {
             assertIs<DecisionOutcome.Failed>(matched.decision.outcome)
             assertEquals(FailureDescriptor(type = "IllegalStateException"), (recording.steps[failed] as RecordedStep.Failed).failure)
         }
+
+    @Test
+    fun explicitVerificationReportsPassedForCleanAndEmptyRangesWithoutMoving() =
+        runTest {
+            val machine = machine()
+            val recording = record(machine).recording
+            val replay = ReplaySession(machine, recording)
+            replay.seek(2)
+            assertEquals(ReplayVerification.Passed, replay.verification())
+            assertEquals(ReplayVerification.Passed, replay.verification(2, 2))
+            assertEquals(ReplayVerification.Passed, replay.verification(replay.length, replay.length))
+            assertEquals(2, replay.position)
+            assertEquals(recording.snapshotAt(2), replay.snapshot)
+            for ((from, to) in listOf(-1 to 0, 2 to 1, 0 to replay.length + 1)) {
+                val explicit = assertFailsWith<IllegalArgumentException> { replay.verification(from, to) }
+                val legacy = assertFailsWith<IllegalArgumentException> { replay.verify(from, to) {} }
+                assertEquals(legacy.message, explicit.message)
+            }
+        }
+
+    @Test
+    fun explicitVerificationReportsTheFirstMismatchAndRespectsRangeBoundaries() =
+        runTest {
+            val machine = machine()
+            val original = record(machine).recording
+            val steps =
+                original.steps.map { step ->
+                    if (step is RecordedStep.Committed) {
+                        step.copy(decision = step.decision.copy(snapshot = step.decision.snapshot.copy(revision = 999)))
+                    } else {
+                        step
+                    }
+                }
+            val replay = ReplaySession(machine, Recording(original.definition, original.version, original.start, steps))
+            replay.seek(replay.length)
+            val first = assertIs<ReplayVerification.Diverged<Ctx, Act, Fetch, Ev>>(replay.verification()).mismatch
+            assertEquals(0, first.position)
+            val next = steps.indexOfFirst { it is RecordedStep.Committed && it != steps[0] }
+            val ranged = assertIs<ReplayVerification.Diverged<Ctx, Act, Fetch, Ev>>(replay.verification(next, next + 1)).mismatch
+            assertEquals(next, ranged.position)
+            assertEquals(listOf("revision: recorded 999, now 1"), first.differences)
+            assertEquals(replay.length, replay.position)
+        }
+
+    @Test
+    fun snapshotDifferencesPrecedeIntentDifferencesInStepAndRangeVerification() =
+        runTest {
+            val machine = machine()
+            val original = record(machine).recording
+            val at = original.steps.indexOfFirst { it is RecordedStep.Committed && it.decision.commands.isNotEmpty() }
+            val steps = original.steps.toMutableList()
+            val step = assertIs<RecordedStep.Committed<Ctx, Act, Fetch, Ev>>(steps[at])
+            steps[at] =
+                step.copy(
+                    decision =
+                        step.decision.copy(
+                            snapshot = step.decision.snapshot.copy(revision = 999, context = Ctx(query = "tampered")),
+                            transitions = emptyList(),
+                            entered = emptyList(),
+                        ),
+                )
+            val replay = ReplaySession(machine, Recording(original.definition, original.version, original.start, steps))
+            replay.seek(at)
+            val mismatch = assertIs<ReplayStep.Diverged<Ctx, Act, Fetch, Ev>>(replay.stepForward()).mismatch
+            assertEquals(listOf("revision", "context", "transitions", "entered"), mismatch.differences.map { it.substringBefore(":") })
+            var callbacks = 0
+            assertTrue(
+                replay.verify(at, at + 1) {
+                    callbacks++
+                    assertEquals(mismatch.differences, it.differences)
+                    assertEquals(at, it.position)
+                },
+            )
+            assertEquals(1, callbacks)
+            assertEquals(at, replay.position)
+        }
+
+    @Test
+    fun aThrowingMismatchCallbackPropagatesItsFailureWithoutMovingTheCursor() =
+        runTest {
+            val machine = machine()
+            val original = record(machine).recording
+            val steps = original.steps.toMutableList()
+            val first = assertIs<RecordedStep.Committed<Ctx, Act, Fetch, Ev>>(steps[0])
+            steps[0] = first.copy(decision = first.decision.copy(snapshot = first.decision.snapshot.copy(context = Ctx(query = "changed"))))
+            val replay = ReplaySession(machine, Recording(original.definition, original.version, original.start, steps))
+            replay.seek(replay.length)
+            val failure = IllegalStateException("consumer failed")
+            var callbacks = 0
+            val thrown =
+                assertFailsWith<IllegalStateException> {
+                    replay.verify {
+                        callbacks++
+                        throw failure
+                    }
+                }
+            kotlin.test.assertSame(failure, thrown)
+            assertEquals(1, callbacks)
+            assertEquals(replay.length, replay.position)
+            assertEquals(original.snapshotAt(original.length), replay.snapshot)
+        }
+
+    @Test
+    fun anEarlyTimerDiagnosticPrecedesTheOutcomeOrFieldDifferences() =
+        runTest {
+            val machine = machine()
+            val original = record(machine).recording
+            val at = original.steps.indexOfFirst { it.input is MachineInput.TimerFired }
+            val steps = original.steps.toMutableList()
+            val step = assertIs<RecordedStep.Committed<Ctx, Act, Fetch, Ev>>(steps[at])
+            val fired = assertIs<MachineInput.TimerFired>(step.input)
+            val early = MachineInput.TimerFired(fired.timer, MachineTime(fired.now.sinceStart - 5.seconds))
+            steps[at] = step.copy(input = early, decision = step.decision.copy(snapshot = step.decision.snapshot.copy(context = Ctx(query = "tampered"))))
+            val replay = ReplaySession(machine, Recording(original.definition, original.version, original.start, steps))
+            replay.seek(at)
+            val mismatch = assertIs<ReplayStep.Diverged<Ctx, Act, Fetch, Ev>>(replay.stepForward()).mismatch
+            assertTrue(mismatch.differences.size > 1)
+            assertTrue(mismatch.differences.first().startsWith("timer ${fired.timer} fired at "))
+            assertEquals(at, replay.position)
+            assertEquals(original.snapshotAt(at), replay.snapshot)
+        }
+
+    @Test
+    fun failureMessagesAndCausesDoNotChangeTypeBasedReplayMatching() =
+        runTest {
+            val machine = machine()
+            val original = record(machine).recording
+            val at = original.steps.indexOfFirst { it is RecordedStep.Failed }
+            val steps = original.steps.toMutableList()
+            val step = assertIs<RecordedStep.Failed<Ctx, Act, Fetch, Ev>>(steps[at])
+            steps[at] = step.copy(failure = FailureDescriptor(step.failure.typeLabel, "different detail", FailureDescriptor("OtherCause")))
+            val replay = ReplaySession(machine, Recording(original.definition, original.version, original.start, steps))
+            replay.seek(at)
+            assertIs<ReplayStep.Matched<Ctx, Act, Fetch, Ev>>(replay.stepForward())
+            assertEquals(at + 1, replay.position)
+            steps[at] = step.copy(failure = FailureDescriptor("OtherFailure"))
+            val different = ReplaySession(machine, Recording(original.definition, original.version, original.start, steps))
+            different.seek(at)
+            val mismatch = assertIs<ReplayStep.Diverged<Ctx, Act, Fetch, Ev>>(different.stepForward()).mismatch
+            assertEquals(listOf("failure: recorded OtherFailure, now IllegalStateException"), mismatch.differences)
+        }
 }

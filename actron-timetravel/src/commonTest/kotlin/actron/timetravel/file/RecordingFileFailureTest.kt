@@ -251,6 +251,33 @@ class RecordingFileFailureTest {
         }
 
     @Test
+    fun endFrameFailureStaysPrimaryWhenClosingAlsoFails() =
+        runTest {
+            for (kind in Kind.entries) {
+                val failure = IllegalStateException("end frame")
+                val cleanupFailure = IllegalArgumentException("close")
+                val endWrite = if (kind == Kind.Member) 4 else 3
+                val storage =
+                    Storage(kind == Kind.Order) { operation, call ->
+                        when {
+                            operation == "write" && call == endWrite -> throw failure
+                            operation == "close" -> throw cleanupFailure
+                            else -> Unit
+                        }
+                    }
+                val writer = Writer(this, kind, storage)
+                writer.step()
+                runCurrent()
+                assertTrue(writer.failures.isEmpty())
+                writer.close()
+                assertSame(failure, writer.failures.single(), kind.name)
+                assertEquals(listOf(cleanupFailure), failure.suppressedExceptions)
+                assertEquals(1, storage.closed, kind.name)
+                assertTrue(writer.uncaught.isEmpty())
+            }
+        }
+
+    @Test
     fun cancellingTheWriterScopeReleasesTheHandleWithoutCompletingTheSegment() =
         runTest {
             for (kind in Kind.entries) {

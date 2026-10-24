@@ -1,17 +1,12 @@
 package actron.timetravel
 
-import actron.core.Action
-import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.Decision
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
-import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MessageId
-import actron.statechart.machine.PairRole
-import actron.statechart.machine.RoutePair
 import actron.statechart.machine.SourceId
 
 /**
@@ -114,11 +109,7 @@ class GroupReplaySession(
     machines: Map<StoreInstanceId, Machine<*, *, *, *>>,
     val recording: GroupRecording,
 ) {
-    private val sessions: Map<StoreInstanceId, ReplaySession<*, *, *, *>> =
-        recording.members.mapValues { (id, memberRecording) ->
-            val machine = requireNotNull(machines[id]) { "[Actron] No machine for member $id" }
-            open(machine, memberRecording)
-        }
+    private val replayMembers = GroupReplayMembers(machines, recording)
 
     /** The number of steps of the group. */
     val length: Int get() = recording.length
@@ -134,17 +125,24 @@ class GroupReplaySession(
         return true
     }
 
-    /** The members' sessions, each at its own position for the group's. */
-    val members: Map<StoreInstanceId, ReplaySession<*, *, *, *>> get() = sessions
+    /** Legacy member cursors. Group reads and movement use the group position independently. */
+    @Deprecated("Use memberViews for inspection and the group session for movement")
+    val members: Map<StoreInstanceId, ReplaySession<*, *, *, *>> get() = replayMembers.sessions
+
+    /** Read-only member inspection, always derived from the current group position. */
+    val memberViews: Map<StoreInstanceId, GroupReplayMember> =
+        recording.members.mapValues { (id, member) ->
+            GroupReplayMember(replayMembers.session(id).machine, member) { recording.stepsBefore(position, id) }
+        }
 
     // The recording's bridge/source relationships do not depend on the replay cursor.
-    private val bridgeMismatches by lazy { verifyBridge() }
+    private val bridgeMismatches by lazy { GroupReplayCausality(recording).mismatches }
 
     /** The snapshot of [store] at the group's position. */
-    fun snapshotOf(store: StoreInstanceId): MachineSnapshot<*> = session(store).snapshot
+    fun snapshotOf(store: StoreInstanceId): MachineSnapshot<*> = memberView(store).snapshot
 
     /** The executor's state of [store] at the group's position. */
-    fun checkpointOf(store: StoreInstanceId): ExecutorCheckpoint<*, *> = session(store).checkpoint
+    fun checkpointOf(store: StoreInstanceId): ExecutorCheckpoint<*, *> = memberView(store).checkpoint
 
     /**
      * Checks the next input's bridge/source causality, decides it on its member and compares
@@ -155,7 +153,10 @@ class GroupReplaySession(
         if (position >= length) return GroupReplayStep.Finished(position)
         val step = recording.order[position]
         for (mismatch in bridgeMismatches) if (mismatch.position == position) return GroupReplayStep.Diverged(mismatch)
-        return when (val result = session(step.store).stepForward()) {
+        val member = replayMembers.session(step.store)
+        // The recorded ordinal is authoritative even if a legacy member cursor was moved.
+        member.seek(step.step)
+        return when (val result = member.stepForward()) {
             is ReplayStep.Finished -> {
                 GroupReplayStep.Finished(position)
             }
@@ -185,7 +186,7 @@ class GroupReplaySession(
      */
     fun seek(position: Int) {
         require(position in 0..length) { "[Actron] Position $position is outside 0..$length" }
-        for ((id, session) in sessions) session.seek(recording.stepsBefore(position, id))
+        replayMembers.seek(position)
         this.position = position
     }
 
@@ -196,74 +197,8 @@ class GroupReplaySession(
      * the pair from the receiver. Does not move.
      */
     fun verify(): List<GroupMismatch> {
-        val mismatches = mutableListOf<GroupMismatch>()
-        for ((id, session) in sessions) {
-            session.verify { mismatch -> mismatches += GroupMismatch.Replay(positionOf(id, mismatch.position), id, mismatch) }
-        }
+        val mismatches = replayMembers.verify().toMutableList()
         mismatches += bridgeMismatches
-        return mismatches.sortedBy { it.position }
-    }
-
-    private fun verifyBridge(): List<GroupMismatch> {
-        val mismatches = mutableListOf<GroupMismatch>()
-        val sent = recording.inFlight.toMutableSet()
-        val received = mutableMapOf<Pair<StoreInstanceId, MessageId>, Int>()
-        // The requesters each member has received a request from so far, and, per message, the
-        // requesters its sender had heard from when it emitted the message. A member whose
-        // recording begins at a checkpoint (a run since a cut) may have heard from anyone before
-        // it: it counts as having heard from every member, and a message in flight at the start
-        // was emitted before it and is not checked.
-        val requestersHeard = mutableMapOf<StoreInstanceId, MutableSet<StoreInstanceId>>()
-        for ((id, member) in recording.members) if (member.start.snapshot.revision > 0) requestersHeard[id] = (recording.members.keys - id).toMutableSet()
-        val heardAtEmit = mutableMapOf<MessageId, Set<StoreInstanceId>>()
-        for ((index, step) in recording.order.withIndex()) {
-            val recorded = recording.members.getValue(step.store).steps[step.step]
-            val input = recorded.input
-            if (input is MachineInput.BridgeReceived) {
-                val message = input.message
-                val key = step.store to message
-                val routes = recording.routes.filter { it.from == message.from && it.to == step.store }
-                when {
-                    key in received -> {
-                        mismatches += GroupMismatch.DeliveredTwice(index, step.store, message, received.getValue(key))
-                    }
-
-                    message.from !in recording.members -> {
-                        mismatches += GroupMismatch.SentByNobody(index, step.store, message)
-                    }
-
-                    message !in sent -> {
-                        mismatches += GroupMismatch.ReceivedBeforeSent(index, step.store, message)
-                    }
-
-                    routes.isEmpty() -> {
-                        mismatches += GroupMismatch.NoRoute(index, step.store, message)
-                    }
-
-                    else -> {
-                        val replies = routes.map { it.pair }.filterIsInstance<RoutePair>().filter { it.role == PairRole.Reply }
-                        if (replies.isNotEmpty() && message !in recording.inFlight && step.store !in heardAtEmit[message].orEmpty()) mismatches += GroupMismatch.ReplyWithoutRequest(index, step.store, message, replies.first().name)
-                        if (routes.any {
-                                val pair = it.pair
-                                pair is RoutePair && pair.role == PairRole.Request
-                            }
-                        ) {
-                            requestersHeard.getOrPut(step.store) { mutableSetOf() } += message.from
-                        }
-                    }
-                }
-                received[key] = index
-            }
-            if (input is MachineInput.External && input.source !in recording.sourceIds) mismatches += GroupMismatch.UnknownSource(index, step.store, input.source)
-            if (recorded is RecordedStep.Committed<*, *, *, *>) {
-                val heard = requestersHeard[step.store].orEmpty().toSet()
-                for (effect in recorded.decision.effects) {
-                    val message = MessageId(step.store, effect.id)
-                    sent += message
-                    heardAtEmit[message] = heard
-                }
-            }
-        }
         return mismatches.sortedBy { it.position }
     }
 
@@ -272,18 +207,10 @@ class GroupReplaySession(
      * checkpoint here, joined by a local bridge over [routes], with the sources' snapshots as at
      * the recording's start for the caller to script their data from.
      */
-    fun branch(routes: List<GroupBranch.Route>): GroupBranch = GroupBranch(sessions.mapValues { (_, session) -> session.branch() }, routes, recording.sourceSnapshots)
+    fun branch(routes: List<GroupBranch.Route>): GroupBranch {
+        replayMembers.seek(position)
+        return replayMembers.branch(routes)
+    }
 
-    private fun session(store: StoreInstanceId): ReplaySession<*, *, *, *> = requireNotNull(sessions[store]) { "[Actron] $store is not a member" }
-
-    private fun positionOf(
-        store: StoreInstanceId,
-        step: Int,
-    ): Int = recording.order.indexOfFirst { it.store == store && it.step == step }.let { if (it < 0) length else it }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun open(
-        machine: Machine<*, *, *, *>,
-        recording: Recording<*, *, *, *>,
-    ): ReplaySession<*, *, *, *> = ReplaySession(machine as Machine<Any, Action, Any, Event>, recording as Recording<Any, Action, Any, Event>)
+    private fun memberView(store: StoreInstanceId): GroupReplayMember = requireNotNull(memberViews[store]) { "[Actron] $store is not a member" }
 }
