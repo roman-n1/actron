@@ -59,9 +59,6 @@
     <ID>WildcardImport:BoundedMachineRecorder.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:BoundedMachineRecorderTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:BoundedMachineRecorderTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:CheckpointGroupTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CheckpointGroupTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:CheckpointGroupTest.kt:import kotlinx.serialization.json.*</ID>
     <ID>WildcardImport:HistoryDefinition.kt:import actron.statechart.*</ID>
     <ID>WildcardImport:HistoryDefinition.kt:import kotlinx.serialization.json.*</ID>
     <ID>WildcardImport:HistoryRecordingTest.kt:import actron.statechart.*</ID>
@@ -69,14 +66,9 @@
     <ID>WildcardImport:HistoryTimeline.kt:import kotlinx.serialization.json.*</ID>
     <ID>WildcardImport:HistoryTimelineTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:HistoryTimelineTest.kt:import kotlinx.serialization.json.*</ID>
-    <ID>WildcardImport:InvocationPersistenceTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:InvocationPersistenceTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:InvocationPersistenceTest.kt:import kotlinx.serialization.json.*</ID>
     <ID>WildcardImport:InvocationStorePersistenceTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:InvocationStorePersistenceTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:InvocationStorePersistenceTest.kt:import kotlinx.coroutines.*</ID>
-    <ID>WildcardImport:MachinePersistenceTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:MachinePersistenceTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:ObservedInspector.kt:import actron.observability.*</ID>
     <ID>WildcardImport:ParallelPersistenceTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:ParallelPersistenceTest.kt:import kotlin.test.*</ID>

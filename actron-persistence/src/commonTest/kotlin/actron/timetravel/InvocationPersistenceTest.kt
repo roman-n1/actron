@@ -5,10 +5,44 @@ package actron.timetravel
 import actron.core.Action
 import actron.core.Event
 import actron.statechart.StateId
-import actron.statechart.machine.*
+import actron.statechart.machine.ActivationId
+import actron.statechart.machine.ChildCheckpoint
+import actron.statechart.machine.ChildInvocation
+import actron.statechart.machine.CommandRegistration
+import actron.statechart.machine.ConcurrencyPolicy
+import actron.statechart.machine.DecisionOutcome
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.EffectId
+import actron.statechart.machine.EffectPolicy
+import actron.statechart.machine.ExecutorCheckpoint
+import actron.statechart.machine.InvocationCheckpoint
+import actron.statechart.machine.InvocationDecision
+import actron.statechart.machine.InvocationInput
+import actron.statechart.machine.LaneId
+import actron.statechart.machine.Lanes
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.PendingEffect
+import actron.statechart.machine.stateMachine
+import actron.statechart.machine.typedInvokedMachine
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.*
-import kotlin.test.*
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class InvocationPersistenceTest {
@@ -289,11 +323,91 @@ class InvocationPersistenceTest {
         val invalidMembers = JsonObject(members + ("parent" to JsonArray(listOf(JsonPrimitive(invalidMember.toString())))))
         assertFailsWith<IllegalArgumentException> { group.restore(JsonObject(document + ("machines" to invalidMembers)).toString()) }
         assertEquals(1, writes)
+        for (values in listOf(emptyList(), listOf("broken", "broken"))) {
+            val invalid = JsonObject(document + ("machines" to JsonObject(members + ("parent" to JsonArray(values.map(::JsonPrimitive)))))).toString()
+            val error = assertFailsWith<IllegalArgumentException> { group.restore(invalid) }
+            assertEquals("Expected one invocation checkpoint for parent", error.message)
+            assertEquals(1, writes)
+        }
         assertFailsWith<IllegalArgumentException> {
             checkpointGroup({ original }) {
                 invocation(invocationPersistence(composition()), read = { it }, write = { _, cp -> cp })
                 invocation(invocationPersistence(composition()), read = { it }, write = { _, cp -> cp })
             }
         }
+    }
+
+    private fun tracedPersistence(calls: MutableList<String>) =
+        InvocationPersistence(
+            composition(),
+            RecordingCodec(Parent.serializer().recordPersistenceCalls("parent", calls), Act.serializer(), String.serializer(), Finished.serializer()),
+            RecordingCodec(Int.serializer().recordPersistenceCalls("child", calls), Finish.serializer(), String.serializer(), Finished.serializer()),
+        )
+
+    @Test
+    fun childPayloadIsEncodedAndDecodedBeforeParentPayload() {
+        val calls = mutableListOf<String>()
+        val persistence = tracedPersistence(calls)
+        val original = opened()
+
+        val saved = persistence.save(original)
+        assertEquals(listOf("encode:child", "encode:parent"), calls)
+        calls.clear()
+        assertEquals(original, persistence.restore(saved))
+        assertEquals(listOf("decode:child", "decode:parent"), calls)
+    }
+
+    @Test
+    fun compositeValidationRunsBeforeAnyApplicationSerializer() {
+        val calls = mutableListOf<String>()
+        val original = opened()
+        val child = assertIs<ChildCheckpoint.Active<Int, String>>(original.child)
+
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                tracedPersistence(calls).save(original.copy(child = child.copy(owner = ActivationId(999))))
+            }
+
+        assertEquals("Invocation child does not match parent activation", error.message)
+        assertEquals(emptyList(), calls)
+    }
+
+    @Test
+    fun documentIdentityIsCheckedBeforeReadingEitherPayload() {
+        val calls = mutableListOf<String>()
+        val persistence = tracedPersistence(calls)
+        val document = Json.parseToJsonElement(persistence.save(opened())).jsonObject
+        val child = document.getValue("child").jsonObject
+        val corrupted =
+            JsonObject(
+                document +
+                    mapOf(
+                        "ownerState" to JsonPrimitive("other"),
+                        "parent" to JsonPrimitive("broken"),
+                        "child" to JsonObject(child + ("checkpoint" to JsonPrimitive("broken"))),
+                    ),
+            ).toString()
+        calls.clear()
+
+        val error = assertFailsWith<IllegalArgumentException> { persistence.restore(corrupted) }
+
+        assertEquals("Invocation owner state differs", error.message)
+        assertEquals(emptyList(), calls)
+    }
+
+    @Test
+    fun childPayloadFailureDoesNotReadParentPayload() {
+        val calls = mutableListOf<String>()
+        val persistence = tracedPersistence(calls)
+        val document = Json.parseToJsonElement(persistence.save(opened())).jsonObject
+        val child = document.getValue("child").jsonObject
+        val corrupted = JsonObject(document + ("child" to JsonObject(child + ("checkpoint" to JsonPrimitive("{"))))).toString()
+        calls.clear()
+
+        val error = assertFailsWith<IllegalArgumentException> { persistence.restore(corrupted) }
+
+        assertTrue(error.message.orEmpty().startsWith("not JSON: "))
+        assertNull(error.cause)
+        assertEquals(emptyList(), calls)
     }
 }
