@@ -70,7 +70,7 @@ class HistoryPanelTest {
         }
 
     @Test
-    fun switchingMachineClearsForeignSelectionAndHistoryUsesFilteredEntries() =
+    fun filteringKeepsPreviewAndCanRevealTheSelectedEvent() =
         runComposeUiTest {
             val timeline = HistoryTimeline<String>()
             val details = HistoryDetails("Load", "Action", "Handled", emptyList(), emptyList())
@@ -81,14 +81,23 @@ class HistoryPanelTest {
             onNodeWithTag("history-entry-2").performClick()
             onNodeWithTag("history-machine-filter").performClick()
             onNodeWithText("Search").performClick()
-            onNodeWithTag("history-selected-input").assertDoesNotExist()
+            onNodeWithTag("history-selected-input").assertExists()
+            onNodeWithTag("history-selection-status").assertExists()
             runOnIdle {
-                assertEquals(emptyList(), state.selection)
-                assertEquals(emptyList(), state.preview)
+                assertEquals("Weather snapshot", state.selection.single().snapshot)
+                assertEquals("Weather snapshot", state.preview.single().snapshot)
             }
-            onNodeWithTag("history-mode-history").performClick()
-            runOnIdle { assertEquals("Search snapshot", state.preview.single().snapshot) }
             onNodeWithTag("history-entry-2").assertDoesNotExist()
+            onNodeWithTag("history-previous").performClick()
+            runOnIdle { assertEquals("Search snapshot", state.preview.single().snapshot) }
+            onNodeWithTag("history-search").performTextInput("#2")
+            onNodeWithTag("history-entry-1").assertDoesNotExist()
+            onNodeWithTag("history-entry-2").assertDoesNotExist()
+            onNodeWithTag("history-reveal-selection").performClick()
+            onNodeWithTag("history-entry-1").assertExists()
+            onNodeWithTag("history-entry-2").assertExists()
+            onNodeWithTag("history-selection-status").assertDoesNotExist()
+            runOnIdle { assertEquals("Search snapshot", state.preview.single().snapshot) }
         }
 
     @Test

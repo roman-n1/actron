@@ -1,19 +1,29 @@
 package actron.example.weather.core.debug
 
+import actron.example.weather.core.session.LocalWeatherActions
+import actron.example.weather.core.session.WeatherFrame
+import actron.example.weather.core.session.WeatherRoute
 import actron.example.weather.feature.cities.presentation.CitySearchScreen
 import actron.example.weather.feature.cities.presentation.toUiState
 import actron.example.weather.feature.weather.presentation.CityWeatherScreen
 import actron.example.weather.feature.weather.presentation.toUiState
+import actron.timetravel.compose.HistoryContinuation
 import actron.timetravel.compose.HistoryPanel
 import actron.timetravel.compose.HistoryRecordingPanel
 import actron.timetravel.compose.ResizableHistoryLayout
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
-
-internal val LocalWeatherSettings = staticCompositionLocalOf<() -> Unit> { {} }
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Composable
 fun WeatherDebugLayout(
@@ -27,7 +37,7 @@ fun WeatherDebugLayout(
     var settingsOpen by remember { mutableStateOf(false) }
     var diagnosticDemo by remember { mutableStateOf(GraphDiagnosticDemo.Off) }
     val visible by history.panelVisible.collectAsState()
-    CompositionLocalProvider(LocalWeatherSettings provides { settingsOpen = true }) {
+    CompositionLocalProvider(LocalWeatherActions provides { DebugSettingsButton { settingsOpen = true } }) {
         Box(Modifier.fillMaxSize()) {
             val preview: @Composable () -> Unit = {
                 val selection = history.panel.preview
@@ -67,7 +77,7 @@ fun WeatherDebugLayout(
                         Column(Modifier.fillMaxSize()) {
                             if (viewer.imported.isEmpty()) {
                                 // The reusable panel delegates continuation/navigation to the host.
-                                HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, Modifier.weight(1f).testTag("weather-history-panel"), WeatherFrame::canResume, graph = { history.graph(it).withDiagnosticDemo(diagnosticDemo) }, actions = { RecordingActions(viewer, files, history) })
+                                HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, continuation = { it.continuation(russian) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), graph = { history.graph(it).withDiagnosticDemo(diagnosticDemo) }, actions = { RecordingActions(viewer, files, history) })
                             } else {
                                 val imported = viewer.imported.single()
                                 // Display-only records have no executor checkpoint or continuation callback.
@@ -116,5 +126,49 @@ fun WeatherDebugLayout(
             },
             confirmButton = { TextButton(onClick = { settingsOpen = false }, modifier = Modifier.testTag("debug-settings-done")) { Text(if (russian) "Готово" else "Done") } },
         )
+    }
+}
+
+/** Explain the same executor restrictions used by WeatherFrame.canResume. */
+internal fun WeatherFrame.continuation(russian: Boolean): HistoryContinuation {
+    val ending =
+        search.ending.size +
+            when (val screen = route) {
+                WeatherRoute.Search -> 0
+                is WeatherRoute.Weather -> screen.checkpoint.ending.size
+            }
+    val effects =
+        search.effects.size +
+            when (val screen = route) {
+                WeatherRoute.Search -> 0
+                is WeatherRoute.Weather -> screen.checkpoint.effects.size
+            }
+    if (ending == 0 && effects == 0) {
+        return HistoryContinuation.Available(
+            if (russian) "Незавершённые запросы будут запущены заново." else "Unfinished requests will be restarted.",
+        )
+    }
+    val reasons = mutableListOf<String>()
+    if (ending > 0) reasons.add(if (russian) "Не обработаны завершения команд: $ending." else "Command completions awaiting a decision: $ending.")
+    if (effects > 0) reasons.add(if (russian) "Не подтверждена обработка эффектов: $effects." else "Effects awaiting acknowledgement: $effects.")
+    return HistoryContinuation.Unavailable(reasons.joinToString(" "))
+}
+
+@Composable
+private fun DebugSettingsButton(openSettings: () -> Unit) {
+    val settingsLabel = if (androidx.compose.ui.text.intl.Locale.current.language == "ru") "Настройки" else "Settings"
+    IconButton(onClick = openSettings, modifier = Modifier.testTag("debug-settings").semantics { contentDescription = settingsLabel }) {
+        val color = MaterialTheme.colorScheme.onSurfaceVariant
+        Canvas(Modifier.size(24.dp)) {
+            val radius = size.minDimension * 0.31f
+            val stroke = 2.dp.toPx()
+            drawCircle(color, radius, style = Stroke(stroke))
+            drawCircle(color, radius * 0.4f, style = Stroke(stroke))
+            repeat(8) { tooth ->
+                val angle = tooth * kotlin.math.PI.toFloat() / 4f
+                val direction = Offset(cos(angle), sin(angle))
+                drawLine(color, center + direction * radius, center + direction * (size.minDimension * 0.46f), stroke * 1.6f)
+            }
+        }
     }
 }

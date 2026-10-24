@@ -31,6 +31,10 @@ class BoundedMachineRecorder<C : Any, A : Action, CMD : Any, E : Event>(
     constructor(machine: Machine<C, A, CMD, E>, context: C, capacity: Int = 500) :
         this(machine, ExecutorCheckpoint.initial<C, CMD>(machine.initialSnapshot(context)), capacity)
 
+    constructor(machine: Machine<C, A, CMD, E>, checkpoint: ExecutorCheckpoint<C, CMD>, configuration: HistoryConfiguration) : this(machine, checkpoint, configuration.capacity)
+
+    constructor(machine: Machine<C, A, CMD, E>, context: C, configuration: HistoryConfiguration) : this(machine, context, configuration.capacity)
+
     init {
         require(capacity > 0) { "[Actron] Recording capacity must be positive" }
         require(checkpoint.snapshot.definition == machine.id && checkpoint.snapshot.version == machine.version) { "[Actron] Checkpoint belongs to another machine" }

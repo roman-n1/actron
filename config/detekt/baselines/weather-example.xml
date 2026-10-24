@@ -3,8 +3,6 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>CognitiveComplexMethod:AdvancedWeatherTestingTest.kt:AdvancedWeatherTestingTest$@Test fun actualSearchExecutorExploresAnswerBeforeAndAfterQueryReplacement</ID>
-    <ID>CognitiveComplexMethod:CitySearchScreen.kt:@Composable fun CitySearchScreen</ID>
-    <ID>CognitiveComplexMethod:CityWeatherScreen.kt:@Composable fun CityWeatherScreen</ID>
     <ID>CognitiveComplexMethod:GeneratedWeatherScenarios.kt:GeneratedWeatherScenarios$fun search</ID>
     <ID>CognitiveComplexMethod:HistoryFiles.android.kt:@Composable actual fun rememberHistoryFiles: HistoryFiles</ID>
     <ID>CognitiveComplexMethod:WeatherDebugLayout.kt:@Composable fun WeatherDebugLayout</ID>
@@ -24,9 +22,7 @@
     <ID>WildcardImport:AdvancedWeatherTestingTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:AdvancedWeatherTestingTest.kt:import actron.statechart.test.*</ID>
     <ID>WildcardImport:AdvancedWeatherTestingTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:CitySearchMachine.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:CitySearchScenarioTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
-    <ID>WildcardImport:CityWeatherMachine.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenarios.kt:import actron.example.weather.feature.cities.presentation.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenarios.kt:import actron.example.weather.feature.weather.domain.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenarios.kt:import actron.example.weather.feature.weather.presentation.*</ID>
@@ -45,16 +41,8 @@
     <ID>WildcardImport:HistoryFiles.jvm.kt:import androidx.compose.runtime.*</ID>
     <ID>WildcardImport:HistoryFiles.jvm.kt:import kotlinx.coroutines.*</ID>
     <ID>WildcardImport:HourlyForecastTest.kt:import actron.example.weather.feature.weather.presentation.*</ID>
-    <ID>WildcardImport:MachineInstance.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:Main.kt:import actron.example.weather.feature.weather.data.*</ID>
-    <ID>WildcardImport:OpenMeteoHourlyRepository.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:OpenMeteoHourlyRepository.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.example.weather.core.debug.*</ID>
-    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.example.weather.feature.cities.domain.*</ID>
-    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
-    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import kotlinx.coroutines.test.*</ID>
     <ID>WildcardImport:WeatherDebugLayout.kt:import androidx.compose.foundation.layout.*</ID>
     <ID>WildcardImport:WeatherDebugLayout.kt:import androidx.compose.material3.*</ID>
     <ID>WildcardImport:WeatherDebugLayout.kt:import androidx.compose.runtime.*</ID>
@@ -99,8 +87,6 @@
     <ID>WildcardImport:WeatherRecordingViewer.kt:import androidx.compose.foundation.layout.*</ID>
     <ID>WildcardImport:WeatherRecordingViewer.kt:import androidx.compose.material3.*</ID>
     <ID>WildcardImport:WeatherRecordingViewer.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:WeatherSavedState.kt:import actron.example.weather.feature.cities.presentation.*</ID>
-    <ID>WildcardImport:WeatherSavedState.kt:import actron.example.weather.feature.weather.presentation.*</ID>
     <ID>WildcardImport:WeatherScenarioTest.kt:import actron.example.weather.feature.weather.presentation.*</ID>
   </CurrentIssues>
 </SmellBaseline>

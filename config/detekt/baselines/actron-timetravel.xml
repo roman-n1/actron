@@ -36,27 +36,16 @@
     <ID>CyclomaticComplexMethod:Inspector.kt:Inspector.Builder$private fun record</ID>
     <ID>CyclomaticComplexMethod:InspectorText.kt:InspectorText$fun detail: List&lt;String&gt;</ID>
     <ID>CyclomaticComplexMethod:InspectorText.kt:InspectorText$fun line: String</ID>
-    <ID>CyclomaticComplexMethod:RecordingCodec.kt:RecordingCodec$private fun InputWire.toInput: MachineInput&lt;A&gt;</ID>
-    <ID>CyclomaticComplexMethod:RecordingCodec.kt:RecordingCodec$private fun MachineInput&lt;A&gt;.toWire: JsonObject</ID>
     <ID>CyclomaticComplexMethod:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess$private suspend fun full</ID>
     <ID>CyclomaticComplexMethod:ReplaySession.kt:ReplaySession$private fun compare: List&lt;String&gt;</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess$val (phase, kind, cut, path, controlPath) = args.toList()</ID>
     <ID>DoubleNegativeLambda:RecordingFiles.kt:RecordingFileContents$none { it !is RecordingFileMark.Damaged || it.mark !is SegmentMark.Unfinished }</ID>
     <ID>EmptyWhileBlock:HistoryTimeline.kt:HistoryTimeline${ }</ID>
-    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; EffectEnvelope(EffectId(it.id), decoding("$at: effect $index") { json.decodeFromJsonElement(event, it.event) }) }</ID>
-    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; PendingEffect(EffectId(it.id), decoding("$at: effect $index") { json.decodeFromJsonElement(event, it.event) }, it.policy.toPolicy(at), it.attempts, it.handling) }</ID>
-    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: command $index") }</ID>
-    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: ending $index") }</ID>
-    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: queued in $lane $index") }</ID>
-    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: running $index") }</ID>
     <ID>ExplicitItLambdaParameter:RecordingDurabilityJvmTest.kt:RecordingDurabilityProcess${ it: Throwable -&gt; it is IOException &amp;&amp; it.message.orEmpty().contains("No space left on device") }</ID>
     <ID>LongMethod:GroupRecordingFiles.kt:GroupRecordingFiles$fun read: GroupRecordingFileContents</ID>
     <ID>LongMethod:HistoryDefinition.kt:fun StateChartDefinition.historyDefinition: HistoryDefinition</ID>
     <ID>LongMethod:Inspector.kt:Inspector.Builder$private fun record</ID>
     <ID>LongMethod:InspectorText.kt:InspectorText$fun line: String</ID>
-    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: DecodeFailure</ID>
-    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: IllegalArgumentException</ID>
-    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: SerializationException</ID>
     <ID>TooGenericExceptionCaught:GroupRecordingFiles.kt:GroupRecordingFileSink$e: Exception</ID>
     <ID>TooGenericExceptionCaught:GroupRecordingFiles.kt:GroupRecordingFileSink$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:HistoryRecording.kt:HistoryRecordingCodec$error: Exception</ID>
@@ -65,7 +54,6 @@
     <ID>TooManyFunctions:GroupRecordingFiles.kt:GroupRecordingFileSink</ID>
     <ID>TooManyFunctions:GroupReplaySession.kt:GroupReplaySession</ID>
     <ID>TooManyFunctions:InspectorText.kt:InspectorText</ID>
-    <ID>TooManyFunctions:RecordingCodec.kt:RecordingCodec&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
     <ID>TooManyFunctions:RecordingFileSink.kt:RecordingFileSink&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : DecisionObserver</ID>
     <ID>UnusedParameter:ReplaySession.kt:ReplaySession$index: Int</ID>
     <ID>WildcardImport:BoundedMachineRecorder.kt:import actron.statechart.machine.*</ID>
@@ -81,14 +69,12 @@
     <ID>WildcardImport:HistoryTimeline.kt:import kotlinx.serialization.json.*</ID>
     <ID>WildcardImport:HistoryTimelineTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:HistoryTimelineTest.kt:import kotlinx.serialization.json.*</ID>
-    <ID>WildcardImport:InvocationPersistence.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:InvocationPersistenceTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:InvocationPersistenceTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:InvocationPersistenceTest.kt:import kotlinx.serialization.json.*</ID>
     <ID>WildcardImport:InvocationStorePersistenceTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:InvocationStorePersistenceTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:InvocationStorePersistenceTest.kt:import kotlinx.coroutines.*</ID>
-    <ID>WildcardImport:MachinePersistence.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:MachinePersistenceTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:MachinePersistenceTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:ObservedInspector.kt:import actron.observability.*</ID>

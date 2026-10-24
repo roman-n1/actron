@@ -6,107 +6,6 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.roman-n1:actron-timetravel>
-sealed interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/DecodedRecording { // actron.timetravel/DecodedRecording|null[0]
-    final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Decoded : actron.timetravel/DecodedRecording<#A1, #B1, #C1, #D1> { // actron.timetravel/DecodedRecording.Decoded|null[0]
-        constructor <init>(actron.timetravel/Recording<#A1, #B1, #C1, #D1>) // actron.timetravel/DecodedRecording.Decoded.<init>|<init>(actron.timetravel.Recording<1:0,1:1,1:2,1:3>){}[0]
-
-        final val recording // actron.timetravel/DecodedRecording.Decoded.recording|{}recording[0]
-            final fun <get-recording>(): actron.timetravel/Recording<#A1, #B1, #C1, #D1> // actron.timetravel/DecodedRecording.Decoded.recording.<get-recording>|<get-recording>(){}[0]
-
-        final fun component1(): actron.timetravel/Recording<#A1, #B1, #C1, #D1> // actron.timetravel/DecodedRecording.Decoded.component1|component1(){}[0]
-        final fun copy(actron.timetravel/Recording<#A1, #B1, #C1, #D1> = ...): actron.timetravel/DecodedRecording.Decoded<#A1, #B1, #C1, #D1> // actron.timetravel/DecodedRecording.Decoded.copy|copy(actron.timetravel.Recording<1:0,1:1,1:2,1:3>){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/DecodedRecording.Decoded.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/DecodedRecording.Decoded.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/DecodedRecording.Decoded.toString|toString(){}[0]
-    }
-
-    final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Invalid : actron.timetravel/DecodedRecording<#A1, #B1, #C1, #D1> { // actron.timetravel/DecodedRecording.Invalid|null[0]
-        constructor <init>(kotlin/String, actron.timetravel/RecordingLocation = ...) // actron.timetravel/DecodedRecording.Invalid.<init>|<init>(kotlin.String;actron.timetravel.RecordingLocation){}[0]
-        constructor <init>(kotlin/String, kotlin/String) // actron.timetravel/DecodedRecording.Invalid.<init>|<init>(kotlin.String;kotlin.String){}[0]
-
-        final val location // actron.timetravel/DecodedRecording.Invalid.location|{}location[0]
-            final fun <get-location>(): actron.timetravel/RecordingLocation // actron.timetravel/DecodedRecording.Invalid.location.<get-location>|<get-location>(){}[0]
-        final val reason // actron.timetravel/DecodedRecording.Invalid.reason|{}reason[0]
-            final fun <get-reason>(): kotlin/String // actron.timetravel/DecodedRecording.Invalid.reason.<get-reason>|<get-reason>(){}[0]
-
-        final fun component1(): kotlin/String // actron.timetravel/DecodedRecording.Invalid.component1|component1(){}[0]
-        final fun component2(): actron.timetravel/RecordingLocation // actron.timetravel/DecodedRecording.Invalid.component2|component2(){}[0]
-        final fun copy(kotlin/String = ..., actron.timetravel/RecordingLocation = ...): actron.timetravel/DecodedRecording.Invalid<#A1, #B1, #C1, #D1> // actron.timetravel/DecodedRecording.Invalid.copy|copy(kotlin.String;actron.timetravel.RecordingLocation){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/DecodedRecording.Invalid.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/DecodedRecording.Invalid.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/DecodedRecording.Invalid.toString|toString(){}[0]
-    }
-
-    final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Unsupported : actron.timetravel/DecodedRecording<#A1, #B1, #C1, #D1> { // actron.timetravel/DecodedRecording.Unsupported|null[0]
-        constructor <init>(kotlin/Int, kotlin/String) // actron.timetravel/DecodedRecording.Unsupported.<init>|<init>(kotlin.Int;kotlin.String){}[0]
-
-        final val formatVersion // actron.timetravel/DecodedRecording.Unsupported.formatVersion|{}formatVersion[0]
-            final fun <get-formatVersion>(): kotlin/Int // actron.timetravel/DecodedRecording.Unsupported.formatVersion.<get-formatVersion>|<get-formatVersion>(){}[0]
-        final val reason // actron.timetravel/DecodedRecording.Unsupported.reason|{}reason[0]
-            final fun <get-reason>(): kotlin/String // actron.timetravel/DecodedRecording.Unsupported.reason.<get-reason>|<get-reason>(){}[0]
-
-        final fun component1(): kotlin/Int // actron.timetravel/DecodedRecording.Unsupported.component1|component1(){}[0]
-        final fun component2(): kotlin/String // actron.timetravel/DecodedRecording.Unsupported.component2|component2(){}[0]
-        final fun copy(kotlin/Int = ..., kotlin/String = ...): actron.timetravel/DecodedRecording.Unsupported<#A1, #B1, #C1, #D1> // actron.timetravel/DecodedRecording.Unsupported.copy|copy(kotlin.Int;kotlin.String){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/DecodedRecording.Unsupported.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/DecodedRecording.Unsupported.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/DecodedRecording.Unsupported.toString|toString(){}[0]
-    }
-}
-
-sealed interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/RecordedStep { // actron.timetravel/RecordedStep|null[0]
-    abstract val input // actron.timetravel/RecordedStep.input|{}input[0]
-        abstract fun <get-input>(): actron.statechart.machine/MachineInput<#B> // actron.timetravel/RecordedStep.input.<get-input>|<get-input>(){}[0]
-
-    final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Committed : actron.timetravel/RecordedStep<#A1, #B1, #C1, #D1> { // actron.timetravel/RecordedStep.Committed|null[0]
-        constructor <init>(actron.statechart.machine/MachineInput<#B1>, actron.statechart.machine/Decision<#A1, #C1, #D1>) // actron.timetravel/RecordedStep.Committed.<init>|<init>(actron.statechart.machine.MachineInput<1:1>;actron.statechart.machine.Decision<1:0,1:2,1:3>){}[0]
-
-        final val decision // actron.timetravel/RecordedStep.Committed.decision|{}decision[0]
-            final fun <get-decision>(): actron.statechart.machine/Decision<#A1, #C1, #D1> // actron.timetravel/RecordedStep.Committed.decision.<get-decision>|<get-decision>(){}[0]
-        final val input // actron.timetravel/RecordedStep.Committed.input|{}input[0]
-            final fun <get-input>(): actron.statechart.machine/MachineInput<#B1> // actron.timetravel/RecordedStep.Committed.input.<get-input>|<get-input>(){}[0]
-
-        final fun component1(): actron.statechart.machine/MachineInput<#B1> // actron.timetravel/RecordedStep.Committed.component1|component1(){}[0]
-        final fun component2(): actron.statechart.machine/Decision<#A1, #C1, #D1> // actron.timetravel/RecordedStep.Committed.component2|component2(){}[0]
-        final fun copy(actron.statechart.machine/MachineInput<#B1> = ..., actron.statechart.machine/Decision<#A1, #C1, #D1> = ...): actron.timetravel/RecordedStep.Committed<#A1, #B1, #C1, #D1> // actron.timetravel/RecordedStep.Committed.copy|copy(actron.statechart.machine.MachineInput<1:1>;actron.statechart.machine.Decision<1:0,1:2,1:3>){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/RecordedStep.Committed.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/RecordedStep.Committed.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/RecordedStep.Committed.toString|toString(){}[0]
-    }
-
-    final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Failed : actron.timetravel/RecordedStep<#A1, #B1, #C1, #D1> { // actron.timetravel/RecordedStep.Failed|null[0]
-        constructor <init>(actron.statechart.machine/MachineInput<#B1>, actron.observability/FailureDescriptor) // actron.timetravel/RecordedStep.Failed.<init>|<init>(actron.statechart.machine.MachineInput<1:1>;actron.observability.FailureDescriptor){}[0]
-
-        final val failure // actron.timetravel/RecordedStep.Failed.failure|{}failure[0]
-            final fun <get-failure>(): actron.observability/FailureDescriptor // actron.timetravel/RecordedStep.Failed.failure.<get-failure>|<get-failure>(){}[0]
-        final val input // actron.timetravel/RecordedStep.Failed.input|{}input[0]
-            final fun <get-input>(): actron.statechart.machine/MachineInput<#B1> // actron.timetravel/RecordedStep.Failed.input.<get-input>|<get-input>(){}[0]
-
-        final fun component1(): actron.statechart.machine/MachineInput<#B1> // actron.timetravel/RecordedStep.Failed.component1|component1(){}[0]
-        final fun component2(): actron.observability/FailureDescriptor // actron.timetravel/RecordedStep.Failed.component2|component2(){}[0]
-        final fun copy(actron.statechart.machine/MachineInput<#B1> = ..., actron.observability/FailureDescriptor = ...): actron.timetravel/RecordedStep.Failed<#A1, #B1, #C1, #D1> // actron.timetravel/RecordedStep.Failed.copy|copy(actron.statechart.machine.MachineInput<1:1>;actron.observability.FailureDescriptor){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/RecordedStep.Failed.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/RecordedStep.Failed.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/RecordedStep.Failed.toString|toString(){}[0]
-    }
-
-    final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Ignored : actron.timetravel/RecordedStep<#A1, #B1, #C1, #D1> { // actron.timetravel/RecordedStep.Ignored|null[0]
-        constructor <init>(actron.statechart.machine/MachineInput<#B1>, actron.statechart.machine/IgnoreReason) // actron.timetravel/RecordedStep.Ignored.<init>|<init>(actron.statechart.machine.MachineInput<1:1>;actron.statechart.machine.IgnoreReason){}[0]
-
-        final val input // actron.timetravel/RecordedStep.Ignored.input|{}input[0]
-            final fun <get-input>(): actron.statechart.machine/MachineInput<#B1> // actron.timetravel/RecordedStep.Ignored.input.<get-input>|<get-input>(){}[0]
-        final val reason // actron.timetravel/RecordedStep.Ignored.reason|{}reason[0]
-            final fun <get-reason>(): actron.statechart.machine/IgnoreReason // actron.timetravel/RecordedStep.Ignored.reason.<get-reason>|<get-reason>(){}[0]
-
-        final fun component1(): actron.statechart.machine/MachineInput<#B1> // actron.timetravel/RecordedStep.Ignored.component1|component1(){}[0]
-        final fun component2(): actron.statechart.machine/IgnoreReason // actron.timetravel/RecordedStep.Ignored.component2|component2(){}[0]
-        final fun copy(actron.statechart.machine/MachineInput<#B1> = ..., actron.statechart.machine/IgnoreReason = ...): actron.timetravel/RecordedStep.Ignored<#A1, #B1, #C1, #D1> // actron.timetravel/RecordedStep.Ignored.copy|copy(actron.statechart.machine.MachineInput<1:1>;actron.statechart.machine.IgnoreReason){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/RecordedStep.Ignored.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/RecordedStep.Ignored.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/RecordedStep.Ignored.toString|toString(){}[0]
-    }
-}
-
 sealed interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/ReplayStep { // actron.timetravel/ReplayStep|null[0]
     final class <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> Diverged : actron.timetravel/ReplayStep<#A1, #B1, #C1, #D1> { // actron.timetravel/ReplayStep.Diverged|null[0]
         constructor <init>(actron.timetravel/ReplayMismatch<#A1, #B1, #C1, #D1>) // actron.timetravel/ReplayStep.Diverged.<init>|<init>(actron.timetravel.ReplayMismatch<1:0,1:1,1:2,1:3>){}[0]
@@ -1118,40 +1017,6 @@ sealed interface actron.timetravel.inspect/TimelineItem { // actron.timetravel.i
     }
 }
 
-sealed interface actron.timetravel/Compatibility { // actron.timetravel/Compatibility|null[0]
-    final class InspectableOnly : actron.timetravel/Compatibility { // actron.timetravel/Compatibility.InspectableOnly|null[0]
-        constructor <init>(kotlin/String) // actron.timetravel/Compatibility.InspectableOnly.<init>|<init>(kotlin.String){}[0]
-
-        final val reason // actron.timetravel/Compatibility.InspectableOnly.reason|{}reason[0]
-            final fun <get-reason>(): kotlin/String // actron.timetravel/Compatibility.InspectableOnly.reason.<get-reason>|<get-reason>(){}[0]
-
-        final fun component1(): kotlin/String // actron.timetravel/Compatibility.InspectableOnly.component1|component1(){}[0]
-        final fun copy(kotlin/String = ...): actron.timetravel/Compatibility.InspectableOnly // actron.timetravel/Compatibility.InspectableOnly.copy|copy(kotlin.String){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/Compatibility.InspectableOnly.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/Compatibility.InspectableOnly.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/Compatibility.InspectableOnly.toString|toString(){}[0]
-    }
-
-    final class Unsupported : actron.timetravel/Compatibility { // actron.timetravel/Compatibility.Unsupported|null[0]
-        constructor <init>(kotlin/String) // actron.timetravel/Compatibility.Unsupported.<init>|<init>(kotlin.String){}[0]
-
-        final val reason // actron.timetravel/Compatibility.Unsupported.reason|{}reason[0]
-            final fun <get-reason>(): kotlin/String // actron.timetravel/Compatibility.Unsupported.reason.<get-reason>|<get-reason>(){}[0]
-
-        final fun component1(): kotlin/String // actron.timetravel/Compatibility.Unsupported.component1|component1(){}[0]
-        final fun copy(kotlin/String = ...): actron.timetravel/Compatibility.Unsupported // actron.timetravel/Compatibility.Unsupported.copy|copy(kotlin.String){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/Compatibility.Unsupported.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/Compatibility.Unsupported.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/Compatibility.Unsupported.toString|toString(){}[0]
-    }
-
-    final object Replayable : actron.timetravel/Compatibility { // actron.timetravel/Compatibility.Replayable|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/Compatibility.Replayable.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/Compatibility.Replayable.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/Compatibility.Replayable.toString|toString(){}[0]
-    }
-}
-
 sealed interface actron.timetravel/GroupMismatch { // actron.timetravel/GroupMismatch|null[0]
     abstract val position // actron.timetravel/GroupMismatch.position|{}position[0]
         abstract fun <get-position>(): kotlin/Int // actron.timetravel/GroupMismatch.position.<get-position>|<get-position>(){}[0]
@@ -1343,31 +1208,6 @@ sealed interface actron.timetravel/GroupReplayStep { // actron.timetravel/GroupR
     }
 }
 
-sealed interface actron.timetravel/RecordingLocation { // actron.timetravel/RecordingLocation|null[0]
-    abstract fun withPart(kotlin/Function1<kotlin/String, kotlin/Unit>) // actron.timetravel/RecordingLocation.withPart|withPart(kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
-
-    final class Part : actron.timetravel/RecordingLocation { // actron.timetravel/RecordingLocation.Part|null[0]
-        constructor <init>(kotlin/String) // actron.timetravel/RecordingLocation.Part.<init>|<init>(kotlin.String){}[0]
-
-        final val path // actron.timetravel/RecordingLocation.Part.path|{}path[0]
-            final fun <get-path>(): kotlin/String // actron.timetravel/RecordingLocation.Part.path.<get-path>|<get-path>(){}[0]
-
-        final fun component1(): kotlin/String // actron.timetravel/RecordingLocation.Part.component1|component1(){}[0]
-        final fun copy(kotlin/String = ...): actron.timetravel/RecordingLocation.Part // actron.timetravel/RecordingLocation.Part.copy|copy(kotlin.String){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/RecordingLocation.Part.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/RecordingLocation.Part.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/RecordingLocation.Part.toString|toString(){}[0]
-        final fun withPart(kotlin/Function1<kotlin/String, kotlin/Unit>) // actron.timetravel/RecordingLocation.Part.withPart|withPart(kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
-    }
-
-    final object Document : actron.timetravel/RecordingLocation { // actron.timetravel/RecordingLocation.Document|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/RecordingLocation.Document.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // actron.timetravel/RecordingLocation.Document.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // actron.timetravel/RecordingLocation.Document.toString|toString(){}[0]
-        final fun withPart(kotlin/Function1<kotlin/String, kotlin/Unit>) // actron.timetravel/RecordingLocation.Document.withPart|withPart(kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
-    }
-}
-
 sealed interface actron.timetravel/RecordingOrigin { // actron.timetravel/RecordingOrigin|null[0]
     abstract fun withProblem(kotlin/Function1<kotlin/String, kotlin/Unit>): kotlin/Boolean // actron.timetravel/RecordingOrigin.withProblem|withProblem(kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
 
@@ -1393,15 +1233,6 @@ sealed interface actron.timetravel/RecordingOrigin { // actron.timetravel/Record
     }
 }
 
-final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event, #E: kotlin/Any, #F: actron.core/Action, #G: kotlin/Any, #H: actron.core/Event> actron.timetravel/InvocationPersistence { // actron.timetravel/InvocationPersistence|null[0]
-    constructor <init>(actron.statechart.machine/InvokedMachine<#A, #B, #C, #D, #E, #F, #G, #H>, actron.timetravel/RecordingCodec<#A, #B, #C, #D>, actron.timetravel/RecordingCodec<#E, #F, #G, #H>) // actron.timetravel/InvocationPersistence.<init>|<init>(actron.statechart.machine.InvokedMachine<1:0,1:1,1:2,1:3,1:4,1:5,1:6,1:7>;actron.timetravel.RecordingCodec<1:0,1:1,1:2,1:3>;actron.timetravel.RecordingCodec<1:4,1:5,1:6,1:7>){}[0]
-
-    final fun restore(kotlin/String): actron.statechart.machine/InvocationCheckpoint<#A, #C, #E, #G> // actron.timetravel/InvocationPersistence.restore|restore(kotlin.String){}[0]
-    final fun resume(kotlin/String, actron.statechart.machine/CommandHandler<#C, #B>, actron.statechart.machine/CommandHandler<#G, #F>, kotlinx.coroutines/CoroutineScope, kotlin.coroutines/CoroutineContext = ..., actron.statechart.machine/MachineClock = ..., actron.statechart.machine/CommandRecoveryStrategy<#C, #B> = ..., actron.statechart.machine/CommandRecoveryStrategy<#G, #F> = ..., actron.statechart.machine/MailboxConfig<#D> = ..., kotlin/Function1<kotlin/Throwable, kotlin/Unit> = ...): actron.statechart.machine/InvokedMachineStore<#A, #B, #C, #D, #E, #F, #G, #H> // actron.timetravel/InvocationPersistence.resume|resume(kotlin.String;actron.statechart.machine.CommandHandler<1:2,1:1>;actron.statechart.machine.CommandHandler<1:6,1:5>;kotlinx.coroutines.CoroutineScope;kotlin.coroutines.CoroutineContext;actron.statechart.machine.MachineClock;actron.statechart.machine.CommandRecoveryStrategy<1:2,1:1>;actron.statechart.machine.CommandRecoveryStrategy<1:6,1:5>;actron.statechart.machine.MailboxConfig<1:3>;kotlin.Function1<kotlin.Throwable,kotlin.Unit>){}[0]
-    final fun save(actron.statechart.machine/InvocationCheckpoint<#A, #C, #E, #G>): kotlin/String // actron.timetravel/InvocationPersistence.save|save(actron.statechart.machine.InvocationCheckpoint<1:0,1:2,1:4,1:6>){}[0]
-    final suspend fun save(actron.statechart.machine/InvokedMachineStore<#A, #B, #C, #D, #E, #F, #G, #H>): kotlin/String // actron.timetravel/InvocationPersistence.save|save(actron.statechart.machine.InvokedMachineStore<1:0,1:1,1:2,1:3,1:4,1:5,1:6,1:7>){}[0]
-}
-
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel.file/RecordingFileSink : actron.statechart.machine/DecisionObserver<#A, #B, #C, #D> { // actron.timetravel.file/RecordingFileSink|null[0]
     constructor <init>(actron.observability/StoreInstanceId, actron.statechart.machine/Machine<#A, #B, #C, #D>, #A, actron.timetravel/RecordingCodec<#A, #B, #C, #D>, actron.observability.file/SegmentStorage, kotlinx.coroutines/CoroutineScope, actron.timetravel.file/RecordingFileConfig = ...) // actron.timetravel.file/RecordingFileSink.<init>|<init>(actron.observability.StoreInstanceId;actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;1:0;actron.timetravel.RecordingCodec<1:0,1:1,1:2,1:3>;actron.observability.file.SegmentStorage;kotlinx.coroutines.CoroutineScope;actron.timetravel.file.RecordingFileConfig){}[0]
 
@@ -1420,7 +1251,9 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
 }
 
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/BoundedMachineRecorder : actron.statechart.machine/DecisionObserver<#A, #B, #C, #D> { // actron.timetravel/BoundedMachineRecorder|null[0]
+    constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, #A, actron.timetravel/HistoryConfiguration) // actron.timetravel/BoundedMachineRecorder.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;1:0;actron.timetravel.HistoryConfiguration){}[0]
     constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, #A, kotlin/Int = ...) // actron.timetravel/BoundedMachineRecorder.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;1:0;kotlin.Int){}[0]
+    constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.statechart.machine/ExecutorCheckpoint<#A, #C>, actron.timetravel/HistoryConfiguration) // actron.timetravel/BoundedMachineRecorder.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>;actron.timetravel.HistoryConfiguration){}[0]
     constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin/Int = ...) // actron.timetravel/BoundedMachineRecorder.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>;kotlin.Int){}[0]
 
     final val capacity // actron.timetravel/BoundedMachineRecorder.capacity|{}capacity[0]
@@ -1467,15 +1300,6 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
     final fun reuseRecordedAnswers(actron.statechart.machine/CommandId): kotlin.collections/List<actron.statechart.machine/Decision<#A, #C, #D>> // actron.timetravel/Branch.reuseRecordedAnswers|reuseRecordedAnswers(actron.statechart.machine.CommandId){}[0]
 }
 
-final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/MachinePersistence { // actron.timetravel/MachinePersistence|null[0]
-    constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.timetravel/RecordingCodec<#A, #B, #C, #D>) // actron.timetravel/MachinePersistence.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;actron.timetravel.RecordingCodec<1:0,1:1,1:2,1:3>){}[0]
-
-    final fun restore(kotlin/String): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/MachinePersistence.restore|restore(kotlin.String){}[0]
-    final fun resume(kotlin/String, actron.statechart.machine/CommandHandler<#C, #B>, kotlinx.coroutines/CoroutineScope, kotlin.coroutines/CoroutineContext = ..., actron.statechart.machine/MachineClock = ..., kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> = ..., actron.statechart.machine/CommandRecoveryStrategy<#C, #B> = ...): actron.statechart.machine/MachineStore<#A, #B, #C, #D> // actron.timetravel/MachinePersistence.resume|resume(kotlin.String;actron.statechart.machine.CommandHandler<1:2,1:1>;kotlinx.coroutines.CoroutineScope;kotlin.coroutines.CoroutineContext;actron.statechart.machine.MachineClock;kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>;actron.statechart.machine.CommandRecoveryStrategy<1:2,1:1>){}[0]
-    final fun save(actron.statechart.machine/ExecutorCheckpoint<#A, #C>): kotlin/String // actron.timetravel/MachinePersistence.save|save(actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>){}[0]
-    final suspend fun save(actron.statechart.machine/MachineStore<#A, #B, #C, #D>): kotlin/String // actron.timetravel/MachinePersistence.save|save(actron.statechart.machine.MachineStore<1:0,1:1,1:2,1:3>){}[0]
-}
-
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/MachineRecorder : actron.statechart.machine/DecisionObserver<#A, #B, #C, #D> { // actron.timetravel/MachineRecorder|null[0]
     constructor <init>(actron.statechart.machine/Machine<#A, #B, #C, #D>, #A) // actron.timetravel/MachineRecorder.<init>|<init>(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;1:0){}[0]
 
@@ -1486,41 +1310,6 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
     final fun onFailed(actron.core/InputAttribution, actron.statechart.machine/MachineInput<#B>, actron.observability/FailureDescriptor) // actron.timetravel/MachineRecorder.onFailed|onFailed(actron.core.InputAttribution;actron.statechart.machine.MachineInput<1:1>;actron.observability.FailureDescriptor){}[0]
     final fun onIgnored(actron.core/InputAttribution, actron.statechart.machine/MachineInput<#B>, actron.statechart.machine/IgnoreReason) // actron.timetravel/MachineRecorder.onIgnored|onIgnored(actron.core.InputAttribution;actron.statechart.machine.MachineInput<1:1>;actron.statechart.machine.IgnoreReason){}[0]
     final fun recording(): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/MachineRecorder.recording|recording(){}[0]
-}
-
-final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/Recording { // actron.timetravel/Recording|null[0]
-    constructor <init>(actron.statechart.machine/DefinitionId, actron.statechart.machine/DefinitionVersion, actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin.collections/List<actron.timetravel/RecordedStep<#A, #B, #C, #D>>) // actron.timetravel/Recording.<init>|<init>(actron.statechart.machine.DefinitionId;actron.statechart.machine.DefinitionVersion;actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>;kotlin.collections.List<actron.timetravel.RecordedStep<1:0,1:1,1:2,1:3>>){}[0]
-    constructor <init>(actron.statechart.machine/DefinitionId, actron.statechart.machine/DefinitionVersion, actron.statechart.machine/MachineSnapshot<#A>, kotlin.collections/List<actron.timetravel/RecordedStep<#A, #B, #C, #D>>) // actron.timetravel/Recording.<init>|<init>(actron.statechart.machine.DefinitionId;actron.statechart.machine.DefinitionVersion;actron.statechart.machine.MachineSnapshot<1:0>;kotlin.collections.List<actron.timetravel.RecordedStep<1:0,1:1,1:2,1:3>>){}[0]
-
-    final val definition // actron.timetravel/Recording.definition|{}definition[0]
-        final fun <get-definition>(): actron.statechart.machine/DefinitionId // actron.timetravel/Recording.definition.<get-definition>|<get-definition>(){}[0]
-    final val initial // actron.timetravel/Recording.initial|{}initial[0]
-        final fun <get-initial>(): actron.statechart.machine/MachineSnapshot<#A> // actron.timetravel/Recording.initial.<get-initial>|<get-initial>(){}[0]
-    final val length // actron.timetravel/Recording.length|{}length[0]
-        final fun <get-length>(): kotlin/Int // actron.timetravel/Recording.length.<get-length>|<get-length>(){}[0]
-    final val start // actron.timetravel/Recording.start|{}start[0]
-        final fun <get-start>(): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/Recording.start.<get-start>|<get-start>(){}[0]
-    final val steps // actron.timetravel/Recording.steps|{}steps[0]
-        final fun <get-steps>(): kotlin.collections/List<actron.timetravel/RecordedStep<#A, #B, #C, #D>> // actron.timetravel/Recording.steps.<get-steps>|<get-steps>(){}[0]
-    final val version // actron.timetravel/Recording.version|{}version[0]
-        final fun <get-version>(): actron.statechart.machine/DefinitionVersion // actron.timetravel/Recording.version.<get-version>|<get-version>(){}[0]
-
-    final fun checkpointAt(kotlin/Int): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/Recording.checkpointAt|checkpointAt(kotlin.Int){}[0]
-    final fun compatibilityWith(actron.statechart.machine/Machine<#A, #B, #C, #D>): actron.timetravel/Compatibility // actron.timetravel/Recording.compatibilityWith|compatibilityWith(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>){}[0]
-    final fun since(actron.statechart.machine/ExecutorCheckpoint<#A, #C>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/Recording.since|since(actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>){}[0]
-    final fun snapshotAt(kotlin/Int): actron.statechart.machine/MachineSnapshot<#A> // actron.timetravel/Recording.snapshotAt|snapshotAt(kotlin.Int){}[0]
-    final fun toString(): kotlin/String // actron.timetravel/Recording.toString|toString(){}[0]
-}
-
-final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/RecordingCodec { // actron.timetravel/RecordingCodec|null[0]
-    constructor <init>(kotlinx.serialization/KSerializer<#A>, kotlinx.serialization/KSerializer<#B>, kotlinx.serialization/KSerializer<#C>, kotlinx.serialization/KSerializer<#D>, kotlin.collections/List<actron.timetravel/FormatMigration> = ...) // actron.timetravel/RecordingCodec.<init>|<init>(kotlinx.serialization.KSerializer<1:0>;kotlinx.serialization.KSerializer<1:1>;kotlinx.serialization.KSerializer<1:2>;kotlinx.serialization.KSerializer<1:3>;kotlin.collections.List<actron.timetravel.FormatMigration>){}[0]
-
-    final fun decode(kotlin/String): actron.timetravel/DecodedRecording<#A, #B, #C, #D> // actron.timetravel/RecordingCodec.decode|decode(kotlin.String){}[0]
-    final fun decodeCheckpoint(kotlin/String, actron.statechart.machine/DefinitionId, actron.statechart.machine/DefinitionVersion): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/RecordingCodec.decodeCheckpoint|decodeCheckpoint(kotlin.String;actron.statechart.machine.DefinitionId;actron.statechart.machine.DefinitionVersion){}[0]
-    final fun decodeStep(kotlin/String, actron.statechart.machine/DefinitionId, actron.statechart.machine/DefinitionVersion): actron.timetravel/RecordedStep<#A, #B, #C, #D> // actron.timetravel/RecordingCodec.decodeStep|decodeStep(kotlin.String;actron.statechart.machine.DefinitionId;actron.statechart.machine.DefinitionVersion){}[0]
-    final fun encode(actron.timetravel/Recording<#A, #B, #C, #D>): kotlin/String // actron.timetravel/RecordingCodec.encode|encode(actron.timetravel.Recording<1:0,1:1,1:2,1:3>){}[0]
-    final fun encodeCheckpoint(actron.statechart.machine/ExecutorCheckpoint<#A, #C>): kotlin/String // actron.timetravel/RecordingCodec.encodeCheckpoint|encodeCheckpoint(actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>){}[0]
-    final fun encodeStep(actron.timetravel/RecordedStep<#A, #B, #C, #D>): kotlin/String // actron.timetravel/RecordingCodec.encodeStep|encodeStep(actron.timetravel.RecordedStep<1:0,1:1,1:2,1:3>){}[0]
 }
 
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.timetravel/RecordingWindow { // actron.timetravel/RecordingWindow|null[0]
@@ -1595,17 +1384,6 @@ final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.
     final fun stepForward(): actron.timetravel/ReplayStep<#A, #B, #C, #D> // actron.timetravel/ReplaySession.stepForward|stepForward(){}[0]
     final fun verify(kotlin/Int = ..., kotlin/Int = ..., kotlin/Function1<actron.timetravel/ReplayMismatch<#A, #B, #C, #D>, kotlin/Unit>): kotlin/Boolean // actron.timetravel/ReplaySession.verify|verify(kotlin.Int;kotlin.Int;kotlin.Function1<actron.timetravel.ReplayMismatch<1:0,1:1,1:2,1:3>,kotlin.Unit>){}[0]
     final fun withNext(kotlin/Function1<actron.timetravel/RecordedStep<#A, #B, #C, #D>, kotlin/Unit>): kotlin/Boolean // actron.timetravel/ReplaySession.withNext|withNext(kotlin.Function1<actron.timetravel.RecordedStep<1:0,1:1,1:2,1:3>,kotlin.Unit>){}[0]
-}
-
-final class <#A: kotlin/Any> actron.timetravel/CheckpointGroup { // actron.timetravel/CheckpointGroup|null[0]
-    final fun restore(kotlin/String): #A // actron.timetravel/CheckpointGroup.restore|restore(kotlin.String){}[0]
-    final fun save(#A): kotlin/String // actron.timetravel/CheckpointGroup.save|save(1:0){}[0]
-}
-
-final class <#A: kotlin/Any> actron.timetravel/CheckpointGroupBuilder { // actron.timetravel/CheckpointGroupBuilder|null[0]
-    final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event, #E1: kotlin/Any, #F1: actron.core/Action, #G1: kotlin/Any, #H1: actron.core/Event> invocation(actron.timetravel/InvocationPersistence<#A1, #B1, #C1, #D1, #E1, #F1, #G1, #H1>, kotlin/Function1<#A, actron.statechart.machine/InvocationCheckpoint<#A1, #C1, #E1, #G1>>, kotlin/Function2<#A, actron.statechart.machine/InvocationCheckpoint<#A1, #C1, #E1, #G1>, #A>) // actron.timetravel/CheckpointGroupBuilder.invocation|invocation(actron.timetravel.InvocationPersistence<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7>;kotlin.Function1<1:0,actron.statechart.machine.InvocationCheckpoint<0:0,0:2,0:4,0:6>>;kotlin.Function2<1:0,actron.statechart.machine.InvocationCheckpoint<0:0,0:2,0:4,0:6>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>;4§<kotlin.Any>;5§<actron.core.Action>;6§<kotlin.Any>;7§<actron.core.Event>}[0]
-    final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> machine(actron.timetravel/MachinePersistence<#A1, #B1, #C1, #D1>, kotlin/Function1<#A, actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>>, kotlin/Function2<#A, actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>, #A>) // actron.timetravel/CheckpointGroupBuilder.machine|machine(actron.timetravel.MachinePersistence<0:0,0:1,0:2,0:3>;kotlin.Function1<1:0,actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>>;kotlin.Function2<1:0,actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
-    final fun <#A1: kotlin/Any, #B1: actron.core/Action, #C1: kotlin/Any, #D1: actron.core/Event> machines(actron.timetravel/MachinePersistence<#A1, #B1, #C1, #D1>, kotlin/Function1<#A, kotlin.collections/List<actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>>>, kotlin/Function2<#A, kotlin.collections/List<actron.statechart.machine/ExecutorCheckpoint<#A1, #C1>>, #A>) // actron.timetravel/CheckpointGroupBuilder.machines|machines(actron.timetravel.MachinePersistence<0:0,0:1,0:2,0:3>;kotlin.Function1<1:0,kotlin.collections.List<actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>>>;kotlin.Function2<1:0,kotlin.collections.List<actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>>,1:0>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 }
 
 final class <#A: kotlin/Any> actron.timetravel/HistoryEntry { // actron.timetravel/HistoryEntry|null[0]
@@ -1741,6 +1519,7 @@ final class <#A: kotlin/Any> actron.timetravel/HistoryRecordingCodec { // actron
 }
 
 final class <#A: kotlin/Any> actron.timetravel/HistoryTimeline { // actron.timetravel/HistoryTimeline|null[0]
+    constructor <init>(actron.timetravel/HistoryConfiguration) // actron.timetravel/HistoryTimeline.<init>|<init>(actron.timetravel.HistoryConfiguration){}[0]
     constructor <init>(kotlin/Int = ...) // actron.timetravel/HistoryTimeline.<init>|<init>(kotlin.Int){}[0]
 
     final val capacity // actron.timetravel/HistoryTimeline.capacity|{}capacity[0]
@@ -2067,17 +1846,6 @@ final class actron.timetravel.inspect/StoreView { // actron.timetravel.inspect/S
     final fun withRevision(kotlin/Function1<kotlin/Long, kotlin/Unit>): kotlin/Boolean // actron.timetravel.inspect/StoreView.withRevision|withRevision(kotlin.Function1<kotlin.Long,kotlin.Unit>){}[0]
 }
 
-final class actron.timetravel/FormatMigration { // actron.timetravel/FormatMigration|null[0]
-    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Function1<kotlinx.serialization.json/JsonObject, kotlinx.serialization.json/JsonObject>) // actron.timetravel/FormatMigration.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Function1<kotlinx.serialization.json.JsonObject,kotlinx.serialization.json.JsonObject>){}[0]
-
-    final val from // actron.timetravel/FormatMigration.from|{}from[0]
-        final fun <get-from>(): kotlin/Int // actron.timetravel/FormatMigration.from.<get-from>|<get-from>(){}[0]
-    final val migrate // actron.timetravel/FormatMigration.migrate|{}migrate[0]
-        final fun <get-migrate>(): kotlin/Function1<kotlinx.serialization.json/JsonObject, kotlinx.serialization.json/JsonObject> // actron.timetravel/FormatMigration.migrate.<get-migrate>|<get-migrate>(){}[0]
-    final val to // actron.timetravel/FormatMigration.to|{}to[0]
-        final fun <get-to>(): kotlin/Int // actron.timetravel/FormatMigration.to.<get-to>|<get-to>(){}[0]
-}
-
 final class actron.timetravel/GroupBranch { // actron.timetravel/GroupBranch|null[0]
     constructor <init>(kotlin.collections/Map<actron.observability/StoreInstanceId, actron.timetravel/Branch<*, *, *, *>>, kotlin.collections/List<actron.timetravel/GroupBranch.Route>, kotlin.collections/Map<actron.statechart.machine/SourceId, actron.statechart.machine/SourceSnapshot> = ...) // actron.timetravel/GroupBranch.<init>|<init>(kotlin.collections.Map<actron.observability.StoreInstanceId,actron.timetravel.Branch<*,*,*,*>>;kotlin.collections.List<actron.timetravel.GroupBranch.Route>;kotlin.collections.Map<actron.statechart.machine.SourceId,actron.statechart.machine.SourceSnapshot>){}[0]
 
@@ -2198,6 +1966,19 @@ final class actron.timetravel/GroupStep { // actron.timetravel/GroupStep|null[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/GroupStep.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // actron.timetravel/GroupStep.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // actron.timetravel/GroupStep.toString|toString(){}[0]
+}
+
+final class actron.timetravel/HistoryConfiguration { // actron.timetravel/HistoryConfiguration|null[0]
+    constructor <init>(kotlin/Int = ...) // actron.timetravel/HistoryConfiguration.<init>|<init>(kotlin.Int){}[0]
+
+    final val capacity // actron.timetravel/HistoryConfiguration.capacity|{}capacity[0]
+        final fun <get-capacity>(): kotlin/Int // actron.timetravel/HistoryConfiguration.capacity.<get-capacity>|<get-capacity>(){}[0]
+
+    final fun component1(): kotlin/Int // actron.timetravel/HistoryConfiguration.component1|component1(){}[0]
+    final fun copy(kotlin/Int = ...): actron.timetravel/HistoryConfiguration // actron.timetravel/HistoryConfiguration.copy|copy(kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // actron.timetravel/HistoryConfiguration.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // actron.timetravel/HistoryConfiguration.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // actron.timetravel/HistoryConfiguration.toString|toString(){}[0]
 }
 
 final class actron.timetravel/HistoryDefinition { // actron.timetravel/HistoryDefinition|null[0]
@@ -2641,15 +2422,9 @@ final object actron.timetravel.inspect/InspectorText { // actron.timetravel.insp
 
 final const val actron.timetravel.file/RECORDING_FILE_FORMAT_VERSION // actron.timetravel.file/RECORDING_FILE_FORMAT_VERSION|{}RECORDING_FILE_FORMAT_VERSION[0]
     final fun <get-RECORDING_FILE_FORMAT_VERSION>(): kotlin/Int // actron.timetravel.file/RECORDING_FILE_FORMAT_VERSION.<get-RECORDING_FILE_FORMAT_VERSION>|<get-RECORDING_FILE_FORMAT_VERSION>(){}[0]
-final const val actron.timetravel/RECORDING_FORMAT_VERSION // actron.timetravel/RECORDING_FORMAT_VERSION|{}RECORDING_FORMAT_VERSION[0]
-    final fun <get-RECORDING_FORMAT_VERSION>(): kotlin/Int // actron.timetravel/RECORDING_FORMAT_VERSION.<get-RECORDING_FORMAT_VERSION>|<get-RECORDING_FORMAT_VERSION>(){}[0]
 
 final fun (actron.statechart/StateChartDefinition).actron.timetravel/historyDefinition(kotlin/String, kotlin/String): actron.timetravel/HistoryDefinition // actron.timetravel/historyDefinition|historyDefinition@actron.statechart.StateChartDefinition(kotlin.String;kotlin.String){}[0]
-final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/ExecutorCheckpoint<#A, #C>).actron.timetravel/carriedPast(actron.timetravel/RecordedStep<#A, #B, #C, #D>): actron.statechart.machine/ExecutorCheckpoint<#A, #C> // actron.timetravel/carriedPast|carriedPast@actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>(actron.timetravel.RecordedStep<0:0,0:1,0:2,0:3>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/Machine<#A, #B, #C, #D>).actron.timetravel/recordInputs(actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin.collections/List<actron.statechart.machine/MachineInput<#B>>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/recordInputs|recordInputs@actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>(actron.statechart.machine.ExecutorCheckpoint<0:0,0:2>;kotlin.collections.List<actron.statechart.machine.MachineInput<0:1>>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (actron.statechart.machine/Machine<#A, #B, #C, #D>).actron.timetravel/recordInputs(actron.statechart.machine/MachineSnapshot<#A>, kotlin.collections/List<actron.statechart.machine/MachineInput<#B>>): actron.timetravel/Recording<#A, #B, #C, #D> // actron.timetravel/recordInputs|recordInputs@actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>(actron.statechart.machine.MachineSnapshot<0:0>;kotlin.collections.List<actron.statechart.machine.MachineInput<0:1>>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]
 final fun <#A: kotlin/Any, #B: kotlin/Any> (actron.timetravel/HistoryTimeline<#A>).actron.timetravel/recording(kotlin/String, kotlin/Function1<#A, #B>, kotlin/Function1<actron.timetravel/HistoryDetails, actron.timetravel/HistoryDetails> = ..., actron.timetravel/HistoryRecordingMetadata = ...): actron.timetravel/HistoryRecording<#B> // actron.timetravel/recording|recording@actron.timetravel.HistoryTimeline<0:0>(kotlin.String;kotlin.Function1<0:0,0:1>;kotlin.Function1<actron.timetravel.HistoryDetails,actron.timetravel.HistoryDetails>;actron.timetravel.HistoryRecordingMetadata){0§<kotlin.Any>;1§<kotlin.Any>}[0]
-final fun <#A: kotlin/Any> actron.timetravel/checkpointGroup(kotlin/Function0<#A>, kotlin/Function1<actron.timetravel/CheckpointGroupBuilder<#A>, kotlin/Unit>): actron.timetravel/CheckpointGroup<#A> // actron.timetravel/checkpointGroup|checkpointGroup(kotlin.Function0<0:0>;kotlin.Function1<actron.timetravel.CheckpointGroupBuilder<0:0>,kotlin.Unit>){0§<kotlin.Any>}[0]
 final fun actron.timetravel/historyFields(kotlinx.serialization.json/JsonElement): kotlin.collections/List<actron.timetravel/StateField> // actron.timetravel/historyFields|historyFields(kotlinx.serialization.json.JsonElement){}[0]
-final inline fun <#A: reified kotlin/Any, #B: reified actron.core/Action, #C: reified kotlin/Any, #D: reified actron.core/Event, #E: reified kotlin/Any, #F: reified actron.core/Action, #G: reified kotlin/Any, #H: reified actron.core/Event> actron.timetravel/invocationPersistence(actron.statechart.machine/InvokedMachine<#A, #B, #C, #D, #E, #F, #G, #H>): actron.timetravel/InvocationPersistence<#A, #B, #C, #D, #E, #F, #G, #H> // actron.timetravel/invocationPersistence|invocationPersistence(actron.statechart.machine.InvokedMachine<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>;4§<kotlin.Any>;5§<actron.core.Action>;6§<kotlin.Any>;7§<actron.core.Event>}[0]
-final inline fun <#A: reified kotlin/Any, #B: reified actron.core/Action, #C: reified kotlin/Any, #D: reified actron.core/Event> actron.timetravel/machinePersistence(actron.statechart.machine/Machine<#A, #B, #C, #D>): actron.timetravel/MachinePersistence<#A, #B, #C, #D> // actron.timetravel/machinePersistence|machinePersistence(actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]

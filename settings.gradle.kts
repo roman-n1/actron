@@ -48,3 +48,7 @@ project(":nullability-guard").projectDir = file("verification/nullability-guard"
 
 include(":weather-android")
 project(":weather-android").projectDir = file("examples/weather-android")
+
+include(":actron-persistence")
+include(":weather-app")
+project(":weather-app").projectDir = file("examples/weather-app")
