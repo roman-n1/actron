@@ -4,7 +4,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -127,24 +126,6 @@ class StoreSoakJvmTest {
             is S.Failed -> s.copy(count = c)
         }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun <T : Any> field(
-        store: Any,
-        name: String,
-    ): T {
-        var cls: Class<out Any> = store.javaClass
-        while (true) {
-            try {
-                val f = checkNotNull(cls.getDeclaredField(name))
-                f.isAccessible = true
-                return f.get(store) as T
-            } catch (_: NoSuchFieldException) {
-                cls = cls.superclass ?: break
-            }
-        }
-        error("no field $name")
-    }
-
     @Test
     fun soak_keepPolicy_noLostIncrementsNoLeaksNoDeadlock() =
         runTest {
@@ -189,10 +170,9 @@ class StoreSoakJvmTest {
             assertEquals(incs.get(), store.currentState.count)
             assertEquals(emptyList(), handled.map { it.toString() })
             // internal maps do not grow
-            val runtimes: Map<Any, Any> = field(store, "stateRuntimes")
+            val runtimes = StoreRuntimeInspection.stateRuntimes(store)
             assertTrue(runtimes.size <= 1, "stateRuntimes=${runtimes.size}")
-            val dispatchScopeLazy: Lazy<kotlinx.coroutines.CoroutineScope> = field(store, "dispatchScope\$delegate")
-            val dispatchScope = dispatchScopeLazy.value as kotlinx.coroutines.CoroutineScope
+            val dispatchScope = StoreRuntimeInspection.dispatchScope(store)
             val children =
                 kotlin.test
                     .assertNotNull(dispatchScope.coroutineContext[Job])
@@ -248,7 +228,7 @@ class StoreSoakJvmTest {
             withContext(Dispatchers.Default) {
                 store.dispatch(A.Inc)
                 store.state.first { it.count == 1 }
-                val last: MutableStateFlow<Job> = field(store, "lastDispatchDone")
+                val last = StoreRuntimeInspection.predecessor(store)
                 val ref: WeakReference<Job> = WeakReference(last.value)
                 repeat(5000) { store.dispatch(A.Inc) }
                 store.state.first { it.count == 5001 }

@@ -107,3 +107,5 @@ subprojects {
 }
 
 apply(from = "gradle/ktlint.gradle.kts")
+
+apply(from = "gradle/detekt.gradle.kts")

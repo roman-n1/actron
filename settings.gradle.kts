@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Actron"
 include(":actron-core")
+include(":actron-decompose")
 include(":actron-compose")
 include(":actron-logging")
 include(":actron-message")

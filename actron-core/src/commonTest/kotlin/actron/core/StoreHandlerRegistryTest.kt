@@ -63,7 +63,7 @@ class StoreHandlerRegistryTest {
             }
         }
 
-    private fun Store<AppState, AppAction, AppEvent>.registry(): HandlerRegistry<AppState, AppAction> = (this as StoreImpl<AppState, AppAction, AppEvent>).handlerRegistry
+    private fun Store<AppState, AppAction, AppEvent>.registry(): HandlerRegistry<AppState, AppAction, AppEvent> = (this as StoreImpl<AppState, AppAction, AppEvent>).handlerRegistry
 
     @Test
     fun enterAndExitMatchersRecordStateType() {

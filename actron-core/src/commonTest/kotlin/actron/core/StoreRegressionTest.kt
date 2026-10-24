@@ -663,6 +663,7 @@ class StoreRegressionTest {
                                             storePublication.getCompleted().dispatchAndAwaitForTest(Poke)
                                             "completed"
                                         } catch (e: IllegalStateException) {
+                                            assertTrue(e.message.orEmpty().contains("dispatchAndAwait must not be called"), e.message)
                                             "rejected"
                                         }
                                     } ?: "hung",

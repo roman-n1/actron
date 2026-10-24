@@ -132,8 +132,8 @@ class WebSocketUseCaseTest {
 
     private fun createTestStore(
         webSocketService: WebSocketService,
-    ): Store<AppState, AppAction, Nothing> {
-        return Store {
+    ): Store<AppState, AppAction, Nothing> =
+        Store {
             initialState(AppState.Disconnected)
             coroutineContext(Dispatchers.Unconfined)
 
@@ -143,69 +143,74 @@ class WebSocketUseCaseTest {
                 }
             }
 
-            state<AppState.Connected> {
-                enter {
-                    // Skip if not in CONNECTING status (early return pattern)
-                    if (state.connectionStatus != AppState.ConnectionStatus.CONNECTING) {
-                        return@enter
-                    }
-
-                    // Initiate connection
-                    webSocketService.connect()
-
-                    // Monitor both connection events and messages in a single state
-                    launch {
-                        webSocketService.connectionEvents.collect { event ->
-                            when (event) {
-                                is WebSocketService.ConnectionEvent.Connected -> {
-                                    transaction {
-                                        nextState { state.copy(connectionStatus = AppState.ConnectionStatus.CONNECTED) }
-                                    }
-                                }
-
-                                is WebSocketService.ConnectionEvent.Error -> {
-                                    transaction {
-                                        nextState { AppState.Error(event.throwable) }
-                                    }
-                                }
-
-                                is WebSocketService.ConnectionEvent.Disconnected -> {
-                                    transaction {
-                                        nextState { AppState.Disconnected }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    launch {
-                        webSocketService.messages.collect { message ->
-                            transaction {
-                                // Only update messages if in CONNECTED status
-                                if (state.connectionStatus == AppState.ConnectionStatus.CONNECTED) {
-                                    nextState { state.copy(messages = state.messages + message) }
-                                }
-                                // Otherwise ignore messages that arrive before fully connected
-                                // or after disconnecting has started
-                            }
-                        }
-                    }
-                }
-
-                action<AppAction.Disconnect> {
-                    // First update state to disconnecting
-                    nextState { state.copy(connectionStatus = AppState.ConnectionStatus.DISCONNECTING) }
-
-                    // Then initiate disconnect
-                    webSocketService.disconnect()
-                    // Actual state change to Disconnected will happen through the event flow
-                }
-            }
+            state<AppState.Connected> { connectedHandlers(webSocketService) }
 
             state<AppState.Error> {
                 action<AppAction.Connect> {
                     nextState { AppState.Connected(connectionStatus = AppState.ConnectionStatus.CONNECTING) }
                 }
+            }
+        }
+
+    private fun StoreBuilder.StateHandlerConfig<AppState, AppAction, Nothing, AppState.Connected>.connectedHandlers(webSocketService: WebSocketService) {
+        enter {
+            // Skip if not in CONNECTING status (early return pattern)
+            if (state.connectionStatus != AppState.ConnectionStatus.CONNECTING) {
+                return@enter
+            }
+
+            // Initiate connection
+            webSocketService.connect()
+
+            // Monitor both connection events and messages in a single state
+            launch { observeConnections(webSocketService) }
+
+            launch { observeMessages(webSocketService) }
+        }
+
+        action<AppAction.Disconnect> {
+            // First update state to disconnecting
+            nextState { state.copy(connectionStatus = AppState.ConnectionStatus.DISCONNECTING) }
+
+            // Then initiate disconnect
+            webSocketService.disconnect()
+            // Actual state change to Disconnected will happen through the event flow
+        }
+    }
+
+    private suspend fun EnterLaunchScope<AppState, Nothing, AppState.Connected>.observeConnections(webSocketService: WebSocketService) {
+        webSocketService.connectionEvents.collect { event ->
+            when (event) {
+                is WebSocketService.ConnectionEvent.Connected -> {
+                    transaction {
+                        nextState { state.copy(connectionStatus = AppState.ConnectionStatus.CONNECTED) }
+                    }
+                }
+
+                is WebSocketService.ConnectionEvent.Error -> {
+                    transaction {
+                        nextState { AppState.Error(event.throwable) }
+                    }
+                }
+
+                is WebSocketService.ConnectionEvent.Disconnected -> {
+                    transaction {
+                        nextState { AppState.Disconnected }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun EnterLaunchScope<AppState, Nothing, AppState.Connected>.observeMessages(webSocketService: WebSocketService) {
+        webSocketService.messages.collect { message ->
+            transaction {
+                // Only update messages if in CONNECTED status
+                if (state.connectionStatus == AppState.ConnectionStatus.CONNECTED) {
+                    nextState { state.copy(messages = state.messages + message) }
+                }
+                // Otherwise ignore messages that arrive before fully connected
+                // or after disconnecting has started
             }
         }
     }

@@ -503,55 +503,59 @@ internal class RoutingProgram(
             random: Random,
             maxBlocks: Int = 8,
             legacy: Boolean = true,
-        ): RoutingProgram {
-            var nextId = 0
-            val blocks =
-                List(random.nextInt(0, maxBlocks + 1)) {
-                    if (legacy && random.nextInt(6) == 0) {
-                        Block.LegacyTop(HandlerKind.entries.random(random), nextId++, legacyPredicates.random(random))
-                    } else {
-                        val inner =
-                            List(random.nextInt(0, 5)) {
-                                val kind = HandlerKind.entries.random(random)
-                                val dispatcher = if (random.nextInt(4) == 0) Dispatchers.Unconfined else EmptyCoroutineContext
-                                val isLegacy = legacy && random.nextInt(8) == 0
-                                val declaration =
-                                    when (kind) {
-                                        HandlerKind.ACTION -> {
-                                            val action = actionKinds.random(random)
-                                            if (isLegacy) {
-                                                HandlerDeclaration.Predicate(kind, legacyPredicates.random(random))
-                                            } else {
-                                                HandlerDeclaration.Action(action)
-                                            }
-                                        }
-
-                                        HandlerKind.RECOVER -> {
-                                            val recovery = recoverKinds.random(random)
-                                            if (isLegacy) {
-                                                HandlerDeclaration.Predicate(kind, legacyPredicates.random(random))
-                                            } else {
-                                                HandlerDeclaration.Recovery(recovery)
-                                            }
-                                        }
-
-                                        else -> {
-                                            HandlerDeclaration.Lifecycle(kind)
-                                        }
-                                    }
-                                Inner(
-                                    nextId++,
-                                    declaration,
-                                    deprecatedAlias = kind == HandlerKind.RECOVER && random.nextBoolean(),
-                                    dispatcher = if (kind == HandlerKind.RECOVER) EmptyCoroutineContext else dispatcher,
-                                )
-                            }
-                        Block.StateBlock(stateKinds.random(random), inner)
-                    }
-                }
-            return RoutingProgram(blocks)
-        }
+        ): RoutingProgram = RoutingGenerator(random, legacy).generate(maxBlocks)
     }
+}
+
+/** Owns the RNG stream and monotonically allocated IDs for one generated definition. */
+private class RoutingGenerator(
+    private val random: Random,
+    private val legacy: Boolean,
+) {
+    private var nextId = 0
+
+    fun generate(maxBlocks: Int): RoutingProgram = RoutingProgram(List(random.nextInt(0, maxBlocks + 1)) { block() })
+
+    private fun block(): Block {
+        if (legacy && random.nextInt(6) == 0) {
+            return Block.LegacyTop(HandlerKind.entries.random(random), nextId++, legacyPredicates.random(random))
+        }
+        val inner = List(random.nextInt(0, 5)) { inner() }
+        return Block.StateBlock(stateKinds.random(random), inner)
+    }
+
+    private fun inner(): Inner {
+        val kind = HandlerKind.entries.random(random)
+        val dispatcher = if (random.nextInt(4) == 0) Dispatchers.Unconfined else EmptyCoroutineContext
+        val isLegacy = legacy && random.nextInt(8) == 0
+        val declaration = declaration(kind, isLegacy)
+        return Inner(
+            nextId++,
+            declaration,
+            deprecatedAlias = kind == HandlerKind.RECOVER && random.nextBoolean(),
+            dispatcher = if (kind == HandlerKind.RECOVER) EmptyCoroutineContext else dispatcher,
+        )
+    }
+
+    private fun declaration(
+        kind: HandlerKind,
+        isLegacy: Boolean,
+    ): HandlerDeclaration =
+        when (kind) {
+            HandlerKind.ACTION -> {
+                val action = actionKinds.random(random)
+                if (isLegacy) HandlerDeclaration.Predicate(kind, legacyPredicates.random(random)) else HandlerDeclaration.Action(action)
+            }
+
+            HandlerKind.RECOVER -> {
+                val recovery = recoverKinds.random(random)
+                if (isLegacy) HandlerDeclaration.Predicate(kind, legacyPredicates.random(random)) else HandlerDeclaration.Recovery(recovery)
+            }
+
+            else -> {
+                HandlerDeclaration.Lifecycle(kind)
+            }
+        }
 }
 
 internal fun Inner.effectiveInputType(): KClass<*> = declaration.inputType

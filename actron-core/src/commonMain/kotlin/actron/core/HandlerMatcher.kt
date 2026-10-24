@@ -19,23 +19,6 @@ internal data class HandlerMatcher(
 )
 
 /**
- * Matchers of all registered handlers, in registration order.
- *
- * Each list lines up with the order the Store uses for first-match selection.
- * Every entry has declared metadata. Consumers of older inline registries must recompile.
- *
- * [actionPredicates] lines up with [action] and holds the predicates the Store uses to select an
- * action handler, so routing can be checked without running any handler.
- */
-internal class HandlerRegistry<S : State, A : Action>(
-    val enter: List<HandlerMatcher>,
-    val action: List<HandlerMatcher>,
-    val exit: List<HandlerMatcher>,
-    val recover: List<HandlerMatcher>,
-    val actionPredicates: List<(S, A) -> Boolean>,
-)
-
-/**
  * One registered action handler and whether it matches a given state and action.
  *
  * Used by `:actron-test` routing diagnostics through [StoreInternalApi.matchActionHandlers].

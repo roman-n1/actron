@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+@AGENTS.md
+
+The shared project canon is in AGENTS.md. The commands and Actron-specific guidance below supplement it.
 
 ## Build Commands
 

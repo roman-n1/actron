@@ -4,6 +4,42 @@ Detailed Store, Compose, plugin and testing reference, preserved from the former
 Start with the [project overview](../../README.md) or the [core quick start](../../actron-core/README.md).
 Dependency setup and release availability are explained in the [installation guide](../../README.md#installation).
 
+## Cancellable observation and shutdown
+
+Import `actron.core.observeState`, `actron.core.observeEvent` and `actron.core.closeAndJoin`:
+
+```kotlin
+val stateObservation = store.observeState { state -> render(state) }
+val eventObservation = store.observeEvent { event -> handle(event) }
+
+// Stop each observer independently; repeated close calls are safe.
+stateObservation.close()
+eventObservation.close()
+
+// From an external coroutine, stop the Store and await all cancellation cleanup.
+store.closeAndJoin()
+```
+
+Callbacks run in the Store's execution context. They do not automatically switch to a UI thread.
+State observation is registered asynchronously and remains conflated. Event observation registers
+before returning, so it can be attached before startup or dispatch; past events are not replayed.
+State observation follows the Store's existing startup policy; event observation alone does not
+start it. Closing a handle requests cancellation without waiting: a callback already executing
+may finish. Callback failures use the existing exception handling policy and end that observer.
+The existing `collectState` and `collectEvent` methods remain available with their original lifetime.
+
+`closeAndJoin` is cancellable while waiting; the Store remains closed if the caller is cancelled.
+It waits for all owned work, including subscriptions, plugin work and non-cancellable cleanup.
+Calling it from the Store's own coroutine throws before closing, including from launch/transaction
+or plugin work; use `close()` there. Waiting for another Store is supported. Closing a passive
+Store does not restore state or start handlers.
+
+These extensions use the public `StoreLifecycle<S, E>` capability. Core Store, StateChartStore,
+MachineStore and InvokedMachineStore factories provide it. The original `Store` interface and its
+binary signatures are unchanged. Existing custom implementations continue working; to support
+these new operations, implement `StoreLifecycle` too. A wrapper using `Store by delegate` must
+also forward the capability explicitly. Calls on unsupported implementations throw `IllegalStateException` before observation or closing.
+
 ## Quick Look
 
 Describe each screen state with the `Store{}` DSL. Each `state{}` block groups the `enter{}`, `action{}`, and `recover{}` behavior that is valid for that state.

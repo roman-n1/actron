@@ -36,7 +36,7 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
     fun nextState(block: () -> S)
 
     /**
-     * @deprecated Use `nextState { ... }`.
+     * Compatibility alias. Use `nextState { ... }`.
      */
     @Deprecated(
         message = "Use nextState { ... }",
@@ -47,7 +47,7 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
     }
 
     /**
-     * @deprecated Use `nextState { state }`.
+     * Compatibility alias. Use `nextState { state }`.
      */
     @Deprecated(
         message = "Use nextState { ... }",
@@ -164,7 +164,7 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
             fun nextState(block: () -> S)
 
             /**
-             * @deprecated Use `nextState { ... }`.
+             * Compatibility alias. Use `nextState { ... }`.
              */
             @Deprecated(
                 message = "Use nextState { ... }",
@@ -175,7 +175,7 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
             }
 
             /**
-             * @deprecated Use `nextState { state }`.
+             * Compatibility alias. Use `nextState { state }`.
              */
             @Deprecated(
                 message = "Use nextState { ... }",
@@ -268,7 +268,7 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
     fun nextState(block: () -> S)
 
     /**
-     * @deprecated Use `nextState { ... }`.
+     * Compatibility alias. Use `nextState { ... }`.
      */
     @Deprecated(
         message = "Use nextState { ... }",
@@ -279,7 +279,7 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
     }
 
     /**
-     * @deprecated Use `nextState { state }`.
+     * Compatibility alias. Use `nextState { state }`.
      */
     @Deprecated(
         message = "Use nextState { ... }",
@@ -421,7 +421,7 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
             fun nextState(block: () -> S)
 
             /**
-             * @deprecated Use `nextState { ... }`.
+             * Compatibility alias. Use `nextState { ... }`.
              */
             @Deprecated(
                 message = "Use nextState { ... }",
@@ -432,7 +432,7 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
             }
 
             /**
-             * @deprecated Use `nextState { state }`.
+             * Compatibility alias. Use `nextState { state }`.
              */
             @Deprecated(
                 message = "Use nextState { ... }",
@@ -502,7 +502,7 @@ interface RecoverScope<S : State, E : Event, S2 : S, T : Exception> : StoreScope
     fun nextState(block: () -> S)
 
     /**
-     * @deprecated Use `nextState { ... }`.
+     * Compatibility alias. Use `nextState { ... }`.
      */
     @Deprecated(
         message = "Use nextState { ... }",
@@ -513,7 +513,7 @@ interface RecoverScope<S : State, E : Event, S2 : S, T : Exception> : StoreScope
     }
 
     /**
-     * @deprecated Use `nextState { state }`.
+     * Compatibility alias. Use `nextState { state }`.
      */
     @Deprecated(
         message = "Use nextState { ... }",

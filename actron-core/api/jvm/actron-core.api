@@ -606,6 +606,18 @@ public abstract interface class actron/core/StoreInternalApi {
 	public abstract fun startAndAwait (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
+public abstract interface class actron/core/StoreLifecycle {
+	public abstract fun closeAndJoin (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun observeEvent (Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+	public abstract fun observeState (Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+}
+
+public final class actron/core/StoreLifecycleKt {
+	public static final fun closeAndJoin (Lactron/core/Store;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun observeEvent (Lactron/core/Store;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+	public static final fun observeState (Lactron/core/Store;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+}
+
 public final class actron/core/StorePatch {
 	public fun <init> ()V
 	public fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;)V

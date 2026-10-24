@@ -58,7 +58,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
       - name: Check Kotlin code style
         if: matrix.target == 'jvmTest'
-        run: ./gradlew ktlintCheck
+        env:
+          QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_detekt_baselines.py'
+          if [[ "$QUALITY_BASE" =~ ^0+$ ]] || [[ -z "$QUALITY_BASE" ]]; then
+            ./gradlew ktlintCheck detekt
+          else
+            ./gradlew ktlintCheck detekt -Pactron.quality.base="$QUALITY_BASE"
+          fi
       - name: Check null and optional policy
         if: matrix.target == 'jvmTest'
         env:

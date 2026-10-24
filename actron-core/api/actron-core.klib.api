@@ -192,6 +192,12 @@ abstract interface <#A: actron.core/State, #B: actron.core/Event, #C: #A> actron
     abstract suspend fun event(#B) // actron.core/ExitScope.event|event(1:1){}[0]
 }
 
+abstract interface <#A: actron.core/State, #B: actron.core/Event> actron.core/StoreLifecycle { // actron.core/StoreLifecycle|null[0]
+    abstract fun observeEvent(kotlin/Function1<#B, kotlin/Unit>): kotlin/AutoCloseable // actron.core/StoreLifecycle.observeEvent|observeEvent(kotlin.Function1<1:1,kotlin.Unit>){}[0]
+    abstract fun observeState(kotlin/Function1<#A, kotlin/Unit>): kotlin/AutoCloseable // actron.core/StoreLifecycle.observeState|observeState(kotlin.Function1<1:0,kotlin.Unit>){}[0]
+    abstract suspend fun closeAndJoin() // actron.core/StoreLifecycle.closeAndJoin|closeAndJoin(){}[0]
+}
+
 abstract interface <#A: actron.core/State> actron.core/StateSaver { // actron.core/StateSaver|null[0]
     abstract fun restore(#A): #A // actron.core/StateSaver.restore|restore(1:0){}[0]
     abstract fun save(#A) // actron.core/StateSaver.save|save(1:0){}[0]
@@ -894,9 +900,12 @@ final value class actron.core/InputId : actron.core/InputAttribution { // actron
     final fun toString(): kotlin/String // actron.core/InputId.toString|toString(){}[0]
 }
 
+final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.core/observeEvent(kotlin/Function1<#C, kotlin/Unit>): kotlin/AutoCloseable // actron.core/observeEvent|observeEvent@actron.core.Store<0:0,0:1,0:2>(kotlin.Function1<0:2,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
+final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.core/observeState(kotlin/Function1<#A, kotlin/Unit>): kotlin/AutoCloseable // actron.core/observeState|observeState@actron.core.Store<0:0,0:1,0:2>(kotlin.Function1<0:0,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
 final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> actron.core/Plugin(kotlin.coroutines/SuspendFunction2<actron.core/PluginScope<#A, #B>, #A, kotlin/Unit> = ..., kotlin.coroutines/SuspendFunction3<actron.core/PluginScope<#A, #B>, #A, #B, kotlin/Unit> = ..., kotlin.coroutines/SuspendFunction3<actron.core/PluginScope<#A, #B>, #A, #A, kotlin/Unit> = ..., kotlin.coroutines/SuspendFunction3<actron.core/PluginScope<#A, #B>, #A, #C, kotlin/Unit> = ...): actron.core/Plugin<#A, #B, #C> // actron.core/Plugin|Plugin(kotlin.coroutines.SuspendFunction2<actron.core.PluginScope<0:0,0:1>,0:0,kotlin.Unit>;kotlin.coroutines.SuspendFunction3<actron.core.PluginScope<0:0,0:1>,0:0,0:1,kotlin.Unit>;kotlin.coroutines.SuspendFunction3<actron.core.PluginScope<0:0,0:1>,0:0,0:0,kotlin.Unit>;kotlin.coroutines.SuspendFunction3<actron.core.PluginScope<0:0,0:1>,0:0,0:2,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
 final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> actron.core/Store(#A, kotlin.coroutines/CoroutineContext = ..., kotlin/Function1<actron.core/StoreBuilder<#A, #B, #C>, kotlin/Unit>): actron.core/Store<#A, #B, #C> // actron.core/Store|Store(0:0;kotlin.coroutines.CoroutineContext;kotlin.Function1<actron.core.StoreBuilder<0:0,0:1,0:2>,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
 final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> actron.core/Store(kotlin.coroutines/CoroutineContext = ..., kotlin/Function1<actron.core/StoreBuilder<#A, #B, #C>, kotlin/Unit>): actron.core/Store<#A, #B, #C> // actron.core/Store|Store(kotlin.coroutines.CoroutineContext;kotlin.Function1<actron.core.StoreBuilder<0:0,0:1,0:2>,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
 final fun <#A: actron.core/State> actron.core/StateSaver(kotlin/Function1<#A, kotlin/Unit>, kotlin/Function1<#A, #A>): actron.core/StateSaver<#A> // actron.core/StateSaver|StateSaver(kotlin.Function1<0:0,kotlin.Unit>;kotlin.Function1<0:0,0:0>){0§<actron.core.State>}[0]
 final fun actron.core/ExceptionHandler(kotlin/Function1<kotlin/Throwable, kotlin/Unit>): actron.core/ExceptionHandler // actron.core/ExceptionHandler|ExceptionHandler(kotlin.Function1<kotlin.Throwable,kotlin.Unit>){}[0]
+final suspend fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.core/closeAndJoin() // actron.core/closeAndJoin|closeAndJoin@actron.core.Store<0:0,0:1,0:2>(){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
 final suspend fun actron.core/currentInputId(): actron.core/InputAttribution // actron.core/currentInputId|currentInputId(){}[0]

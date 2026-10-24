@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:RandomRoutingFixture.kt:internal fun RoutingProgram.expect: Expectation</ID>
+    <ID>TooGenericExceptionCaught:StoreInputs.kt:StoreInputs$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StorePlugins.kt:StorePlugins$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StoreLaunchedWork.kt:StoreLaunchedWork$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StoreProcessor.kt:StoreProcessor$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StorePublication.kt:StorePublication$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StoreReporting.kt:StoreReporting$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:StoreReporting.kt:StoreReporting$handlerError: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StoreTransitions.kt:StoreTransitions$t: Throwable</ID>
+    <ID>TooGenericExceptionThrown:StoreExceptionTest.kt:StoreExceptionTest$throw RuntimeException("error")</ID>
+    <ID>TooManyFunctions:StoreBuilder.kt:StoreBuilder&lt;S : State, A : Action, E : Event&gt;</ID>
+    <ID>TooManyFunctions:StorePatch.kt:StorePatchBuilder&lt;S : State, A : Action, E : Event&gt;</ID>
+  </CurrentIssues>
+</SmellBaseline>

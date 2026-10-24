@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>EmptyWhileBlock:DurableEffectProcessTest.kt:DurableEffectProcessTest${ }</ID>
+    <ID>TooGenericExceptionCaught:DurableCredit.kt:failure: Throwable</ID>
+  </CurrentIssues>
+</SmellBaseline>

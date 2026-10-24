@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>WildcardImport:RecordingFilesTest.kt:import androidx.compose.ui.test.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -10,23 +10,26 @@ import kotlin.reflect.KClass
  * Builder used by the Store DSL to configure runtime behavior and register state-specific
  * handlers.
  *
+ * Each built Store owns a snapshot of registrations and configuration collections. Later changes
+ * to a retained builder do not affect that Store. Plugin objects and user callbacks are not cloned.
+ *
  * Most users interact with this type through the top-level `Store(...)` factory overloads.
  */
 @Suppress("unused")
 @ActronStoreDsl
 class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
     private var storeInitialState: () -> S = { throw IllegalArgumentException("[Actron] InitialState must be set in Store{} DSL") }
-    private var storeCoroutineContext: CoroutineContext = Dispatchers.Default
-    private var storeStateSaver: StateSaver<S> = StateSaver.Noop()
-    private var storeExceptionHandler: ExceptionHandler = ExceptionHandler.Rethrow
-    private var storeAutoStartPolicy: AutoStartPolicy = AutoStartPolicy.OnDispatchOrStateCollection
-    private var storePendingActionPolicy: PendingActionPolicy = PendingActionPolicy.ClearOnStateExit
-    private var storePluginExecutionPolicy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent
+    private val storeSettings = mutableMapOf<KClass<*>, StoreSetting<S>>()
     private val storePlugins: MutableList<Plugin<S, A, E>> = mutableListOf()
 
     @OptIn(InternalActronApi::class)
     private val storeProbes: MutableList<StoreProbe<S, A, E>> = mutableListOf()
     private val recoveryValidators = mutableListOf<(S, S) -> Unit>()
+
+    // Keep only the final value of each setting, so overwritten savers/handlers are not retained.
+    private fun recordSetting(setting: StoreSetting<S>) {
+        storeSettings[setting::class] = setting
+    }
 
     /**
      * Lets an adapter reject recovery updates that would bypass its runtime bookkeeping.
@@ -58,7 +61,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param coroutineContext The coroutine context to use
      */
     fun coroutineContext(coroutineContext: CoroutineContext) {
-        storeCoroutineContext = coroutineContext
+        recordSetting(StoreSetting.ExecutionContext(coroutineContext))
     }
 
     /**
@@ -67,7 +70,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param stateSaver The state saver implementation to use
      */
     fun stateSaver(stateSaver: StateSaver<S>) {
-        storeStateSaver = stateSaver
+        recordSetting(StoreSetting.Persistence(stateSaver))
     }
 
     /**
@@ -76,7 +79,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param exceptionHandler The exception handler to use
      */
     fun exceptionHandler(exceptionHandler: ExceptionHandler) {
-        storeExceptionHandler = exceptionHandler
+        recordSetting(StoreSetting.FailureHandler(exceptionHandler))
     }
 
     /**
@@ -85,7 +88,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param policy The auto-start policy to use
      */
     fun autoStartPolicy(policy: AutoStartPolicy) {
-        storeAutoStartPolicy = policy
+        recordSetting(StoreSetting.AutoStart(policy))
     }
 
     /**
@@ -95,7 +98,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param policy The pending action policy to use
      */
     fun pendingActionPolicy(policy: PendingActionPolicy) {
-        storePendingActionPolicy = policy
+        recordSetting(StoreSetting.PendingActions(policy))
     }
 
     /**
@@ -107,7 +110,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
      * @param policy The plugin execution policy to use
      */
     fun pluginExecutionPolicy(policy: PluginExecutionPolicy) {
-        storePluginExecutionPolicy = policy
+        recordSetting(StoreSetting.PluginExecution(policy))
     }
 
     /**
@@ -160,43 +163,6 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
 
     @PublishedApi
     internal val registeredErrorHandlers = mutableListOf<StateHandler<(S, Exception) -> Boolean, RecoverScope<S, E, S, Exception>>>()
-
-    private val onEnter: suspend EnterScope<S, E, S>.() -> Unit = {
-        for (handler in this@StoreBuilder.registeredEnterHandlers) {
-            if (handler.predicate(state)) {
-                handler.handler.invoke(this)
-                break
-            }
-        }
-    }
-
-    private val onAction: suspend ActionScope<S, A, E, S>.() -> Unit = {
-        for (handler in this@StoreBuilder.registeredActionHandlers) {
-            if (handler.predicate(state, action)) {
-                handler.handler.invoke(this)
-                break
-            }
-        }
-    }
-
-    private val onExit: suspend ExitScope<S, E, S>.() -> Unit = {
-        for (handler in this@StoreBuilder.registeredExitHandlers) {
-            if (handler.predicate(state)) {
-                handler.handler.invoke(this)
-                break
-            }
-        }
-    }
-
-    private val onError: suspend RecoverScope<S, E, S, Exception>.() -> Unit = handle@{
-        for (handler in this@StoreBuilder.registeredErrorHandlers) {
-            if (handler.predicate(state, error)) {
-                handler.handler.invoke(this)
-                return@handle
-            }
-        }
-        throw error
-    }
 
     @ActronStoreDsl
     class StateHandlerConfig<S : State, A : Action, E : Event, S2 : S> {
@@ -315,7 +281,7 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
         }
 
         /**
-         * @deprecated Use `recover {}`.
+         * Compatibility alias. Use `recover {}`.
          */
         @Deprecated(
             message = "Use recover<T>(dispatcher, block)",
@@ -398,32 +364,23 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
     @OptIn(InternalActronApi::class)
     internal fun build(): Store<S, A, E> {
         val state = storeInitialState()
-        return object : StoreImpl<S, A, E>() {
-            override var initialState: S = state
-            override var coroutineContext: CoroutineContext = storeCoroutineContext
-            override var stateSaver: StateSaver<S> = storeStateSaver
-            override var exceptionHandler: ExceptionHandler = storeExceptionHandler
-            override var autoStartPolicy: AutoStartPolicy = storeAutoStartPolicy
-            override var pendingActionPolicy: PendingActionPolicy = storePendingActionPolicy
-            override var pluginExecutionPolicy: PluginExecutionPolicy = storePluginExecutionPolicy
-            override val plugins: MutableList<Plugin<S, A, E>> = storePlugins
-            override val probes: MutableList<StoreProbe<S, A, E>> = storeProbes
-            override val onEnter: suspend EnterScope<S, E, S>.() -> Unit = this@StoreBuilder.onEnter
-            override val onAction: suspend ActionScope<S, A, E, S>.() -> Unit = this@StoreBuilder.onAction
-            override val onExit: suspend ExitScope<S, E, S>.() -> Unit = this@StoreBuilder.onExit
-            override val onError: suspend RecoverScope<S, E, S, Exception>.() -> Unit = this@StoreBuilder.onError
-            override val validateRecoveredState: (S, S) -> Unit = { previous, recovered ->
-                recoveryValidators.forEach { it(previous, recovered) }
-            }
-            override val handlerRegistry: HandlerRegistry<S, A> =
-                HandlerRegistry(
-                    enter = registeredEnterHandlers.map { it.matcher },
-                    action = registeredActionHandlers.map { it.matcher },
-                    exit = registeredExitHandlers.map { it.matcher },
-                    recover = registeredErrorHandlers.map { it.matcher },
-                    actionPredicates = registeredActionHandlers.map { it.predicate },
-                )
-        }
+        val configuration =
+            StoreConfiguration(
+                initialState = state,
+                coroutineContext = Dispatchers.Default,
+                settings = storeSettings.values.toList(),
+                plugins = storePlugins.toMutableList(),
+                probes = storeProbes.toMutableList(),
+            )
+        val registry =
+            HandlerRegistry(
+                enter = registeredEnterHandlers,
+                action = registeredActionHandlers,
+                exit = registeredExitHandlers,
+                recover = registeredErrorHandlers,
+                validators = recoveryValidators,
+            )
+        return StoreCompanionApi(StoreProcessor(configuration, registry.handlers(), registry)).store
     }
 }
 

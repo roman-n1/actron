@@ -1,11 +1,10 @@
 package actron.core
 
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -14,7 +13,7 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StoreActionCoroutineScopeTest {
-    private val testDispatcher = UnconfinedTestDispatcher()
+    private val testDispatcher = StandardTestDispatcher()
 
     private class DirectThrowable(
         message: String,
@@ -64,7 +63,7 @@ class StoreActionCoroutineScopeTest {
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
     ): Store<AppState, AppAction, Nothing> =
         Store(AppState.Active()) {
-            coroutineContext(Dispatchers.Unconfined)
+            coroutineContext(testDispatcher)
             exceptionHandler(exceptionHandler)
 
             state<AppState.Active> {
@@ -89,7 +88,7 @@ class StoreActionCoroutineScopeTest {
                     launch {
                         onLongRunningStart()
                         try {
-                            delay(Long.MAX_VALUE)
+                            awaitCancellation()
                         } finally {
                             onLongRunningCancelled()
                         }
@@ -156,10 +155,14 @@ class StoreActionCoroutineScopeTest {
         runTest(testDispatcher) {
             val store = createTestStore()
 
-            store.dispatch(AppAction.LaunchIncrement)
-            yield()
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchIncrement)
+                store.awaitIdleForTest()
 
-            assertEquals(AppState.Active(value = 1), store.currentState)
+                assertEquals(AppState.Active(value = 1), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -167,32 +170,40 @@ class StoreActionCoroutineScopeTest {
         runTest(testDispatcher) {
             val store = createTestStore()
 
-            store.dispatch(AppAction.LaunchWithDelta(delta = 2))
-            yield()
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchWithDelta(delta = 2))
+                store.awaitIdleForTest()
 
-            assertEquals(AppState.Active(value = 4), store.currentState)
+                assertEquals(AppState.Active(value = 4), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
     fun actionLaunch_isCancelledWhenStateChanges() =
         runTest(testDispatcher) {
-            var started = false
-            var cancelled = false
+            val started = CompletableDeferred<Unit>()
+            val cancelled = CompletableDeferred<Unit>()
             val store =
                 createTestStore(
-                    onLongRunningStart = { started = true },
-                    onLongRunningCancelled = { cancelled = true },
+                    onLongRunningStart = { started.complete(Unit) },
+                    onLongRunningCancelled = { cancelled.complete(Unit) },
                 )
 
-            store.dispatch(AppAction.LaunchLongRunning)
-            yield()
-            assertTrue(started, "Long-running action launch should start")
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchLongRunning)
+                started.await()
+                assertTrue(started.isCompleted, "Long-running action launch should start")
 
-            store.dispatch(AppAction.MoveToCompleted)
-            yield()
+                store.dispatchAndAwaitForTest(AppAction.MoveToCompleted)
+                store.awaitIdleForTest()
 
-            assertEquals(AppState.Completed(value = 0), store.currentState)
-            assertTrue(cancelled, "Long-running action launch should be cancelled on state transition")
+                assertEquals(AppState.Completed(value = 0), store.currentState)
+                assertTrue(cancelled.isCompleted, "Long-running action launch should be cancelled on state transition")
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -200,10 +211,14 @@ class StoreActionCoroutineScopeTest {
         runTest(testDispatcher) {
             val store = createTestStore()
 
-            store.dispatch(AppAction.MoveToCompletedThenLaunch)
-            repeat(3) { yield() }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.MoveToCompletedThenLaunch)
+                store.awaitIdleForTest()
 
-            assertEquals(AppState.Completed(value = 1), store.currentState)
+                assertEquals(AppState.Completed(value = 1), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -211,10 +226,14 @@ class StoreActionCoroutineScopeTest {
         runTest(testDispatcher) {
             val store = createTestStore()
 
-            store.dispatch(AppAction.LaunchThrow)
-            repeat(3) { yield() }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchThrow)
+                store.awaitIdleForTest()
 
-            assertEquals(AppState.Failed("launch failed"), store.currentState)
+                assertEquals(AppState.Failed("launch failed"), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -222,10 +241,14 @@ class StoreActionCoroutineScopeTest {
         runTest(testDispatcher) {
             val store = createTestStore()
 
-            store.dispatch(AppAction.LaunchTransactionThrow)
-            repeat(3) { yield() }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchTransactionThrow)
+                store.awaitIdleForTest()
 
-            assertEquals(AppState.Failed("transaction failed"), store.currentState)
+                assertEquals(AppState.Failed("transaction failed"), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -237,14 +260,18 @@ class StoreActionCoroutineScopeTest {
                     exceptionHandler = ExceptionHandler { handledThrowableObservations.add(it) },
                 )
 
-            store.dispatch(AppAction.LaunchFatal)
-            repeat(3) { yield() }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchFatal)
+                store.awaitIdleForTest()
 
-            assertNotNull(handledThrowableObservations.single())
-            val error = handledThrowableObservations.single()
-            assertIs<AssertionError>(error)
-            assertEquals("fatal launch", error.message)
-            assertEquals(AppState.Active(value = 0), store.currentState)
+                assertNotNull(handledThrowableObservations.single())
+                val error = handledThrowableObservations.single()
+                assertIs<AssertionError>(error)
+                assertEquals("fatal launch", error.message)
+                assertEquals(AppState.Active(value = 0), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -256,14 +283,18 @@ class StoreActionCoroutineScopeTest {
                     exceptionHandler = ExceptionHandler { handledThrowableObservations.add(it) },
                 )
 
-            store.dispatch(AppAction.LaunchBareThrowable)
-            repeat(3) { yield() }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchBareThrowable)
+                store.awaitIdleForTest()
 
-            assertNotNull(handledThrowableObservations.single())
-            val error = handledThrowableObservations.single()
-            assertIs<DirectThrowable>(error)
-            assertEquals("bare throwable", error.message)
-            assertEquals(AppState.Active(value = 0), store.currentState)
+                assertNotNull(handledThrowableObservations.single())
+                val error = handledThrowableObservations.single()
+                assertIs<DirectThrowable>(error)
+                assertEquals("bare throwable", error.message)
+                assertEquals(AppState.Active(value = 0), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
@@ -275,13 +306,17 @@ class StoreActionCoroutineScopeTest {
                     exceptionHandler = ExceptionHandler { handledThrowableObservations.add(it) },
                 )
 
-            store.dispatch(AppAction.LaunchTransactionFatal)
-            repeat(3) { yield() }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.LaunchTransactionFatal)
+                store.awaitIdleForTest()
 
-            assertNotNull(handledThrowableObservations.single())
-            val error = handledThrowableObservations.single()
-            assertIs<AssertionError>(error)
-            assertEquals("fatal transaction", error.message)
-            assertEquals(AppState.Active(value = 0), store.currentState)
+                assertNotNull(handledThrowableObservations.single())
+                val error = handledThrowableObservations.single()
+                assertIs<AssertionError>(error)
+                assertEquals("fatal transaction", error.message)
+                assertEquals(AppState.Active(value = 0), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 }

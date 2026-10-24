@@ -1,0 +1,5 @@
+public final class actron/decompose/StoreObservationKt {
+	public static final fun observeEvent (Lactron/core/Store;Lcom/arkivanov/essenty/lifecycle/Lifecycle;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+	public static final fun observeState (Lactron/core/Store;Lcom/arkivanov/essenty/lifecycle/Lifecycle;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+}
+
