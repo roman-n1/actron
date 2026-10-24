@@ -3,9 +3,15 @@ package actron.example.weather
 import actron.core.InputAttribution
 import actron.example.weather.core.session.WeatherSavedStateCodec
 import actron.example.weather.core.session.WeatherSession
-import actron.example.weather.feature.cities.presentation.*
-import actron.statechart.machine.*
-import kotlin.test.*
+import actron.example.weather.feature.cities.presentation.CitySearchAction
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.statechart.machine.DecisionTraceObserver
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class WeatherProductionSessionTest {
     @Test

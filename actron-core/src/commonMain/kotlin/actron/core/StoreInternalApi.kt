@@ -48,7 +48,8 @@ interface StoreInternalApi<S : State, A : Action, E : Event> {
      * not either. Iterates until nothing new appeared, at most [timeout], and returns what is still
      * pending: both counts zero when idle. Throws [IllegalStateException] from inside a handler,
      * plugin hook or transaction of the same Store. On a closed Store it returns idle once every
-     * coroutine of the Store has ended.
+     * coroutine of the Store has ended. Until then, [StorePendingWork.launches] reports one
+     * root completion barrier, including subscription and plugin cleanup.
      */
     suspend fun awaitIdle(timeout: Duration): StorePendingWork
 }
@@ -56,6 +57,7 @@ interface StoreInternalApi<S : State, A : Action, E : Event> {
 /**
  * What a Store still has to do, as [StoreInternalApi.awaitIdle] found it: [inputs] accepted and
  * not finished or discarded, [launches] started from `enter {}` or `action {}` and still active.
+ * While closing, [launches] is one root completion barrier until every Store coroutine has ended.
  */
 data class StorePendingWork(
     val inputs: Int,

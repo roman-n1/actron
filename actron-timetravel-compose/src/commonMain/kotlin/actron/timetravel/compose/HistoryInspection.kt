@@ -59,6 +59,22 @@ internal class HistoryInspection {
     var back: List<HistoryLocation> by mutableStateOf(emptyList())
     var forward: List<HistoryLocation> by mutableStateOf(emptyList())
 
+    fun changes(entry: HistoryEntry<*>): List<StateChange> {
+        val before =
+            when (val selected = comparison) {
+                HistoryComparison.PreviousEvent -> entry.details.before
+                is HistoryComparison.Against -> if (selected.machine == entry.machine.stableId) selected.fields else entry.details.before
+            }
+        return historyChanges(before, entry.details.after, fullState || focus is HistoryFieldFocus.Path).filter { change ->
+            val focused =
+                when (val selected = focus) {
+                    HistoryFieldFocus.All -> true
+                    is HistoryFieldFocus.Path -> selected.path == change.path
+                }
+            focused && change.path.contains(fieldQuery.trim(), ignoreCase = true)
+        }
+    }
+
     fun location(id: Long): HistoryLocation = HistoryLocation(id, filter, query, bookmarksOnly, graph, focus, fieldQuery, fullState)
 
     fun restore(location: HistoryLocation) {

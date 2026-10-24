@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:Main.kt:@Composable internal fun DemoScreen</ID>
+    <ID>CyclomaticComplexMethod:Main.kt:@Composable internal fun DemoScreen</ID>
+    <ID>LongMethod:CheckoutDemo.kt:CheckoutDemo$private suspend fun recordConfigured: Recorded</ID>
+    <ID>TooGenericExceptionCaught:Main.kt:e: Exception</ID>
+    <ID>UnconditionalJumpStatementInLoop:Main.kt:for (mismatch in (controls.replay.verification as actron.timetravel.compose.GroupVerification.Checked).problems.filterIsInstance&lt;GroupMismatch.Replay&gt;()) { controls.replay.seek(mismatch.position) controls.replay.stepForward() break }</ID>
+  </CurrentIssues>
+</SmellBaseline>

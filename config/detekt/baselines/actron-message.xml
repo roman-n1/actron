@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MatchingDeclarationName:PluginTest.kt:MessagePluginTest</ID>
+    <ID>TooGenericExceptionCaught:Plugin.kt:&lt;no name provided&gt;$e: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>

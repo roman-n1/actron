@@ -23,7 +23,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -157,7 +161,7 @@ private fun <S : Any> HistoryPanelContent(
     // Bubble shortcuts after children: a text editor or the graph can consume its own keys first.
     Surface(
         modifier.testTag("history-panel").onKeyEvent { event ->
-            if (event.type != KeyEventType.KeyDown || !event.isAltPressed || event.isCtrlPressed || event.isMetaPressed) {
+            if (event.type != KeyEventType.KeyDown || !event.isHistoryNavigationModifier()) {
                 false
             } else {
                 when (event.key) {

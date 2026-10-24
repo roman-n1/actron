@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 
@@ -66,6 +68,20 @@ class StoreProbeFailureJvmTest {
         }
     }
 
+    private fun failingStartProbe(
+        traces: ConcurrentLinkedQueue<StoreTrace<Counter, Bump, Nothing>>,
+        armed: AtomicBoolean,
+        closed: CountDownLatch,
+        rethrow: Boolean,
+    ): StoreProbe<Counter, Bump, Nothing> =
+        StoreProbe { trace ->
+            traces += trace
+            if (trace is StoreTrace.ProcessingStarted && armed.compareAndSet(true, false)) {
+                if (rethrow) throw IllegalStateException("probe failure") else throw AssertionError("fatal probe failure")
+            }
+            if (trace === StoreTrace.StoreClosed) closed.countDown()
+        }
+
     internal fun failure(rethrow: Boolean) =
         runBlocking {
             val traces = ConcurrentLinkedQueue<StoreTrace<Counter, Bump, Nothing>>()
@@ -83,15 +99,7 @@ class StoreProbeFailureJvmTest {
                 Store<Counter, Bump, Nothing>(Counter()) {
                     coroutineContext(dispatcher)
                     exceptionHandler(if (rethrow) ExceptionHandler.Rethrow else ExceptionHandler { errors.offer(it) })
-                    probe(
-                        StoreProbe { trace ->
-                            traces += trace
-                            if (trace is StoreTrace.ProcessingStarted && armed.compareAndSet(true, false)) {
-                                if (rethrow) throw IllegalStateException("probe failure") else throw AssertionError("fatal probe failure")
-                            }
-                            if (trace === StoreTrace.StoreClosed) closed.countDown()
-                        },
-                    )
+                    probe(failingStartProbe(traces, armed, closed, rethrow))
                     state<Counter> { action<Bump> { nextState { state.copy(count = state.count + 1) } } }
                 }
 
@@ -122,12 +130,64 @@ class StoreProbeFailureJvmTest {
                 dispatcher.close()
             }
         }
+
+    // Runs in the existing isolated process: the expected uncaught handler error must not reach
+    // coroutine-test's global exception collector in the Gradle test worker.
+    internal fun postPublicationHandlerFailure() =
+        runBlocking {
+            for (failInSaver in listOf(true, false)) {
+                val original = IllegalStateException("post-publication")
+                val handlerFailure = IllegalArgumentException("handler failed")
+                val calls = ConcurrentLinkedQueue<Throwable>()
+                val uncaught = LinkedBlockingQueue<Throwable>()
+                val traces = ConcurrentLinkedQueue<StoreTrace<Counter, Bump, Nothing>>()
+                var recovered = 0
+                val dispatcher =
+                    Executors
+                        .newSingleThreadExecutor { runnable: Runnable ->
+                            Thread(runnable, "actron-core-reporting-failure").apply {
+                                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _: Thread, error: Throwable -> uncaught.offer(error) }
+                            }
+                        }.asCoroutineDispatcher()
+                val store =
+                    Store<Counter, Bump, Nothing>(Counter()) {
+                        coroutineContext(dispatcher)
+                        probe(StoreProbe { traces += it })
+                        exceptionHandler(
+                            ExceptionHandler {
+                                calls += it
+                                throw handlerFailure
+                            },
+                        )
+                        stateSaver(StateSaver(save = { if (failInSaver) throw original }, restore = { it }))
+                        plugin(Plugin(onState = { _, _ -> if (!failInSaver) throw original }))
+                        state<Counter> {
+                            action<Bump> { nextState { Counter(1) } }
+                            recover<Exception> { recovered++ }
+                        }
+                    }
+                try {
+                    withTimeout(10_000) { store.dispatchAndAwaitForTest(Bump) }
+                    val escaped = assertNotNull(uncaught.poll(10, TimeUnit.SECONDS))
+                    assertSame(handlerFailure, escaped.cause)
+                    assertEquals(listOf<Throwable>(original), calls.toList())
+                    assertEquals(Counter(1), store.currentState)
+                    assertEquals(0, recovered)
+                    assertEquals(listOf(StoreTrace.FailureReported(InputId(2), original)), traces.filterIsInstance<StoreTrace.FailureReported>())
+                    assertEquals(ProcessingOutcome.Failed(handlerFailure), traces.filterIsInstance<StoreTrace.ProcessingFinished>().last().outcome)
+                } finally {
+                    store.close()
+                    dispatcher.close()
+                }
+            }
+        }
 }
 
 /** Exercises the actual Rethrow handler, including its uncaught coroutine error. */
 object CoreProbeFailureProcess {
     @JvmStatic fun main(args: Array<String>) {
         StoreProbeFailureJvmTest().failure(true)
+        StoreProbeFailureJvmTest().postPublicationHandlerFailure()
         println("OK core rethrow")
     }
 }

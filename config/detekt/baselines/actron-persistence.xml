@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:RecordingCodec.kt:RecordingCodec$private fun InputWire.toInput: MachineInput&lt;A&gt;</ID>
+    <ID>CyclomaticComplexMethod:RecordingCodec.kt:RecordingCodec$private fun MachineInput&lt;A&gt;.toWire: JsonObject</ID>
+    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; EffectEnvelope(EffectId(it.id), decoding("$at: effect $index") { json.decodeFromJsonElement(event, it.event) }) }</ID>
+    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; PendingEffect(EffectId(it.id), decoding("$at: effect $index") { json.decodeFromJsonElement(event, it.event) }, it.policy.toPolicy(at), it.attempts, it.handling) }</ID>
+    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: command $index") }</ID>
+    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: ending $index") }</ID>
+    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: queued in $lane $index") }</ID>
+    <ID>ExplicitItLambdaMultipleParameters:RecordingCodec.kt:RecordingCodec${ index, it -&gt; it.toRegistration("$at: running $index") }</ID>
+    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: DecodeFailure</ID>
+    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: SerializationException</ID>
+    <ID>TooManyFunctions:RecordingCodec.kt:RecordingCodec&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
+    <ID>WildcardImport:InvocationPersistence.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:MachinePersistence.kt:import actron.statechart.machine.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

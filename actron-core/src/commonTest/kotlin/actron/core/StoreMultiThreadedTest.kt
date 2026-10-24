@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Runs the Store on [Dispatchers.Default], its default context, where handlers, launches and
@@ -58,6 +59,7 @@ class StoreMultiThreadedTest {
                 }
                 withTimeout(10_000) {
                     store.state.first { it.count == total }
+                    store.awaitIdleForTest()
                 }
             }
 
@@ -153,11 +155,10 @@ class StoreMultiThreadedTest {
 
             withContext(Dispatchers.Default) {
                 store.dispatch(Emit)
-                withTimeout(30_000) {
-                    while (seen.size < launches * perLaunch) kotlinx.coroutines.delay(20)
-                }
+                // Join the state launches before reading the deliberately plain plugin data.
+                // The yield inside the hook provokes overlap; it is not an observation wait.
+                store.awaitIdleForTest(30.seconds)
             }
-            kotlinx.coroutines.delay(100)
 
             assertEquals(0, overlaps)
             assertEquals((0 until launches * perLaunch).toSet(), seen.toSet())

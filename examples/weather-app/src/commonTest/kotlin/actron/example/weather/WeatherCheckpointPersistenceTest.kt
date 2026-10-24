@@ -5,7 +5,9 @@ package actron.example.weather
 import actron.example.weather.core.component.MachineInstance
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.core.mvi.RequestState
-import actron.example.weather.core.session.*
+import actron.example.weather.core.session.WeatherSavedState
+import actron.example.weather.core.session.WeatherSavedStateCodec
+import actron.example.weather.core.session.WeatherSession
 import actron.example.weather.feature.cities.domain.*
 import actron.example.weather.feature.cities.presentation.*
 import actron.statechart.machine.*

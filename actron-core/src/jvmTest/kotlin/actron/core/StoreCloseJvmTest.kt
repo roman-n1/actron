@@ -2,7 +2,6 @@ package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -39,8 +38,10 @@ class StoreCloseJvmTest {
                             launch {
                                 transaction {
                                     entered.complete(Unit)
-                                    @Suppress("ControlFlowWithEmptyBody")
-                                    while (!release) {}
+                                    // CPU-bound tail: no suspension or cancellation check is introduced.
+                                    while (!release) {
+                                        Thread.onSpinWait()
+                                    }
                                     nextState { Box(1) }
                                 }
                             }
@@ -48,17 +49,21 @@ class StoreCloseJvmTest {
                     }
                 }
 
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) {
-                    store.start()
-                    entered.await()
-                    store.close()
-                    release = true
-                    delay(300)
+            try {
+                withContext(Dispatchers.Default) {
+                    withTimeout(10_000) {
+                        store.start()
+                        entered.await()
+                        store.close()
+                        release = true
+                        store.awaitIdleForTest()
+                    }
                 }
+                assertEquals(Box(0), store.currentState)
+                assertEquals(emptyList(), synchronized(saved) { saved.toList() })
+            } finally {
+                release = true
+                store.close()
             }
-
-            assertEquals(Box(0), store.currentState)
-            assertEquals(emptyList(), saved)
         }
 }

@@ -4,8 +4,11 @@ import actron.example.weather.app.WeatherTheme
 import actron.example.weather.core.session.WeatherSession
 import actron.example.weather.feature.cities.presentation.CitySearchScreen
 import actron.example.weather.feature.cities.presentation.toUiState
-import androidx.compose.ui.test.*
-import kotlin.test.*
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.runComposeUiTest
+import kotlin.test.Test
+import kotlin.test.assertFailsWith
 
 @OptIn(ExperimentalTestApi::class)
 class WeatherProductionUiTest {

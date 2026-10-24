@@ -1,8 +1,10 @@
 package actron.example.weather.core.debug
 
-import actron.example.weather.core.session.*
-import actron.example.weather.feature.cities.presentation.*
-import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.core.session.WeatherRoute
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.feature.weather.presentation.CityWeatherMachine
+import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.statechart.StateId
 import actron.statechart.machine.TransitionId
 import actron.timetravel.*

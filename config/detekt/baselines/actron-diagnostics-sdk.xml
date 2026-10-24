@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>WildcardImport:DiagnosticSdkTest.kt:import actron.core.*</ID>
+    <ID>WildcardImport:DiagnosticSdkTest.kt:import actron.diagnostics.*</ID>
+    <ID>WildcardImport:DiagnosticSdkTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:DiagnosticSdkTest.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:DiagnosticSdkTest.kt:import io.sentry.*</ID>
+    <ID>WildcardImport:DiagnosticSdkTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:OpenTelemetryDiagnosticSink.kt:import actron.diagnostics.*</ID>
+    <ID>WildcardImport:SentryDiagnosticSink.kt:import actron.diagnostics.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

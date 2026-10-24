@@ -66,6 +66,10 @@ class TodoUseCaseTest {
         suspend fun deleteTodo(todoId: String): Boolean
     }
 
+    private class RepositoryFailure(
+        message: String,
+    ) : Exception(message)
+
     // Mock repository implementation
     class MockTodoRepository(
         var shouldSucceed: Boolean,
@@ -80,18 +84,18 @@ class TodoUseCaseTest {
         private val _todos = initialTodos.toMutableList()
 
         override suspend fun loadTodos(): List<Todo> {
-            if (!shouldSucceed) throw Exception("Failed to load todos")
+            if (!shouldSucceed) throw RepositoryFailure("Failed to load todos")
             return _todos.toList()
         }
 
         override suspend fun addTodo(todo: Todo): Todo {
-            if (!shouldSucceed) throw Exception("Failed to add todo")
+            if (!shouldSucceed) throw RepositoryFailure("Failed to add todo")
             _todos.add(todo)
             return todo
         }
 
         override suspend fun updateTodo(todo: Todo): Todo {
-            if (!shouldSucceed) throw Exception("Failed to update todo")
+            if (!shouldSucceed) throw RepositoryFailure("Failed to update todo")
             val index = _todos.indexOfFirst { it.id == todo.id }
             if (index >= 0) {
                 _todos[index] = todo
@@ -100,7 +104,7 @@ class TodoUseCaseTest {
         }
 
         override suspend fun deleteTodo(todoId: String): Boolean {
-            if (!shouldSucceed) throw Exception("Failed to delete todo")
+            if (!shouldSucceed) throw RepositoryFailure("Failed to delete todo")
             val initialSize = _todos.size
             _todos.removeAll { it.id == todoId }
             return _todos.size < initialSize
@@ -182,73 +186,10 @@ class TodoUseCaseTest {
             }
 
             // Loaded state handling
-            state<AppState.Loaded> {
-                action<AppAction.AddTodo> {
-                    val newTodo =
-                        Todo(
-                            id = generateId(),
-                            title = action.title,
-                            completed = false,
-                        )
-                    val savedTodo = repository.addTodo(newTodo)
-                    nextState { state.copy(todos = state.todos + savedTodo) }
-                }
-
-                action<AppAction.ToggleCompletion> {
-                    val todoToUpdate = state.todos.first { it.id == action.todoId }
-                    val updatedTodo = todoToUpdate.copy(completed = !todoToUpdate.completed)
-                    val savedTodo = repository.updateTodo(updatedTodo)
-
-                    nextState {
-                        // Create updated todo list
-                        val updatedTodoList =
-                            state.todos.map {
-                                if (it.id == action.todoId) savedTodo else it
-                            }
-
-                        state.copy(todos = updatedTodoList)
-                    }
-                }
-
-                action<AppAction.DeleteTodo> {
-                    val success = repository.deleteTodo(action.todoId)
-                    if (success) {
-                        nextState { state.copy(todos = state.todos.filter { it.id != action.todoId }) }
-                    }
-                }
-
-                action<AppAction.StartEditing> {
-                    val todoToEdit = state.todos.first { it.id == action.todoId }
-                    nextState { AppState.Editing(todoToEdit, state.todos) }
-                }
-            }
+            state<AppState.Loaded> { loadedHandlers(repository) }
 
             // Editing state handling
-            state<AppState.Editing> {
-                action<AppAction.UpdateEditingTitle> {
-                    nextState { state.copy(editingTodo = state.editingTodo.copy(title = action.newTitle)) }
-                }
-
-                action<AppAction.SaveEdit> {
-                    // Save edited content to repository
-                    val savedTodo = repository.updateTodo(state.editingTodo)
-
-                    nextState {
-                        // Create updated todo list with the edited task
-                        val updatedTodoList =
-                            state.allTodos.map {
-                                if (it.id == savedTodo.id) savedTodo else it
-                            }
-
-                        // Transition from editing state to loaded state
-                        AppState.Loaded(updatedTodoList)
-                    }
-                }
-
-                action<AppAction.CancelEdit> {
-                    nextState { AppState.Loaded(state.allTodos) }
-                }
-            }
+            state<AppState.Editing> { editingHandlers(repository) }
 
             // Error state handling
             state<AppState.Error> {
@@ -264,6 +205,73 @@ class TodoUseCaseTest {
                 }
             }
         }
+
+    private fun StoreBuilder.StateHandlerConfig<AppState, AppAction, Nothing, AppState.Loaded>.loadedHandlers(repository: TodoRepository) {
+        action<AppAction.AddTodo> {
+            val newTodo =
+                Todo(
+                    id = generateId(),
+                    title = action.title,
+                    completed = false,
+                )
+            val savedTodo = repository.addTodo(newTodo)
+            nextState { state.copy(todos = state.todos + savedTodo) }
+        }
+
+        action<AppAction.ToggleCompletion> {
+            val todoToUpdate = state.todos.first { it.id == action.todoId }
+            val updatedTodo = todoToUpdate.copy(completed = !todoToUpdate.completed)
+            val savedTodo = repository.updateTodo(updatedTodo)
+
+            nextState {
+                // Create updated todo list
+                val updatedTodoList =
+                    state.todos.map {
+                        if (it.id == action.todoId) savedTodo else it
+                    }
+
+                state.copy(todos = updatedTodoList)
+            }
+        }
+
+        action<AppAction.DeleteTodo> {
+            val success = repository.deleteTodo(action.todoId)
+            if (success) {
+                nextState { state.copy(todos = state.todos.filter { it.id != action.todoId }) }
+            }
+        }
+
+        action<AppAction.StartEditing> {
+            val todoToEdit = state.todos.first { it.id == action.todoId }
+            nextState { AppState.Editing(todoToEdit, state.todos) }
+        }
+    }
+
+    private fun StoreBuilder.StateHandlerConfig<AppState, AppAction, Nothing, AppState.Editing>.editingHandlers(repository: TodoRepository) {
+        action<AppAction.UpdateEditingTitle> {
+            nextState { state.copy(editingTodo = state.editingTodo.copy(title = action.newTitle)) }
+        }
+
+        action<AppAction.SaveEdit> {
+            // Save edited content to repository
+            val savedTodo = repository.updateTodo(state.editingTodo)
+
+            nextState {
+                // Create updated todo list with the edited task
+                val updatedTodoList =
+                    state.allTodos.map {
+                        if (it.id == savedTodo.id) savedTodo else it
+                    }
+
+                // Transition from editing state to loaded state
+                AppState.Loaded(updatedTodoList)
+            }
+        }
+
+        action<AppAction.CancelEdit> {
+            nextState { AppState.Loaded(state.allTodos) }
+        }
+    }
 
     @Test
     fun todoApp_initialState() =

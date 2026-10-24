@@ -2,10 +2,27 @@ package actron.timetravel.compose
 
 import actron.timetravel.HistoryEntry
 import actron.timetravel.StateChange
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -20,11 +37,6 @@ internal fun <S : Any> HistoryFields(
 ) {
     val inspection = state.inspection
     val comparison = inspection.comparison
-    val before =
-        when (comparison) {
-            HistoryComparison.PreviousEvent -> entry.details.before
-            is HistoryComparison.Against -> if (comparison.machine == entry.machine.stableId) comparison.fields else entry.details.before
-        }
     if (comparison is HistoryComparison.Against) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -59,15 +71,7 @@ internal fun <S : Any> HistoryFields(
             }
         }
     }
-    val changes =
-        historyChanges(before, entry.details.after, inspection.fullState || inspection.focus is HistoryFieldFocus.Path).filter { change ->
-            val focused =
-                when (val focus = inspection.focus) {
-                    HistoryFieldFocus.All -> true
-                    is HistoryFieldFocus.Path -> focus.path == change.path
-                }
-            focused && change.path.contains(inspection.fieldQuery.trim(), ignoreCase = true)
-        }
+    val changes = inspection.changes(entry)
     changes.forEach { change ->
         key(entry.id, change.path, comparison) {
             HistoryField(change, entry, entries, state)
@@ -84,85 +88,130 @@ private fun <S : Any> HistoryField(
     state: HistoryPanelState<S>,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var menu by remember { mutableStateOf(false) }
     val full = state.inspection.fullState || expanded
     Column(Modifier.fillMaxWidth().testTag("history-field-${change.path}")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(change.path, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-            Box {
-                TextButton({ menu = true }, Modifier.testTag("history-field-menu-${change.path}")) { Text(historyText(HistoryText.More)) }
-                DropdownMenu(menu, { menu = false }) {
-                    val previous = entries.filter { it.id < entry.id && it.machine.stableId == entry.machine.stableId && historyFieldChanges(it, change.path) }
-                    val next = entries.filter { it.id > entry.id && it.machine.stableId == entry.machine.stableId && historyFieldChanges(it, change.path) }
-                    DropdownMenuItem(
-                        text = { Text(historyText(HistoryText.PinField)) },
-                        onClick = {
-                            state.inspection.focus = HistoryFieldFocus.Path(change.path)
-                            menu = false
-                        },
-                        modifier = Modifier.testTag("history-pin-field"),
-                    )
-                    DropdownMenuItem(
-                        text = { Text(historyText(HistoryText.PreviousChange)) },
-                        onClick = {
-                            previous.lastOrNull()?.let(state::select)
-                            menu = false
-                        },
-                        enabled = previous.isNotEmpty(),
-                        modifier = Modifier.testTag("history-field-previous"),
-                    )
-                    DropdownMenuItem(
-                        text = { Text(historyText(HistoryText.NextChange)) },
-                        onClick = {
-                            next.firstOrNull()?.let(state::select)
-                            menu = false
-                        },
-                        enabled = next.isNotEmpty(),
-                        modifier = Modifier.testTag("history-field-next"),
-                    )
-                    if (!state.inspection.fullState) {
-                        DropdownMenuItem(
-                            text = { Text(historyText(if (expanded) HistoryText.CompactValue else HistoryText.FullValue)) },
-                            onClick = {
-                                expanded = !expanded
-                                menu = false
-                            },
-                            modifier = Modifier.testTag("history-field-expand-${change.path}"),
-                        )
-                    }
-                    Text(historyText(HistoryText.FieldSearchWindow), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall)
-                }
-            }
+            HistoryFieldMenu(change, entry, entries, state, expanded) { expanded = !expanded }
         }
-        SelectionContainer {
-            BoxWithConstraints {
-                val values: @Composable (Boolean, Modifier) -> Unit = { after, modifier ->
-                    val value = if (after) change.after else change.before
-                    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val comparison = state.inspection.comparison
-                        val label =
-                            if (comparison is HistoryComparison.Against && comparison.machine == entry.machine.stableId) {
-                                if (after) "B: #${entry.id}" else "A: #${comparison.id}"
-                            } else {
-                                historyText(if (after) HistoryText.After else HistoryText.Before)
-                            }
-                        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(if (full) value else compactFieldValue(change.path, value), style = MaterialTheme.typography.bodySmall, maxLines = if (full) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                if (maxWidth >= 400.dp) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        values(false, Modifier.weight(1f))
-                        values(true, Modifier.weight(1f))
-                    }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        values(false, Modifier.fillMaxWidth())
-                        values(true, Modifier.fillMaxWidth())
-                    }
-                }
-            }
-        }
+        HistoryFieldValues(change, entry, state.inspection.comparison, full)
         HorizontalDivider(Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun <S : Any> HistoryFieldMenu(
+    change: StateChange,
+    entry: HistoryEntry<S>,
+    entries: List<HistoryEntry<S>>,
+    state: HistoryPanelState<S>,
+    expanded: Boolean,
+    toggleExpanded: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        TextButton({ menu = true }, Modifier.testTag("history-field-menu-${change.path}")) { Text(historyText(HistoryText.More)) }
+        DropdownMenu(menu, { menu = false }) {
+            HistoryFieldMenuItems(change, entry, entries, state, expanded, toggleExpanded) { menu = false }
+        }
+    }
+}
+
+@Composable
+private fun <S : Any> HistoryFieldMenuItems(
+    change: StateChange,
+    entry: HistoryEntry<S>,
+    entries: List<HistoryEntry<S>>,
+    state: HistoryPanelState<S>,
+    expanded: Boolean,
+    toggleExpanded: () -> Unit,
+    dismiss: () -> Unit,
+) {
+    val previous = entries.filter { it.id < entry.id && it.machine.stableId == entry.machine.stableId && historyFieldChanges(it, change.path) }
+    val next = entries.filter { it.id > entry.id && it.machine.stableId == entry.machine.stableId && historyFieldChanges(it, change.path) }
+    DropdownMenuItem(
+        text = { Text(historyText(HistoryText.PinField)) },
+        onClick = {
+            state.inspection.focus = HistoryFieldFocus.Path(change.path)
+            dismiss()
+        },
+        modifier = Modifier.testTag("history-pin-field"),
+    )
+    DropdownMenuItem(
+        text = { Text(historyText(HistoryText.PreviousChange)) },
+        onClick = {
+            previous.lastOrNull()?.let(state::select)
+            dismiss()
+        },
+        enabled = previous.isNotEmpty(),
+        modifier = Modifier.testTag("history-field-previous"),
+    )
+    DropdownMenuItem(
+        text = { Text(historyText(HistoryText.NextChange)) },
+        onClick = {
+            next.firstOrNull()?.let(state::select)
+            dismiss()
+        },
+        enabled = next.isNotEmpty(),
+        modifier = Modifier.testTag("history-field-next"),
+    )
+    if (!state.inspection.fullState) {
+        DropdownMenuItem(
+            text = { Text(historyText(if (expanded) HistoryText.CompactValue else HistoryText.FullValue)) },
+            onClick = {
+                toggleExpanded()
+                dismiss()
+            },
+            modifier = Modifier.testTag("history-field-expand-${change.path}"),
+        )
+    }
+    Text(historyText(HistoryText.FieldSearchWindow), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall)
+}
+
+@Composable
+private fun <S : Any> HistoryFieldValues(
+    change: StateChange,
+    entry: HistoryEntry<S>,
+    comparison: HistoryComparison,
+    full: Boolean,
+) {
+    SelectionContainer {
+        BoxWithConstraints {
+            if (maxWidth >= 400.dp) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    HistoryFieldValue(change, entry, comparison, full, false, Modifier.weight(1f))
+                    HistoryFieldValue(change, entry, comparison, full, true, Modifier.weight(1f))
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HistoryFieldValue(change, entry, comparison, full, false, Modifier.fillMaxWidth())
+                    HistoryFieldValue(change, entry, comparison, full, true, Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun <S : Any> HistoryFieldValue(
+    change: StateChange,
+    entry: HistoryEntry<S>,
+    comparison: HistoryComparison,
+    full: Boolean,
+    after: Boolean,
+    modifier: Modifier,
+) {
+    val value = if (after) change.after else change.before
+    val label =
+        if (comparison is HistoryComparison.Against && comparison.machine == entry.machine.stableId) {
+            if (after) "B: #${entry.id}" else "A: #${comparison.id}"
+        } else {
+            historyText(if (after) HistoryText.After else HistoryText.Before)
+        }
+    val displayed = if (full) value else compactFieldValue(change.path, value)
+    val maxLines = if (full) Int.MAX_VALUE else 3
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(displayed, style = MaterialTheme.typography.bodySmall, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
     }
 }

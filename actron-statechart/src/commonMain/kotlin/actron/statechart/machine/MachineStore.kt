@@ -14,14 +14,19 @@ import actron.core.PluginScope
 import actron.core.Store
 import actron.core.StoreHandlerMetadata
 import actron.core.StoreInternalApi
+import actron.core.StoreLifecycle
 import actron.core.StorePatch
 import actron.core.StorePendingWork
 import actron.core.StoreProbe
+import actron.core.StoreSetting
 import actron.core.StoreTrace
+import actron.core.closeAndJoin
 import actron.core.currentInputId
+import actron.core.observeState
 import actron.statechart.StoreConfiguration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -175,7 +180,8 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val origin: StoreOrigin<C, CMD> = StoreOrigin.Fresh,
     recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
 ) : MachineStore<C, A, CMD, E>,
-    StoreInternalApi<MachineSnapshot<C>, A, E> {
+    StoreInternalApi<MachineSnapshot<C>, A, E>,
+    StoreLifecycle<MachineSnapshot<C>, E> {
     init {
         require(scope.coroutineContext[ContinuationInterceptor] !== Dispatchers.Unconfined) {
             "[Actron] MachineStore needs an execution scope with a real dispatcher: with Dispatchers.Unconfined, command handlers would run under the store's lock"
@@ -188,7 +194,8 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
             is StoreOrigin.Resumed -> origin.checkpoint.snapshot
         }
 
-    private val executionScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+    private val lifetime = StoreLifetime(scope.coroutineContext)
+    private val executionScope = lifetime.scope
 
     // The effects of committed decisions: transient ones to the event flow, the others retained.
     private val mailboxImpl = MailboxImpl(mailboxConfig, executionScope, ::report)
@@ -298,7 +305,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
 
     /** The underlying Actron Store; the module's own tests feed it raw machine inputs. */
     internal val inner: Store<MachineSnapshot<C>, MachineInput<A>, E> =
-        Store(initialSnapshot, coroutineContext) {
+        Store(initialSnapshot, coroutineContext + lifetime.marker) {
             // Registered before the configuration, so first-match selection never lets a
             // configured enter {} or action {} run in the machine's place; recover {} handlers
             // configured below still apply.
@@ -341,7 +348,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
                     }
                 },
             )
-            StoreConfiguration(this).builder()
+            StoreConfiguration(this, lifetime.marker).builder()
             plugin(Executor())
             validateRecovery { previous, recovered ->
                 require(previous == recovered) { "[Actron] MachineStore recover {} may not change the snapshot; dispatch an action the machine decides" }
@@ -642,7 +649,10 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
             }
         innerApi.patch(
             StorePatch(
-                settings = patch.settings,
+                settings =
+                    patch.settings.map { setting ->
+                        if (setting is StoreSetting.ExecutionContext) StoreSetting.ExecutionContext(setting.context + lifetime.marker) else setting
+                    },
                 pluginPatches = adapted.map { PluginPatch.Append(it) },
             ),
         )
@@ -805,10 +815,26 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
         }
     }
 
-    override fun collectState(state: (MachineSnapshot<C>) -> Unit) = inner.collectState(state)
+    override fun collectState(state: (MachineSnapshot<C>) -> Unit) {
+        observeState(state)
+    }
 
     override fun collectEvent(event: (E) -> Unit) {
         executionScope.launch { this@MachineStoreImpl.event.collect { event(it) } }
+    }
+
+    override fun observeState(observer: (MachineSnapshot<C>) -> Unit): AutoCloseable = inner.observeState(observer)
+
+    override fun observeEvent(observer: (E) -> Unit): AutoCloseable {
+        val job = executionScope.launch(start = CoroutineStart.UNDISPATCHED) { event.collect { observer(it) } }
+        return AutoCloseable { job.cancel() }
+    }
+
+    override suspend fun closeAndJoin() {
+        lifetime.checkOutside()
+        close()
+        inner.closeAndJoin()
+        lifetime.job.join()
     }
 
     override fun close() {

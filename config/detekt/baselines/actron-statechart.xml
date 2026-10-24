@@ -1,0 +1,207 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:AdmissionShutdownJvmTest.kt:AdmissionShutdownJvmTest$internal fun failedStartProbe</ID>
+    <ID>CognitiveComplexMethod:Analysis.kt:fun StateChartDefinition.analyzeReachability: ReachabilityAnalysis</ID>
+    <ID>CognitiveComplexMethod:CloseRaceTest.kt:CloseRaceTest$@Test fun closingDuringAStorm_neverCommitsOrStartsAnythingAfterwards</ID>
+    <ID>CognitiveComplexMethod:Configuration.kt:private fun StateChartDefinition.entrySet: Set&lt;StateId&gt;</ID>
+    <ID>CognitiveComplexMethod:Conformance.kt:StateChartConformance$override suspend fun onState</ID>
+    <ID>CognitiveComplexMethod:Conformance.kt:StateChartConformance$private fun explain: Boolean</ID>
+    <ID>CognitiveComplexMethod:EffectMailboxStormTest.kt:EffectMailboxStormTest$@Test fun everyRetainedEffect_isAcknowledgedExactlyOnce_whateverTheSubscribersDo</ID>
+    <ID>CognitiveComplexMethod:ExecutorCheckpointStormTest.kt:ExecutorCheckpointStormTest$@Test fun checkpointsUnderAStorm_areConsistentCuts</ID>
+    <ID>CognitiveComplexMethod:FaultInjectionTest.kt:FaultInjectionTest$@Test fun faultsInEveryDiagnosticBoundary_changeNothingAboutTheRun</ID>
+    <ID>CognitiveComplexMethod:GraphDiagnostics.kt:fun StateChartDefinition.diagnose: List&lt;GraphDiagnostic&gt;</ID>
+    <ID>CognitiveComplexMethod:Group.kt:MachineGroup$suspend fun checkpoint: GroupCut</ID>
+    <ID>CognitiveComplexMethod:Group.kt:MachineGroup.Member$internal fun send</ID>
+    <ID>CognitiveComplexMethod:GroupMembershipStormTest.kt:GroupMembershipStormTest$@Test fun aReceiverThatClosesAndComesBack_underAStorm_takesOrDropsEveryDeliveredMessage_exactlyOnce</ID>
+    <ID>CognitiveComplexMethod:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
+    <ID>CognitiveComplexMethod:InvokedMachineStore.kt:InvocationSide$private fun launch</ID>
+    <ID>CognitiveComplexMethod:Machine.kt:Machine$private fun decideObserved: Decision&lt;C, CMD, E&gt;</ID>
+    <ID>CognitiveComplexMethod:MachineStore.kt:MachineStoreImpl$override suspend fun awaitIdle: StorePendingWork</ID>
+    <ID>CognitiveComplexMethod:MachineStoreSoakTest.kt:MachineStoreSoakTest$@Test fun aStormOfLoadsAndTicks_leavesConsistentStateAndBookkeeping</ID>
+    <ID>CognitiveComplexMethod:Mailbox.kt:MailboxImpl$fun enqueue</ID>
+    <ID>CognitiveComplexMethod:Mailbox.kt:MailboxImpl$override fun subscribe: Flow&lt;Delivery&lt;E&gt;&gt;</ID>
+    <ID>CognitiveComplexMethod:Mermaid.kt:fun StateChartDefinition.toMermaid: String</ID>
+    <ID>CognitiveComplexMethod:Mermaid.kt:private fun StateChartDefinition.mermaidContainers: Map&lt;StateId, StateId&gt;</ID>
+    <ID>CognitiveComplexMethod:MessengerChart.kt:@OptIn(ExperimentalActronApi::class) fun MessengerStore: MessengerStore</ID>
+    <ID>CognitiveComplexMethod:Migration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.validateSnapshotStructure: List&lt;String&gt;</ID>
+    <ID>CognitiveComplexMethod:MviThreadingJvmTest.kt:MviThreadingJvmTest$@Test fun concurrentProducersAndParallelResultsReduceSequentiallyOnSelectedThread</ID>
+    <ID>CognitiveComplexMethod:ParallelReference.kt:ParallelReference$fun fire: ParallelDecision</ID>
+    <ID>CognitiveComplexMethod:PersistentRestoreJvmTest.kt:PersistentRestoreProcess$private fun chart</ID>
+    <ID>CognitiveComplexMethod:PersistentRestoreJvmTest.kt:PersistentRestoreProcess$private fun machine</ID>
+    <ID>CognitiveComplexMethod:RandomCharts.kt:RandomCharts$fun chart: StateChartDefinition</ID>
+    <ID>CognitiveComplexMethod:RandomCharts.kt:RandomCharts$fun hierarchicalChart: StateChartDefinition</ID>
+    <ID>CognitiveComplexMethod:RandomCharts.kt:RandomCharts$fun malformed: StateChartDefinition</ID>
+    <ID>CognitiveComplexMethod:RandomCharts.kt:RandomCharts$fun parallelChart: StateChartDefinition</ID>
+    <ID>CognitiveComplexMethod:RandomCharts.kt:RandomCharts$fun withHistory: StateChartDefinition</ID>
+    <ID>CognitiveComplexMethod:ReplayDeterminismTest.kt:ReplayDeterminismTest$@Test fun aRecordedRun_decidesAgainToTheSameSnapshots</ID>
+    <ID>CognitiveComplexMethod:StateChartConformancePropertyTest.kt:StateChartConformancePropertyTest$private fun expectedReport: Pair&lt;List&lt;ConformanceViolation&gt;, List&lt;Transition&gt;&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartHierarchyConformanceTest.kt:StateChartHierarchyConformanceTest$@Test fun storesFollowingRandomHierarchicalChartsConformAndOneWrongLeafIsReported</ID>
+    <ID>CognitiveComplexMethod:StateChartHierarchyConformanceTest.kt:StateChartHierarchyConformanceTest$private fun expectedReport: Pair&lt;List&lt;ConformanceViolation&gt;, List&lt;Transition&gt;&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartHierarchyConformanceTest.kt:StateChartHierarchyConformanceTest$private fun storeFor</ID>
+    <ID>CognitiveComplexMethod:StateChartHierarchyPropertyTest.kt:StateChartHierarchyPropertyTest$private fun checkMermaidStructure</ID>
+    <ID>CognitiveComplexMethod:StateChartHierarchyPropertyTest.kt:StateChartHierarchyPropertyTest$private fun referenceHierarchyIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$@Test fun randomWalksAgreeWithTheReferenceAndRestoreWhatWasLastActive</ID>
+    <ID>CognitiveComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$@Test fun storesFollowingRandomHistoryChartsConformAndOneWrongLeafIsReported</ID>
+    <ID>CognitiveComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$private fun expectedReport: Pair&lt;List&lt;ConformanceViolation&gt;, List&lt;Transition&gt;&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$private fun referenceHistoryIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartModelPropertyTest.kt:StateChartModelPropertyTest$private fun referenceIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun mermaidDrawsEachRegionInItsOwnSectionOfTheParallelBlock</ID>
+    <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun oneLeafMappingAndActiveLeavesMappingAgreeOnChartsWithoutParallelStates</ID>
+    <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun parallelIssuesEqualTheReferenceAndComeBetweenHistoryAndEndpoints</ID>
+    <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun randomWalksAgreeWithTheReferenceAndKeepTheInvariants</ID>
+    <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun storesFollowingRandomParallelChartsConformAndOneWrongRegionIsReported</ID>
+    <ID>CognitiveComplexMethod:StateChartParallelTest.kt:StateChartParallelTest$private fun createStore: Store&lt;MessengerState, MessengerAction, MessengerEvent&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun EnterScope&lt;ChartState&lt;C&gt;, E, ChartState&lt;C&gt;&gt;.start</ID>
+    <ID>CognitiveComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun takeStep: ChartState&lt;C&gt;</ID>
+    <ID>CognitiveComplexMethod:StateChartTimerPropertyTest.kt:StateChartTimerPropertyTest$@Test fun timerIssuesEqualTheReferenceInTheirPlace</ID>
+    <ID>CognitiveComplexMethod:StateChartTimerPropertyTest.kt:StateChartTimerPropertyTest$@Test fun walksWithTimersAgreeWithTheReferenceAndKeepTheRunningTimersExact</ID>
+    <ID>CognitiveComplexMethod:StateChartTimerTest.kt:StateChartTimerTest$private fun TestScope.createStore: Store&lt;MessengerState, MessengerAction, MessengerEvent&gt;</ID>
+    <ID>CognitiveComplexMethod:Validation.kt:fun StateChartDefinition.validate: List&lt;ValidationIssue&gt;</ID>
+    <ID>CognitiveComplexMethod:Validation.kt:internal fun StateChartDefinition.hierarchyIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CognitiveComplexMethod:Validation.kt:internal fun StateChartDefinition.historyIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CognitiveComplexMethod:Validation.kt:internal fun StateChartDefinition.instantTimerCycles: List&lt;List&lt;Transition&gt;&gt;</ID>
+    <ID>ComplexCondition:GraphDiagnostics.kt:nodeSatisfies(transition.source) { it is FinalState || it is HistoryState } || (transition.trigger == Trigger.Completion &amp;&amp; !nodeSatisfies(transition.source) { it is CompoundState || it is ParallelState }) || (transition.trigger is Trigger.After &amp;&amp; !transition.trigger.delay.isPositive())</ID>
+    <ID>ComplexCondition:GraphDiagnostics.kt:transition.trigger !is Trigger.After &amp;&amp; transitions.take(index).any { it.source == transition.source &amp;&amp; it.trigger == transition.trigger &amp;&amp; it.guard == GuardCondition.Unconditional }</ID>
+    <ID>ComplexCondition:Mermaid.kt:containerOf(id) == StateParent.Root &amp;&amp; !isBlock(id) &amp;&amp; (refs.getValue(id) != id.value || history)</ID>
+    <ID>ComplexCondition:Mermaid.kt:node.id !in placed &amp;&amp; (parent !is StateId || !nodeSatisfies(parent) { it is CompoundState || it is ParallelState })</ID>
+    <ID>ComplexCondition:Migration.kt:snapshot.configuration.active.isNotEmpty() || snapshot.configuration.history.isNotEmpty() || snapshot.activations.isNotEmpty() || snapshot.commands.isNotEmpty() || snapshot.timers.isNotEmpty()</ID>
+    <ID>ComplexCondition:Migration.kt:snapshot.timers.any { (id, record) -&gt; id.value &lt;= 0 || id.value &gt; snapshot.counters.timers || record.transition.index !in chart.transitions.indices || chart.transitions[record.transition.index].let { transition -&gt; !transition.isTimer || snapshot.activations[transition.source] != record.activation } }</ID>
+    <ID>ComplexCondition:Model.kt:HierarchyIndex$current is StateId &amp;&amp; current != id &amp;&amp; current !in chain &amp;&amp; current in nodes</ID>
+    <ID>ComplexCondition:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$p is StateId &amp;&amp; p in first &amp;&amp; p !in chain &amp;&amp; p != id</ID>
+    <ID>CyclomaticComplexMethod:Analysis.kt:fun StateChartDefinition.analyzeReachability: ReachabilityAnalysis</ID>
+    <ID>CyclomaticComplexMethod:Configuration.kt:private fun StateChartDefinition.entrySet: Set&lt;StateId&gt;</ID>
+    <ID>CyclomaticComplexMethod:Conformance.kt:StateChartConformance$override suspend fun onState</ID>
+    <ID>CyclomaticComplexMethod:Conformance.kt:StateChartConformance$private fun explain: Boolean</ID>
+    <ID>CyclomaticComplexMethod:GraphDiagnostics.kt:fun StateChartDefinition.diagnose: List&lt;GraphDiagnostic&gt;</ID>
+    <ID>CyclomaticComplexMethod:Group.kt:MachineGroup$suspend fun checkpoint: GroupCut</ID>
+    <ID>CyclomaticComplexMethod:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
+    <ID>CyclomaticComplexMethod:Machine.kt:Machine$private fun decideObserved: Decision&lt;C, CMD, E&gt;</ID>
+    <ID>CyclomaticComplexMethod:MachinePropertyTest.kt:MachinePropertyTest$@Test fun randomWalks_areDeterministic_andKeepTheSnapshotInvariants</ID>
+    <ID>CyclomaticComplexMethod:MachineStore.kt:MachineStoreImpl$private fun track</ID>
+    <ID>CyclomaticComplexMethod:Mailbox.kt:MailboxImpl$fun enqueue</ID>
+    <ID>CyclomaticComplexMethod:Mermaid.kt:fun StateChartDefinition.toMermaid: String</ID>
+    <ID>CyclomaticComplexMethod:Migration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.validateSnapshotStructure: List&lt;String&gt;</ID>
+    <ID>CyclomaticComplexMethod:RandomCharts.kt:RandomCharts$fun chart: StateChartDefinition</ID>
+    <ID>CyclomaticComplexMethod:RandomCharts.kt:RandomCharts$fun hierarchicalChart: StateChartDefinition</ID>
+    <ID>CyclomaticComplexMethod:RandomCharts.kt:RandomCharts$fun malformed: StateChartDefinition</ID>
+    <ID>CyclomaticComplexMethod:RandomCharts.kt:RandomCharts$fun malformedHistory: StateChartDefinition</ID>
+    <ID>CyclomaticComplexMethod:RandomCharts.kt:RandomCharts$fun parallelChart: StateChartDefinition</ID>
+    <ID>CyclomaticComplexMethod:StateChartHierarchyConformanceTest.kt:StateChartHierarchyConformanceTest$@Test fun storesFollowingRandomHierarchicalChartsConformAndOneWrongLeafIsReported</ID>
+    <ID>CyclomaticComplexMethod:StateChartHierarchyPropertyTest.kt:StateChartHierarchyPropertyTest$private fun checkMermaidStructure</ID>
+    <ID>CyclomaticComplexMethod:StateChartHierarchyPropertyTest.kt:StateChartHierarchyPropertyTest$private fun parseBlocks: Pair&lt;Block, Map&lt;String, String&gt;&gt;</ID>
+    <ID>CyclomaticComplexMethod:StateChartHierarchyPropertyTest.kt:StateChartHierarchyPropertyTest$private fun referenceHierarchyIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CyclomaticComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$@Test fun mermaidDrawsEveryHistoryOnceInItsParentWithItsDefault</ID>
+    <ID>CyclomaticComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$@Test fun randomWalksAgreeWithTheReferenceAndRestoreWhatWasLastActive</ID>
+    <ID>CyclomaticComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$@Test fun storesFollowingRandomHistoryChartsConformAndOneWrongLeafIsReported</ID>
+    <ID>CyclomaticComplexMethod:StateChartHistoryPropertyTest.kt:StateChartHistoryPropertyTest$private fun referenceHistoryIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CyclomaticComplexMethod:StateChartModelPropertyTest.kt:StateChartModelPropertyTest$@Test fun everyAmbiguityIsJustifiedAndEveryUnreachableStateHasNoPath</ID>
+    <ID>CyclomaticComplexMethod:StateChartModelPropertyTest.kt:StateChartModelPropertyTest$private fun referenceIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CyclomaticComplexMethod:StateChartModelPropertyTest.kt:StateChartModelPropertyTest$private fun renameIssue: ValidationIssue</ID>
+    <ID>CyclomaticComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun mermaidDrawsEachRegionInItsOwnSectionOfTheParallelBlock</ID>
+    <ID>CyclomaticComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun parallelIssuesEqualTheReferenceAndComeBetweenHistoryAndEndpoints</ID>
+    <ID>CyclomaticComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun randomWalksAgreeWithTheReferenceAndKeepTheInvariants</ID>
+    <ID>CyclomaticComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun EnterScope&lt;ChartState&lt;C&gt;, E, ChartState&lt;C&gt;&gt;.start</ID>
+    <ID>CyclomaticComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun takeStep: ChartState&lt;C&gt;</ID>
+    <ID>CyclomaticComplexMethod:StateChartTimerPropertyTest.kt:StateChartTimerPropertyTest$@Test fun timerIssuesEqualTheReferenceInTheirPlace</ID>
+    <ID>CyclomaticComplexMethod:Validation.kt:fun StateChartDefinition.validate: List&lt;ValidationIssue&gt;</ID>
+    <ID>CyclomaticComplexMethod:Validation.kt:internal fun StateChartDefinition.hierarchyIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CyclomaticComplexMethod:Validation.kt:internal fun StateChartDefinition.historyIssues: List&lt;ValidationIssue&gt;</ID>
+    <ID>CyclomaticComplexMethod:Validation.kt:internal fun StateChartDefinition.instantTimerCycles: List&lt;List&lt;Transition&gt;&gt;</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:StateChartParallelTest.kt:StateChartParallelTest$val (a1, a2, b1, b2) = listOf("a1", "a2", "b1", "b2").map(::StateId)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:StateChartPathPropertyTest.kt:StateChartPathPropertyTest$val (init, c1, c3, y, x) = listOf("Init", "C1", "C3", "Y", "X").map(::StateId)</ID>
+    <ID>DoubleNegativeLambda:GraphDiagnostics.kt:none { it !is HistoryState }</ID>
+    <ID>DoubleNegativeLambda:GraphDiagnostics.kt:none { it.source in sources &amp;&amp; it.target != node.id }</ID>
+    <ID>DoubleNegativeLambda:HierarchyReference.kt:HierarchyReference$none { it != c &amp;&amp; parent(it) == c }</ID>
+    <ID>KDocReferencesNonPublicProperty:MachineProfiler.kt:MachineProfiler$/** Configure before start; the public helper [profileWith] hides the internal probe API. */ internal val probe: StoreProbe&lt;MachineSnapshot&lt;C&gt;, MachineInput&lt;A&gt;, E&gt; = StoreProbe { trace -&gt; locked { val time = now() when (trace) { is StoreTrace.InputAccepted -&gt; { inputs[trace.input] = InputTiming(time) trim(inputs) } is StoreTrace.ProcessingStarted -&gt; { inputs[trace.input]?.let { inputs[trace.input] = it.copy(started = time, startedKnown = true) } } is StoreTrace.ProcessingFinished -&gt; { inputs.remove(trace.input)?.let { timing -&gt; if (timing.startedKnown) { for (id in timing.transitions.distinct()) { val previous = profile.transitions.getOrElse(id) { TransitionProfile() } profile = profile.copy(transitions = profile.transitions + (id to previous.copy(queue = previous.queue.add(timing.started - timing.accepted), processing = previous.processing.add(time - timing.started)))) } } } } is StoreTrace.InputDiscarded -&gt; { inputs.remove(trace.input) } StoreTrace.StoreClosed -&gt; { inputs.clear() registrations.clear() active.clear() } else -&gt; { Unit } } Unit } }</ID>
+    <ID>KDocReferencesNonPublicProperty:StateChartStore.kt:ChartStoreHost$private val tasks = Channel&lt;Task&gt;(Channel.UNLIMITED)</ID>
+    <ID>LongMethod:Analysis.kt:fun StateChartDefinition.analyzeReachability: ReachabilityAnalysis</ID>
+    <ID>LongMethod:Conformance.kt:StateChartConformance$override suspend fun onState</ID>
+    <ID>LongMethod:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
+    <ID>LongMethod:Machine.kt:Machine$private fun decideObserved: Decision&lt;C, CMD, E&gt;</ID>
+    <ID>LongMethod:Validation.kt:fun StateChartDefinition.validate: List&lt;ValidationIssue&gt;</ID>
+    <ID>MatchingDeclarationName:Checkpoint.kt:ExecutorCheckpoint&lt;C : Any, CMD : Any&gt;</ID>
+    <ID>MatchingDeclarationName:PluginAdapter.kt:AdaptedPlugin&lt;C : Any, A : Action, E : Event&gt; : Plugin</ID>
+    <ID>MatchingDeclarationName:ResumeMachineStore.kt:StoreOrigin&lt;out C : Any, out CMD : Any&gt;</ID>
+    <ID>MatchingDeclarationName:Scheduler.kt:CommandScheduler&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
+    <ID>MatchingDeclarationName:Validation.kt:ValidationIssue</ID>
+    <ID>NestedBlockDepth:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
+    <ID>SwallowedException:DecisionObserver.kt:&lt;no name provided&gt;$e: Exception</ID>
+    <ID>SwallowedException:DecisionObserver.kt:DecisionJournal$e: Exception</ID>
+    <ID>SwallowedException:Group.kt:MachineGroup$e: IllegalStateException</ID>
+    <ID>SwallowedException:MachineStore.kt:MachineStoreImpl$e: IllegalStateException</ID>
+    <ID>ThrowingExceptionFromFinally:Group.kt:MachineGroup$throw it</ID>
+    <ID>TooGenericExceptionCaught:CommandHandlers.kt:error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DecisionObserver.kt:&lt;no name provided&gt;$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DecisionObserver.kt:DecisionJournal$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Group.kt:MachineGroup$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Invariants.kt:error: Exception</ID>
+    <ID>TooGenericExceptionCaught:Invocation.kt:InvokedMachine$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:InvokedMachineStore.kt:InvocationSide$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:InvokedMachineStore.kt:InvocationStoreImpl$callbackFailure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:InvokedMachineStore.kt:InvocationStoreImpl$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:Machine.kt:Machine$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Machine.kt:Machine$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MachineStore.kt:MachineStoreImpl$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MachineStore.kt:MachineStoreImpl$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Mailbox.kt:MailboxImpl$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Runtime.kt:StateChartRuntime$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:Scheduler.kt:CommandScheduler$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:StateChartStore.kt:ChartStoreHost$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:StateChartStore.kt:ChartStoreHost$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:StateChartStore.kt:ChartStoreHost$error: Throwable</ID>
+    <ID>TooManyFunctions:Configuration.kt:actron.statechart.Configuration.kt</ID>
+    <ID>TooManyFunctions:Group.kt:MachineGroup</ID>
+    <ID>TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl&lt;PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event&gt; : InvokedMachineStoreStoreLifecycle</ID>
+    <ID>TooManyFunctions:Machine.kt:Machine&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
+    <ID>TooManyFunctions:Machine.kt:MachineBuilder&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
+    <ID>TooManyFunctions:MachineStore.kt:MachineStoreImpl&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : MachineStoreStoreInternalApiStoreLifecycle</ID>
+    <ID>TooManyFunctions:Runtime.kt:StateChartRuntime&lt;S : State&gt;</ID>
+    <ID>TooManyFunctions:StateChartStore.kt:ChartStoreHost&lt;C : Any, A : Action, E : Event&gt;</ID>
+    <ID>TooManyFunctions:TypedStateMachineDsl.kt:TypedMachineStateBuilder&lt;C : Any, S : Any, A : Action, CMD : Any, E : Event&gt;</ID>
+    <ID>TooManyFunctions:TypedStateMachineDsl.kt:TypedStateMachineBuilder&lt;C : Any, S : Any, A : Action, CMD : Any, E : Event&gt;</ID>
+    <ID>UnconditionalJumpStatementInLoop:Durable.kt:DurableMachine$for (pending in base.outbox.values) { if (pending.status != DurableStatus.Pending) continue require(pending.attempts &lt; Long.MAX_VALUE) { "[Actron] Attempt counter exhausted" } val attempted = pending.copy(attempts = pending.attempts + 1) persist(DurableGeneration.Existing(base.generation), base.copy(outbox = base.outbox + (pending.key to attempted)), emptyList()) execute = { val committed = executeReserved(attempted, handler, now) onCommitted(committed) true } break }</ID>
+    <ID>WildcardImport:AutomaticMachineTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:AutomaticMachineTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:AvailableActionsTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:AvailableActionsTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:BehaviouralToolsTest.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:BehaviouralToolsTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:CompetitiveAnalysisTest.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:CompetitiveAnalysisTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:DiagnosticsTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:DiagnosticsTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:DslTest.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:DslTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:DurableMachineTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:DurableMachineTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:EventRouteTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:GraphDiagnosticsTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:InvocationTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:InvocationTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:InvocationThreadingJvmTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:InvocationThreadingJvmTest.kt:import kotlinx.coroutines.*</ID>
+    <ID>WildcardImport:InvokedMachineStore.kt:import kotlinx.coroutines.*</ID>
+    <ID>WildcardImport:MachineProfiler.kt:import actron.core.*</ID>
+    <ID>WildcardImport:MachineProfilerTest.kt:import actron.core.*</ID>
+    <ID>WildcardImport:MachineProfilerTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:MachineProfilerTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:MachineProfilerTest.kt:import kotlinx.coroutines.*</ID>
+    <ID>WildcardImport:MachineProfilerTest.kt:import kotlinx.coroutines.test.*</ID>
+    <ID>WildcardImport:ParallelStateMachineDsl.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:ParallelStateMachineDslTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:RecoveryContractTest.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:RecoveryContractTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:ResumeMachineStoreTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:StateMachineDsl.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:StateMachineDslTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:TransitionCoverageTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:TypedHierarchyDslTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:TypedInvocationDslTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:TypedNestedParallelTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:TypedParallelMachineBuilder.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:TypedStateMachineDsl.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:TypedStateMachineDslTest.kt:import kotlin.test.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:Framing.kt:Framing$fun read: FramesRead</ID>
+    <ID>CognitiveComplexMethod:JournalFormat.kt:JournalFormat$fun entry: String</ID>
+    <ID>CyclomaticComplexMethod:JournalFileFormat.kt:JournalFileFormat$private fun ByteReader.entry: JournalEntry&lt;Nothing, Nothing, Nothing&gt;</ID>
+    <ID>CyclomaticComplexMethod:JournalFileFormat.kt:JournalFileFormat$private fun ByteWriter.entry</ID>
+    <ID>CyclomaticComplexMethod:JournalFileFormat.kt:JournalFileFormat$private fun tagOf: Int</ID>
+    <ID>CyclomaticComplexMethod:JournalFormat.kt:JournalFormat$fun entry: String</ID>
+    <ID>DoubleNegativeLambda:JournalFiles.kt:JournalFileContents$none { it !is SegmentMark.Unfinished }</ID>
+    <ID>LongMethod:JournalFileFormat.kt:JournalFileFormat$private fun ByteReader.entry: JournalEntry&lt;Nothing, Nothing, Nothing&gt;</ID>
+    <ID>LongMethod:JournalFileFormat.kt:JournalFileFormat$private fun ByteWriter.entry</ID>
+    <ID>LongMethod:JournalFormat.kt:JournalFormat$fun entry: String</ID>
+    <ID>TooGenericExceptionCaught:JournalFileSink.kt:JournalFileSink$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:JournalProbe.kt:JournalProbe$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RecordingSession.kt:RecordingSession$e: Exception</ID>
+    <ID>TooManyFunctions:JournalFileFormat.kt:JournalFileFormat</ID>
+    <ID>TooManyFunctions:RecordingSession.kt:RecordingSession : JournalPublisher</ID>
+  </CurrentIssues>
+</SmellBaseline>

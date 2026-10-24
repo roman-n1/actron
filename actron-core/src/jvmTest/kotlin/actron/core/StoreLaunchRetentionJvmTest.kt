@@ -2,7 +2,6 @@ package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -27,7 +26,7 @@ class StoreLaunchRetentionJvmTest {
                 Store<Active, Work, Nothing>(Active, backgroundScope.coroutineContext) {
                     state<Active> {
                         action<Work> {
-                            launch(control = LaunchControl.DropIfRunning(action.lane)) { action.wait?.await() }
+                            launch(control = LaunchControl.DropIfRunning(action.lane)) { action.wait.await() }
                         }
                     }
                 }
@@ -37,7 +36,7 @@ class StoreLaunchRetentionJvmTest {
                 runCurrent()
 
                 // Completion, without another dispatch or state exit, must release every lane.
-                assertEquals(0, trackedJobs(store).size)
+                assertEquals(0, StoreRuntimeInspection.launchJobs(store).size)
             } finally {
                 store.close()
             }
@@ -59,17 +58,16 @@ class StoreLaunchRetentionJvmTest {
                 store.dispatchAndAwaitForTest(Work(lane))
                 runCurrent()
 
-                assertEquals(1, trackedJobs(store).size)
-                assertTrue(trackedJobs(store).values.single().isActive)
+                assertEquals(1, StoreRuntimeInspection.launchJobs(store).size)
+                assertTrue(
+                    StoreRuntimeInspection
+                        .launchJobs(store)
+                        .values
+                        .single()
+                        .isActive,
+                )
             } finally {
                 store.close()
             }
         }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun trackedJobs(store: Store<*, *, *>): Map<Any, Job> {
-        val runtimes = checkNotNull(checkNotNull(store.javaClass.superclass.getDeclaredField("stateRuntimes")).apply { isAccessible = true }.get(store) as Map<Any, Any>)
-        val runtime = kotlin.test.assertNotNull(runtimes.values.single())
-        return checkNotNull(runtime.javaClass.getDeclaredField("actionLaunchJobs")).apply { isAccessible = true }.get(runtime) as Map<Any, Job>
-    }
 }

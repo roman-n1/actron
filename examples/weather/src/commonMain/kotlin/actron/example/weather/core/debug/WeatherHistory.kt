@@ -5,9 +5,11 @@ import actron.core.Event
 import actron.core.InputAttribution
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.NoEvent
-import actron.example.weather.core.session.*
-import actron.example.weather.feature.cities.presentation.*
-import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.core.session.WeatherFrame
+import actron.example.weather.core.session.WeatherRoute
+import actron.example.weather.core.session.WeatherSession
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.weather.presentation.CityWeatherMachine
 import actron.statechart.machine.*
 import actron.timetravel.*
 import actron.timetravel.compose.HistoryGraph

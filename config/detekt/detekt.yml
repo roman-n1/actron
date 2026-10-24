@@ -1,0 +1,139 @@
+# Adapted from kmp_messenger_2/config/detekt/detekt.yml.
+# Default Detekt rules + bug checks; formatting belongs to ktlint.
+comments:
+  OutdatedDocumentation:
+    active: false
+  DeprecatedBlockTag:
+    active: true
+  KDocReferencesNonPublicProperty:
+    active: true
+naming:
+  VariableNaming:
+    active: false
+  FunctionNaming:
+    active: false
+  PackageNaming:
+    active: false
+  ConstructorParameterNaming:
+    ignoreAnnotated: ['Serializable']
+  TopLevelPropertyNaming:
+    active: false
+  MatchingDeclarationName:
+    multiplatformTargets: ['ios', 'android', 'js', 'jvm', 'native', 'iosArm64', 'iosX64', 'macosX64', 'mingwX64', 'linuxX64', 'desktop', 'wasmJs', 'wasm', 'web', 'desktopWeb']
+complexity:
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+    excludes: ['**/src/*Test/**', '**/src/test/**']
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  LargeClass:
+    excludes: ['**/src/*Test/**', '**/src/test/**']
+  TooManyFunctions:
+    ignoreAnnotatedFunctions: ['Preview']
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  CognitiveComplexMethod:
+    active: true
+coroutines:
+  InjectDispatcher:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  SuspendFunWithFlowReturnType:
+    excludes: ['**/src/*Test/**', '**/src/test/**']
+  SuspendFunInFinallySection:
+    active: true
+  SuspendFunSwallowedCancellation:
+    active: true
+  SuspendFunWithCoroutineScopeReceiver:
+    active: true
+potential-bugs:
+  IgnoredReturnValue:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  UnsafeCallOnNullableType:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  CastNullableToNonNullableType:
+    active: true
+  CastToNullableType:
+    active: true
+  CharArrayToStringCall:
+    active: true
+  DontDowncastCollectionTypes:
+    active: true
+  ElseCaseInsteadOfExhaustiveWhen:
+    active: true
+  ExitOutsideMain:
+    active: true
+  MissingPackageDeclaration:
+    active: true
+  MissingSuperCall:
+    active: true
+  NullCheckOnMutableProperty:
+    active: true
+  UnconditionalJumpStatementInLoop:
+    active: true
+  UnnecessaryNotNullCheck:
+    active: true
+exceptions:
+  TooGenericExceptionCaught:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  InstanceOfCheckForException:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  ThrowingExceptionsWithoutMessageOrCause:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  ErrorUsageWithThrowable:
+    active: true
+  NotImplementedDeclaration:
+    active: true
+    excludes: ['**/src/*Test/**', '**/src/test/**']
+  ObjectExtendsThrowable:
+    active: true
+performance:
+  ForEachOnRange:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  SpreadOperator:
+    excludes: ['**/src/test/**', '**/src/*Test/**']
+  UnnecessaryPartOfBinaryExpression:
+    active: true
+  UnnecessaryTypeCasting:
+    active: true
+style:
+  UnusedPrivateFunction:
+    ignoreAnnotated: ['Preview']
+  MaxLineLength:
+    active: false
+  ReturnCount:
+    active: false
+  LoopWithTooManyJumpStatements:
+    active: false
+  MagicNumber:
+    active: false
+  NewLineAtEndOfFile:
+    active: false
+  UnusedParameter:
+    excludes: ['**/src/jsMain/**', '**/src/wasmJsMain/**', '**/src/webMain/**', '**/src/jsTest/**', '**/src/wasmJsTest/**']
+  ForbiddenComment:
+    comments:
+      - value: '\bSTOPSHIP\b'
+        reason: 'STOPSHIP: код с таким маркером не должен попасть в main — доделай или сними маркер осознанно.'
+      - value: '\b(TODO|FIXME)\b'
+        reason: 'TODO/FIXME requires an address, for example TODO(TD-1) with an entry in the owning module TECH_DEBT.md, or TODO(ADR-1234).'
+    allowedPatterns: '\b(TODO|FIXME)\((?:[A-Z][A-Z0-9]*-\d+|[A-Z]{1,3}\d{1,3}[a-z]?(?:-[a-zа-яё]+)?)\):'
+  DataClassShouldBeImmutable:
+    active: true
+  DoubleNegativeExpression:
+    active: true
+  DoubleNegativeLambda:
+    active: true
+  UnnecessaryAny:
+    active: true
+  UnnecessaryInnerClass:
+    active: true
+  UnnecessaryReversed:
+    active: true
+  UnusedImport:
+    active: true
+  UseEmptyCounterpart:
+    active: true
+  UseIfEmptyOrIfBlank:
+    active: true
+  UseSumOfInsteadOfFlatMapSize:
+    active: true

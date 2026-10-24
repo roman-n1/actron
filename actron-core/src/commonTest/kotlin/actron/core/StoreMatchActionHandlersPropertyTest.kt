@@ -32,7 +32,7 @@ class StoreMatchActionHandlersPropertyTest {
         a: RtAction,
     ): List<ActionHandlerMatch> = (this as StoreInternalApi<RtState, RtAction, RtEvent>).matchActionHandlers(s, a)
 
-    private fun Store<RtState, RtAction, RtEvent>.registry(): HandlerRegistry<RtState, RtAction> = (this as StoreImpl<RtState, RtAction, RtEvent>).handlerRegistry
+    private fun Store<RtState, RtAction, RtEvent>.registry(): HandlerRegistry<RtState, RtAction, RtEvent> = (this as StoreImpl<RtState, RtAction, RtEvent>).handlerRegistry
 
     @Test
     fun matchesEqualTheRealPredicatesForEveryStateAndActionIncludingLegacyHandlers() {

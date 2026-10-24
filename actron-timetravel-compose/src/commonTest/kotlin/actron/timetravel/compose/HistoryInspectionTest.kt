@@ -1,7 +1,13 @@
 package actron.timetravel.compose
 
-import actron.timetravel.*
-import kotlin.test.*
+import actron.timetravel.HistoryDetails
+import actron.timetravel.HistoryTimeline
+import actron.timetravel.StateChange
+import actron.timetravel.StateField
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class HistoryInspectionTest {
     private fun details(

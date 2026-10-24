@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:ResourceSoak.kt:internal suspend fun runBatch: BatchResult</ID>
+    <ID>CognitiveComplexMethod:ResourceSoak.kt:suspend fun runResourceSoak</ID>
+    <ID>ComplexCondition:ResourceSoak.kt:started.elapsedNow() &lt; SOAK_SECONDS.seconds || batch &lt; minimumBatches || samples.size &lt; minimumSamples || !hasModeCoverage()</ID>
+    <ID>CyclomaticComplexMethod:ResourceSoak.kt:internal suspend fun runBatch: BatchResult</ID>
+    <ID>CyclomaticComplexMethod:ResourceSoak.kt:suspend fun runResourceSoak</ID>
+    <ID>EmptyWhileBlock:ResourceSoak.kt:Latencies${ }</ID>
+    <ID>LongMethod:ResourceSoak.kt:internal suspend fun runBatch: BatchResult</ID>
+    <ID>LongMethod:ResourceSoak.kt:suspend fun runResourceSoak</ID>
+    <ID>MatchingDeclarationName:MemoryAssessment.kt:MemoryGrowth</ID>
+    <ID>MatchingDeclarationName:Platform.android.kt:SoakPlatform</ID>
+    <ID>MatchingDeclarationName:Platform.ios.kt:SoakPlatform</ID>
+    <ID>MatchingDeclarationName:Platform.jvm.kt:SoakPlatform</ID>
+    <ID>TooGenericExceptionCaught:ResourceSoak.kt:failure: Throwable</ID>
+  </CurrentIssues>
+</SmellBaseline>

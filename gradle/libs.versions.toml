@@ -1,5 +1,7 @@
 [versions]
+decompose = "3.5.0"
 ktlint = "1.8.0"
+detekt = "2.0.0-alpha.6"
 actron = "5.0.0-alpha.1"
 agp = "9.2.1"
 kotlin = "2.3.20"
@@ -17,6 +19,7 @@ rin = "0.4.0"
 lifecycle = "2.8.0"
 
 [libraries]
+decompose-core = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 logger-kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 rin = { group = "io.github.takahirom.rin", name = "rin", version.ref = "rin" }

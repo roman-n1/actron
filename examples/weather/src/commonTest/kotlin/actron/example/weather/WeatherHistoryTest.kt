@@ -4,9 +4,16 @@ package actron.example.weather
 
 import actron.core.InputAttribution
 import actron.example.weather.core.component.MachineInstance
-import actron.example.weather.core.debug.*
-import actron.example.weather.core.session.*
-import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.core.debug.WeatherHistory
+import actron.example.weather.core.debug.continuation
+import actron.example.weather.core.debug.retainedWeatherHistory
+import actron.example.weather.core.session.WeatherFrame
+import actron.example.weather.core.session.WeatherSavedState
+import actron.example.weather.core.session.WeatherSavedStateCodec
+import actron.example.weather.feature.cities.presentation.CitySearchAction
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.feature.cities.presentation.SearchCitiesCommand
 import actron.statechart.machine.*
 import actron.timetravel.HistoryConfiguration
 import actron.timetravel.compose.HistoryContinuation

@@ -87,6 +87,10 @@ class CounterUseCaseTest {
         ) : AppEvent
     }
 
+    private class ForcedCounterFailure(
+        message: String,
+    ) : RuntimeException(message)
+
     private fun createTestStore(
         initialState: AppState = AppState.Initial,
     ): Store<AppState, AppAction, AppEvent> =
@@ -146,7 +150,7 @@ class CounterUseCaseTest {
             // Global error handling
             state<AppState> {
                 action<AppAction.ForceError> {
-                    throw RuntimeException(action.message)
+                    throw ForcedCounterFailure(action.message)
                 }
                 recover<Exception> {
                     event(AppEvent.ErrorOccurred(error.message ?: "Unknown error"))

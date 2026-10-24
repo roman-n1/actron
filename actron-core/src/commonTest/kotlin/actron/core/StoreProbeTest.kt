@@ -793,95 +793,127 @@ class StoreProbeTest {
         runTest {
             repeat(6) { iteration ->
                 val recorded = Channel<StoreTrace<StormState, StormAction, Nothing>>(Channel.UNLIMITED)
-                val store: Store<StormState, StormAction, Nothing> =
-                    Store(StormState.Open()) {
-                        coroutineContext(Dispatchers.Default)
-                        probe(StoreProbe { recorded.trySend(it) })
-                        state<StormState.Open> {
-                            action<StormAction.Add> { nextState { state.copy(total = state.total + action.n) } }
-                            action<StormAction.Clear> { clearPendingActions() }
-                            action<StormAction.Exit> { nextState { StormState.Closed } }
-                        }
-                        state<StormState.Closed> {
-                            action<StormAction.Add> { }
-                        }
-                    }
-                withContext(Dispatchers.Default) {
-                    coroutineScope {
-                        repeat(8) { sender ->
-                            launch {
-                                repeat(150) { i ->
-                                    store.dispatch(
-                                        when {
-                                            i % 40 == 39 -> StormAction.Clear
-                                            i == 90 && sender == 3 -> StormAction.Exit
-                                            else -> StormAction.Add(1)
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        launch {
-                            delay(Random.nextLong(1, 8))
-                            store.close()
-                        }
-                    }
+                val store = stormStore(recorded)
+                try {
+                    dispatchStorm(store)
+                    assertStormTraces(collectStormTraces(recorded), iteration)
+                } finally {
+                    store.close()
                 }
-                // Every dispatch() call has returned, so every InputAccepted is already in the channel.
-                // The ends come later: a queued dispatch ends before StoreClosed, but a dispatch that
-                // arrived after the close is discarded when its cancelled coroutine gets a thread,
-                // which on a loaded machine is after StoreClosed. Wait until every accepted dispatch
-                // has its end, bounded so that a real gap fails the assertions below by name.
-                val traces = mutableListOf<StoreTrace<StormState, StormAction, Nothing>>()
-                withContext(Dispatchers.Default) {
-                    withTimeoutOrNull(10_000) {
-                        while (true) {
-                            traces += recorded.receive()
-                            while (true) {
-                                val received = recorded.tryReceive()
-                                if (received.isFailure) break
-                                traces += received.getOrThrow()
-                            }
-                            if (traces.none { it === StoreTrace.StoreClosed }) continue
-                            val waiting =
-                                traces
-                                    .filterIsInstance<StoreTrace.InputAccepted<StormAction>>()
-                                    .filter { it.kind is InputKind.Dispatch }
-                                    .map { it.input }
-                                    .toSet() -
-                                    traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }.toSet() -
-                                    traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.input }.toSet()
-                            if (waiting.isEmpty()) break
-                        }
-                    }
-                    Unit // Timeout ends observation; the complete trace invariants below decide the result.
-                }
-                assertTrue(traces.any { it === StoreTrace.StoreClosed }, "iteration $iteration: StoreClosed never came")
-
-                val finished = traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }
-                val discarded = traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.input }
-                val ended = finished + discarded
-                assertEquals(ended.size, ended.toSet().size, "iteration $iteration: an input ended twice")
-                // Startup can win its CAS with a later candidate id under concurrent first dispatches.
-                val dispatches =
-                    traces
-                        .filterIsInstance<StoreTrace.InputAccepted<StormAction>>()
-                        .filter { it.kind is InputKind.Dispatch }
-                        .map { it.input }
-                        .toSet()
-                val unaccounted = dispatches - ended.toSet()
-                assertTrue(unaccounted.isEmpty(), "iteration $iteration: accepted inputs without an end: ${unaccounted.take(5)} of ${unaccounted.size}")
-                assertTrue(discarded.isNotEmpty(), "iteration $iteration: nothing was discarded, so the clears and the close did nothing")
-                val reasons = traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.reason }.toSet()
-                assertTrue(reasons.any { it == DiscardReason.StoreClosed } || reasons.any { it == DiscardReason.ClearedExplicitly } || reasons.any { it == DiscardReason.ClearedOnStateExit }, "iteration $iteration: $reasons")
-                val ordinals = traces.filterIsInstance<StoreTrace.ProcessingStarted>().map { it.ordinal }.sorted()
-                assertEquals((1L..ordinals.size).toList(), ordinals, "iteration $iteration: ordinals are dense")
-                val closedAt = traces.indexOfFirst { it === StoreTrace.StoreClosed }
-                assertTrue(traces.drop(closedAt + 1).none { it is StoreTrace.ProcessingStarted || it is StoreTrace.StateCommitted<*> }, "iteration $iteration: processing after StoreClosed")
-                // Dispatches that arrive after the close are accepted and discarded at once, so they may follow StoreClosed.
-                assertTrue(traces.drop(closedAt + 1).all { it is StoreTrace.InputAccepted<*> || it is StoreTrace.InputDiscarded }, "iteration $iteration: ${traces.drop(closedAt + 1).map { checkNotNull(it::class.simpleName) }.toSet()}")
             }
         }
+
+    private fun stormStore(recorded: Channel<StoreTrace<StormState, StormAction, Nothing>>): Store<StormState, StormAction, Nothing> =
+        Store(StormState.Open()) {
+            coroutineContext(Dispatchers.Default)
+            probe(StoreProbe { recorded.trySend(it) })
+            state<StormState.Open> {
+                action<StormAction.Add> { nextState { state.copy(total = state.total + action.n) } }
+                action<StormAction.Clear> { clearPendingActions() }
+                action<StormAction.Exit> { nextState { StormState.Closed } }
+            }
+            state<StormState.Closed> {
+                action<StormAction.Add> { }
+            }
+        }
+
+    private fun stormAction(
+        sender: Int,
+        index: Int,
+    ): StormAction =
+        when {
+            index % 40 == 39 -> StormAction.Clear
+            index == 90 && sender == 3 -> StormAction.Exit
+            else -> StormAction.Add(1)
+        }
+
+    private suspend fun dispatchStorm(store: Store<StormState, StormAction, Nothing>) =
+        withContext(Dispatchers.Default) {
+            coroutineScope {
+                repeat(8) { sender ->
+                    launch {
+                        repeat(150) { index ->
+                            store.dispatch(stormAction(sender, index))
+                        }
+                    }
+                }
+                launch {
+                    delay(Random.nextLong(1, 8))
+                    store.close()
+                }
+            }
+        }
+
+    private fun unaccountedStormDispatches(traces: List<StoreTrace<StormState, StormAction, Nothing>>): Set<InputId> =
+        traces
+            .filterIsInstance<StoreTrace.InputAccepted<StormAction>>()
+            .filter { it.kind is InputKind.Dispatch }
+            .map { it.input }
+            .toSet() -
+            traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }.toSet() -
+            traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.input }.toSet()
+
+    private fun drainStormTraces(
+        recorded: Channel<StoreTrace<StormState, StormAction, Nothing>>,
+        traces: MutableList<StoreTrace<StormState, StormAction, Nothing>>,
+    ) {
+        while (true) {
+            val received = recorded.tryReceive()
+            if (received.isFailure) break
+            traces += received.getOrThrow()
+        }
+    }
+
+    private suspend fun collectStormTraces(recorded: Channel<StoreTrace<StormState, StormAction, Nothing>>): List<StoreTrace<StormState, StormAction, Nothing>> {
+        // Every dispatch() call has returned, so every InputAccepted is already in the channel.
+        // The ends come later: a queued dispatch ends before StoreClosed, but a dispatch that
+        // arrived after the close is discarded when its cancelled coroutine gets a thread,
+        // which on a loaded machine is after StoreClosed. Wait until every accepted dispatch
+        // has its end, bounded so that a real gap fails the assertions below by name.
+
+        val traces = mutableListOf<StoreTrace<StormState, StormAction, Nothing>>()
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(10_000) {
+                while (true) {
+                    traces += recorded.receive()
+                    drainStormTraces(recorded, traces)
+                    if (traces.any { it === StoreTrace.StoreClosed } && unaccountedStormDispatches(traces).isEmpty()) break
+                }
+            }
+            Unit // Timeout ends observation; the complete trace invariants below decide the result.
+        }
+        return traces
+    }
+
+    private fun assertStormTraces(
+        traces: List<StoreTrace<StormState, StormAction, Nothing>>,
+        iteration: Int,
+    ) {
+        assertTrue(traces.any { it === StoreTrace.StoreClosed }, "iteration $iteration: StoreClosed never came")
+
+        val finished = traces.filterIsInstance<StoreTrace.ProcessingFinished>().map { it.input }
+        val discarded = traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.input }
+        val ended = finished + discarded
+        assertEquals(ended.size, ended.toSet().size, "iteration $iteration: an input ended twice")
+        // Startup can win its CAS with a later candidate id under concurrent first dispatches.
+        val dispatches =
+            traces
+                .filterIsInstance<StoreTrace.InputAccepted<StormAction>>()
+                .filter { it.kind is InputKind.Dispatch }
+                .map { it.input }
+                .toSet()
+        val unaccounted = dispatches - ended.toSet()
+        assertTrue(unaccounted.isEmpty(), "iteration $iteration: accepted inputs without an end: ${unaccounted.take(5)} of ${unaccounted.size}")
+        assertTrue(discarded.isNotEmpty(), "iteration $iteration: nothing was discarded, so the clears and the close did nothing")
+        val reasons = traces.filterIsInstance<StoreTrace.InputDiscarded>().map { it.reason }.toSet()
+        assertTrue(reasons.any { it == DiscardReason.StoreClosed } || reasons.any { it == DiscardReason.ClearedExplicitly } || reasons.any { it == DiscardReason.ClearedOnStateExit }, "iteration $iteration: $reasons")
+        val ordinals = traces.filterIsInstance<StoreTrace.ProcessingStarted>().map { it.ordinal }.sorted()
+        assertEquals((1L..ordinals.size).toList(), ordinals, "iteration $iteration: ordinals are dense")
+        val closedAt = traces.indexOfFirst { it === StoreTrace.StoreClosed }
+        assertTrue(traces.drop(closedAt + 1).none { it is StoreTrace.ProcessingStarted || it is StoreTrace.StateCommitted<*> }, "iteration $iteration: processing after StoreClosed")
+        // Dispatches that arrive after the close are accepted and discarded at once, so they may follow StoreClosed.
+        assertTrue(traces.drop(closedAt + 1).all { it is StoreTrace.InputAccepted<*> || it is StoreTrace.InputDiscarded }, "iteration $iteration: ${traces.drop(closedAt + 1).map { checkNotNull(it::class.simpleName) }.toSet()}")
+    }
 
     // --- many threads ---
 

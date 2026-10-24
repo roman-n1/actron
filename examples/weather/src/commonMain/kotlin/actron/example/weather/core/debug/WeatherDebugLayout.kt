@@ -1,6 +1,8 @@
 package actron.example.weather.core.debug
 
-import actron.example.weather.core.session.*
+import actron.example.weather.core.session.LocalWeatherActions
+import actron.example.weather.core.session.WeatherFrame
+import actron.example.weather.core.session.WeatherRoute
 import actron.example.weather.feature.cities.presentation.CitySearchScreen
 import actron.example.weather.feature.cities.presentation.toUiState
 import actron.example.weather.feature.weather.presentation.CityWeatherScreen
@@ -146,11 +148,9 @@ internal fun WeatherFrame.continuation(russian: Boolean): HistoryContinuation {
             if (russian) "Незавершённые запросы будут запущены заново." else "Unfinished requests will be restarted.",
         )
     }
-    val reasons =
-        buildList {
-            if (ending > 0) add(if (russian) "Не обработаны завершения команд: $ending." else "Command completions awaiting a decision: $ending.")
-            if (effects > 0) add(if (russian) "Не подтверждена обработка эффектов: $effects." else "Effects awaiting acknowledgement: $effects.")
-        }
+    val reasons = mutableListOf<String>()
+    if (ending > 0) reasons.add(if (russian) "Не обработаны завершения команд: $ending." else "Command completions awaiting a decision: $ending.")
+    if (effects > 0) reasons.add(if (russian) "Не подтверждена обработка эффектов: $effects." else "Effects awaiting acknowledgement: $effects.")
     return HistoryContinuation.Unavailable(reasons.joinToString(" "))
 }
 

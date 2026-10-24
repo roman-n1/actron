@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:StoreHandlersPropertyTest.kt:StoreHandlersPropertyTest$@Test fun tablePredictsTheEnterExitAndRecoverHandlersTheStoreRuns</ID>
+  </CurrentIssues>
+</SmellBaseline>

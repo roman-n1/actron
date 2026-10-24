@@ -5,6 +5,7 @@ import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.Store
+import actron.core.StoreLifecycle
 import actron.observability.FailureDescriptor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -132,13 +133,15 @@ private class InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event,
     private val childRecovery: CommandRecoveryStrategy<CCMD, CA>,
     mailboxConfig: MailboxConfig<PE>,
     private val onError: (Throwable) -> Unit,
-) : InvokedMachineStore<PC, PA, PCMD, PE, CC, CA, CCMD, CE> {
+) : InvokedMachineStore<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
+    StoreLifecycle<InvocationSnapshot<PC, CC>, PE> {
     init {
         require(scope.coroutineContext[ContinuationInterceptor] !== Dispatchers.Unconfined) { "Invocation execution requires a real dispatcher" }
     }
 
-    private val lifetime = SupervisorJob(scope.coroutineContext[Job])
-    private val execution = CoroutineScope(scope.coroutineContext + lifetime)
+    private val owned = StoreLifetime(scope.coroutineContext)
+    private val lifetime = owned.job
+    private val execution = owned.scope
     private val messages = Channel<() -> Unit>(Channel.UNLIMITED)
     private val mutableState = MutableStateFlow(initial.snapshot)
     override val state: StateFlow<InvocationSnapshot<PC, CC>> = mutableState.asStateFlow()
@@ -153,7 +156,7 @@ private class InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event,
             is ChildCheckpoint.Active -> RunningChild.Active(saved.owner, childSide(saved.owner, saved.checkpoint.snapshot, saved.checkpoint.lanes))
         }
     private val actor =
-        CoroutineScope(coroutineContext + lifetime)
+        CoroutineScope(coroutineContext + lifetime + owned.marker)
             .launch {
                 for (task in messages) {
                     try {
@@ -243,11 +246,27 @@ private class InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event,
         }
 
     override fun collectState(state: (InvocationSnapshot<PC, CC>) -> Unit) {
-        execution.launch { this@InvocationStoreImpl.state.collect { state(it) } }
+        observeState(state)
     }
 
     override fun collectEvent(event: (PE) -> Unit) {
         execution.launch { this@InvocationStoreImpl.event.collect { event(it) } }
+    }
+
+    override fun observeState(observer: (InvocationSnapshot<PC, CC>) -> Unit): AutoCloseable {
+        val job = execution.launch { state.collect { observer(it) } }
+        return AutoCloseable { job.cancel() }
+    }
+
+    override fun observeEvent(observer: (PE) -> Unit): AutoCloseable {
+        val job = execution.launch(start = CoroutineStart.UNDISPATCHED) { event.collect { observer(it) } }
+        return AutoCloseable { job.cancel() }
+    }
+
+    override suspend fun closeAndJoin() {
+        owned.checkOutside()
+        close()
+        lifetime.join()
     }
 
     override fun close() {

@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>WildcardImport:Review.kt:import actron.core.*</ID>
+    <ID>WildcardImport:Review.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:Review.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:Review.kt:import actron.statechart.test.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

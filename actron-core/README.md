@@ -90,6 +90,12 @@ and call `close()` when that owner is destroyed. `dispatch()` queues an action; 
 processing in a test uses [actron-test](../actron-test/README.md). Ordinary Store events are
 transient: attach a collector before emitting them when delivery matters.
 
+For callback observation, import `actron.core.observeState` or `actron.core.observeEvent`.
+Each returns an `AutoCloseable` that cancels only that observer. Existing `collectState` and
+`collectEvent` remain available. Import `actron.core.closeAndJoin` to cancel and await Store
+cleanup from an external coroutine. See [observation and shutdown](../doc/guides/store-api.md#cancellable-observation-and-shutdown)
+for registration timing, callback context and custom Store/wrapper support.
+
 Use [actron-compose](../actron-compose/README.md) to render a Store. Choose
 [actron-statechart](../actron-statechart/README.md) when nested/parallel phases or replay-ready
 decisions are needed. Core's Kotlin state objects and chart nodes are different concepts.

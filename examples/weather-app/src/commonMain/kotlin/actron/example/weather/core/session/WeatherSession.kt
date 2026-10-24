@@ -4,10 +4,27 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.InputAttribution
 import actron.example.weather.core.domain.City
-import actron.example.weather.feature.cities.presentation.*
-import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.feature.cities.presentation.SearchCitiesCommand
+import actron.example.weather.feature.weather.presentation.CityWeatherMachine
+import actron.example.weather.feature.weather.presentation.WeatherCommand
+import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.observability.FailureDescriptor
-import actron.statechart.machine.*
+import actron.statechart.machine.CommandHandler
+import actron.statechart.machine.Decision
+import actron.statechart.machine.DecisionObserver
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.ExecutorCheckpoint
+import actron.statechart.machine.IgnoreReason
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineClock
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineProfileSnapshot
+import actron.statechart.machine.MachineStore
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.TransitionCoverage
+import actron.statechart.machine.resumeMachineStore
 import actron.timetravel.RecordedStep
 import actron.timetravel.carriedPast
 import androidx.compose.runtime.Composable
@@ -65,7 +82,7 @@ open class WeatherSession(
 
     init {
         require(initialFrame.canResume())
-        resetClock(initialFrame)
+        clock = weatherClock(initialFrame, clockFactory)
     }
 
     /** Pause logical time while the process is absent, preserving remaining timer delays. */
@@ -76,19 +93,7 @@ open class WeatherSession(
         branch++
         frame = snapshot
         resumableFrame = snapshot
-        resetClock(snapshot)
-    }
-
-    private fun resetClock(snapshot: WeatherFrame) {
-        val base = clockFactory()
-        val baseStart = base.now()
-        val origin = snapshot.search.now
-        clock =
-            object : MachineClock {
-                override fun now(): MachineTime = origin + (base.now() - baseStart)
-
-                override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(baseStart + (deadline - origin))
-            }
+        clock = weatherClock(snapshot, clockFactory)
     }
 
     fun searchCheckpoint() = frame.search
@@ -98,8 +103,6 @@ open class WeatherSession(
             is WeatherRoute.Weather -> if (route.checkpoint.snapshot.context.city == city) route.checkpoint else freshWeather(city)
             WeatherRoute.Search -> freshWeather(city)
         }
-
-    private fun freshWeather(city: City): ExecutorCheckpoint<WeatherContext, WeatherCommand> = ExecutorCheckpoint.initial(CityWeatherMachine.create().initialSnapshot(WeatherContext(city)))
 
     fun updateSearch(checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand>) {
         frame = frame.copy(search = checkpoint)
@@ -186,3 +189,19 @@ open class WeatherSession(
 
 /** Optional host UI extension; the production application supplies no extra controls. */
 val LocalWeatherActions = staticCompositionLocalOf<@Composable () -> Unit> { {} }
+
+private fun freshWeather(city: City): ExecutorCheckpoint<WeatherContext, WeatherCommand> = ExecutorCheckpoint.initial(CityWeatherMachine.create().initialSnapshot(WeatherContext(city)))
+
+private fun weatherClock(
+    snapshot: WeatherFrame,
+    clockFactory: () -> MachineClock,
+): MachineClock {
+    val base = clockFactory()
+    val baseStart = base.now()
+    val origin = snapshot.search.now
+    return object : MachineClock {
+        override fun now(): MachineTime = origin + (base.now() - baseStart)
+
+        override suspend fun delayUntil(deadline: MachineTime) = base.delayUntil(baseStart + (deadline - origin))
+    }
+}

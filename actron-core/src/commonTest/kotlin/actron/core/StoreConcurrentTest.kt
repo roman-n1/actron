@@ -1,9 +1,9 @@
 package actron.core
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class StoreConcurrentTest {
-    private val testDispatcher = UnconfinedTestDispatcher()
+    private val testDispatcher = StandardTestDispatcher()
 
     sealed interface AppState : State {
         data class Initial(
@@ -52,7 +52,7 @@ class StoreConcurrentTest {
         initialState: AppState,
     ): Store<AppState, AppAction, AppEvent> =
         Store(initialState) {
-            coroutineContext(Dispatchers.Unconfined)
+            coroutineContext(testDispatcher)
 
             state<AppState.Initial> {
                 action<AppAction.Increment> {
@@ -84,8 +84,8 @@ class StoreConcurrentTest {
                 }
 
                 action<AppAction.RequestResult> {
-                    // This will wait for the transaction from enter to complete
-                    // due to mutex locking
+                    // The delayed launch has not entered its transaction and does not hold the lock.
+                    // Leaving Processing cancels that launch before it can commit.
                     nextState { AppState.Result(state.count) }
                 }
             }
@@ -104,64 +104,35 @@ class StoreConcurrentTest {
     fun concurrentActions_shouldHandleRaceConditions() =
         runTest(testDispatcher) {
             val store = createTestStore(AppState.Initial(0))
-
-            // Launch multiple concurrent actions
-            val jobs =
-                List(10) { index ->
-                    launch {
-                        if (index % 2 == 0) {
-                            store.dispatch(AppAction.Increment)
-                        } else {
-                            store.dispatch(AppAction.Decrement)
-                        }
+            try {
+                val jobs =
+                    List(10) { index ->
+                        launch { store.dispatch(if (index % 2 == 0) AppAction.Increment else AppAction.Decrement) }
                     }
-                }
-
-            jobs.forEach { it.join() }
-
-            // Verify final state of counter
-            when (val finalState = store.currentState) {
-                is AppState.Initial -> assertEquals(0, finalState.count)
-                is AppState.Result -> assertEquals(0, finalState.count)
-                else -> throw AssertionError("Unexpected state type: ${finalState::class.simpleName}")
+                jobs.forEach { it.join() }
+                store.awaitIdleForTest()
+                assertEquals(AppState.Initial(0), store.currentState)
+            } finally {
+                store.close()
             }
         }
 
     @Test
-    fun concurrentStateChanges_shouldPreserveMutexLocking() =
+    fun stateExitCancelsDelayedEnterWorkBeforeItsTransaction() =
         runTest(testDispatcher) {
             val store = createTestStore(AppState.Initial(0))
-
-            // Track emitted events to verify ordering
             val events = mutableListOf<AppEvent>()
-            store.collectEvent { event ->
-                events.add(event)
-            }
-
-            // First action triggers a state change with a delay
-            val delayedJob =
-                launch {
-                    store.dispatch(AppAction.DelayedIncrement)
-                }
-
-            // Give time for first dispatch to be processed
-            kotlinx.coroutines.yield()
-
-            // Second action should wait for the first to complete
-            store.dispatch(AppAction.RequestResult)
-
-            delayedJob.join()
-
-            // Allow events to be collected
-            kotlinx.coroutines.yield()
-
-            // Verify event emission - we should at least have the Processing event
-            assertEquals(1, events.size, "Should have at least the Processing event")
-            assertEquals(AppEvent.Processing, events[0])
-
-            // If the completed event was emitted, check its value
-            if (events.size > 1) {
-                assertEquals(AppEvent.Completed(1), events[1])
+            store.collectEvent { events += it }
+            try {
+                store.dispatchAndAwaitForTest(AppAction.DelayedIncrement)
+                assertEquals(AppState.Processing(0), store.currentState)
+                store.dispatchAndAwaitForTest(AppAction.RequestResult)
+                store.awaitIdleForTest()
+                advanceUntilIdle()
+                assertEquals(AppState.Result(0), store.currentState)
+                assertEquals(listOf<AppEvent>(AppEvent.Processing), events)
+            } finally {
+                store.close()
             }
         }
 }

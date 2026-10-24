@@ -1,11 +1,20 @@
 package actron.example.weather
 
-import actron.example.weather.core.debug.*
+import actron.example.weather.core.debug.HistoryFileResult
+import actron.example.weather.core.debug.HistoryFiles
+import actron.example.weather.core.debug.WeatherDisplay
+import actron.example.weather.core.debug.WeatherHistory
+import actron.example.weather.core.debug.WeatherRecording
+import actron.example.weather.core.debug.WeatherRecordingFrame
+import actron.example.weather.core.debug.WeatherRecordingViewer
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.RequestState
-import actron.example.weather.core.session.*
-import actron.example.weather.feature.cities.presentation.*
-import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.core.session.WeatherFrame
+import actron.example.weather.core.session.WeatherRoute
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.feature.weather.presentation.CityWeatherMachine
+import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.statechart.machine.*
 import actron.timetravel.*
 import kotlin.test.*

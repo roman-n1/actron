@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -161,6 +162,29 @@ class StoreSoakTest {
             store.close()
         }
 
+    private suspend fun floodUntilCancelled(
+        store: Store<S, A, Ev>,
+        queued: CompletableDeferred<Unit>,
+    ) {
+        var i = 0
+        while (currentCoroutineContext().isActive) {
+            store.dispatch(
+                if (i % 50 == 0) {
+                    A.Go
+                } else if (i % 50 == 25) {
+                    A.Finish
+                } else {
+                    A.Inc
+                },
+            )
+            i++
+            if (i % 100 == 0) {
+                queued.complete(Unit)
+                delay(1)
+            }
+        }
+    }
+
     @Test
     fun soak_closeMidWork_stopsEverything() =
         runTest {
@@ -176,26 +200,7 @@ class StoreSoakTest {
                         val processedBeforeStorm = processed.value
                         val queued = CompletableDeferred<Unit>()
                         coroutineScope {
-                            val storm =
-                                launch {
-                                    var i = 0
-                                    while (isActive) {
-                                        store.dispatch(
-                                            if (i % 50 == 0) {
-                                                A.Go
-                                            } else if (i % 50 == 25) {
-                                                A.Finish
-                                            } else {
-                                                A.Inc
-                                            },
-                                        )
-                                        i++
-                                        if (i % 100 == 0) {
-                                            queued.complete(Unit)
-                                            delay(1)
-                                        }
-                                    }
-                                }
+                            val storm = launch { floodUntilCancelled(store, queued) }
                             // ClearOnStateExit may discard every increment in a batch on a
                             // single-threaded dispatcher, so a count threshold is not a barrier;
                             // the plugin counts what the Store processed, discarded or not.

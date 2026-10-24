@@ -247,6 +247,7 @@ Every library module has its own README with setup, examples and its contract.
 | Module | Purpose |
 |---|---|
 | [actron-core](actron-core/README.md) | Store DSL, immutable state, actions/events, coroutine lifetimes and persistence |
+| [actron-decompose](actron-decompose/README.md) | Lifecycle-bound observation and retained Store integration for Decompose |
 | [actron-compose](actron-compose/README.md) | `ViewStore`, state rendering, derived UI values and transient event collection |
 | [actron-message](actron-message/README.md) | Process-wide message plugin for ordinary Stores |
 | [actron-logging](actron-logging/README.md) | Store logging and structured journal output |

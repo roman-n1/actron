@@ -1,0 +1,10 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, js, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.roman-n1:actron-decompose>
+final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.decompose/observeEvent(com.arkivanov.essenty.lifecycle/Lifecycle, kotlin/Function1<#C, kotlin/Unit>): kotlin/AutoCloseable // actron.decompose/observeEvent|observeEvent@actron.core.Store<0:0,0:1,0:2>(com.arkivanov.essenty.lifecycle.Lifecycle;kotlin.Function1<0:2,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
+final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.decompose/observeState(com.arkivanov.essenty.lifecycle/Lifecycle, kotlin/Function1<#A, kotlin/Unit>): kotlin/AutoCloseable // actron.decompose/observeState|observeState@actron.core.Store<0:0,0:1,0:2>(com.arkivanov.essenty.lifecycle.Lifecycle;kotlin.Function1<0:0,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]

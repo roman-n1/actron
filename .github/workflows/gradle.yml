@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   build:
+    name: build (${{ matrix.target }}, ${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +32,9 @@ jobs:
             os: ubuntu-latest
           - target: jsBrowserTest
             os: ubuntu-latest
+            # Compose JS executable linking exceeds the default 2 GiB compiler heap.
+            # Compile modules serially to keep concurrent heaps within the runner budget.
+            gradle-options: --no-parallel --max-workers=2 -Pkotlin.daemon.jvmargs=-Xmx4g
           - target: wasmJsBrowserTest
             os: ubuntu-latest
           # The device target is compiled where the simulator is tested; a device build needs a Mac.
@@ -58,7 +62,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
       - name: Check Kotlin code style
         if: matrix.target == 'jvmTest'
-        run: ./gradlew ktlintCheck
+        env:
+          QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_detekt_baselines.py'
+          if [[ "$QUALITY_BASE" =~ ^0+$ ]] || [[ -z "$QUALITY_BASE" ]]; then
+            ./gradlew ktlintCheck detekt
+          else
+            ./gradlew ktlintCheck detekt -Pactron.quality.base="$QUALITY_BASE"
+          fi
       - name: Check null and optional policy
         if: matrix.target == 'jvmTest'
         env:
@@ -70,4 +82,4 @@ jobs:
             ./gradlew checkNullability -Pactron.nullability.base="$POLICY_BASE"
           fi
       - name: Build with Gradle
-        run: ./gradlew ${{ matrix.target }}
+        run: ./gradlew ${{ matrix.target }} ${{ matrix.gradle-options }}

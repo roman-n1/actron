@@ -1,15 +1,13 @@
 package actron.core
 
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /*
  * This test case was generated with assistance from Anthropic's Claude AI.
@@ -34,7 +32,7 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StoreStateCoroutineScopeTest {
-    private val testDispatcher = UnconfinedTestDispatcher()
+    private val testDispatcher = StandardTestDispatcher()
 
     // State definitions
     sealed interface AppState : State {
@@ -75,7 +73,7 @@ class StoreStateCoroutineScopeTest {
     ): Store<AppState, AppAction, AppEvent> =
         Store(AppState.Initial) {
             // Configure to use Unconfined dispatcher
-            coroutineContext(Dispatchers.Unconfined)
+            coroutineContext(testDispatcher)
 
             // Initial state handling
             state<AppState.Initial> {
@@ -90,15 +88,10 @@ class StoreStateCoroutineScopeTest {
                     // Launch background task with launch function
                     launch {
                         if (withCancellation) {
+                            onBackgroundTaskStart()
                             try {
-                                onBackgroundTaskStart()
-
-                                // Long-running task that should be cancelled
-                                delay(10000)
-
-                                // We shouldn't reach this
-                                throw IllegalStateException("Background task wasn't cancelled")
-                            } catch (e: Exception) {
+                                awaitCancellation()
+                            } finally {
                                 onBackgroundTaskCancel()
                             }
                         } else {
@@ -131,99 +124,66 @@ class StoreStateCoroutineScopeTest {
     @Test
     fun enterCoroutineScope_dispatchesActionsAndEmitsEvents() =
         runTest(testDispatcher) {
-            // Create store with test dispatcher
             val store = createTestStore()
-
-            // Initial state check
-            assertEquals(AppState.Initial, store.currentState)
-
-            // Transition to Running state
-            store.dispatch(AppAction.Start)
-
-            // Verify state transition occurred
-            assertTrue(store.currentState is AppState.Running)
-
-            // Verify background task updated state via action dispatch
-            val runningState = store.currentState as AppState.Running
-            assertEquals(5, runningState.value)
-
-            // Move to final state
-            store.dispatch(AppAction.Stop)
-
-            // Verify final state
-            assertEquals(AppState.Final, store.currentState)
+            try {
+                assertEquals(AppState.Initial, store.currentState)
+                store.dispatchAndAwaitForTest(AppAction.Start)
+                store.awaitIdleForTest()
+                val runningState = assertIs<AppState.Running>(store.currentState)
+                assertEquals(5, runningState.value)
+                store.dispatchAndAwaitForTest(AppAction.Stop)
+                store.awaitIdleForTest()
+                assertEquals(AppState.Final, store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
     fun enterCoroutineScope_cancelsBackgroundTaskOnStateTransition() =
         runTest(testDispatcher) {
-            // Flags to track background task execution
-            var backgroundTaskRan = false
-            var backgroundTaskCancelled = false
-
-            // Create store with custom handling
+            val started = CompletableDeferred<Unit>()
+            val cancelled = CompletableDeferred<Unit>()
             val store =
                 createTestStore(
                     withCancellation = true,
-                    onBackgroundTaskStart = { backgroundTaskRan = true },
-                    onBackgroundTaskCancel = { backgroundTaskCancelled = true },
+                    onBackgroundTaskStart = { started.complete(Unit) },
+                    onBackgroundTaskCancel = { cancelled.complete(Unit) },
                 )
-
-            // Start sequence
-            assertEquals(AppState.Initial, store.currentState)
-            store.dispatch(AppAction.Start)
-            assertEquals(AppState.Running::class, store.currentState::class)
-
-            // Verify background task started
-            assertTrue(backgroundTaskRan, "Background task should have started")
-
-            // Immediately transition to final state
-            store.dispatch(AppAction.Stop)
-            assertEquals(AppState.Final, store.currentState)
-
-            // Verify background task was cancelled
-            assertTrue(backgroundTaskCancelled, "Background task should have been cancelled")
+            try {
+                assertEquals(AppState.Initial, store.currentState)
+                store.dispatchAndAwaitForTest(AppAction.Start)
+                started.await()
+                assertEquals(AppState.Running::class, store.currentState::class)
+                store.dispatchAndAwaitForTest(AppAction.Stop)
+                cancelled.await()
+                store.awaitIdleForTest()
+                assertEquals(AppState.Final, store.currentState)
+            } finally {
+                store.close()
+            }
         }
 
     @Test
     fun enterLaunch_transactionFatalError_isForwardedToExceptionHandler() =
         runTest(testDispatcher) {
-            val handledThrowableObservations = mutableListOf<Throwable>()
+            val handled = mutableListOf<Throwable>()
             val store: Store<AppState, AppAction, AppEvent> =
                 Store(AppState.Initial) {
-                    coroutineContext(Dispatchers.Unconfined)
-                    exceptionHandler(ExceptionHandler { handledThrowableObservations.add(it) })
-
-                    state<AppState.Initial> {
-                        action<AppAction.Start> {
-                            nextState { AppState.Running() }
-                        }
-                    }
-
-                    state<AppState.Running> {
-                        enter {
-                            launch {
-                                transaction {
-                                    throw AssertionError("fatal enter transaction")
-                                }
-                            }
-                        }
-                    }
-
-                    state<AppState> {
-                        recover<Exception> {
-                            nextState { AppState.Failed(error.message ?: "unknown") }
-                        }
-                    }
+                    coroutineContext(testDispatcher)
+                    exceptionHandler(ExceptionHandler { handled += it })
+                    state<AppState.Initial> { action<AppAction.Start> { nextState { AppState.Running() } } }
+                    state<AppState.Running> { enter { launch { transaction { throw AssertionError("fatal enter transaction") } } } }
+                    state<AppState> { recover<Exception> { nextState { AppState.Failed(error.message ?: "unknown") } } }
                 }
-
-            store.dispatch(AppAction.Start)
-            repeat(3) { kotlinx.coroutines.yield() }
-
-            assertNotNull(handledThrowableObservations.single())
-            val error = handledThrowableObservations.single()
-            assertIs<AssertionError>(error)
-            assertEquals("fatal enter transaction", error.message)
-            assertEquals(AppState.Running(), store.currentState)
+            try {
+                store.dispatchAndAwaitForTest(AppAction.Start)
+                store.awaitIdleForTest()
+                val error = assertIs<AssertionError>(handled.single())
+                assertEquals("fatal enter transaction", error.message)
+                assertEquals(AppState.Running(), store.currentState)
+            } finally {
+                store.close()
+            }
         }
 }

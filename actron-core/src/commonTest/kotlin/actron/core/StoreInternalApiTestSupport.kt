@@ -2,6 +2,10 @@
 
 package actron.core
 
+import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
 internal fun <S : State, A : Action, E : Event> Store<S, A, E>.patchForTest(
     block: StorePatchBuilder<S, A, E>.() -> Unit,
 ): Store<S, A, E> {
@@ -15,6 +19,10 @@ internal suspend fun <S : State, A : Action, E : Event> Store<S, A, E>.dispatchA
 
 internal suspend fun <S : State, A : Action, E : Event> Store<S, A, E>.startAndAwaitForTest() {
     requireStoreInternalApi().startAndAwait()
+}
+
+internal suspend fun <S : State, A : Action, E : Event> Store<S, A, E>.awaitIdleForTest(timeout: Duration = 10.seconds) {
+    assertEquals(StorePendingWork(0, 0), requireStoreInternalApi().awaitIdle(timeout))
 }
 
 @Suppress("UNCHECKED_CAST")
