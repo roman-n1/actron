@@ -2,7 +2,13 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineSnapshot
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.TransitionId
 
 /** Executable transition-coverage plan. Optimality is within the prefixes discovered by the bounded search. */
 data class MachineTestPlan<C : Any, A : Action>(
@@ -18,10 +24,15 @@ data class MachineTestPlan<C : Any, A : Action>(
 ) {
     /** Fails on discovery errors, incomplete search or missing transitions; a bounded heuristic selection may still cover all. */
     fun assertReady(requireOptimal: Boolean = false) {
-        if (discoveryFailures.isNotEmpty()) throw AssertionError("[Actron] Plan discovery failed: ${discoveryFailures.first().identities}")
-        if (searchTruncated) throw AssertionError("[Actron] Plan discovery budget exhausted")
-        if (uncoveredTransitions.isNotEmpty()) throw AssertionError("[Actron] Plan has uncovered transitions: $uncoveredTransitions")
-        if (requireOptimal && !selectionOptimal) throw AssertionError("[Actron] Plan selection budget exhausted; minimal scenario count is unknown")
+        val problem =
+            when {
+                discoveryFailures.isNotEmpty() -> "[Actron] Plan discovery failed: ${discoveryFailures.first().identities}"
+                searchTruncated -> "[Actron] Plan discovery budget exhausted"
+                uncoveredTransitions.isNotEmpty() -> "[Actron] Plan has uncovered transitions: $uncoveredTransitions"
+                requireOptimal && !selectionOptimal -> "[Actron] Plan selection budget exhausted; minimal scenario count is unknown"
+                else -> return
+            }
+        throw AssertionError(problem)
     }
 }
 
@@ -78,61 +89,7 @@ internal fun <T : Any> selectCoverage(
     lengths: List<Int>,
     target: Set<T>,
     maxAttempts: Int,
-): Selection {
-    if (target.isEmpty()) return Selection(emptyList(), 0, true)
-    var remaining = target
-    val greedy = mutableListOf<Int>()
-    while (remaining.isNotEmpty()) {
-        val best =
-            candidates.indices.maxWithOrNull(
-                compareBy<Int>(
-                    { (candidates[it] intersect remaining).size },
-                    { -lengths[it] },
-                    { -it },
-                ),
-            ) ?: error("[Actron] No scenario covers $remaining")
-        check(candidates[best].any { it in remaining }) { "[Actron] Scenario coverage is inconsistent" }
-        greedy += best
-        remaining = remaining - candidates[best]
-    }
-    var best = greedy.toList()
-    var attempts = 0
-    var exhausted = false
-    val visited = mutableMapOf<Set<T>, Int>()
-
-    fun search(
-        missing: Set<T>,
-        chosen: List<Int>,
-    ) {
-        if (attempts >= maxAttempts) {
-            exhausted = true
-            return
-        }
-        attempts++
-        if (missing.isEmpty()) {
-            if (chosen.size < best.size) best = chosen
-            return
-        }
-        if (chosen.size >= best.size) return
-        if (missing in visited && visited.getValue(missing) <= chosen.size) return
-        visited[missing] = chosen.size
-        val next = missing.minBy { id -> candidates.count { id in it } }
-        val choices =
-            candidates.indices
-                .filter { next in candidates[it] }
-                .sortedWith(
-                    compareByDescending<Int> { (candidates[it] intersect missing).size }
-                        .thenBy { lengths[it] }
-                        .thenBy { it },
-                )
-        for (index in choices) {
-            search(missing - candidates[index], chosen + index)
-            if (exhausted) return
-        }
-    }
-    search(target, emptyList())
-    return Selection(best.sorted(), attempts, !exhausted)
-}
+): Selection = CoverageSelection(candidates, lengths, target, maxAttempts).run()
 
 /**
  * Generates typed executable prefixes, then finds the fewest scenarios covering every reached

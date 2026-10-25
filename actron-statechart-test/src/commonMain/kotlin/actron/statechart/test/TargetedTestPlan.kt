@@ -3,7 +3,9 @@ package actron.statechart.test
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExperimentalActronApi
-import actron.statechart.machine.*
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineSnapshot
+import actron.statechart.machine.MachineTime
 
 /** Minimum scenario count in the bounded discovered pool for explicit states/branches/paths. */
 data class TargetedTestPlan<C : Any, A : Action>(
