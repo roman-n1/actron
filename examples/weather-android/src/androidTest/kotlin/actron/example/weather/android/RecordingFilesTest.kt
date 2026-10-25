@@ -39,30 +39,42 @@ class RecordingFilesTest {
         if (device.wait(Until.hasObject(label), 2000)) device.findObject(label).click()
     }
 
+    private fun awaitRecordingAction(tag: String) {
+        // The action remains in the tree while asynchronous document I/O disables it.
+        compose.waitUntil(timeout) {
+            compose.onAllNodes(hasTestTag(tag) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun clickRecordingAction(tag: String) {
+        awaitRecordingAction(tag)
+        compose.onNodeWithTag(tag).assertIsEnabled().performClick()
+    }
+
     @Test fun saveOpenAndCancelThroughSystemDocumentsUi() {
         enableInspector()
         val name = "actron-e2e-${System.nanoTime()}.json"
-        compose.onNodeWithTag("recording-save").performClick()
+        clickRecordingAction("recording-save")
         awaitDocumentsUi()
         downloads()
         checkNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), timeout)).text = name
         checkNotNull(device.wait(Until.findObject(By.text(Pattern.compile("(?i)save"))), timeout)).click()
-        compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-open").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("recording-open").performClick()
+        clickRecordingAction("recording-open")
         awaitDocumentsUi()
         downloads()
         checkNotNull(device.wait(Until.findObject(By.text(name)), timeout)).click()
         compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-close").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("history-live").assertDoesNotExist()
         compose.onNodeWithTag("history-continue").assertDoesNotExist()
-        compose.onNodeWithTag("recording-open").performClick()
+        clickRecordingAction("recording-open")
         awaitDocumentsUi()
         device.pressBack()
         compose.onNodeWithTag("recording-close").assertExists().performClick()
         compose.onNodeWithTag("history-live").assertExists()
-        compose.onNodeWithTag("recording-save").performClick()
+        clickRecordingAction("recording-save")
         awaitDocumentsUi()
         device.pressBack()
+        awaitRecordingAction("recording-save")
         compose.onNodeWithTag("recording-save").assertIsEnabled()
     }
 
@@ -81,7 +93,7 @@ class RecordingFilesTest {
             checkNotNull(resolver.openOutputStream(uri)).use { stream: java.io.OutputStream ->
                 stream.write("""{"schema":"actron.weather.display/1","entries":[],"format":99,"definitions":[],"metadata":{"projectName":"Weather","exportedAt":"2026-10-20T00:00:00Z"}}""".toByteArray())
             }
-            compose.onNodeWithTag("recording-open").performClick()
+            clickRecordingAction("recording-open")
             awaitDocumentsUi()
             downloads()
             checkNotNull(device.wait(Until.findObject(By.text(name)), timeout)).click()
