@@ -95,4 +95,6 @@ StateKeeper/StateSaver schemas and business-ID restoration remain the applicatio
 
 Common tests exercise two DefaultComponentContexts sharing a keeper, old endpoint-observer
 cancellation, new observers receiving retained state, keeper shutdown, independent handle close,
-and destroyed/reentrant lifecycle registration. Tests run on JVM, JS, Wasm and iOS.
+and destroyed/reentrant lifecycle registration. They also verify that event observation is ready
+before startup without starting the Store, and closing one event handle leaves sibling event/state
+observers alive. Tests run on JVM, JS, Wasm, iOS and Android host.
