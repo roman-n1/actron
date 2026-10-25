@@ -2,12 +2,51 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
-import actron.statechart.machine.*
-import kotlinx.serialization.json.*
-import kotlin.test.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.FinalState
+import actron.statechart.GuardCondition
+import actron.statechart.GuardKey
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class BehaviouralArtifactsTest {
+    @Test
+    fun declarationWireOrderAndCoverageDiffStayStable() {
+        val machine = machine("1")
+        val before = machine.behaviouralSnapshot(coverage(machine, true))
+        val after = machine.behaviouralSnapshot(coverage(machine, false))
+        val transition = """{"index":0,"id":"transition:0","source":"idle","target":"done","trigger":"action:go","guard":null,"effect":null,"kind":"External"}"""
+        val model = """{"initial":"idle","states":[{"id":"idle","parent":null,"kind":"atomic"},{"id":"done","parent":null,"kind":"final"}],"transitions":[$transition]}"""
+        assertEquals(
+            model,
+            Json
+                .parseToJsonElement(after.toJson())
+                .jsonObject
+                .getValue("model")
+                .toString(),
+        )
+        val files = behaviouralReviewArtifacts(before, after)
+        assertEquals("Transition coverage: 100.0% -> 0.0%\nREGRESSED $transition\n", files.getValue("coverage.diff"))
+        assertEquals(listOf("behaviour.diff", "coverage.diff", "before.mmd", "after.mmd", "matrix.md", "model.actron.json"), files.keys.toList())
+    }
+
     private data object Go : Action
 
     private val idle = StateId("idle")

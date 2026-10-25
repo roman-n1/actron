@@ -3,7 +3,13 @@ package actron.statechart.test
 import actron.core.Action
 import actron.core.Event
 import actron.observability.FailureDescriptor
-import actron.statechart.machine.*
+import actron.statechart.machine.ExplainedDecision
+import actron.statechart.machine.InvariantViolation
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineSnapshot
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.check
 
 /** One actual pure-model decision. Contexts/actions must be immutable to retain historical values. */
 data class ScenarioStep<C : Any, A : Action, CMD : Any, E : Event>(
@@ -127,56 +133,10 @@ class ScenarioModel<C : Any, A : Action, CMD : Any, E : Event> internal construc
     val initial: C,
     builder: ScenarioModelBuilder<C, A, CMD, E>,
 ) {
-    private val actions = builder.actions.toList()
-    private val replies = builder.replies.toList()
+    private val inputChoices = ScenarioInputs(machine, builder.actions.toList(), builder.replies.toList(), builder.extras.toList())
     private val rules = builder.rules.toList()
     private val temporal = builder.temporal.map { it.frozen() }
     private val goals = builder.goals.toMap()
-    private val extras = builder.extras.toList()
-
-    private fun choices(
-        snapshot: MachineSnapshot<C>,
-        now: MachineTime,
-        steps: List<ScenarioStep<C, A, CMD, E>>,
-    ): List<MachineInput<A>> =
-        buildList {
-            val declared = machine.declaredActions(snapshot).map { it.matcher }
-            actions
-                .flatMap { it(snapshot) }
-                .distinct()
-                .filter { action -> declared.any { it.matches(action) } }
-                .forEach { add(MachineInput.Dispatch(it, now)) }
-            val commands = steps.flatMap { it.explained.decision.commands }.distinctBy { it.id }
-            for (command in commands) {
-                val active = command.id in snapshot.commands
-                for ((modes, values) in replies) {
-                    if (active && ReplyMode.Active !in modes) continue
-                    if (!active && modes.all { it == ReplyMode.Active }) continue
-                    for (action in values(command.command)) {
-                        if ((active || ReplyMode.LateCommand in modes) &&
-                            steps.none {
-                                val input = it.input
-                                input is MachineInput.CommandResult && input.command == command.id && input.action == action
-                            }
-                        ) {
-                            add(MachineInput.CommandResult(command.id, action, now))
-                        }
-                        if (!active && ReplyMode.LateAction in modes &&
-                            steps.none {
-                                val input = it.input
-                                input is MachineInput.Dispatch && input.action == action
-                            }
-                        ) {
-                            add(MachineInput.Dispatch(action, now))
-                        }
-                    }
-                }
-            }
-            snapshot.timers.entries
-                .sortedWith(compareBy({ it.value.deadline }, { it.key.value }))
-                .forEach { (id, timer) -> add(MachineInput.TimerFired(id, maxOf(now, timer.deadline))) }
-            extras.forEach { addAll(it(snapshot, now, steps)) }
-        }.distinct()
 
     fun generate(
         target: CoverageTarget = CoverageTarget.AllTransitions,
@@ -187,7 +147,7 @@ class ScenarioModel<C : Any, A : Action, CMD : Any, E : Event> internal construc
         val detailed =
             machine.explorePaths(
                 machine.initialSnapshot(initial),
-                ::choices,
+                inputChoices::choices,
                 ExplorationStrategy.Cover(target),
                 maxDepth,
                 maxDecisions,

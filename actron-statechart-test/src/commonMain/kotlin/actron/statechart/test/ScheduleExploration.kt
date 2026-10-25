@@ -4,7 +4,10 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
+import actron.statechart.machine.CommandId
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineStore
+import actron.statechart.machine.check
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -73,81 +76,14 @@ suspend fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.ex
     check: MachineTestDriver<C, A, CMD, E>.() -> Unit,
 ): ScheduleReport<A> {
     require(maxDepth >= 0 && maxRuns > 0)
-    val queue = ArrayDeque<List<ScheduleOperation<A>>>()
-    queue.add(emptyList())
-    val completed = mutableListOf<List<ScheduleOperation<A>>>()
+    val frontier = ScheduleFrontier<A>(maxDepth, maxRuns)
     val failures = mutableListOf<ScheduleFailure<A>>()
-    var runs = 0
-    var truncated = false
-    while (queue.isNotEmpty() && runs < maxRuns && failures.isEmpty()) {
-        val path = queue.removeFirst()
-        var driver = MachineTestDriver(this, initial, scope)
-        val executed = mutableListOf<ScheduleOperation<A>>()
-        runs++
-        try {
-            driver.start()
-            driver.setup()
-            driver.check()
-            if (driver.failures.isNotEmpty()) throw AssertionError("Executor reported ${driver.failures}")
-            for (operation in path) {
-                require(operation in driver.choices(executed)) { "[Actron] Non-repeatable schedule choices at $executed" }
-                executed += operation
-                when (operation) {
-                    ScheduleOperation.Restart -> {
-                        val checkpoint = driver.settle()
-                        require(checkpoint.effects.isEmpty() && checkpoint.ending.isEmpty() && driver.recorder.unconsumedEvents.isEmpty()) { "[Actron] Consume effects before restarting the test executor" }
-                        driver.close()
-                        scope.testScheduler.runCurrent()
-                        driver = MachineTestDriver(this, initial, scope, checkpoint = checkpoint)
-                        driver.start()
-                    }
-
-                    is ScheduleOperation.Send -> {
-                        driver.send(operation.action)
-                    }
-
-                    is ScheduleOperation.Answer -> {
-                        driver.answer(operation.command, operation.action)
-                    }
-
-                    is ScheduleOperation.Complete -> {
-                        driver.complete(operation.command)
-                    }
-
-                    is ScheduleOperation.Fail -> {
-                        driver.fail(operation.command)
-                    }
-
-                    is ScheduleOperation.Advance -> {
-                        driver.advanceBy(operation.duration)
-                    }
-                }
-                driver.check()
-                if (driver.failures.isNotEmpty()) throw AssertionError("Executor reported ${driver.failures}")
-            }
-            val next = driver.choices(executed).distinct()
-            if (next.isEmpty()) {
-                driver.assertNoPendingWork()
-                completed += path
-            } else if (path.size >= maxDepth) {
-                truncated = true
-            } else {
-                for (operation in next) {
-                    if (queue.size + runs >= maxRuns) {
-                        truncated = true
-                        break
-                    }
-                    queue.add(path + operation)
-                }
-            }
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: AssertionError) {
-            failures += ScheduleFailure(executed.toList(), failure.message.orEmpty())
-        } finally {
-            driver.close()
-            scope.testScheduler.runCurrent()
+    while (frontier.canRun && failures.isEmpty()) {
+        val path = frontier.next()
+        when (val result = ScheduleExecution(this, initial, scope).run(path, setup, choices, check)) {
+            is SchedulePrefix.Failed -> failures += result.failure
+            is SchedulePrefix.Explored -> frontier.record(path, result.choices)
         }
     }
-    return ScheduleReport(runs, completed.toList(), failures.toList(), truncated || (queue.isNotEmpty() && failures.isEmpty()))
+    return frontier.report(failures)
 }
