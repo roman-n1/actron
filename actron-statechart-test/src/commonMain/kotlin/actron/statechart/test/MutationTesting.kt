@@ -4,7 +4,9 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
+import actron.statechart.GuardCondition
+import actron.statechart.StateChartDefinition
+import actron.statechart.TransitionEffect
 import actron.statechart.machine.Machine
 import actron.statechart.machine.TransitionId
 import kotlinx.coroutines.CancellationException
@@ -53,42 +55,51 @@ suspend fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.te
     require(mutations.isNotEmpty() && mutations.distinct().size == mutations.size)
     require(mutations.all { it in chart.mutationCandidates() }) { "[Actron] Mutation does not apply to this graph" }
     verify(this)
-    val results =
+    return MutationReport(
         mutations.map { mutation ->
-            val transitions =
-                chart.transitions
-                    .withIndex()
-                    .filterNot {
-                        it.index == mutation.transition.index && mutation.kind == MutationKind.RemoveTransition
-                    }.map { (index, transition) ->
-                        if (index != mutation.transition.index) {
-                            transition
-                        } else {
-                            when (mutation.kind) {
-                                MutationKind.RemoveTransition -> transition
-                                MutationKind.RemoveGuard -> transition.copy(guard = GuardCondition.Unconditional)
-                                MutationKind.RemoveEffect -> transition.copy(effect = TransitionEffect.NoEffect)
-                            }
-                        }
-                    }
-            val variant = chart.copy(transitions = transitions)
+            val variant = chart.mutated(mutation)
             try {
-                val machine = withTestChart(variant)
-                try {
-                    verify(machine)
-                    MutationResult(mutation, MutationOutcome.Survived, "The suite accepted the changed machine")
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (assertion: AssertionError) {
-                    MutationResult(mutation, MutationOutcome.Killed, assertion.message.orEmpty())
-                } catch (error: Exception) {
-                    MutationResult(mutation, MutationOutcome.Error, error.toString())
-                }
+                verifyMutation(withTestChart(variant), mutation, verify)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (invalid: IllegalArgumentException) {
                 MutationResult(mutation, MutationOutcome.Invalid, invalid.toString())
             }
-        }
-    return MutationReport(results)
+        },
+    )
 }
+
+private fun StateChartDefinition.mutated(mutation: TransitionMutation): StateChartDefinition {
+    val changed =
+        transitions
+            .withIndex()
+            .filterNot { it.index == mutation.transition.index && mutation.kind == MutationKind.RemoveTransition }
+            .map { (index, transition) ->
+                if (index != mutation.transition.index) {
+                    transition
+                } else {
+                    when (mutation.kind) {
+                        MutationKind.RemoveTransition -> transition
+                        MutationKind.RemoveGuard -> transition.copy(guard = GuardCondition.Unconditional)
+                        MutationKind.RemoveEffect -> transition.copy(effect = TransitionEffect.NoEffect)
+                    }
+                }
+            }
+    return copy(transitions = changed)
+}
+
+private suspend fun <C : Any, A : Action, CMD : Any, E : Event> verifyMutation(
+    machine: Machine<C, A, CMD, E>,
+    mutation: TransitionMutation,
+    verify: suspend (Machine<C, A, CMD, E>) -> Unit,
+): MutationResult =
+    try {
+        verify(machine)
+        MutationResult(mutation, MutationOutcome.Survived, "The suite accepted the changed machine")
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (assertion: AssertionError) {
+        MutationResult(mutation, MutationOutcome.Killed, assertion.message.orEmpty())
+    } catch (error: Exception) {
+        MutationResult(mutation, MutationOutcome.Error, error.toString())
+    }
