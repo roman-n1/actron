@@ -46,21 +46,14 @@ object WeatherSavedStateCodec {
     }
 }
 
-fun retainedWeatherSession(context: ComponentContext): WeatherSession = retainWeatherSession(context, ::WeatherSession)
-
-fun <S : WeatherSession> retainWeatherSession(
-    context: ComponentContext,
-    create: (WeatherFrame, Long) -> S,
-): S {
-    return context.instanceKeeper.getOrCreate(key = "weather-history") {
+fun retainedWeatherSession(context: ComponentContext): WeatherSession =
+    context.instanceKeeper.getOrCreate(key = "weather-session") {
         try {
             context.stateKeeper.consume("weather-checkpoint", WeatherSavedState.serializer())?.let { saved ->
-                val session = WeatherSavedStateCodec.decodeSession(saved)
-                return@getOrCreate create(session.frame, session.branch)
+                return@getOrCreate WeatherSavedStateCodec.decodeSession(saved)
             }
         } catch (_: IllegalArgumentException) {
-            return@getOrCreate create(WeatherFrame(), 0)
+            return@getOrCreate WeatherSession()
         }
-        create(WeatherFrame(), 0)
+        WeatherSession()
     }
-}

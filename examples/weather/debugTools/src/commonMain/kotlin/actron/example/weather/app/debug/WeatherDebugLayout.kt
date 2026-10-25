@@ -1,6 +1,5 @@
 package actron.example.weather.app.debug
 
-import actron.example.weather.app.WeatherSettings
 import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherRoute
 import actron.example.weather.feature.cities.presentation.CitySearchScreen
@@ -20,16 +19,14 @@ import androidx.compose.ui.platform.testTag
 @Composable
 fun WeatherDebugLayout(
     history: WeatherHistory,
-    onContinue: (WeatherFrame) -> Unit,
+    onContinue: (WeatherHistoryFrame) -> Unit,
     files: HistoryFiles = rememberHistoryFiles(),
     settings: WeatherSettings = remember { WeatherSettings() },
     viewer: WeatherRecordingViewer = remember { WeatherRecordingViewer() },
     content: @Composable () -> Unit,
 ) {
     val russian = androidx.compose.ui.text.intl.Locale.current.language == "ru"
-    var diagnosticDemo by remember { mutableStateOf(GraphDiagnosticDemo.Off) }
     val visible by history.panelVisible.collectAsState()
-    val controls = weatherDebugControls(visible, viewer)
     Box(Modifier.fillMaxSize()) {
         val preview: @Composable () -> Unit = {
             val selection = history.panel.preview
@@ -38,7 +35,7 @@ fun WeatherDebugLayout(
             } else if (selection.isEmpty()) {
                 content()
             } else {
-                val frame = selection.single().snapshot
+                val frame = selection.single().snapshot.application
                 when (val route = frame.route) {
                     WeatherRoute.Search -> {
                         CitySearchScreen(
@@ -68,7 +65,7 @@ fun WeatherDebugLayout(
                     Column(Modifier.fillMaxSize()) {
                         if (viewer.imported.isEmpty()) {
                             // The reusable panel delegates continuation/navigation to the host.
-                            HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), continuation = { it.continuation(russian) }, graph = { history.graph(it).withDiagnosticDemo(diagnosticDemo) }, actions = { RecordingActions(viewer, files, history) })
+                            HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), continuation = { it.application.continuation(russian) }, graph = { history.graph(it) }, actions = { RecordingActions(viewer, files, history) })
                         } else {
                             val imported = viewer.imported.single()
                             // Display-only records have no executor checkpoint or continuation callback.
@@ -92,22 +89,6 @@ fun WeatherDebugLayout(
                         Switch(visible, {
                             history.setPanelVisible(it, viewer)
                         }, Modifier.testTag("debug-panel-switch"))
-                    }
-                    if (controls.showDiagnosticDemo) {
-                        TextButton(onClick = { diagnosticDemo = GraphDiagnosticDemo.entries[(diagnosticDemo.ordinal + 1) % GraphDiagnosticDemo.entries.size] }, modifier = Modifier.testTag("graph-diagnostic-demo")) {
-                            Text(
-                                if (russian) {
-                                    "Демо диагностики графа: ${when (diagnosticDemo) {
-                                        GraphDiagnosticDemo.Off -> "выкл."
-                                        GraphDiagnosticDemo.Warnings -> "предупреждения"
-                                        GraphDiagnosticDemo.Errors -> "ошибки"
-                                    }}"
-                                } else {
-                                    "Graph diagnostic demo: $diagnosticDemo"
-                                },
-                            )
-                        }
-                        if (diagnosticDemo != GraphDiagnosticDemo.Off) Text(if (russian) "Ошибки добавляются только в рисунок. Рабочая машина не меняется." else "Issues affect only the diagram. The running machine is unchanged.")
                     }
                     Text(if (russian) "Сохраняются последние ${history.capacity} событий текущего запуска. Просмотр истории не запускает запросы. «Продолжить отсюда» удаляет более позднюю историю и перезапускает незавершённые запросы." else "The last ${history.capacity} events are recorded throughout this session. Preview does not run requests. Continue here removes later history and restarts unfinished requests.")
                 }
@@ -140,4 +121,15 @@ internal fun WeatherFrame.continuation(russian: Boolean): HistoryContinuation {
     if (ending > 0) reasons.add(if (russian) "Не обработаны завершения команд: $ending." else "Command completions awaiting a decision: $ending.")
     if (effects > 0) reasons.add(if (russian) "Не подтверждена обработка эффектов: $effects." else "Effects awaiting acknowledgement: $effects.")
     return HistoryContinuation.Unavailable(reasons.joinToString(" "))
+}
+
+internal fun WeatherHistory.setPanelVisible(
+    visible: Boolean,
+    viewer: WeatherRecordingViewer,
+) {
+    panelVisible.value = visible
+    if (!visible) {
+        panel.returnToLive()
+        viewer.close()
+    }
 }

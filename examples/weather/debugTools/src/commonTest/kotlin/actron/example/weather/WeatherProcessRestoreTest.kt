@@ -64,7 +64,7 @@ class WeatherProcessRestoreTest {
             testScheduler.runCurrent()
             search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
             testScheduler.runCurrent()
-            val oldHistory = keeper.getOrCreate<WeatherHistory>("weather-history") { error("missing history") }
+            val oldHistory = keeper.getOrCreate<WeatherHistory>("weather-debug-history") { error("missing history") }
             val oldWeather =
                 assertIs<CityWeatherComponent>(
                     root
@@ -88,11 +88,11 @@ class WeatherProcessRestoreTest {
                 root = create()
                 lifecycle.resume()
                 testScheduler.runCurrent()
-                val history = keeper.getOrCreate<WeatherHistory>("weather-history") { error("missing history") }
+                val history = keeper.getOrCreate<WeatherHistory>("weather-debug-history") { error("missing history") }
                 assertNotSame(oldHistory, history)
                 assertTrue(
                     history.timeline.entries.value
-                        .none { entry -> entry.snapshot === oldHistory.frame },
+                        .none { entry -> entry.snapshot.application === oldHistory.session.frame },
                 )
                 val restored =
                     assertIs<CityWeatherComponent>(
@@ -101,7 +101,7 @@ class WeatherProcessRestoreTest {
                             .value.active.instance,
                     )
                 assertEquals(oldWeather, restored.state.value.context)
-                assertEquals("Lis", history.frame.search.snapshot.context.query)
+                assertEquals("Lis", history.session.frame.search.snapshot.context.query)
                 assertEquals(1, currentCalls, "Completed requests must not repeat")
                 assertEquals(it + 2, forecastCalls, "Each new process restarts the pending request once")
             }

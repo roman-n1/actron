@@ -48,6 +48,7 @@ class WeatherAppTest {
         runComposeUiTest {
             setRootContent(SampleWeatherRepository)
             onNodeWithTag("debug-settings").performClick()
+            onNodeWithTag("graph-diagnostic-demo").assertDoesNotExist()
             onNodeWithTag("debug-panel-switch").performClick()
             onNodeWithTag("debug-settings-done").performClick()
             onNodeWithTag("city-search").performTextInput("Lisbon")

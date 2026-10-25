@@ -16,45 +16,46 @@ import actron.timetravel.compose.HistoryGraphProfile
 import actron.timetravel.compose.HistoryPanelState
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** App adapter: owns typed machine checkpoints and Decompose route; UI lives in the library. */
+/** Immutable diagnostic projection; application checkpoints remain owned by WeatherSession. */
+data class WeatherHistoryFrame(
+    val application: WeatherFrame,
+    val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
+    val profiles: Map<DefinitionId, MachineProfileSnapshot> = emptyMap(),
+)
+
+/** Owns recording and diagnostic metadata; navigation and checkpoints belong to the session. */
 class WeatherHistory(
     val capacity: Int = 500,
     val exportSettings: HistoryExportSettings = HistoryExportSettings("Weather"),
-    initialFrame: WeatherFrame = WeatherFrame(),
-    initialBranch: Long = 0,
-    clockFactory: () -> MachineClock = { MachineClock.monotonic() },
-) : WeatherSession(initialFrame, initialBranch, clockFactory) {
-    @androidx.compose.runtime.Composable
-    override fun Render(
-        settings: actron.example.weather.app.WeatherSettings,
-        onContinue: (WeatherFrame) -> Unit,
-        content: @androidx.compose.runtime.Composable () -> Unit,
-    ) {
-        WeatherDebugLayout(this, onContinue, settings = settings, content = content)
+    val session: WeatherSession = WeatherSession(),
+) : com.arkivanov.essenty.instancekeeper.InstanceKeeper.Instance {
+    private var coverage: Map<DefinitionId, TransitionCoverage> = emptyMap()
+    private var profiles: Map<DefinitionId, MachineProfileSnapshot> = emptyMap()
+
+    fun snapshot(): WeatherHistoryFrame = WeatherHistoryFrame(session.frame, coverage, profiles)
+
+    fun restoreDiagnostics(snapshot: WeatherHistoryFrame): WeatherFrame {
+        require(snapshot.application.canResume())
+        coverage = snapshot.coverage
+        profiles = snapshot.profiles
+        return snapshot.application
     }
 
-    @androidx.compose.runtime.Composable
-    override fun SettingsAction(onClick: () -> Unit) {
-        WeatherSettingsButton(onClick)
-    }
-
-    override fun <C : Any, A : Action, CMD : Any, E : Event> recording(): actron.decompose.MachineRecording<C, A, CMD, E> = weatherRecording()
-
-    val timeline = HistoryTimeline<WeatherFrame>(capacity)
-    val panel = HistoryPanelState<WeatherFrame>()
+    val timeline = HistoryTimeline<WeatherHistoryFrame>(capacity)
+    val panel = HistoryPanelState<WeatherHistoryFrame>()
     val panelLayout = actron.timetravel.compose.HistoryPanelLayoutState()
     val panelVisible = MutableStateFlow(false)
     private val searchChart = CitySearchMachine.create().chart
     private val weatherChart = CityWeatherMachine.create().chart
 
-    private fun profile(entry: HistoryEntry<WeatherFrame>): HistoryGraphProfile = entry.snapshot.profiles[DefinitionId(entry.machine.stableId)]?.let { HistoryGraphProfile.Recorded(it) } ?: HistoryGraphProfile.Unavailable
+    private fun profile(entry: HistoryEntry<WeatherHistoryFrame>): HistoryGraphProfile = entry.snapshot.profiles[DefinitionId(entry.machine.stableId)]?.let { HistoryGraphProfile.Recorded(it) } ?: HistoryGraphProfile.Unavailable
 
-    fun graph(entry: HistoryEntry<WeatherFrame>): HistoryGraph =
+    fun graph(entry: HistoryEntry<WeatherHistoryFrame>): HistoryGraph =
         when (entry.machine.stableId) {
             "city-search" -> {
                 HistoryGraph.Machine(
                     searchChart,
-                    entry.snapshot.search.snapshot.configuration.active
+                    entry.snapshot.application.search.snapshot.configuration.active
                         .toSet(),
                     HistoryGraphCoverage.Recorded(
                         entry.snapshot.coverage[DefinitionId("city-search")]
@@ -66,7 +67,7 @@ class WeatherHistory(
             }
 
             "city-weather" -> {
-                when (val route = entry.snapshot.route) {
+                when (val route = entry.snapshot.application.route) {
                     WeatherRoute.Search -> {
                         HistoryGraph.Unavailable
                     }
@@ -107,7 +108,7 @@ class WeatherHistory(
                 },
                 stableId = machine.id.value,
             )
-        val generation = branch
+        val generation = session.branch
         // The per-instance ring buffer retains executable decisions; timeline stores host frames.
         val recorder = BoundedMachineRecorder(machine, checkpoint, capacity)
         var previous = checkpoint
@@ -145,7 +146,7 @@ class WeatherHistory(
                 explained: ExplainedDecision<C, CMD, E>,
             ) {
                 pending = append@{
-                    if (generation != branch) return@append
+                    if (generation != session.branch) return@append
                     val decision = explained.decision
                     val step: RecordedStep<C, A, CMD, E> =
                         when (val outcome = decision.outcome) {
@@ -166,11 +167,11 @@ class WeatherHistory(
                         }
                     // Apply the recorded outcome to checkpoint bookkeeping without executing IO again.
                     val after = previous.carriedPast(step)
-                    val coverage = frame.coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
+                    val nextCoverage = coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
                     // Freeze completed measurements before this event. They never follow the live store
                     // when an old frame is selected; imported display recordings omit profiling.
-                    frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage), profiles = frame.profiles + (machine.id to profiler.snapshot()))
-                    if (frame.canResume()) resumableFrame = frame
+                    coverage = coverage + (machine.id to nextCoverage)
+                    profiles = profiles + (machine.id to profiler.snapshot())
 
                     fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)
                     val details =
@@ -200,7 +201,7 @@ class WeatherHistory(
                     previous = after
                     val index = recorder.nextStep
                     // Global eviction trims the corresponding recorder too, bounding both histories.
-                    timeline.append(identity, generation, details, frame, discard = { recorder.discardBefore(index) })
+                    timeline.append(identity, generation, details, snapshot(), discard = { recorder.discardBefore(index) })
                 }
             }
         }

@@ -2,7 +2,7 @@ package actron.example.weather
 
 import actron.decompose.retainedMachine
 import actron.example.weather.app.debug.WeatherHistory
-import actron.example.weather.app.debug.weatherRecording
+import actron.example.weather.app.debug.recording
 import actron.example.weather.app.session.searchRestoration
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -93,8 +93,8 @@ class RetainedMachineTest {
                     machine = CitySearchMachine.create(),
                     initial = CitySearchState(),
                     handler = citySearchHandler(LocalCitySearchRepository),
-                    restoration = history.searchRestoration(),
-                    recording = history.weatherRecording(),
+                    restoration = history.session.searchRestoration(),
+                    recording = history.recording(),
                     coroutineContext = coroutineContext,
                 )
             val store = create()

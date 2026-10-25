@@ -10,6 +10,6 @@ import actron.example.weather.feature.weather.presentation.WeatherAction
 import actron.example.weather.feature.weather.presentation.WeatherCommand
 import actron.example.weather.feature.weather.presentation.WeatherContext
 
-fun WeatherSession.searchRestoration(): MachineRestoration<CitySearchState, CitySearchAction, SearchCitiesCommand, NoEvent> = MachineRestoration(clock, observers = { machine, checkpoint -> listOf(observe(machine, checkpoint, ::updateSearch)) }) { _, _ -> searchCheckpoint }
+fun WeatherSession.searchRestoration(): MachineRestoration<CitySearchState, CitySearchAction, SearchCitiesCommand, NoEvent> = MachineRestoration(clock, observers = { _, checkpoint -> listOf(observe(checkpoint, ::updateSearch)) }) { _, _ -> searchCheckpoint }
 
-fun WeatherSession.weatherRestoration(city: City): MachineRestoration<WeatherContext, WeatherAction, WeatherCommand, NoEvent> = MachineRestoration(clock, observers = { machine, checkpoint -> listOf(observe(machine, checkpoint, ::updateWeather)) }) { _, _ -> weatherCheckpoint(city) }
+fun WeatherSession.weatherRestoration(city: City): MachineRestoration<WeatherContext, WeatherAction, WeatherCommand, NoEvent> = MachineRestoration(clock, observers = { _, checkpoint -> listOf(observe(checkpoint, ::updateWeather)) }) { _, _ -> weatherCheckpoint(city) }
