@@ -5,7 +5,10 @@ import actron.core.InputId
 import actron.observability.FailureDescriptor
 import actron.observability.FailureDetails
 import actron.observability.StoreInstanceId
-import actron.statechart.machine.*
+import actron.statechart.machine.CommandId
+import actron.statechart.machine.DecisionExplanation
+import actron.statechart.machine.MessageId
+import actron.statechart.machine.TimerId
 
 sealed interface TraceParent {
     val linked: Boolean
