@@ -1,6 +1,11 @@
-# Store API guide
+# Internal Store engine reference
 
-Detailed Store, Compose, plugin and testing reference, preserved from the former root README.
+Maintainer reference for the internal Store engine, not an application API.
+The standalone `Store(...)` factories have been removed. Internal modules use
+`createRuntimeStore` with `@OptIn(InternalActronApi::class)`. Applications use our
+[StateChart MachineStore](machine-mvi.md).
+
+Detailed scheduling, plugin and testing contracts follow.
 Start with the [project overview](../../README.md) or the [core quick start](../../actron-core/README.md).
 Dependency setup and release availability are explained in the [installation guide](../../README.md#installation).
 
@@ -42,7 +47,7 @@ also forward the capability explicitly. Calls on unsupported implementations thr
 
 ## Quick Look
 
-Describe each screen state with the `Store{}` DSL. Each `state{}` block groups the `enter{}`, `action{}`, and `recover{}` behavior that is valid for that state.
+Describe each screen state with the `createRuntimeStore{}` DSL. Each `state{}` block groups the `enter{}`, `action{}`, and `recover{}` behavior that is valid for that state.
 Sealed state variants make invalid UI states unrepresentable, such as verifying a code before it is complete or editing the code while verification is in progress.
 
 ```kt
@@ -85,7 +90,7 @@ sealed interface VerificationEvent : Event {
 
 class VerificationViewModel(private val repository: VerificationRepository) : ViewModel() {
 
-    val store: Store<VerificationState, VerificationAction, VerificationEvent> = Store(VerificationState.Draft()) {
+    val store: Store<VerificationState, VerificationAction, VerificationEvent> = createRuntimeStore(VerificationState.Draft()) {
 
         coroutineContext(viewModelScope.coroutineContext)
 
@@ -157,7 +162,7 @@ It keeps surrounding helper layers intentionally small, so dependencies and feat
     - [Specifying CoroutineDispatchers](#specifying-coroutinedispatchers)
   - [State Persistence](#state-persistence)
   - [Clear Pending Actions](#clear-pending-actions)
-  - [Using Control Flow in Store{}](#using-control-flow-in-store)
+  - [Using Control Flow in createRuntimeStore{}](#using-control-flow-in-store)
   - [For Platforms Without Flow/StateFlow Access](#for-platforms-without-flowstateflow-access)
 - [Compose](#compose)
   - [Rendering with State](#rendering-with-state)
@@ -192,13 +197,13 @@ sealed interface CounterAction : Action {
 }
 ```
 
-Create a *Store* using the `Store{}` DSL and an initial *State*.
+Create a *Store* using the `createRuntimeStore{}` DSL and an initial *State*.
 
 ```kt
-val store: Store<CounterState, CounterAction, Nothing> = Store(CounterState(count = 0)) {}
+val store: Store<CounterState, CounterAction, Nothing> = createRuntimeStore(CounterState(count = 0)) {}
 
 // or, use the initialState() specification
-val store: Store<CounterState, CounterAction, Nothing> = Store {
+val store: Store<CounterState, CounterAction, Nothing> = createRuntimeStore {
 
     initialState(CounterState(count = 0))
 }
@@ -208,7 +213,7 @@ Define how *Action*s change *State* using the `state{}` and `action{}` blocks.
 Specify the resulting *State* with `nextState { ... }`.
 
 ```kt
-val store: Store<CounterState, CounterAction, Nothing> = Store(CounterState(count = 0)) {
+val store: Store<CounterState, CounterAction, Nothing> = createRuntimeStore(CounterState(count = 0)) {
 
     state<CounterState> {
 
@@ -268,7 +273,7 @@ sealed interface CounterEvent : Event {
 ```
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store(CounterState(count = 0)) {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore(CounterState(count = 0)) {
     // ...
 }
 ```
@@ -294,7 +299,7 @@ Have repositories and UseCase classes available in your store creation scope and
 ```kt
 fun CounterStore(
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> = Store(CounterState(count = 0)) {
+): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore(CounterState(count = 0)) {
 
     state<CounterState> {
 
@@ -316,7 +321,7 @@ fun CounterStore(
 // or, define a Store class using delegation
 class CounterStore(
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> by Store(
+): Store<CounterState, CounterAction, CounterEvent> by createRuntimeStore(
     initialState = CounterState(count = 0),
     builder = {
         state<CounterState> {
@@ -334,7 +339,7 @@ Processing other than changing the *State* may be defined as functions, as they 
 ```kt
 fun CounterStore(
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> = Store(CounterState(count = 0)) {
+): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore(CounterState(count = 0)) {
 
     // define as a function
     suspend fun loadCount(): Int {
@@ -369,7 +374,7 @@ sealed interface CounterState : State {
 ```kt
 fun CounterStore(
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> = Store(CounterState.Loading) {
+): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore(CounterState.Loading) {
 
     state<CounterState.Loading> { // for Loading state
         action<CounterAction.Load> {
@@ -389,7 +394,7 @@ If you want to run logic when a *State* starts, use the `enter{}` block (similar
 ```kt
 fun CounterStore(
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> = Store(CounterState.Loading) {
+): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore(CounterState.Loading) {
 
     state<CounterState.Loading> {
         enter {
@@ -418,7 +423,7 @@ It would be a good idea to document it and share it with your development team.
 You can also target a parent sealed type in `state<...>{}` or `action<...>{}` when the same handler should apply across multiple variants.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store(CounterState.Loading) {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore(CounterState.Loading) {
     state<CounterState> {
         enter {
             // runs for all CounterState variants
@@ -473,7 +478,7 @@ sealed interface CounterState : State {
 ```
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     state<CounterState.Loading> {
@@ -492,7 +497,7 @@ val store: Store<CounterState, CounterAction, CounterEvent> = Store {
 This works, but you can also handle exceptions with the `recover{}` block.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     state<CounterState.Loading> {
@@ -524,7 +529,7 @@ In other words, your business logic exceptions can be handled in the `recover{}`
 Exceptions that no `recover{}` handles, and failures of plugins and of the `StateSaver`, are reported to the handler set with `exceptionHandler()` (`ExceptionHandler.Rethrow` by default). Non-`Exception` throwables such as `Error`s are fatal: they abort the transition and are only reported.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     exceptionHandler(...)
@@ -584,7 +589,7 @@ In `action{}`, `launch{}` is tied to the *State* active at action start.
 If you want lightweight coordination and explicit cancellation for coroutines launched from an action handler, set the control directly on `launch(...)`:
 
 ```kt
-val store = Store(MyState.Active()) {
+val store = createRuntimeStore(MyState.Active()) {
     val searchLane = LaunchLane()
 
     state<MyState.Active> {
@@ -638,7 +643,7 @@ The Store operates using Coroutines, and its default base CoroutineContext is `D
 Specify it to align the Store's Coroutines lifecycle with another context or to change the execution thread.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     coroutineContext(...)
@@ -689,7 +694,7 @@ enter {
 You can prepare a [StateSaver](../../actron-core/src/commonMain/kotlin/actron/core/StateSaver.kt) to automatically handle *State* persistence:
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     stateSaver(...)
@@ -709,7 +714,7 @@ By default, Actron clears already queued actions when the store exits the curren
 To keep queued actions across state exits, set `pendingActionPolicy(PendingActionPolicy.Keep)`.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     pendingActionPolicy(PendingActionPolicy.Keep)
@@ -718,14 +723,14 @@ val store: Store<CounterState, CounterAction, CounterEvent> = Store {
 
 Regardless of the configured `PendingActionPolicy`, you can still discard already queued actions at a specific point by calling `clearPendingActions()` inside `enter{}`, `action{}`, `exit{}`, `recover{}`, or inside `transaction{}` from a launched coroutine.
 
-### Using Control Flow in `Store{}`
+### Using Control Flow in `createRuntimeStore{}`
 
-The body of `Store{}` is ordinary Kotlin code, so you can use control flow such as `if` and `when` when specifying *Store* configuration.
+The body of `createRuntimeStore{}` is ordinary Kotlin code, so you can use control flow such as `if` and `when` when specifying *Store* configuration.
 
 ```kt
 fun CounterStore(
     logExceptions: Boolean,
-): Store<CounterState, CounterAction, Nothing> = Store {
+): Store<CounterState, CounterAction, Nothing> = createRuntimeStore {
     initialState(CounterState(count = 0))
 
     if (logExceptions) {
@@ -761,7 +766,7 @@ For example, if you have a *Store* in ViewModels, it would look like this:
 fun CounterStore(
     coroutineContext: CoroutineContext,
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> = Store {
+): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     coroutineContext(coroutineContext)
@@ -796,7 +801,7 @@ fun CounterScreen(
 }
 ```
 
-Alternatively, you can use the `Store{}` DSL directly in the ViewModel as follows, but note that in this case you need tests for `CounterViewModel`, and sharing a *Store* across multiple platforms becomes harder.
+Alternatively, you can use the `createRuntimeStore{}` DSL directly in the ViewModel as follows, but note that in this case you need tests for `CounterViewModel`, and sharing a *Store* across multiple platforms becomes harder.
 
 ```kt
 @HiltViewModel
@@ -804,7 +809,7 @@ class MainViewModel @Inject constructor(
     counterRepository: CounterRepository,
 ) : ViewModel() {
 
-    val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+    val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
         // ...
 
         coroutineContext(viewModelScope.coroutineContext)
@@ -819,7 +824,7 @@ fun CounterStore(
     coroutineContext: CoroutineContext,
     stateSaver: StateSaver<CounterState>,
     counterRepository: CounterRepository,
-): Store<CounterState, CounterAction, CounterEvent> = Store {
+): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     coroutineContext(coroutineContext)
@@ -856,7 +861,7 @@ If you inject instances such as Repository using a DI library, it is useful to c
 class CounterStoreContainer(
     private val counterRepository: CounterRepository,
 ) {
-    fun build(coroutineContext: CoroutineContext, stateSaver: StateSaver<CounterState>): Store<CounterState, CounterAction, CounterEvent> = Store {
+    fun build(coroutineContext: CoroutineContext, stateSaver: StateSaver<CounterState>): Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
         // ...
 
         coroutineContext(coroutineContext)
@@ -1008,7 +1013,7 @@ class YourPlugin<S : State, A : Action, E : Event> : Plugin<S, A, E> {
 Apply the created plugin as follows:
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     // add Plugin instance
@@ -1037,7 +1042,7 @@ When multiple plugin instances are registered, Actron invokes them concurrently 
 If plugins must run one by one in registration order, set `pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder)`.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder)
@@ -1060,7 +1065,7 @@ implementation("io.github.roman-n1:actron-logging:5.0.0-alpha.1")
 Apply the `simpleLogging()` plugin factory function to your *Store* to log actions, events, and state changes.
 
 ```kt
-val store: Store<CounterState, CounterAction, CounterEvent> = Store {
+val store: Store<CounterState, CounterAction, CounterEvent> = createRuntimeStore {
     // ...
 
     plugin(simpleLogging())
@@ -1099,7 +1104,7 @@ sealed interface MainMessage : Message {
 Apply the `receiveMessages()` plugin factory function to the *Store* that receives messages.
 
 ```kt
-val myPageStore: Store<MyPageState, MyPageAction, MyPageEvent> = Store {
+val myPageStore: Store<MyPageState, MyPageAction, MyPageEvent> = createRuntimeStore {
     // ...
 
     plugin(
@@ -1116,7 +1121,7 @@ val myPageStore: Store<MyPageState, MyPageAction, MyPageEvent> = Store {
 Define the `message()` specification at any point in the *Store* that sends messages.
 
 ```kt
-val mainStore: Store<MainState, MainAction, MainEvent> = Store {
+val mainStore: Store<MainState, MainAction, MainEvent> = createRuntimeStore {
     // ...
 
     state<MainState.LoggedIn> { // leave the logged-in state
@@ -1130,14 +1135,14 @@ val mainStore: Store<MainState, MainAction, MainEvent> = Store {
 
 ## Project-specific AppStore Wrapper
 
-In larger projects, it can be useful to wrap `Store{}` DSL in a project-specific `AppStore{}` that applies app-wide defaults in one place.
+In larger projects, it can be useful to wrap `createRuntimeStore{}` DSL in a project-specific `AppStore{}` that applies app-wide defaults in one place.
 This lets you centralize shared *Store* configuration.
 
 ```kt
 fun <S : State, A : Action, E : Event> AppStore(
     initialState: S,
     builder: StoreBuilder<S, A, E>.() -> Unit,
-): Store<S, A, E> = Store(
+): Store<S, A, E> = createRuntimeStore(
     initialState = initialState,
 ) {
     // shared Store configuration
@@ -1245,7 +1250,7 @@ If your `action {}` or `enter {}` logic launches additional coroutines with `lau
 Use `patch { ... }` when you want to replace non-state *Store* configuration in tests without rewriting the *Store* definition.
 
 ```kt
-fun CounterStore(): Store<CounterState, CounterAction, Nothing> = Store(
+fun CounterStore(): Store<CounterState, CounterAction, Nothing> = createRuntimeStore(
     initialState = CounterState(count = 0),
 ) {
     plugin(AppLoggingPlugin())

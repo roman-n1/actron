@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -94,7 +96,7 @@ class CounterUseCaseTest {
     private fun createTestStore(
         initialState: AppState = AppState.Initial,
     ): Store<AppState, AppAction, AppEvent> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             // Configure coroutine context for tests
             coroutineContext(Dispatchers.Unconfined)
 

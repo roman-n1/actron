@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -13,12 +15,13 @@ import kotlin.reflect.KClass
  * Each built Store owns a snapshot of registrations and configuration collections. Later changes
  * to a retained builder do not affect that Store. Plugin objects and user callbacks are not cloned.
  *
- * Most users interact with this type through the top-level `Store(...)` factory overloads.
+ * Module implementations use this through `createRuntimeStore`; applications use MachineStore.
  */
 @Suppress("unused")
 @ActronStoreDsl
+@InternalActronApi
 class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
-    private var storeInitialState: () -> S = { throw IllegalArgumentException("[Actron] InitialState must be set in Store{} DSL") }
+    private var storeInitialState: () -> S = { throw IllegalArgumentException("[Actron] InitialState must be set in createRuntimeStore{} DSL") }
     private val storeSettings = mutableMapOf<KClass<*>, StoreSetting<S>>()
     private val storePlugins: MutableList<Plugin<S, A, E>> = mutableListOf()
 
@@ -385,18 +388,20 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
 }
 
 /** Creates a Store with an explicit initial state and execution context. */
-fun <S : State, A : Action, E : Event> Store(
+@InternalActronApi
+fun <S : State, A : Action, E : Event> createRuntimeStore(
     initialState: S,
     context: CoroutineContext = Dispatchers.Default,
     builder: StoreBuilder<S, A, E>.() -> Unit,
 ): Store<S, A, E> =
-    Store<S, A, E>(context) {
+    createRuntimeStore<S, A, E>(context) {
         initialState(initialState)
         builder()
     }
 
 /** Creates a Store whose initial state is supplied by [builder]. */
-fun <S : State, A : Action, E : Event> Store(
+@InternalActronApi
+fun <S : State, A : Action, E : Event> createRuntimeStore(
     context: CoroutineContext = Dispatchers.Default,
     builder: StoreBuilder<S, A, E>.() -> Unit,
 ): Store<S, A, E> =

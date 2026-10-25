@@ -11,6 +11,7 @@ import actron.core.Store
 import actron.core.StoreProbe
 import actron.core.StoreTrace
 import actron.core.closeAndJoin
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -201,7 +202,7 @@ class LoggingDeliveryContractTest {
         runTest {
             val output = mutableListOf<String>()
             val store: Store<ChangingState, LogAction, Nothing> =
-                Store(ChangingState.Before) {
+                createRuntimeStore(ChangingState.Before) {
                     coroutineContext(UnconfinedTestDispatcher(testScheduler))
                     plugin(simpleLogging(logger = { _, _, message -> output += message() }, dispatcher = StandardTestDispatcher(testScheduler)))
                     state<ChangingState.Before> {
@@ -333,7 +334,7 @@ private fun TestScope.loggingStore(
     parent: CoroutineContext = EmptyCoroutineContext,
     trace: (StoreTrace<LogState, LogAction, LogEvent>) -> Unit = {},
 ): Store<LogState, LogAction, LogEvent> =
-    Store(LogState(0)) {
+    createRuntimeStore(LogState(0)) {
         coroutineContext(parent + UnconfinedTestDispatcher(testScheduler))
         exceptionHandler(ExceptionHandler { handled += it })
         probe(StoreProbe { trace(it) })

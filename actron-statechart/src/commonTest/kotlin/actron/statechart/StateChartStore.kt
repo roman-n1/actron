@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalActronApi::class)
+@file:OptIn(ExperimentalActronApi::class, actron.core.InternalActronApi::class)
 
 package actron.statechart
 
@@ -15,6 +15,7 @@ import actron.core.Store
 import actron.core.StoreBuilder
 import actron.core.StoreInternalApi
 import actron.core.StoreScope
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -33,9 +34,9 @@ import kotlin.coroutines.CoroutineContext
  * @property configuration The active nodes and the history of the chart
  * @property context The data of the Store, which effects and hooks update (for example a retry
  * counter that a guard reads)
- * @property timers The running timers; bookkeeping of the Store (see [ChartTimers])
+ * @property timers The running timers; bookkeeping of the createRuntimeStore (see [ChartTimers])
  */
-data class ChartState<C : Any>(
+internal data class ChartState<C : Any>(
     val configuration: StateConfiguration,
     val context: C,
     val timers: ChartTimers = ChartTimers(),
@@ -65,7 +66,7 @@ data class ChartState<C : Any>(
  * [StateChartDefinition.transitions]
  * @property issued The last token issued; the next start gets `issued + 1`
  */
-data class ChartTimers(
+internal data class ChartTimers(
     val running: Map<Int, Long> = emptyMap(),
     val issued: Long = 0,
 )
@@ -75,7 +76,7 @@ data class ChartTimers(
  * [StateChartStoreBuilder.onEnter] hook.
  */
 @ActronStoreDsl
-interface ChartHookScope<C : Any, E : Event> {
+internal interface ChartHookScope<C : Any, E : Event> {
     /** Underlying handler scope for extensions such as `store.message(...)`. */
     val store: StoreScope
 
@@ -106,7 +107,7 @@ interface ChartHookScope<C : Any, E : Event> {
  * Scope of an [StateChartStoreBuilder.onEnter] hook.
  */
 @ActronStoreDsl
-interface ChartEnterScope<C : Any, A : Action, E : Event> : ChartHookScope<C, E> {
+internal interface ChartEnterScope<C : Any, A : Action, E : Event> : ChartHookScope<C, E> {
     /**
      * Starts work that lives while [node] stays active: it is cancelled when [node] is exited (or
      * when the Store closes), and it does not start at all when the step that entered [node]
@@ -123,7 +124,7 @@ interface ChartEnterScope<C : Any, A : Action, E : Event> : ChartHookScope<C, E>
  * `recover {}` handlers, otherwise by its exception handler.
  */
 @ActronStoreDsl
-interface ChartLaunchScope<C : Any, A : Action, E : Event> {
+internal interface ChartLaunchScope<C : Any, A : Action, E : Event> {
     /** Underlying launch scope for StoreScope extensions. */
     val store: StoreScope
 
@@ -163,7 +164,7 @@ interface ChartLaunchScope<C : Any, A : Action, E : Event> {
  * when the Store is built; later builder edits do not change an existing Store.
  */
 @ActronStoreDsl
-class StateChartStoreBuilder<C : Any, A : Action, E : Event> internal constructor() {
+internal class StateChartStoreBuilder<C : Any, A : Action, E : Event> internal constructor() {
     internal var maxMicrosteps = 100
 
     /** Bounds automatic transitions per input; lifecycle changes are staged until stability. */
@@ -298,14 +299,14 @@ class StateChartStoreBuilder<C : Any, A : Action, E : Event> internal constructo
  *
  * @param definition The chart; its hierarchy must be well formed (see [StateChartRuntime])
  * @param context The initial context
- * @param coroutineContext The Store's coroutine context, as in Actron's `Store(...)`
+ * @param coroutineContext The Store's coroutine context, as in Actron's `createRuntimeStore(...)`
  * @param builder Guards, effects, hooks and Store configuration
  * @throws IllegalArgumentException if a guard or effect label used by [definition] has no
  * implementation, if a hook or activity is added for an undeclared node or a [HistoryState], if
  * a guard or effect label is implemented twice, if the hierarchy of [definition] is malformed or
  * refers to undeclared states, or if timers without a positive delay restart each other in a loop
  */
-fun <C : Any, A : Action, E : Event> StateChartStore(
+internal fun <C : Any, A : Action, E : Event> StateChartStore(
     definition: StateChartDefinition,
     context: C,
     coroutineContext: CoroutineContext = kotlinx.coroutines.Dispatchers.Default,
@@ -353,7 +354,7 @@ internal class ChartStoreHost<C : Any, A : Action, E : Event>(
     fun build(): Store<ChartState<C>, A, E> = store
 
     private val store: Store<ChartState<C>, A, E> by lazy {
-        Store(declaredInitial, coroutineContext) {
+        createRuntimeStore(declaredInitial, coroutineContext) {
             // The action type is erased; every action this Store receives is an A.
             @Suppress("UNCHECKED_CAST")
             (this as StoreBuilder<ChartState<C>, Action, E>).state<ChartState<C>> {

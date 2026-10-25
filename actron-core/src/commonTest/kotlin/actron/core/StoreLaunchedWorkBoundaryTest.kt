@@ -46,7 +46,7 @@ class StoreLaunchedWorkBoundaryTest {
             val resumed = CompletableDeferred<Unit>()
             val traces = mutableListOf<StoreTrace<Snapshot, Command, Nothing>>()
             val store =
-                Store<Snapshot, Command, Nothing>(Snapshot.Active()) {
+                createRuntimeStore<Snapshot, Command, Nothing>(Snapshot.Active()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { traces += it })
                     state<Snapshot.Active> {
@@ -98,7 +98,7 @@ class StoreLaunchedWorkBoundaryTest {
             val traces = mutableListOf<StoreTrace<Snapshot, Command, Nothing>>()
             var recovered = 0
             val store =
-                Store<Snapshot, Command, Nothing>(Snapshot.Active()) {
+                createRuntimeStore<Snapshot, Command, Nothing>(Snapshot.Active()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { traces += it })
                     exceptionHandler(ExceptionHandler { reported += it })

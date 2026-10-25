@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -22,7 +24,7 @@ class StoreSubscriptionRetentionJvmTest {
             for (dispatcher in listOf(StandardTestDispatcher(testScheduler), UnconfinedTestDispatcher(testScheduler))) {
                 val release = CompletableDeferred<Unit>()
                 val store =
-                    Store<Active, Subscribe, Nothing>(Active, dispatcher) {
+                    createRuntimeStore<Active, Subscribe, Nothing>(Active, dispatcher) {
                         state<Active> {
                             enter { subscribe { release.await() } }
                             action<Subscribe> { subscribe {} }

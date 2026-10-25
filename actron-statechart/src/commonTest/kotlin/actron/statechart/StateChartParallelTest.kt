@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import kotlinx.coroutines.Dispatchers
@@ -551,7 +554,7 @@ class StateChartParallelTest {
         forgetful: Boolean,
         firstScreen: Screen = Screen.Inbox,
     ): Store<MessengerState, MessengerAction, MessengerEvent> =
-        Store(MessengerState.Offline) {
+        createRuntimeStore(MessengerState.Offline) {
             coroutineContext(Dispatchers.Unconfined)
             state<MessengerState.Offline> {
                 action<MessengerAction.Connect> { nextState { MessengerState.Online(Link.Connected, Syncing.Idle, firstScreen) } }

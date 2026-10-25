@@ -16,6 +16,10 @@ the signatures in `actron-statechart/src/commonMain/kotlin/actron/statechart/mac
 
 ## Modeling decisions
 
+- Our concrete StateChart `Machine` is the only application reducer. Do not introduce a
+  handwritten reducer interface, standalone Store DSL, or legacy coroutine chart adapter.
+  `StoreBuilder` and `createRuntimeStore` are internal engine infrastructure.
+
 - Prefer the typed DSL used by Weather's `CitySearchMachine.kt` and `CityWeatherMachine.kt`.
   A direct sealed state can be the complete context. A context-based machine binds its state
   once through read/write functions. Do not maintain a separate phase enum and StateId map.

@@ -582,10 +582,10 @@ public final class actron/core/StoreBuilder$StateHandlerConfig$ThreadedHandler {
 }
 
 public final class actron/core/StoreBuilderKt {
-	public static final fun Store (Lactron/core/State;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;)Lactron/core/Store;
-	public static final fun Store (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;)Lactron/core/Store;
-	public static synthetic fun Store$default (Lactron/core/State;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/core/Store;
-	public static synthetic fun Store$default (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/core/Store;
+	public static final fun createRuntimeStore (Lactron/core/State;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;)Lactron/core/Store;
+	public static final fun createRuntimeStore (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;)Lactron/core/Store;
+	public static synthetic fun createRuntimeStore$default (Lactron/core/State;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/core/Store;
+	public static synthetic fun createRuntimeStore$default (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/core/Store;
 }
 
 public final class actron/core/StoreHandlerMetadata {

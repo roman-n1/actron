@@ -70,7 +70,7 @@ class StoreSoakTest {
         processed: MutableStateFlow<Int> = MutableStateFlow(0),
         closed: CompletableDeferred<Unit> = CompletableDeferred(),
     ): Store<S, A, Ev> =
-        Store(S.Idle()) {
+        createRuntimeStore(S.Idle()) {
             coroutineContext(Dispatchers.Default)
             probe(StoreProbe { if (it === StoreTrace.StoreClosed) closed.complete(Unit) })
             pendingActionPolicy(policy)

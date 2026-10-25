@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CoroutineDispatcher
@@ -578,7 +580,7 @@ internal fun buildRtStore(
     log: MutableList<Int>,
     configure: RtBuilder.() -> Unit = {},
 ): Store<RtState, RtAction, RtEvent> =
-    Store(initialState) {
+    createRuntimeStore(initialState) {
         configure()
         program.install(this, log)
     }

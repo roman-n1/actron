@@ -11,10 +11,10 @@ abstract fun interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, 
 }
 
 final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.decompose/MachineDiagnostics { // actron.decompose/MachineDiagnostics|null[0]
-    constructor <init>(actron.statechart.machine/CommandHandler<#C, #B>, kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> = ..., kotlin/Function1<actron.statechart/StoreConfiguration<actron.statechart.machine/MachineSnapshot<#A>, actron.statechart.machine/MachineInput<#B>, #D>, kotlin/Unit> = ...) // actron.decompose/MachineDiagnostics.<init>|<init>(actron.statechart.machine.CommandHandler<1:2,1:1>;kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>;kotlin.Function1<actron.statechart.StoreConfiguration<actron.statechart.machine.MachineSnapshot<1:0>,actron.statechart.machine.MachineInput<1:1>,1:3>,kotlin.Unit>){}[0]
+    constructor <init>(actron.statechart.machine/CommandHandler<#C, #B>, kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> = ..., kotlin/Function1<actron.statechart.machine/MachineConfiguration<#A, #B, #D>, kotlin/Unit> = ...) // actron.decompose/MachineDiagnostics.<init>|<init>(actron.statechart.machine.CommandHandler<1:2,1:1>;kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>;kotlin.Function1<actron.statechart.machine.MachineConfiguration<1:0,1:1,1:3>,kotlin.Unit>){}[0]
 
     final val configure // actron.decompose/MachineDiagnostics.configure|{}configure[0]
-        final fun <get-configure>(): kotlin/Function1<actron.statechart/StoreConfiguration<actron.statechart.machine/MachineSnapshot<#A>, actron.statechart.machine/MachineInput<#B>, #D>, kotlin/Unit> // actron.decompose/MachineDiagnostics.configure.<get-configure>|<get-configure>(){}[0]
+        final fun <get-configure>(): kotlin/Function1<actron.statechart.machine/MachineConfiguration<#A, #B, #D>, kotlin/Unit> // actron.decompose/MachineDiagnostics.configure.<get-configure>|<get-configure>(){}[0]
     final val handler // actron.decompose/MachineDiagnostics.handler|{}handler[0]
         final fun <get-handler>(): actron.statechart.machine/CommandHandler<#C, #B> // actron.decompose/MachineDiagnostics.handler.<get-handler>|<get-handler>(){}[0]
     final val observers // actron.decompose/MachineDiagnostics.observers|{}observers[0]

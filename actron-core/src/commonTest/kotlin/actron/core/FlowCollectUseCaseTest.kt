@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +56,7 @@ class FlowCollectUseCaseTest {
         dataFlow: Flow<Int>,
         initialState: AppState = AppState.Initial,
     ): Store<AppState, AppAction, Nothing> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             // Configure coroutine context for tests
             coroutineContext(Dispatchers.Unconfined)
 

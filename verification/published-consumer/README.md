@@ -16,7 +16,7 @@ scripts/verify-published-consumer.sh wasm
 scripts/verify-published-consumer.sh ios # requires macOS/Xcode
 ```
 
-Each invocation publishes **thirteen modules**, including persistence, test and debug tooling,
+Each invocation publishes **fourteen modules**, including persistence, test and debug tooling,
 with their root metadata and the selected platform's variants. Group/version are read from
 `gradle.properties`; plugin/dependency versions are read from the producer's version catalog.
 It creates and deletes a unique temporary Maven repository. It does not publish to Maven
@@ -29,12 +29,12 @@ running Gradle. This catches a default-JVM-target problem that source-project te
 
 `app` consumes production modules only. Core, statechart and observability are intentionally
 transitive dependencies; common code calls their APIs and compiles Compose ViewStore/Mailbox
-usage and the checkpoint persistence boundary without debugger dependencies. The JVM smoke executes ordinary Store, StateChartStore, MachineStore, the message bus
+usage and the checkpoint persistence boundary without debugger dependencies. The JVM smoke executes StateChart MachineStores, command-handler messages, the message bus
 and a logging plugin. CI builds with JDK 17 and executes the JVM smoke with a real JDK 11, so
 target-11 bytecode calling newer Java APIs is detected. Locally set
 `ACTRON_CONSUMER_JAVA11_HOME=/path/to/jdk-11` to do the same; otherwise the local smoke uses the
 Gradle runtime and reports that limitation. `tooling` separately compiles MachineTestDriver, actron-test helpers and
-the Time Travel inspector. Graph checks require all thirteen modules to be consumed and reject
+the Time Travel inspector. Graph checks require all fourteen modules to be consumed and reject
 source-project substitution, mixed fork versions, upstream Koma dependencies anywhere in the
 resolved graph, and test/debug modules in the app graph. Actron does not support source,
 binary or runtime interoperability with upstream Koma 4.0.0.
@@ -45,9 +45,8 @@ executes the smoke test. This verifies packaging and consumption; it does not re
 integration tests or a production pilot.
 
 Adapter configuration contracts are checked against the **published API**, too. Positive common
-fixtures compile safe MachineStore configuration, context-only chart recovery, and
-`store.message(...)` from hooks/activities. On JVM, a negative fixture must fail compilation at
-all seven labelled forbidden operations: MachineStore `state`/`initialState`/`recover`, chart
-recovery `configuration`/`timers`/`nextState`, and treating a chart hook itself as `StoreScope`.
+fixtures compile safe MachineStore configuration and the Decompose machine adapter. On JVM,
+a negative fixture rejects MachineStore `state`/`initialState`/`recover`, the removed `Store`
+and `StateChartStore` factories, and use of `createRuntimeStore` without internal opt-in.
 An unrelated compiler or dependency failure cannot satisfy the negative check; each operation
 must produce its own diagnostic. The captured compiler log remains under `build/reports/contracts`.

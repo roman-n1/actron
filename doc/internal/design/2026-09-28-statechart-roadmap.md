@@ -254,6 +254,16 @@ follow from this.
 
 ### Divergence inventory vs upstream 4.0.0
 
+2026-10-25: the supported application API is now StateChart-only. The standalone `Store(...)`
+factories were replaced by the internal `createRuntimeStore` bridge; `StoreBuilder` requires
+`InternalActronApi`. The coroutine `StateChartStore` adapter and its configuration/scopes moved
+to commonTest regression fixtures and are excluded from production artifacts. Public consumers
+use `Machine` / `MachineStore` and `retainedMachine`; no compatibility aliases or alternate
+handwritten reducer contract remain. Message sending no longer requires an engine DSL scope.
+See [the API decision](../adr/2026-10-25-statechart-only-api.md) and published-consumer compile
+contracts for the intentional source/ABI break. Earlier rows describe the historical runtime work.
+
+
 Columns: what changed; where (files, symbols); since (stability-review round, commit); the
 regression tests that pin it; upstream status (`not proposed`, `prepared: upstream-pr/<topic>`,
 `issue #N`, `PR #N`, `merged in <tag>`, `declined`, `fork-only by design`); removable when.

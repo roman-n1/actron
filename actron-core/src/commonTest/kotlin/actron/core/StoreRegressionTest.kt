@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -63,7 +65,7 @@ class StoreRegressionTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Active()) {
+                createRuntimeStore(AppState.Active()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<AppState.Active> {
@@ -96,7 +98,7 @@ class StoreRegressionTest {
     fun clearOnStateExit_keepsActionsDispatchedByPluginsForTheNewState() =
         runTest(testDispatcher) {
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Active()) {
+                createRuntimeStore(AppState.Active()) {
                     coroutineContext(Dispatchers.Unconfined)
                     plugin(
                         Plugin(
@@ -128,7 +130,7 @@ class StoreRegressionTest {
     fun stateFirst_returnsOnceThePredicateMatches() =
         runTest(testDispatcher) {
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Active()) {
+                createRuntimeStore(AppState.Active()) {
                     coroutineContext(Dispatchers.Default)
                     state<AppState.Active> {
                         action<AppAction.Finish> { nextState { AppState.Done } }
@@ -175,7 +177,7 @@ class StoreRegressionTest {
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
             val store: Store<Search, Query, Nothing> =
-                Store(Search()) {
+                createRuntimeStore(Search()) {
                     coroutineContext(dispatcher)
                     state<Search> {
                         action<Query> {
@@ -221,7 +223,7 @@ class StoreRegressionTest {
         stateSaver: StateSaver<EnterState> = StateSaver.Noop(),
         plugin: Plugin<EnterState, EnterAction, Nothing> = actron.core.Plugin(),
     ): Store<EnterState, EnterAction, Nothing> =
-        Store(EnterState.Start) {
+        createRuntimeStore(EnterState.Start) {
             coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(ExceptionHandler { handled += it })
             stateSaver(stateSaver)
@@ -304,7 +306,7 @@ class StoreRegressionTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<Emitting, EmitThenFinish, Emitted> =
-                Store(Emitting()) {
+                createRuntimeStore(Emitting()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     plugin(Plugin(onEvent = { _, _ -> throw IllegalStateException("onEvent failed") }))
@@ -342,7 +344,7 @@ class StoreRegressionTest {
             var pokes = 0
             val handled = mutableListOf<Throwable>()
             val store: Store<Booting, Poke, Nothing> =
-                Store(Booting()) {
+                createRuntimeStore(Booting()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     plugin(Plugin(onStart = { pluginStarts++ }))
@@ -392,7 +394,7 @@ class StoreRegressionTest {
         plugin: Plugin<Net, NetAction, Nothing> = actron.core.Plugin(),
         policy: PluginExecutionPolicy = PluginExecutionPolicy.Concurrent,
     ): Store<Net, NetAction, Nothing> =
-        Store(Net.Idle) {
+        createRuntimeStore(Net.Idle) {
             coroutineContext(dispatcher)
             exceptionHandler(ExceptionHandler { handled += it })
             pluginExecutionPolicy(policy)
@@ -452,7 +454,7 @@ class StoreRegressionTest {
             val handled = mutableListOf<Throwable>()
             var pings = 0
             val store: Store<Net, NetAction, Nothing> =
-                Store(Net.Idle) {
+                createRuntimeStore(Net.Idle) {
                     coroutineContext(dispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Net.Idle> {
@@ -499,7 +501,7 @@ class StoreRegressionTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<Booting, Poke, Nothing> =
-                Store(Booting()) {
+                createRuntimeStore(Booting()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Booting> {
@@ -539,7 +541,7 @@ class StoreRegressionTest {
             val handled = mutableListOf<Throwable>()
             var pokes = 0
             val store: Store<Loop, Action, Nothing> =
-                Store(Loop.Start) {
+                createRuntimeStore(Loop.Start) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Loop.Start> { action<Enter> { nextState { Loop.Left(0) } } }
@@ -573,7 +575,7 @@ class StoreRegressionTest {
 
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             val store: Store<Booting, Action, Nothing> =
-                Store(Booting()) {
+                createRuntimeStore(Booting()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     plugin(Plugin(onAction = { _, action -> if (action is Enter) storePublication.getCompleted().dispatchAndAwaitForTest(Poke) }))
@@ -616,7 +618,7 @@ class StoreRegressionTest {
                 val handled = mutableListOf<Throwable>()
                 val seen = mutableListOf<Int>()
                 val store: Store<Booting, Poke, Nothing> =
-                    Store(Booting()) {
+                    createRuntimeStore(Booting()) {
                         coroutineContext(Dispatchers.Unconfined)
                         exceptionHandler(ExceptionHandler { handled += it })
                         pluginExecutionPolicy(policy)
@@ -651,7 +653,7 @@ class StoreRegressionTest {
 
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             val store: Store<Booting, Action, Beep> =
-                Store(Booting()) {
+                createRuntimeStore(Booting()) {
                     coroutineContext(Dispatchers.Default)
                     exceptionHandler(ExceptionHandler.Ignore)
                     plugin(
@@ -699,7 +701,7 @@ class StoreRegressionTest {
         runTest {
             var pokes = 0
             val store: Store<Booting, Action, Nothing> =
-                Store(Booting()) {
+                createRuntimeStore(Booting()) {
                     coroutineContext(Dispatchers.Default)
                     state<Booting> {
                         action<Linger> { CoroutineScope(currentCoroutineContext()).launch { delay(60_000) } }
@@ -725,7 +727,7 @@ class StoreRegressionTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<Booting, Poke, Nothing> =
-                Store(Booting()) {
+                createRuntimeStore(Booting()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     plugin(Plugin(onState = { _, _ -> throw IllegalStateException("first") }))
@@ -752,7 +754,7 @@ class StoreRegressionTest {
             val handled = mutableListOf<Throwable>()
             var launched = 0
             val store: Store<Loop, Action, Nothing> =
-                Store(Loop.Start) {
+                createRuntimeStore(Loop.Start) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Loop.Start> { action<Enter> { nextState { Loop.Left(0) } } }
@@ -780,7 +782,7 @@ class StoreRegressionTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<Net, NetAction, Nothing> =
-                Store(Net.Idle) {
+                createRuntimeStore(Net.Idle) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Net.Idle> {
@@ -813,7 +815,7 @@ class StoreRegressionTest {
             val gate = CompletableDeferred<Unit>()
             var recovered = 0
             val store: Store<Net, NetAction, Nothing> =
-                Store(Net.Idle) {
+                createRuntimeStore(Net.Idle) {
                     coroutineContext(dispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Net.Idle> {
@@ -856,7 +858,7 @@ class StoreRegressionTest {
             val release = CompletableDeferred<Unit>()
             var recovered = 0
             val store: Store<Net, NetAction, Nothing> =
-                Store(Net.Idle) {
+                createRuntimeStore(Net.Idle) {
                     coroutineContext(dispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Net.Idle> {

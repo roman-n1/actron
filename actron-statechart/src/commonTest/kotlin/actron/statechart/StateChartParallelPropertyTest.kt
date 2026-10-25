@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -6,6 +8,7 @@ import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import actron.test.startAndAwait
@@ -492,7 +495,7 @@ class StateChartParallelPropertyTest {
         val runtime = StateChartRuntime(chart, { s: Leaves -> s.leaves.first() }, guards)
         var configuration = runtime.initialConfiguration()
         var index = 0
-        return Store(Leaves(chart.activeLeaves(configuration).toSet())) {
+        return createRuntimeStore(Leaves(chart.activeLeaves(configuration).toSet())) {
             coroutineContext(StandardTestDispatcher(scope.testScheduler))
             pendingActionPolicy(PendingActionPolicy.Keep)
             state<Leaves> {
@@ -620,7 +623,7 @@ class StateChartParallelPropertyTest {
                         val jumps = Random(seed)
                         val atomic = chart.states.filterIsInstance<AtomicState>().map { it.id }
                         val store =
-                            Store<Leaves, RandomAction, NoEvent>(Leaves(chart.activeLeaves(configuration).toSet())) {
+                            createRuntimeStore<Leaves, RandomAction, NoEvent>(Leaves(chart.activeLeaves(configuration).toSet())) {
                                 coroutineContext(StandardTestDispatcher(testScheduler))
                                 pendingActionPolicy(PendingActionPolicy.Keep)
                                 state<Leaves> {

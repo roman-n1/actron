@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.test
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.Event
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -55,7 +58,7 @@ class StoreRecorderTest {
     }
 
     private fun createTestStore(): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Loading) {
+        createRuntimeStore(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
@@ -151,7 +154,7 @@ class StoreRecorderTest {
     @Test
     fun patch_shouldReconfigureStoreBeforeFirstUse() {
         val store =
-            Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+            createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                 coroutineContext(Dispatchers.Unconfined)
                 stateSaver(RecordingStateSaver())
             }.patch {
@@ -211,7 +214,7 @@ class StoreRecorderTest {
         runTest(testDispatcher) {
             var enterCalls = 0
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(actron.core.ExceptionHandler.Ignore)
                     state<AppState.Loading> {

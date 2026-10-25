@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -41,7 +43,7 @@ class StoreBaseTest {
         initialState: AppState,
         autoStartPolicy: AutoStartPolicy = AutoStartPolicy.OnDispatchOrStateCollection,
     ): Store<AppState, AppAction, AppEvent> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             coroutineContext(Dispatchers.Unconfined)
             autoStartPolicy(autoStartPolicy)
             state<AppState.Loading> {
@@ -159,7 +161,7 @@ class StoreBaseTest {
         runTest(testDispatcher) {
             val gate = CompletableDeferred<Unit>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Loading> {
                         enter {
@@ -194,7 +196,7 @@ class StoreBaseTest {
             val startupEntered = CompletableDeferred<Unit>()
             val startupGate = CompletableDeferred<Unit>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Loading> {
                         enter {
@@ -238,7 +240,7 @@ class StoreBaseTest {
             val startupEntered = CompletableDeferred<Unit>()
             val startupGate = CompletableDeferred<Unit>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Loading> {
                         enter {
@@ -281,7 +283,7 @@ class StoreBaseTest {
             val startupEntered = CompletableDeferred<Unit>()
             val startupGate = CompletableDeferred<Unit>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     autoStartPolicy(AutoStartPolicy.OnDispatch)
                     state<AppState.Loading> {

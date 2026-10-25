@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -60,7 +62,7 @@ class StorePluginTest {
             val records = mutableListOf<String>()
 
             val store =
-                Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                     coroutineContext(testDispatcher)
                     plugin(
                         Plugin(
@@ -140,7 +142,7 @@ class StorePluginTest {
             val records = mutableListOf<String>()
 
             val store =
-                Store<AppState, AppAction, Nothing>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, Nothing>(AppState.Loading) {
                     coroutineContext(testDispatcher)
                     plugin(
                         object : Plugin<AppState, AppAction, Nothing> {
@@ -206,7 +208,7 @@ class StorePluginTest {
             val testDispatcher = StandardTestDispatcher(testScheduler)
 
             val store =
-                Store<AppState, AppAction, Nothing>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, Nothing>(AppState.Loading) {
                     coroutineContext(testDispatcher)
                     plugin(
                         object : Plugin<AppState, AppAction, Nothing> {
@@ -252,7 +254,7 @@ class StorePluginTest {
             val records = mutableListOf<String>()
 
             val store =
-                Store<AppState, AppAction, Nothing>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, Nothing>(AppState.Loading) {
                     coroutineContext(testDispatcher)
                     plugin(
                         object : Plugin<AppState, AppAction, Nothing> {
@@ -291,7 +293,7 @@ class StorePluginTest {
     fun close_withoutPlugins_shouldNotInitializeStore() {
         val stateSaver = CountingStateSaver<AppState>(restoredState = AppState.Ready(count = 10))
         val store =
-            Store<AppState, AppAction, Nothing>(AppState.Loading) {
+            createRuntimeStore<AppState, AppAction, Nothing>(AppState.Loading) {
                 stateSaver(stateSaver)
 
                 state<AppState.Loading> {

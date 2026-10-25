@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -146,7 +148,7 @@ class EventStreamUseCaseTest {
     private fun createTestStore(
         eventStreamMonitor: EventStreamMonitor,
     ): Store<AppState, AppAction, Nothing> =
-        Store {
+        createRuntimeStore {
             initialState(AppState.Idle)
             coroutineContext(Dispatchers.Unconfined)
 

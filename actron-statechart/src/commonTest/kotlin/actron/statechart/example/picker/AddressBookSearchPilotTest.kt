@@ -11,7 +11,6 @@ import actron.observability.PayloadPolicy
 import actron.observability.RecordingSession
 import actron.observability.RuntimeSessionId
 import actron.observability.StoreInstanceId
-import actron.statechart.StoreConfiguration
 import actron.statechart.example.picker.AddressBookSearchMachine.Contact
 import actron.statechart.example.picker.AddressBookSearchMachine.Group
 import actron.statechart.example.picker.AddressBookSearchMachine.GroupFilter
@@ -32,6 +31,7 @@ import actron.statechart.machine.CommandEnvelope
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.CommandId
 import actron.statechart.machine.MachineClock
+import actron.statechart.machine.MachineConfiguration
 import actron.statechart.machine.MachineStore
 import actron.statechart.machine.MachineTime
 import actron.statechart.machine.ResultSink
@@ -123,7 +123,7 @@ class AddressBookSearchPilotTest {
     private class Tab(
         scope: TestScope,
         val repository: FakeRepository,
-        configure: StoreConfiguration<actron.statechart.machine.MachineSnapshot<SearchContext>, actron.statechart.machine.MachineInput<SearchAction>, SearchEvent>.() -> Unit,
+        configure: MachineConfiguration<SearchContext, SearchAction, SearchEvent>.() -> Unit,
     ) {
         val handled = mutableListOf<Throwable>()
         val events = mutableListOf<SearchEvent>()
@@ -149,7 +149,7 @@ class AddressBookSearchPilotTest {
 
     private suspend fun TestScope.tab(
         repository: FakeRepository = FakeRepository(),
-        configure: StoreConfiguration<actron.statechart.machine.MachineSnapshot<SearchContext>, actron.statechart.machine.MachineInput<SearchAction>, SearchEvent>.() -> Unit = {},
+        configure: MachineConfiguration<SearchContext, SearchAction, SearchEvent>.() -> Unit = {},
     ): Tab {
         val tab = Tab(this, repository, configure)
         tab.store.startAndAwait()

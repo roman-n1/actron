@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.test
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.Event
 import actron.core.State
 import actron.core.Store
 import actron.core.StoreBuilder
+import actron.core.createRuntimeStore
 import kotlin.random.Random
 import kotlin.reflect.KClass
 
@@ -105,7 +108,7 @@ internal fun buildKtStore(
     log: MutableList<String> = mutableListOf(),
     configure: KtBuilder.() -> Unit = {},
 ): Store<KtState, KtAction, KtEvent> =
-    Store(initialState) {
+    createRuntimeStore(initialState) {
         configure()
         val perKind = mutableMapOf<String, Int>()
         for (reg in regs) {

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.message
 
 import actron.core.Action
@@ -6,6 +8,7 @@ import actron.core.Plugin
 import actron.core.PluginExecutionPolicy
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -44,7 +47,7 @@ class MessageDeliveryTest {
                 var attempts = 0
                 val seen = mutableListOf<String>()
                 val receiver =
-                    Store<ChatState, ChatAction, Nothing>(ChatState(), Dispatchers.Unconfined) {
+                    createRuntimeStore<ChatState, ChatAction, Nothing>(ChatState(), Dispatchers.Unconfined) {
                         exceptionHandler(ExceptionHandler.Ignore)
                         pluginExecutionPolicy(policy)
                         plugin(receiveMessages { if (it is ChatMessage) seen += it.text })
@@ -66,7 +69,7 @@ class MessageDeliveryTest {
         }
 
     private fun senderStore(): Store<ChatState, ChatAction, Nothing> =
-        Store(ChatState()) {
+        createRuntimeStore(ChatState()) {
             coroutineContext(Dispatchers.Unconfined)
             state<ChatState> {
                 action<ChatAction.Send> { message(ChatMessage(action.text)) }
@@ -77,7 +80,7 @@ class MessageDeliveryTest {
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
         onMessage: (ChatMessage) -> Unit = {},
     ): Store<ChatState, ChatAction, Nothing> =
-        Store(ChatState()) {
+        createRuntimeStore(ChatState()) {
             coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(exceptionHandler)
             plugin(
@@ -170,7 +173,7 @@ class MessageDeliveryTest {
                 repeat(50) { attempt ->
                     val received = CompletableDeferred<Message>()
                     val store: Store<ChatState, ChatAction, Nothing> =
-                        Store(ChatState()) {
+                        createRuntimeStore(ChatState()) {
                             coroutineContext(Dispatchers.Default)
                             plugin(receiveMessages { if (it == ChatMessage("startup $attempt")) received.complete(it) })
                             state<ChatState> {
@@ -195,7 +198,7 @@ class MessageDeliveryTest {
             var enterCalls = 0
             val seen = mutableListOf<String>()
             val receiver: Store<ChatState, ChatAction, Nothing> =
-                Store(ChatState()) {
+                createRuntimeStore(ChatState()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler.Ignore)
                     plugin(
@@ -239,7 +242,7 @@ class MessageDeliveryTest {
             val handled = mutableListOf<Throwable>()
             val seen = mutableListOf<String>()
             val receiver: Store<ChatState, ChatAction, Nothing> =
-                Store(ChatState()) {
+                createRuntimeStore(ChatState()) {
                     coroutineContext(dispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     plugin(
@@ -253,7 +256,7 @@ class MessageDeliveryTest {
                     state<ChatState> { action<ChatAction.Received> { } }
                 }
             val sender: Store<ChatState, ChatAction, Nothing> =
-                Store(ChatState()) {
+                createRuntimeStore(ChatState()) {
                     coroutineContext(dispatcher)
                     state<ChatState> { action<ChatAction.Send> { message(ChatMessage(action.text)) } }
                 }

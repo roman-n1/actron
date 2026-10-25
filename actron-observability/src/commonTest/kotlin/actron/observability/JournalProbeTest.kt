@@ -11,6 +11,7 @@ import actron.core.InternalActronApi
 import actron.core.State
 import actron.core.Store
 import actron.core.StoreInternalApi
+import actron.core.createRuntimeStore
 import actron.test.createRecorder
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
@@ -92,7 +93,7 @@ class JournalProbeTest {
         configure: actron.core.StoreBuilder<AppState, AppAction, AppEvent>.() -> Unit = {},
         exceptionHandler: ExceptionHandler = ExceptionHandler.Rethrow,
     ): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Loading) {
+        createRuntimeStore(AppState.Loading) {
             coroutineContext(UnconfinedTestDispatcher())
             exceptionHandler(exceptionHandler)
             configure()

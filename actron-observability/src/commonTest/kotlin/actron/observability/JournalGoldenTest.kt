@@ -10,6 +10,7 @@ import actron.core.InternalActronApi
 import actron.core.State
 import actron.core.Store
 import actron.core.StoreInternalApi
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,7 +67,7 @@ class JournalGoldenTest {
             val timeSource = TestTimeSource()
             val session = RecordingSession(backgroundScope, id = RuntimeSessionId("golden"), group = MachineGroupId("g"), timeSource = timeSource)
             val store =
-                Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                     coroutineContext(UnconfinedTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler.Ignore)
                     recordTo(session, StoreInstanceId("s"), PayloadPolicy.metadataOnly())

@@ -9,6 +9,7 @@ import actron.core.InputId
 import actron.core.InternalActronApi
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -101,7 +102,7 @@ class JournalBudgetJvmTest {
             val n = 30_000
 
             fun store(configure: actron.core.StoreBuilder<Counter, Increment, Nothing>.() -> Unit): Store<Counter, Increment, Nothing> =
-                Store(Counter()) {
+                createRuntimeStore(Counter()) {
                     coroutineContext(Dispatchers.Default)
                     configure()
                     state<Counter> {

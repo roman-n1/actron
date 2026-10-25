@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -6,6 +8,7 @@ import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import actron.test.startAndAwait
@@ -120,7 +123,7 @@ class StateChartHierarchyConformanceTest {
     }
 
     private fun createStore(): Store<ChatState, ChatAction, ChatEvent> =
-        Store(ChatState.Idle) {
+        createRuntimeStore(ChatState.Idle) {
             coroutineContext(Dispatchers.Unconfined)
             state<ChatState> {
                 action<ChatAction.Disconnect> { if (state != ChatState.Offline) nextState { ChatState.Offline } }
@@ -242,7 +245,7 @@ class StateChartHierarchyConformanceTest {
         scope: TestScope,
     ) = StateChartRuntime(chart, { s: RandomState -> s.id }, guards).let { runtime ->
         var index = 0
-        Store<RandomState, RandomAction, NoEvent>(RandomState(start)) {
+        createRuntimeStore<RandomState, RandomAction, NoEvent>(RandomState(start)) {
             coroutineContext(StandardTestDispatcher(scope.testScheduler))
             pendingActionPolicy(PendingActionPolicy.Keep)
             state<RandomState> {

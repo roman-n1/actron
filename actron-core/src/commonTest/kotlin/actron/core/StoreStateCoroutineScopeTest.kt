@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -71,7 +73,7 @@ class StoreStateCoroutineScopeTest {
         onBackgroundTaskStart: () -> Unit = {},
         onBackgroundTaskCancel: () -> Unit = {},
     ): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Initial) {
+        createRuntimeStore(AppState.Initial) {
             // Configure to use Unconfined dispatcher
             coroutineContext(testDispatcher)
 
@@ -169,7 +171,7 @@ class StoreStateCoroutineScopeTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Initial) {
+                createRuntimeStore(AppState.Initial) {
                     coroutineContext(testDispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<AppState.Initial> { action<AppAction.Start> { nextState { AppState.Running() } } }

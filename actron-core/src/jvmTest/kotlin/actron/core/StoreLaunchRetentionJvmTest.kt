@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -23,7 +25,7 @@ class StoreLaunchRetentionJvmTest {
         runTest {
             val release = CompletableDeferred<Unit>()
             val store =
-                Store<Active, Work, Nothing>(Active, backgroundScope.coroutineContext) {
+                createRuntimeStore<Active, Work, Nothing>(Active, backgroundScope.coroutineContext) {
                     state<Active> {
                         action<Work> {
                             launch(control = LaunchControl.DropIfRunning(action.lane)) { action.wait.await() }
@@ -47,7 +49,7 @@ class StoreLaunchRetentionJvmTest {
         runTest {
             val lane = LaunchLane()
             val store =
-                Store<Active, Work, Nothing>(Active, backgroundScope.coroutineContext) {
+                createRuntimeStore<Active, Work, Nothing>(Active, backgroundScope.coroutineContext) {
                     state<Active> {
                         action<Work> { launch(control = LaunchControl.CancelPrevious(action.lane)) { awaitCancellation() } }
                     }

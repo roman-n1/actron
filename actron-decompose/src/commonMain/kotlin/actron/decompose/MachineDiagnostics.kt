@@ -2,13 +2,11 @@ package actron.decompose
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.StoreConfiguration
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.DecisionObserver
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
-import actron.statechart.machine.MachineInput
-import actron.statechart.machine.MachineSnapshot
+import actron.statechart.machine.MachineConfiguration
 
 /** A lazy recording option: binding happens only for a newly retained instance, before startup. */
 fun interface MachineRecording<C : Any, A : Action, CMD : Any, E : Event> {
@@ -23,5 +21,5 @@ fun interface MachineRecording<C : Any, A : Action, CMD : Any, E : Event> {
 class MachineDiagnostics<C : Any, A : Action, CMD : Any, E : Event>(
     val handler: CommandHandler<CMD, A>,
     val observers: List<DecisionObserver<C, A, CMD, E>> = emptyList(),
-    val configure: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit = {},
+    val configure: MachineConfiguration<C, A, E>.() -> Unit = {},
 )

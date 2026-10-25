@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.logging
 
@@ -8,6 +8,7 @@ import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.observability.MachineGroupId
 import actron.observability.PayloadPolicy
 import actron.observability.RecordingSession
@@ -58,7 +59,7 @@ class LoggerJournalSinkTest {
         policy: PayloadPolicy<Account, AccountAction, Nothing>,
         session: RecordingSession,
     ): Store<Account, AccountAction, Nothing> =
-        Store(Account("t0p-s3cret")) {
+        createRuntimeStore(Account("t0p-s3cret")) {
             coroutineContext(UnconfinedTestDispatcher())
             exceptionHandler(ExceptionHandler.Ignore)
             recordTo(session, StoreInstanceId("account"), policy)

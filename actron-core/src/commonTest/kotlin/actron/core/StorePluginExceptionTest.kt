@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +38,7 @@ class StorePluginExceptionTest {
         plugin: Plugin<AppState, AppAction, Nothing>,
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
     ): Store<AppState, AppAction, Nothing> =
-        Store(AppState.Ready()) {
+        createRuntimeStore(AppState.Ready()) {
             coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(exceptionHandler)
             plugin(plugin)
@@ -115,7 +117,7 @@ class StorePluginExceptionTest {
             val pluginRecords = mutableListOf<String>()
             var onStartCalls = 0
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     pluginExecutionPolicy(PluginExecutionPolicy.InRegistrationOrder)

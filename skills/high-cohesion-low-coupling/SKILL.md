@@ -90,8 +90,9 @@ lock должна оставаться внутри одного владель�
 
 ## Decompose boundary
 
-`actron-decompose` depends on core and Decompose, never the reverse. InstanceKeeper's existing
-getOrCreateCloseable retains Store and closes it at keeper destruction. Lifecycle-bound observation
+`actron-decompose` depends on core, our StateChart implementation and Decompose, never the reverse.
+`retainedMachine` retains one MachineInstance through InstanceKeeper; it owns the Store and command
+scope and closes/cancels them at keeper destruction. Lifecycle-bound observation
 belongs to the current component: old endpoints/callbacks are released on destroy without closing
 retained Store. The component exposes Store state or an immutable projection, not a second writable
 state owner. Keep component/Bridge references out of retained handlers. Process-death serialization

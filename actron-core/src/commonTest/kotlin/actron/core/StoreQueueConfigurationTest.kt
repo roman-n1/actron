@@ -40,7 +40,7 @@ class StoreQueueConfigurationTest {
             val childFinish = CompletableDeferred<Unit>()
             val childStarted = CompletableDeferred<Unit>()
             val store =
-                Store<Ready, Command, Nothing>(Ready()) {
+                createRuntimeStore<Ready, Command, Nothing>(Ready()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<Ready> {
                         action<Command.Spawn> {
@@ -72,7 +72,7 @@ class StoreQueueConfigurationTest {
             val proceed = CompletableDeferred<Unit>()
             val traces = mutableListOf<StoreTrace<Ready, Command, Nothing>>()
             val store =
-                Store<Ready, Command, Nothing>(Ready()) {
+                createRuntimeStore<Ready, Command, Nothing>(Ready()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { traces += it })
                     plugin(
@@ -113,7 +113,7 @@ class StoreQueueConfigurationTest {
             val replacementFailures = mutableListOf<Throwable>()
             val pluginCalls = mutableListOf<String>()
             val store =
-                Store<Ready, Command, Nothing>(Ready()) {
+                createRuntimeStore<Ready, Command, Nothing>(Ready()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler { originalFailures += it })
                     plugin(Plugin(onAction = { _, _ -> pluginCalls += "original" }))
@@ -143,7 +143,7 @@ class StoreQueueConfigurationTest {
         runTest {
             val enters = mutableListOf<Ready>()
             val store =
-                Store<Ready, Command, Nothing>(Ready()) {
+                createRuntimeStore<Ready, Command, Nothing>(Ready()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<Ready> { enter { enters += state } }
                 }

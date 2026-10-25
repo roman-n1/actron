@@ -149,7 +149,7 @@ class MachineGroupTest {
     private inner class Fixture(
         scope: TestScope,
         attachRoot: Boolean = true,
-        pickerPlugin: Plugin<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>, PickerEv> = actron.core.Plugin(),
+        pickerPlugin: Plugin<MachineSnapshot<PickerCtx>, PickerAct, PickerEv> = actron.core.Plugin(),
         routed: Boolean = true,
         rootContext: CoroutineContext = StandardTestDispatcher(scope.testScheduler),
     ) {
@@ -602,9 +602,9 @@ class MachineGroupTest {
             val gate = CompletableDeferred<Unit>()
             var stuck = false
             val slow =
-                object : Plugin<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>, PickerEv> {
+                object : Plugin<MachineSnapshot<PickerCtx>, PickerAct, PickerEv> {
                     override suspend fun onState(
-                        scope: PluginScope<MachineSnapshot<PickerCtx>, MachineInput<PickerAct>>,
+                        scope: PluginScope<MachineSnapshot<PickerCtx>, PickerAct>,
                         prevState: MachineSnapshot<PickerCtx>,
                         state: MachineSnapshot<PickerCtx>,
                     ) {

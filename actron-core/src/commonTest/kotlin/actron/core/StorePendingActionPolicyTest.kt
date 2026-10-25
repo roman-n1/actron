@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -35,7 +37,7 @@ class StorePendingActionPolicyTest {
         onTransitionStarted: CompletableDeferred<Unit> = CompletableDeferred(),
         onTransitionCompleted: CompletableDeferred<Unit> = CompletableDeferred(),
     ): Store<AppState, AppAction, Nothing> =
-        Store(AppState.Initial) {
+        createRuntimeStore(AppState.Initial) {
             coroutineContext(testDispatcher)
             pendingActionPolicy(pendingActionPolicy)
 
@@ -116,7 +118,7 @@ class StorePendingActionPolicyTest {
             val testDispatcher = StandardTestDispatcher(testScheduler)
             val inPlaceUpdateStarted = CompletableDeferred<Unit>()
             val store =
-                Store<AppState, AppAction, Nothing>(AppState.Active()) {
+                createRuntimeStore<AppState, AppAction, Nothing>(AppState.Active()) {
                     coroutineContext(testDispatcher)
 
                     state<AppState.Active> {

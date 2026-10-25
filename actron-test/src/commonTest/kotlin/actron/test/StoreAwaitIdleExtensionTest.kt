@@ -1,9 +1,12 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.test
 
 import actron.core.Action
 import actron.core.State
 import actron.core.Store
 import actron.core.StorePendingWork
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -28,7 +31,7 @@ class StoreAwaitIdleExtensionTest {
         runTest {
             val gate = CompletableDeferred<Unit>()
             val store: Store<Idle, Block, Nothing> =
-                Store(Idle) {
+                createRuntimeStore(Idle) {
                     coroutineContext(Dispatchers.Default)
                     state<Idle> { action<Block> { launch { gate.await() } } }
                 }

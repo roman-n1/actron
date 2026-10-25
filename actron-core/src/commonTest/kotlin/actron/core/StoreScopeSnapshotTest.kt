@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.core
 
@@ -39,7 +39,7 @@ class StoreScopeSnapshotTest {
         runTest {
             val observed = mutableListOf<Pair<Int, Int>>()
             val store =
-                Store<Counter, Command, Snapshot>(Counter()) {
+                createRuntimeStore<Counter, Command, Snapshot>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     plugin(Plugin(onEvent = { state, event -> observed += state.value to event.value }))
                     state<Counter> {
@@ -81,7 +81,7 @@ class StoreScopeSnapshotTest {
             val proceed = CompletableDeferred<Unit>()
             val observed = mutableListOf<Pair<Int, Int>>()
             val store =
-                Store<Counter, Command, Snapshot>(Counter()) {
+                createRuntimeStore<Counter, Command, Snapshot>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     plugin(Plugin(onEvent = { state, event -> observed += state.value to event.value }))
                     state<Counter> {
@@ -115,7 +115,7 @@ class StoreScopeSnapshotTest {
             val proceed = CompletableDeferred<Unit>()
             val observed = mutableListOf<Pair<Int, Int>>()
             val store =
-                Store<Counter, Command, Snapshot>(Counter()) {
+                createRuntimeStore<Counter, Command, Snapshot>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     plugin(Plugin(onEvent = { state, event -> observed += state.value to event.value }))
                     state<Counter> {

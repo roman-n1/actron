@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +92,7 @@ class LoginUseCaseTest {
     private fun createTestStore(
         repository: LoginRepository,
     ): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Initial) {
+        createRuntimeStore(AppState.Initial) {
             coroutineContext(Dispatchers.Unconfined)
             // Processing for Initial state
             state<AppState.Initial> {

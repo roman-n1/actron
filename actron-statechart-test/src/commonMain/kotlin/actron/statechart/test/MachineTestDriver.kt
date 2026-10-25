@@ -5,7 +5,6 @@ import actron.core.Event
 import actron.core.ExceptionHandler
 import actron.core.ExperimentalActronApi
 import actron.statechart.StateId
-import actron.statechart.StoreConfiguration
 import actron.statechart.machine.Admission
 import actron.statechart.machine.AdmissionPolicy
 import actron.statechart.machine.CommandEnvelope
@@ -13,6 +12,7 @@ import actron.statechart.machine.CommandId
 import actron.statechart.machine.EffectId
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineConfiguration
 import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MachineStore
@@ -59,7 +59,7 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
     mailbox: MailboxConfig<E> = MailboxConfig(),
     checkpoint: ExecutorCheckpoint<C, CMD> = ExecutorCheckpoint.initial(machine.initialSnapshot(context)),
-    builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit = {},
+    builder: MachineConfiguration<C, A, E>.() -> Unit = {},
 ) {
     private val scheduler = scope.testScheduler
     private val dispatcher = StandardTestDispatcher(scheduler)

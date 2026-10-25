@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -6,6 +8,7 @@ import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import actron.test.startAndAwait
@@ -85,7 +88,7 @@ class StateChartConformanceTest {
     }
 
     private fun createStore(initial: FormState = FormState.Idle): Store<FormState, FormAction, FormEvent> =
-        Store(initial) {
+        createRuntimeStore(initial) {
             coroutineContext(Dispatchers.Unconfined)
             state<FormState.Idle> {
                 action<FormAction.Submit> { nextState { FormState.Loading(attempt = 1) } }

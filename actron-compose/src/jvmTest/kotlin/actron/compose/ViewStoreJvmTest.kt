@@ -1,9 +1,12 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.compose
 
 import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
+import actron.core.createRuntimeStore
 import androidx.compose.runtime.AbstractApplier
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
@@ -542,7 +545,7 @@ class ViewStoreJvmTest {
     fun rememberViewStore_withRealStore_reflectsStateTransitionAndDispatch() =
         runTest(testDispatcher) {
             val store =
-                Store<UiState, UiAction, UiEvent>(initialState = UiState.Loading) {
+                createRuntimeStore<UiState, UiAction, UiEvent>(initialState = UiState.Loading) {
                     coroutineContext(coroutineContext)
                     state<UiState.Loading> {
                         enter {
@@ -575,7 +578,7 @@ class ViewStoreJvmTest {
     fun rememberViewStore_withRealStore_autoCloseStopsFurtherDispatch() =
         runTest(testDispatcher) {
             val store =
-                Store<UiState, UiAction, UiEvent>(initialState = UiState.Ready(0)) {
+                createRuntimeStore<UiState, UiAction, UiEvent>(initialState = UiState.Ready(0)) {
                     coroutineContext(coroutineContext)
                     state<UiState.Ready> {
                         action<UiAction.Increment> {
@@ -606,7 +609,7 @@ class ViewStoreJvmTest {
         runTest(testDispatcher) {
             val enterGate = CompletableDeferred<Unit>()
             val store =
-                Store<UiState, UiAction, UiEvent>(initialState = UiState.Loading) {
+                createRuntimeStore<UiState, UiAction, UiEvent>(initialState = UiState.Loading) {
                     coroutineContext(coroutineContext)
                     state<UiState.Loading> {
                         enter(dispatcher = testDispatcher) {

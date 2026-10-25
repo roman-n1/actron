@@ -35,6 +35,7 @@ import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.DefinitionVersion
 import actron.statechart.machine.EffectPolicy
 import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineConfiguration
 import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MachineStore
@@ -366,7 +367,7 @@ private sealed interface BatchJournal {
     val droppedForSinks: Long
 
     fun install(
-        builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>,
+        builder: MachineConfiguration<History, Message, Render>,
         index: Int,
     )
 
@@ -379,7 +380,7 @@ private sealed interface BatchJournal {
         override val droppedForSinks = 0L
 
         override fun install(
-            builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>,
+            builder: MachineConfiguration<History, Message, Render>,
             index: Int,
         ) = Unit
 
@@ -397,7 +398,7 @@ private sealed interface BatchJournal {
         override val droppedForSinks get() = session.stats.droppedForSinks
 
         override fun install(
-            builder: actron.statechart.StoreConfiguration<MachineSnapshot<History>, MachineInput<Message>, Render>,
+            builder: MachineConfiguration<History, Message, Render>,
             index: Int,
         ) {
             builder.recordTo(

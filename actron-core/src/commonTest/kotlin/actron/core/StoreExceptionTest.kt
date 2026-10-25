@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +21,7 @@ class StoreExceptionTest {
         initialState: AppState,
         exceptionHandler: ExceptionHandler,
     ): Store<AppState, Nothing, Nothing> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             this.coroutineContext(Dispatchers.Unconfined)
             exceptionHandler(exceptionHandler)
             state<AppState> {
@@ -53,7 +55,7 @@ class StoreExceptionTest {
     fun deprecated_errorDslAlias_shouldStillRecover() =
         runTest(testDispatcher) {
             val store: Store<AppState, Nothing, Nothing> =
-                Store(AppState(0)) {
+                createRuntimeStore(AppState(0)) {
                     this.coroutineContext(Dispatchers.Unconfined)
                     state<AppState> {
                         enter {

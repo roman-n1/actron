@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.message
 
@@ -8,6 +8,7 @@ import actron.core.Plugin
 import actron.core.State
 import actron.core.Store
 import actron.core.closeAndJoin
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -178,7 +179,7 @@ class MessageSubscriptionContractTest {
         runTest {
             val received = mutableListOf<Int>()
             val receiver: Store<Phase, Receive, Nothing> =
-                Store(Phase.Before) {
+                createRuntimeStore(Phase.Before) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     plugin(receiveMessages { packet -> if (packet is Packet) received += packet.id })
                     state<Phase.Before> { action<Receive.Advance> { nextState { Phase.After } } }
@@ -229,7 +230,7 @@ private sealed interface Phase : State {
 }
 
 private fun TestScope.sender(onSent: (Int) -> Unit = {}): Store<SenderState, Send, Nothing> =
-    Store(SenderState) {
+    createRuntimeStore(SenderState) {
         coroutineContext(StandardTestDispatcher(testScheduler))
         state<SenderState> {
             action<Send> {
@@ -245,7 +246,7 @@ private fun TestScope.receiver(
     plugin: Plugin<Inbox, Receive, Nothing>,
     handled: MutableList<Throwable> = mutableListOf(),
 ): Store<Inbox, Receive, Nothing> =
-    Store(Inbox()) {
+    createRuntimeStore(Inbox()) {
         coroutineContext(StandardTestDispatcher(testScheduler))
         exceptionHandler(ExceptionHandler { handled += it })
         plugin(plugin)

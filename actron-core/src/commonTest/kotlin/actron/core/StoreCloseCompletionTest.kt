@@ -55,7 +55,7 @@ class StoreCloseCompletionTest {
             }
         }
         val store =
-            Store<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler) + parent) {
+            createRuntimeStore<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler) + parent) {
                 probe(StoreProbe { traces += it })
                 if (owner == Owner.Plugin) plugin(Plugin(onStart = { launch { work() } }))
                 state<Snapshot> {

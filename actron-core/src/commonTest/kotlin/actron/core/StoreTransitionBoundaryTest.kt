@@ -30,7 +30,7 @@ class StoreTransitionBoundaryTest {
             val enterFailure = IllegalStateException("enter")
             val saverFailure = IllegalArgumentException("save")
             val store =
-                Store<Screen, Go, Nothing>(Screen.Ready) {
+                createRuntimeStore<Screen, Go, Nothing>(Screen.Ready) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { traces += it })
                     exceptionHandler(ExceptionHandler { log += "report:${it.message}" })
@@ -108,7 +108,7 @@ class StoreTransitionBoundaryTest {
             val rejected = IllegalArgumentException("validator")
             val reported = mutableListOf<Throwable>()
             val store =
-                Store<Screen, Go, Nothing>(Screen.Ready) {
+                createRuntimeStore<Screen, Go, Nothing>(Screen.Ready) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler { reported += it })
                     validateRecovery { before, after ->

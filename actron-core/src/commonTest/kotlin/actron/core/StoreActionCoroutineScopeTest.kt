@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -62,7 +64,7 @@ class StoreActionCoroutineScopeTest {
         onLongRunningCancelled: () -> Unit = {},
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
     ): Store<AppState, AppAction, Nothing> =
-        Store(AppState.Active()) {
+        createRuntimeStore(AppState.Active()) {
             coroutineContext(testDispatcher)
             exceptionHandler(exceptionHandler)
 

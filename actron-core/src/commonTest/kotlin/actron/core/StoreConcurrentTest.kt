@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.delay
@@ -51,7 +53,7 @@ class StoreConcurrentTest {
     private fun createTestStore(
         initialState: AppState,
     ): Store<AppState, AppAction, AppEvent> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             coroutineContext(testDispatcher)
 
             state<AppState.Initial> {

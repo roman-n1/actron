@@ -129,75 +129,9 @@ public final class actron/statechart/BehaviouralImpact {
 	public fun toString ()Ljava/lang/String;
 }
 
-public abstract interface class actron/statechart/ChartEnterScope : actron/statechart/ChartHookScope {
-	public abstract fun launch (Lkotlin/jvm/functions/Function2;)V
-}
-
-public abstract interface class actron/statechart/ChartHookScope {
-	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun getAction ()Lactron/core/Action;
-	public abstract fun getContext ()Ljava/lang/Object;
-	public abstract fun getNode-R_ntUPU ()Ljava/lang/String;
-	public abstract fun getStore ()Lactron/core/StoreScope;
-	public abstract fun setContext (Ljava/lang/Object;)V
-}
-
 public final class actron/statechart/ChartInitialization : actron/core/Action {
 	public static final field INSTANCE Lactron/statechart/ChartInitialization;
 	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public abstract interface class actron/statechart/ChartLaunchScope {
-	public abstract fun dispatch (Lactron/core/Action;)V
-	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun getNode-R_ntUPU ()Ljava/lang/String;
-	public abstract fun getStore ()Lactron/core/StoreScope;
-	public abstract fun isActive ()Z
-	public abstract fun updateContext (Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-}
-
-public abstract interface class actron/statechart/ChartRecoveryScope {
-	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun getContext ()Ljava/lang/Object;
-	public abstract fun getError ()Ljava/lang/Exception;
-	public abstract fun getStore ()Lactron/core/StoreScope;
-	public abstract fun setContext (Ljava/lang/Object;)V
-}
-
-public final class actron/statechart/ChartState : actron/core/State {
-	public fun <init> (Lactron/statechart/StateConfiguration;Ljava/lang/Object;Lactron/statechart/ChartTimers;)V
-	public synthetic fun <init> (Lactron/statechart/StateConfiguration;Ljava/lang/Object;Lactron/statechart/ChartTimers;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun activeLeaves (Lactron/statechart/StateChartDefinition;)Ljava/util/List;
-	public final fun component1 ()Lactron/statechart/StateConfiguration;
-	public final fun component2 ()Ljava/lang/Object;
-	public final fun component3 ()Lactron/statechart/ChartTimers;
-	public final fun copy (Lactron/statechart/StateConfiguration;Ljava/lang/Object;Lactron/statechart/ChartTimers;)Lactron/statechart/ChartState;
-	public static synthetic fun copy$default (Lactron/statechart/ChartState;Lactron/statechart/StateConfiguration;Ljava/lang/Object;Lactron/statechart/ChartTimers;ILjava/lang/Object;)Lactron/statechart/ChartState;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getConfiguration ()Lactron/statechart/StateConfiguration;
-	public final fun getContext ()Ljava/lang/Object;
-	public final fun getTimers ()Lactron/statechart/ChartTimers;
-	public fun hashCode ()I
-	public final fun isActive-qsCqnPI (Ljava/lang/String;)Z
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class actron/statechart/ChartStoreConfiguration : actron/statechart/StoreConfiguration {
-}
-
-public final class actron/statechart/ChartTimers {
-	public fun <init> ()V
-	public fun <init> (Ljava/util/Map;J)V
-	public synthetic fun <init> (Ljava/util/Map;JILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Ljava/util/Map;
-	public final fun component2 ()J
-	public final fun copy (Ljava/util/Map;J)Lactron/statechart/ChartTimers;
-	public static synthetic fun copy$default (Lactron/statechart/ChartTimers;Ljava/util/Map;JILjava/lang/Object;)Lactron/statechart/ChartTimers;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getIssued ()J
-	public final fun getRunning ()Ljava/util/Map;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -633,23 +567,6 @@ public final class actron/statechart/StateChartRuntime {
 	public final fun step (Lactron/statechart/StateConfiguration;Lactron/core/State;Lactron/core/Action;)Lactron/statechart/StepResult;
 }
 
-public final class actron/statechart/StateChartStoreBuilder {
-	public final fun activity-MxgIAEs (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun effect (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun effect-NNTAZ2c (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun guard (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun guard-L9phgBk (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun maxMicrosteps (I)V
-	public final fun onEnter-MxgIAEs (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun onExit-MxgIAEs (Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
-	public final fun store (Lkotlin/jvm/functions/Function1;)V
-}
-
-public final class actron/statechart/StateChartStoreKt {
-	public static final fun StateChartStore (Lactron/statechart/StateChartDefinition;Ljava/lang/Object;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;)Lactron/core/Store;
-	public static synthetic fun StateChartStore$default (Lactron/statechart/StateChartDefinition;Ljava/lang/Object;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lactron/core/Store;
-}
-
 public final class actron/statechart/StateConfiguration {
 	public fun <init> (Ljava/util/Set;Ljava/util/Map;)V
 	public synthetic fun <init> (Ljava/util/Set;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -754,20 +671,9 @@ public final class actron/statechart/StepResult$Transitioned : actron/statechart
 	public fun toString ()Ljava/lang/String;
 }
 
-public class actron/statechart/StoreConfiguration {
-	public final fun autoStartPolicy (Lactron/core/AutoStartPolicy;)V
-	public final fun coroutineContext (Lkotlin/coroutines/CoroutineContext;)V
-	public final fun exceptionHandler (Lactron/core/ExceptionHandler;)V
-	public final fun getDelegate ()Lactron/core/StoreBuilder;
-	public final fun plugin (Lactron/core/Plugin;[Lactron/core/Plugin;)V
-	public final fun pluginExecutionPolicy (Lactron/core/PluginExecutionPolicy;)V
-	public final fun probe (Lactron/core/StoreProbe;[Lactron/core/StoreProbe;)V
-	public final fun stateSaver (Lactron/core/StateSaver;)V
-}
-
 public final class actron/statechart/StoreConfigurationKt {
-	public static final fun recordTo-mOBKkIs (Lactron/statechart/StoreConfiguration;Lactron/observability/RecordingSession;Ljava/lang/String;Lactron/observability/PayloadPolicy;)V
-	public static synthetic fun recordTo-mOBKkIs$default (Lactron/statechart/StoreConfiguration;Lactron/observability/RecordingSession;Ljava/lang/String;Lactron/observability/PayloadPolicy;ILjava/lang/Object;)V
+	public static final fun recordTo-mOBKkIs (Lactron/statechart/machine/MachineConfiguration;Lactron/observability/RecordingSession;Ljava/lang/String;Lactron/observability/PayloadPolicy;)V
+	public static synthetic fun recordTo-mOBKkIs$default (Lactron/statechart/machine/MachineConfiguration;Lactron/observability/RecordingSession;Ljava/lang/String;Lactron/observability/PayloadPolicy;ILjava/lang/Object;)V
 }
 
 public final class actron/statechart/TimerFired : actron/core/Action {
@@ -2765,6 +2671,16 @@ public final class actron/statechart/machine/MachineClock$Companion {
 	public static synthetic fun monotonic$default (Lactron/statechart/machine/MachineClock$Companion;Lkotlin/time/TimeSource;ILjava/lang/Object;)Lactron/statechart/machine/MachineClock;
 }
 
+public final class actron/statechart/machine/MachineConfiguration {
+	public final fun autoStartPolicy (Lactron/core/AutoStartPolicy;)V
+	public final fun coroutineContext (Lkotlin/coroutines/CoroutineContext;)V
+	public final fun exceptionHandler (Lactron/core/ExceptionHandler;)V
+	public final fun plugin (Lactron/core/Plugin;[Lactron/core/Plugin;)V
+	public final fun pluginExecutionPolicy (Lactron/core/PluginExecutionPolicy;)V
+	public final fun probe (Lactron/core/StoreProbe;[Lactron/core/StoreProbe;)V
+	public final fun stateSaver (Lactron/core/StateSaver;)V
+}
+
 public final class actron/statechart/machine/MachineCounters {
 	public fun <init> ()V
 	public fun <init> (JJJJ)V
@@ -3025,7 +2941,7 @@ public final class actron/statechart/machine/MachineProfiler : actron/statechart
 }
 
 public final class actron/statechart/machine/MachineProfilerKt {
-	public static final fun profileWith (Lactron/statechart/StoreConfiguration;Lactron/statechart/machine/MachineProfiler;)V
+	public static final fun profileWith (Lactron/statechart/machine/MachineConfiguration;Lactron/statechart/machine/MachineProfiler;)V
 }
 
 public final class actron/statechart/machine/MachineSnapshot : actron/core/State {

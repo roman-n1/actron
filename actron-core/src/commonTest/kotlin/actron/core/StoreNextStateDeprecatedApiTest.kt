@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +25,7 @@ class StoreNextStateDeprecatedApiTest {
     fun deprecatedNextStateApis_delegateToNextStateBlockOverload() =
         runTest {
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Loading) {
+                createRuntimeStore(AppState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
 
                     state<AppState.Loading> {

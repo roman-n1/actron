@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -96,7 +98,7 @@ class ServiceWrapperUseCaseTest {
     private fun createTestStore(
         myServiceMonitor: MyServiceMonitor,
     ): Store<AppState, AppAction, Nothing> =
-        Store {
+        createRuntimeStore {
             initialState(AppState.Idle)
             coroutineContext(Dispatchers.Unconfined)
 

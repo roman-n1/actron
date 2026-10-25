@@ -23,6 +23,7 @@ import kotlin.time.Duration
  * @param policy What to keep of states, actions, events and failures; the production default keeps
  * metadata only
  */
+@InternalActronApi
 fun <S : State, A : Action, E : Event> StoreBuilder<S, A, E>.recordTo(
     session: RecordingSession,
     store: StoreInstanceId,

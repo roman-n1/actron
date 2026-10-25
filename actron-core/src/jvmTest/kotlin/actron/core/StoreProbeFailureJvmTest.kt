@@ -96,7 +96,7 @@ class StoreProbeFailureJvmTest {
                         }
                     }.asCoroutineDispatcher()
             val store =
-                Store<Counter, Bump, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Bump, Nothing>(Counter()) {
                     coroutineContext(dispatcher)
                     exceptionHandler(if (rethrow) ExceptionHandler.Rethrow else ExceptionHandler { errors.offer(it) })
                     probe(failingStartProbe(traces, armed, closed, rethrow))
@@ -150,7 +150,7 @@ class StoreProbeFailureJvmTest {
                             }
                         }.asCoroutineDispatcher()
                 val store =
-                    Store<Counter, Bump, Nothing>(Counter()) {
+                    createRuntimeStore<Counter, Bump, Nothing>(Counter()) {
                         coroutineContext(dispatcher)
                         probe(StoreProbe { traces += it })
                         exceptionHandler(

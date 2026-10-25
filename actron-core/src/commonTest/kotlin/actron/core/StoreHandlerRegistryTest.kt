@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +39,7 @@ class StoreHandlerRegistryTest {
     sealed interface AppEvent : Event
 
     private fun createStore(): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Loading) {
+        createRuntimeStore(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
@@ -99,7 +101,7 @@ class StoreHandlerRegistryTest {
 
     @Test
     fun storeWithoutHandlersHasEmptyRegistry() {
-        val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {}
+        val store: Store<AppState, AppAction, AppEvent> = createRuntimeStore(AppState.Loading) {}
         val registry = store.registry()
 
         assertTrue(registry.enter.isEmpty())

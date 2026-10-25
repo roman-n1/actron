@@ -1,9 +1,9 @@
 # MVI with MachineStore
 
-`MachineStore` is the recommended runtime for MVI screens. The typed DSL defines behavior;
+`MachineStore` is the runtime for MVI screens. The typed DSL defines behavior;
 the runtime serializes inputs, commits snapshots, executes commands, and feeds their results
-back to the same queue. The lower-level `Store` also permits imperative coroutine handlers
-and transactions; those are not the pure Machine API.
+back to the same queue. Reducers use Actron's own StateChart implementation. The low-level Store
+engine is internal; applications cannot install competing handwritten reducers.
 
 ## One writer, one ordered input stream
 
@@ -81,6 +81,24 @@ collect `store.state` in a UI-owned Main scope.
 
 `StateFlow` conflates equal/rapid states; rendering is not an audit log. Use decision observers
 or the bounded recorder to capture every decision, independently of UI collection.
+
+## Runtime configuration
+
+`MachineStore(...) { ... }` exposes `MachineConfiguration<C, A, E>`. Plugins use the feature's
+`A` action type; dispatch from a plugin enters the same admission queue as dispatch from UI.
+Scheduler inputs, command completion and timer bookkeeping remain inside the executor.
+Plugins observe committed snapshots and machine effects; they cannot install another reducer.
+
+```kotlin
+MachineStore(machine, initial, handler, scope) {
+    plugin(receiveMessages { message ->
+        if (message == RefreshRequested) dispatch(Action.Refresh)
+    })
+}
+```
+
+The example uses `actron.message.receiveMessages`; domain messages/actions are application types.
+Snapshot persistence, failure handlers and execution policies remain independent runtime options.
 
 ## Request handlers
 
