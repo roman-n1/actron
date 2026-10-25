@@ -137,8 +137,12 @@ class ViewStoreContractsTest {
             }, afterSetContent = { pumpFrame ->
                 assertEquals(1, starts)
                 assertEquals(1, events.subscriptionCount.value)
-                current.value = ViewStore(UiState.Ready(2), eventFlow = observed)
-                label.value = "updated"
+                // Apply synchronously: Android's global snapshot manager can otherwise take
+                // these notifications on its own thread, outside the test scheduler.
+                Snapshot.withMutableSnapshot {
+                    current.value = ViewStore(UiState.Ready(2), eventFlow = observed)
+                    label.value = "updated"
+                }
                 repeat(2) { pumpFrame() }
                 assertEquals(1, starts)
                 assertEquals(0, completions)
