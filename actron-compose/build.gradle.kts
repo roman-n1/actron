@@ -25,7 +25,10 @@ kotlin {
         androidResources.enable = true
 
         // withJava() // enable java compilation support
-        withHostTestBuilder {}.configure {}
+        withHostTestBuilder {}.configure {
+            // Compose runtime calls android.os.Trace in the shared composition tests.
+            isReturnDefaultValues = true
+        }
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
         }.configure {

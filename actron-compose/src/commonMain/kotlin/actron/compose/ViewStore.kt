@@ -9,14 +9,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
 import androidx.compose.runtime.State as ComposeState
 
 /**
@@ -69,11 +68,7 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
      * @return The derived value, read from Compose state
      */
     @Composable
-    fun <T : Any> select(mapper: (S) -> T): T {
-        val currentMapper = rememberUpdatedState(mapper)
-        val derived = remember(this) { derivedStateOf { currentMapper.value(stateRef.value) } }
-        return derived.value
-    }
+    fun <T : Any> select(mapper: (S) -> T): T = rememberStoreSelection(this, stateRef, mapper)
 
     /**
      * Invokes [block] only when the current [state] is of type [S2].
@@ -95,30 +90,7 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
     }
 
     @PublishedApi
-    internal fun <S2 : S> narrow(isNarrowed: (S) -> Boolean): ViewStore<S2, A, E> = ViewStore(stateRef = NarrowedState(stateRef, isNarrowed), dispatch = dispatch, eventFlow = eventFlow)
-
-    /**
-     * Reads [source] (so Compose still tracks it) and returns its value while it is of type [S2],
-     * otherwise the last value that was.
-     */
-    private class NarrowedState<T : Any, N : T>(
-        private val source: ComposeState<T>,
-        private val isNarrowed: (T) -> Boolean,
-    ) : ComposeState<N> {
-        // Seeded at creation: a callback that never read `state` during composition must still
-        // find the last narrowed value after the Store moved on.
-        private var last: N = source.value.narrowed()
-
-        override val value: N
-            get() {
-                val current = source.value
-                if (isNarrowed(current)) last = current.narrowed()
-                return last
-            }
-
-        @Suppress("UNCHECKED_CAST")
-        private fun T.narrowed(): N = this as N
-    }
+    internal fun <S2 : S> narrow(isNarrowed: (S) -> Boolean): ViewStore<S2, A, E> = ViewStore(stateRef = NarrowedStoreState(stateRef, isNarrowed), dispatch = dispatch, eventFlow = eventFlow)
 
     @Deprecated(
         message = "Use stateContent instead.",
@@ -147,8 +119,8 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
         val currentViewStore = rememberUpdatedState(this)
         val currentBlock = rememberUpdatedState(block)
         LaunchedEffect(eventFlow) {
-            eventFlow.filter { it is E2 }.collect {
-                currentBlock.value(currentViewStore.value, it as E2)
+            eventFlow.filterIsInstance<E2>().collect {
+                currentBlock.value(currentViewStore.value, it)
             }
         }
     }
@@ -179,14 +151,15 @@ fun <S : State, A : Action, E : Event> rememberViewStore(
     store: Store<S, A, E>,
     autoClose: Boolean = false,
 ): ViewStore<S, A, E> {
-    val closeStoreOnDispose = remember(store) { autoClose }
+    val storeKey = StoreInstanceKey(store)
+    val closeStoreOnDispose = remember(storeKey) { autoClose }
 
     val state =
-        key(store) {
+        key(storeKey) {
             store.state.collectAsState()
         }
 
-    DisposableEffect(store) {
+    DisposableEffect(storeKey) {
         onDispose {
             if (closeStoreOnDispose) {
                 store.close()
@@ -194,7 +167,7 @@ fun <S : State, A : Action, E : Event> rememberViewStore(
         }
     }
 
-    return remember(store) {
+    return remember(storeKey) {
         ViewStore(
             stateRef = state,
             dispatch = store::dispatch,
@@ -226,26 +199,16 @@ fun <S : State, A : Action, E : Event> rememberViewStore(
     store: () -> Store<S, A, E>,
 ): ViewStore<S, A, E> {
     val rememberedStore = remember(key) { store() }
-    val closeStoreOnDispose = remember(rememberedStore) { autoClose }
+    return rememberViewStore(rememberedStore, autoClose)
+}
 
-    val state =
-        key(rememberedStore) {
-            rememberedStore.state.collectAsState()
-        }
+/** Store resources belong to an instance, even when custom Stores implement value equality. */
+private class StoreInstanceKey(
+    private val store: Any,
+) {
+    override fun equals(other: Any?): Boolean = other is StoreInstanceKey && store === other.store
 
-    DisposableEffect(rememberedStore) {
-        onDispose {
-            if (closeStoreOnDispose) {
-                rememberedStore.close()
-            }
-        }
-    }
-
-    return remember(rememberedStore) {
-        ViewStore(
-            stateRef = state,
-            dispatch = rememberedStore::dispatch,
-            eventFlow = rememberedStore.event,
-        )
-    }
+    // A stable common-platform hash must not depend on a mutable Store.hashCode().
+    // Collisions are safe: Compose compares these keys using equals.
+    override fun hashCode(): Int = 0
 }
