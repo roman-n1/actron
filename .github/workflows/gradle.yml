@@ -37,6 +37,8 @@ jobs:
             gradle-options: --no-parallel --max-workers=2 -Pkotlin.daemon.jvmargs=-Xmx4g
           - target: wasmJsBrowserTest
             os: ubuntu-latest
+            # Compose Wasm test executables need the same bounded compiler budget as JS.
+            gradle-options: --no-parallel --max-workers=2 -Pkotlin.daemon.jvmargs=-Xmx4g
           # The device target is compiled where the simulator is tested; a device build needs a Mac.
           - target: apiCheck checkDebugGraph compileKotlinIosArm64
             os: macos-26
