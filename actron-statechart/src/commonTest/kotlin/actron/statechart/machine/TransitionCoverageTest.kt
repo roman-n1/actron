@@ -1,7 +1,10 @@
 package actron.statechart.machine
 
 import actron.core.Action
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class TransitionCoverageTest {
     private data object Tick : Action

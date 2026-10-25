@@ -27,16 +27,25 @@ open class StoreConfiguration<S : State, A : Action, E : Event> internal constru
     @PublishedApi internal val delegate: StoreBuilder<S, A, E>,
 ) {
     private var ownerContext: CoroutineContext = EmptyCoroutineContext
+    private var adaptStateSaver: (StateSaver<S>) -> StateSaver<S> = { it }
 
     internal constructor(delegate: StoreBuilder<S, A, E>, ownerContext: CoroutineContext) : this(delegate) {
         this.ownerContext = ownerContext
+    }
+
+    internal constructor(
+        delegate: StoreBuilder<S, A, E>,
+        ownerContext: CoroutineContext,
+        adaptStateSaver: (StateSaver<S>) -> StateSaver<S>,
+    ) : this(delegate, ownerContext) {
+        this.adaptStateSaver = adaptStateSaver
     }
 
     /** Sets the Store processing context. Command execution retains the MachineStore's own scope. */
     fun coroutineContext(context: CoroutineContext) = delegate.coroutineContext(context + ownerContext)
 
     /** Sets application-owned snapshot persistence; see the adapter's restoration contract. */
-    fun stateSaver(saver: StateSaver<S>) = delegate.stateSaver(saver)
+    fun stateSaver(saver: StateSaver<S>) = delegate.stateSaver(adaptStateSaver(saver))
 
     /** Handles failures which have not been recovered by the chart. Machines report failures here. */
     fun exceptionHandler(handler: ExceptionHandler) = delegate.exceptionHandler(handler)

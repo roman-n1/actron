@@ -2,11 +2,25 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.EffectKey
+import actron.statechart.GuardKey
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.Trigger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlin.time.Duration.Companion.seconds
 
 class DurableMachineTest {

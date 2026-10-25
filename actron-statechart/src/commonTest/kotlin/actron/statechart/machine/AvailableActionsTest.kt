@@ -2,8 +2,23 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
-import kotlin.test.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.CompoundState
+import actron.statechart.EffectKey
+import actron.statechart.FinalState
+import actron.statechart.GuardKey
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.TransitionKind
+import actron.statechart.query
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class AvailableActionsTest {
     private fun ActionExplanation.rejected(): RejectionExplanation = assertIs<ActionExplanation.Rejected>(this).rejection

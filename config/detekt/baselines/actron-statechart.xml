@@ -18,7 +18,6 @@
     <ID>CognitiveComplexMethod:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
     <ID>CognitiveComplexMethod:InvokedMachineStore.kt:InvocationSide$private fun launch</ID>
     <ID>CognitiveComplexMethod:Machine.kt:Machine$private fun decideObserved: Decision&lt;C, CMD, E&gt;</ID>
-    <ID>CognitiveComplexMethod:MachineStore.kt:MachineStoreImpl$override suspend fun awaitIdle: StorePendingWork</ID>
     <ID>CognitiveComplexMethod:MachineStoreSoakTest.kt:MachineStoreSoakTest$@Test fun aStormOfLoadsAndTicks_leavesConsistentStateAndBookkeeping</ID>
     <ID>CognitiveComplexMethod:Mailbox.kt:MailboxImpl$fun enqueue</ID>
     <ID>CognitiveComplexMethod:Mailbox.kt:MailboxImpl$override fun subscribe: Flow&lt;Delivery&lt;E&gt;&gt;</ID>
@@ -53,8 +52,6 @@
     <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun randomWalksAgreeWithTheReferenceAndKeepTheInvariants</ID>
     <ID>CognitiveComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun storesFollowingRandomParallelChartsConformAndOneWrongRegionIsReported</ID>
     <ID>CognitiveComplexMethod:StateChartParallelTest.kt:StateChartParallelTest$private fun createStore: Store&lt;MessengerState, MessengerAction, MessengerEvent&gt;</ID>
-    <ID>CognitiveComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun EnterScope&lt;ChartState&lt;C&gt;, E, ChartState&lt;C&gt;&gt;.start</ID>
-    <ID>CognitiveComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun takeStep: ChartState&lt;C&gt;</ID>
     <ID>CognitiveComplexMethod:StateChartTimerPropertyTest.kt:StateChartTimerPropertyTest$@Test fun timerIssuesEqualTheReferenceInTheirPlace</ID>
     <ID>CognitiveComplexMethod:StateChartTimerPropertyTest.kt:StateChartTimerPropertyTest$@Test fun walksWithTimersAgreeWithTheReferenceAndKeepTheRunningTimersExact</ID>
     <ID>CognitiveComplexMethod:StateChartTimerTest.kt:StateChartTimerTest$private fun TestScope.createStore: Store&lt;MessengerState, MessengerAction, MessengerEvent&gt;</ID>
@@ -79,7 +76,6 @@
     <ID>CyclomaticComplexMethod:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
     <ID>CyclomaticComplexMethod:Machine.kt:Machine$private fun decideObserved: Decision&lt;C, CMD, E&gt;</ID>
     <ID>CyclomaticComplexMethod:MachinePropertyTest.kt:MachinePropertyTest$@Test fun randomWalks_areDeterministic_andKeepTheSnapshotInvariants</ID>
-    <ID>CyclomaticComplexMethod:MachineStore.kt:MachineStoreImpl$private fun track</ID>
     <ID>CyclomaticComplexMethod:Mailbox.kt:MailboxImpl$fun enqueue</ID>
     <ID>CyclomaticComplexMethod:Mermaid.kt:fun StateChartDefinition.toMermaid: String</ID>
     <ID>CyclomaticComplexMethod:Migration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.validateSnapshotStructure: List&lt;String&gt;</ID>
@@ -102,8 +98,6 @@
     <ID>CyclomaticComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun mermaidDrawsEachRegionInItsOwnSectionOfTheParallelBlock</ID>
     <ID>CyclomaticComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun parallelIssuesEqualTheReferenceAndComeBetweenHistoryAndEndpoints</ID>
     <ID>CyclomaticComplexMethod:StateChartParallelPropertyTest.kt:StateChartParallelPropertyTest$@Test fun randomWalksAgreeWithTheReferenceAndKeepTheInvariants</ID>
-    <ID>CyclomaticComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun EnterScope&lt;ChartState&lt;C&gt;, E, ChartState&lt;C&gt;&gt;.start</ID>
-    <ID>CyclomaticComplexMethod:StateChartStore.kt:ChartStoreHost$private suspend fun takeStep: ChartState&lt;C&gt;</ID>
     <ID>CyclomaticComplexMethod:StateChartTimerPropertyTest.kt:StateChartTimerPropertyTest$@Test fun timerIssuesEqualTheReferenceInTheirPlace</ID>
     <ID>CyclomaticComplexMethod:Validation.kt:fun StateChartDefinition.validate: List&lt;ValidationIssue&gt;</ID>
     <ID>CyclomaticComplexMethod:Validation.kt:internal fun StateChartDefinition.hierarchyIssues: List&lt;ValidationIssue&gt;</ID>
@@ -115,7 +109,6 @@
     <ID>DoubleNegativeLambda:GraphDiagnostics.kt:none { it.source in sources &amp;&amp; it.target != node.id }</ID>
     <ID>DoubleNegativeLambda:HierarchyReference.kt:HierarchyReference$none { it != c &amp;&amp; parent(it) == c }</ID>
     <ID>KDocReferencesNonPublicProperty:MachineProfiler.kt:MachineProfiler$/** Configure before start; the public helper [profileWith] hides the internal probe API. */ internal val probe: StoreProbe&lt;MachineSnapshot&lt;C&gt;, MachineInput&lt;A&gt;, E&gt; = StoreProbe { trace -&gt; locked { val time = now() when (trace) { is StoreTrace.InputAccepted -&gt; { inputs[trace.input] = InputTiming(time) trim(inputs) } is StoreTrace.ProcessingStarted -&gt; { inputs[trace.input]?.let { inputs[trace.input] = it.copy(started = time, startedKnown = true) } } is StoreTrace.ProcessingFinished -&gt; { inputs.remove(trace.input)?.let { timing -&gt; if (timing.startedKnown) { for (id in timing.transitions.distinct()) { val previous = profile.transitions.getOrElse(id) { TransitionProfile() } profile = profile.copy(transitions = profile.transitions + (id to previous.copy(queue = previous.queue.add(timing.started - timing.accepted), processing = previous.processing.add(time - timing.started)))) } } } } is StoreTrace.InputDiscarded -&gt; { inputs.remove(trace.input) } StoreTrace.StoreClosed -&gt; { inputs.clear() registrations.clear() active.clear() } else -&gt; { Unit } } Unit } }</ID>
-    <ID>KDocReferencesNonPublicProperty:StateChartStore.kt:ChartStoreHost$private val tasks = Channel&lt;Task&gt;(Channel.UNLIMITED)</ID>
     <ID>LongMethod:Analysis.kt:fun StateChartDefinition.analyzeReachability: ReachabilityAnalysis</ID>
     <ID>LongMethod:Conformance.kt:StateChartConformance$override suspend fun onState</ID>
     <ID>LongMethod:Invocation.kt:InvokedMachine$fun decide: InvocationDecision&lt;PC, CC, PCMD, PE, CCMD, CE&gt;</ID>
@@ -158,50 +151,8 @@
     <ID>TooManyFunctions:Machine.kt:MachineBuilder&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
     <ID>TooManyFunctions:MachineStore.kt:MachineStoreImpl&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : MachineStoreStoreInternalApiStoreLifecycle</ID>
     <ID>TooManyFunctions:Runtime.kt:StateChartRuntime&lt;S : State&gt;</ID>
-    <ID>TooManyFunctions:StateChartStore.kt:ChartStoreHost&lt;C : Any, A : Action, E : Event&gt;</ID>
     <ID>TooManyFunctions:TypedStateMachineDsl.kt:TypedMachineStateBuilder&lt;C : Any, S : Any, A : Action, CMD : Any, E : Event&gt;</ID>
     <ID>TooManyFunctions:TypedStateMachineDsl.kt:TypedStateMachineBuilder&lt;C : Any, S : Any, A : Action, CMD : Any, E : Event&gt;</ID>
     <ID>UnconditionalJumpStatementInLoop:Durable.kt:DurableMachine$for (pending in base.outbox.values) { if (pending.status != DurableStatus.Pending) continue require(pending.attempts &lt; Long.MAX_VALUE) { "[Actron] Attempt counter exhausted" } val attempted = pending.copy(attempts = pending.attempts + 1) persist(DurableGeneration.Existing(base.generation), base.copy(outbox = base.outbox + (pending.key to attempted)), emptyList()) execute = { val committed = executeReserved(attempted, handler, now) onCommitted(committed) true } break }</ID>
-    <ID>WildcardImport:AutomaticMachineTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:AutomaticMachineTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:AvailableActionsTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:AvailableActionsTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:BehaviouralToolsTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:BehaviouralToolsTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:CompetitiveAnalysisTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CompetitiveAnalysisTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:DiagnosticsTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:DiagnosticsTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:DslTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:DslTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:DurableMachineTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:DurableMachineTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:EventRouteTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:GraphDiagnosticsTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:InvocationTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:InvocationTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:InvocationThreadingJvmTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:InvocationThreadingJvmTest.kt:import kotlinx.coroutines.*</ID>
-    <ID>WildcardImport:InvokedMachineStore.kt:import kotlinx.coroutines.*</ID>
-    <ID>WildcardImport:MachineProfiler.kt:import actron.core.*</ID>
-    <ID>WildcardImport:MachineProfilerTest.kt:import actron.core.*</ID>
-    <ID>WildcardImport:MachineProfilerTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:MachineProfilerTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:MachineProfilerTest.kt:import kotlinx.coroutines.*</ID>
-    <ID>WildcardImport:MachineProfilerTest.kt:import kotlinx.coroutines.test.*</ID>
-    <ID>WildcardImport:ParallelStateMachineDsl.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:ParallelStateMachineDslTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:RecoveryContractTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:RecoveryContractTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:ResumeMachineStoreTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:StateMachineDsl.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:StateMachineDslTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:TransitionCoverageTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:TypedHierarchyDslTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:TypedInvocationDslTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:TypedNestedParallelTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:TypedParallelMachineBuilder.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:TypedStateMachineDsl.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:TypedStateMachineDslTest.kt:import kotlin.test.*</ID>
   </CurrentIssues>
 </SmellBaseline>

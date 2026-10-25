@@ -3,7 +3,12 @@ package actron.statechart.machine
 import actron.core.Action
 import actron.core.ActronStoreDsl
 import actron.core.Event
-import actron.statechart.*
+import actron.statechart.CompoundState
+import actron.statechart.ParallelState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.StateNode
+import actron.statechart.Transition
 
 /** One machine with simultaneously active typed regions. Shared inputs are broadcast to
  * all matching regions in one decision; each region owns its commands and timers.

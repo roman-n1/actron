@@ -548,6 +548,31 @@ fun ChatScreen(store: MachineStore<ChatContext, ChatAction, ChatCommand, ChatEff
 }
 ```
 
+### MachineStore runtime ownership
+
+The public `MachineStore` facade coordinates runtime adapters, observers and resources. Internally,
+`MachineStoreQueue` owns admission order, group freeze/thaw and close admission;
+`MachineStoreWork` owns capacity reservations and correlations with core input IDs.
+A shared cut gate orders offers and close, and only then acquires the work-tracking gate.
+Core dispatch, observer callbacks and completion signals run outside both gates, including
+when the core dispatcher executes inline and a callback dispatches another action.
+
+Thaw transfers all held inputs before later offers. Capacity is released when processing
+starts, or when an input is discarded. Cancelling a `dispatchAndAwait` caller does not withdraw
+its accepted input. Close discards held/queued inputs and releases their waiters; inputs
+already submitted to the core finish through its terminal traces. `closeAndJoin` additionally
+waits for coroutine cleanup. `MachineStoreIdleWaiter` joins outstanding handoffs, core work
+and the executor barrier; frozen inputs and running commands/timers remain checkpoint data.
+
+`MachineStoreDecisions` evaluates each input once, reuses that computation for diagnostics,
+and selects handled/ignored/failed outcomes. Only handled decisions stage a publication and
+request a core snapshot commit. `MachineStorePublication` owns that pending decision, verifies
+the exact committed snapshot and consumes it before callbacks. It submits executor work, then
+notifies all commit observers, routes group messages, and delivers effects to patched plugins
+in effect-major order. Suspension in a plugin retains the core processing lock; the next input
+cannot replace the pending snapshot. Callback isolation and plugin-scope adaptation remain at
+the Store boundary. Neither helper owns another writable state flow or coroutine scope.
+
 ### Testing a machine
 
 A `MachineStore` is a Store actron-test can drive: `startAndAwait()` starts it, `dispatchAndAwait(action)`
@@ -658,6 +683,21 @@ provided the chart does not rely on them either:
   initial configuration while retaining its context, and a history record the chart cannot restore
   is dropped on its own (the next transition into that history state takes the default target).
   Context schema migrations remain the application's responsibility.
+
+## StateChartStore runtime ownership
+
+Registrations and `maxMicrosteps` are frozen when `StateChartStore` is built. Retaining and
+editing the DSL builder later does not change that Store. This copies registration collections;
+callback objects and the application data captured by them retain their original identity.
+
+`ChartStoreBindings` owns the frozen registrations; `ChartStoreHooks` adapts their transient
+DSL scopes. `ChartStoreActivities` owns committed activation jobs and guards late activity
+callbacks. `ChartStoreWork` runs activity/timer tasks in the existing Store subscription, outside
+the transition lock. `ChartStoreTimers` owns timer rules and stale-firing diagnostics; the token
+map remains in `ChartState`. `ChartStoreStartup` resolves restored state and initial activations.
+`ChartStoreTransition` stages tentative activations and launches until the complete macrostep
+succeeds, cancelling them on rollback. The host retains orchestration and failure boundaries.
+No helper introduces another Store, root scope or writable copy of chart state.
 
 ## Persistence across process restarts
 
@@ -1103,7 +1143,16 @@ and the strict CI checks, including inferred types. Old persistence readers rema
 The experimental `resumeMachineStore` factory creates a new executor from a started
 `ExecutorCheckpoint`. It preserves active configuration and context without rerunning entry
 hooks, restarts running commands, retains queued lanes and schedules remaining timer delays.
-Call `start()` on the returned store. When replacing a live executor, close the old one and
+Call `start()` on the returned store. Resume validates configuration/history, activations,
+command scopes, timer references, counters and user invariants before creating runtime work.
+For an invocation this applies to the parent and its active child.
+
+The checkpoint is the only restore source. A `StateSaver` supplied through the builder or a
+pre-start patch still saves new commits; its `restore` callback is not called. An `initialState`
+patch also cannot replace the resumed snapshot. Ordinary `MachineStore` creation retains the
+usual saver restoration contract.
+
+When replacing a live executor, close the old one and
 discard stale callbacks before installing the replacement.
 
 Commands have **at-least-once** semantics on restart: use restartable handlers, such as read-only

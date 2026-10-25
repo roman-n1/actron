@@ -3,6 +3,7 @@ package actron.statechart.machine
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExperimentalActronApi
+import actron.core.StateSaver
 import kotlinx.coroutines.CoroutineScope
 import kotlin.coroutines.CoroutineContext
 
@@ -14,13 +15,28 @@ internal sealed interface StoreOrigin<out C : Any, out CMD : Any> {
     ) : StoreOrigin<C, CMD>
 }
 
+/** A resumed executor and core must restore the same snapshot; persistence still saves commits. */
+internal fun <C : Any, CMD : Any> StoreOrigin<C, CMD>.adaptStateSaver(saver: StateSaver<MachineSnapshot<C>>): StateSaver<MachineSnapshot<C>> =
+    when (this) {
+        StoreOrigin.Fresh -> {
+            saver
+        }
+
+        is StoreOrigin.Resumed -> {
+            val snapshot = checkpoint.snapshot
+            StateSaver(save = saver::save, restore = { snapshot })
+        }
+    }
+
 /**
  * Continues an isolated run at a checkpoint without executing entry hooks again.
  * Running commands are executed again (at-least-once); use only with restartable handlers.
  * Queued commands retain their lanes, and timers retain their remaining delay. Old accepted
  * inputs and transient effects are not replayed. Checkpoints with unacknowledged effects or
  * ending commands are rejected because their undelivered outcomes cannot be reconstructed.
- * Close the original store when replacing it; this factory never mutates another store.
+ * The checkpoint is the only restore source: a configured or patched StateSaver saves new
+ * commits, but its restore callback is not invoked. Close the original store when replacing it;
+ * this factory never mutates another store.
  */
 @ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> resumeMachineStore(
@@ -40,6 +56,8 @@ fun <C : Any, A : Action, CMD : Any, E : Event> resumeMachineStore(
     require(checkpoint.snapshot.isStarted) { "Resume requires a started snapshot" }
     require(checkpoint.ending.isEmpty()) { "Cannot resume commands with undelivered terminal outcomes" }
     require(checkpoint.effects.isEmpty()) { "Cannot resume unacknowledged effects" }
+    val issues = machine.validateSnapshotStructure(checkpoint.snapshot)
+    require(issues.isEmpty()) { "Checkpoint snapshot is invalid: ${issues.joinToString()}" }
     require(machine.checkInvariants(checkpoint.snapshot).isEmpty()) { "Checkpoint violates machine invariants" }
     val resumedClock = clock.rebased(checkpoint.now)
     return MachineStoreImpl(
