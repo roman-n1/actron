@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Rule
 import org.junit.Test
@@ -34,9 +35,14 @@ class RecordingFilesTest {
     }
 
     private fun downloads() {
-        if (device.hasObject(By.desc("Show roots"))) device.findObject(By.desc("Show roots")).click()
-        val label = By.text("Downloads")
-        if (device.wait(Until.hasObject(label), 2000)) device.findObject(label).click()
+        // UiObject resolves its selector for each action; UiObject2 can become stale as the drawer redraws.
+        val roots = checkNotNull(device.findObject(UiSelector().description("Show roots")))
+        if (roots.exists()) check(roots.click()) { "Cannot open document roots" }
+        device.waitForIdle(timeout)
+        val downloads = checkNotNull(device.findObject(UiSelector().text("Downloads")))
+        check(downloads.waitForExists(timeout)) { "Downloads root did not appear" }
+        check(downloads.click()) { "Cannot select Downloads" }
+        device.waitForIdle(timeout)
     }
 
     private fun awaitRecordingAction(tag: String) {
