@@ -2,11 +2,32 @@
 
 package actron.statechart.machine
 
-import actron.core.*
-import actron.statechart.*
-import kotlinx.coroutines.*
-import kotlinx.coroutines.test.*
-import kotlin.test.*
+import actron.core.Action
+import actron.core.Event
+import actron.core.ExperimentalActronApi
+import actron.core.InputId
+import actron.core.InputKind
+import actron.core.InternalActronApi
+import actron.core.ProcessingOutcome
+import actron.core.StoreTrace
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 class MachineProfilerTest {

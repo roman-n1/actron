@@ -4,13 +4,37 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.AutomaticTransition
+import actron.statechart.ChartState
+import actron.statechart.CompoundState
+import actron.statechart.EffectKey
+import actron.statechart.FinalState
+import actron.statechart.GuardKey
+import actron.statechart.MicrostepLimitException
+import actron.statechart.ParallelState
+import actron.statechart.StateChartConformance
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateChartStore
+import actron.statechart.StateId
+import actron.statechart.TimerFired
+import actron.statechart.Transition
+import actron.statechart.TransitionKind
+import actron.statechart.Trigger
+import actron.statechart.activeLeaves
+import actron.statechart.isComplete
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlin.time.Duration.Companion.seconds
 
 class AutomaticMachineTest {

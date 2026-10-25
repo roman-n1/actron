@@ -3,7 +3,9 @@ package actron.statechart.machine
 import actron.core.Action
 import actron.core.Event
 import actron.statechart.StateId
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class ParallelStateMachineDslTest {

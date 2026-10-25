@@ -1,7 +1,11 @@
 package actron.statechart
 
 import actron.statechart.machine.TransitionId
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class GraphDiagnosticsTest {
     private val idle = StateId("Idle")

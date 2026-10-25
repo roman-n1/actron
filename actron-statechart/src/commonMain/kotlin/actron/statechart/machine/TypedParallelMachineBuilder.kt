@@ -3,7 +3,10 @@ package actron.statechart.machine
 import actron.core.Action
 import actron.core.ActronStoreDsl
 import actron.core.Event
-import actron.statechart.*
+import actron.statechart.CompoundState
+import actron.statechart.StateId
+import actron.statechart.StateNode
+import actron.statechart.Transition
 
 /** Parallel regions nested within a typed state or compound, with state-local parent handlers. */
 @ActronStoreDsl

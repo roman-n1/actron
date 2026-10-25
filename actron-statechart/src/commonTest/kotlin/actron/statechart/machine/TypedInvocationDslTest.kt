@@ -2,7 +2,11 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 
 class TypedInvocationDslTest {
     private sealed interface Phase {

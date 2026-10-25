@@ -2,8 +2,13 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
-import kotlin.test.*
+import actron.statechart.AtomicState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class RecoveryContractTest {
     @Test fun ordinaryIoRequiresApplicationRepeatDecisionWhileDurableReceiptsSuppressReexecution() {
