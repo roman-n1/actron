@@ -23,7 +23,13 @@ subprojects {
             include("**/*.kt")
             exclude("**/build/**")
         }
-    val baseline = rootProject.file("config/detekt/baselines/${project.name}.xml")
+    val baselineName =
+        when (project.path) {
+            ":weather:shared" -> "weather-example"
+            ":weather:androidApp" -> "weather-android"
+            else -> project.name
+        }
+    val baseline = rootProject.file("config/detekt/baselines/$baselineName.xml")
     val report = layout.buildDirectory.file("reports/detekt/detekt.sarif")
     val analyze by tasks.registering(JavaExec::class) {
         group = "verification"

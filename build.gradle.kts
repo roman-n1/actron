@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
+    alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.vanniktech.mavenPublish) apply false
@@ -23,8 +24,7 @@ apiValidation {
     ignoredProjects += "behaviour-review" // internal CI artifact exporter
     ignoredProjects += "resource-soak" // device verification harness, not a published API
     ignoredProjects += "time-travel-example" // runnable debug application, not a published API
-    ignoredProjects += "weather-android" // runnable Android host
-    ignoredProjects += "weather-example" // weather application, not a published API
+    ignoredProjects += listOf("weather", "shared", "androidApp", "desktopApp", "webApp") // weather example modules
     ignoredProjects += "durable-effects-example" // application-owned persistence example
     ignoredProjects += "nullability-guard" // internal Kotlin syntax policy checker
     klib {
@@ -70,7 +70,7 @@ gradle.projectsEvaluated {
 // on them, so an app that keeps them in a debug source set keeps them out of its release graph.
 // The time-travel and weather examples intentionally demonstrate this tooling on every target.
 // `checkDebugGraph` fails on a dependency in the wrong direction; CI runs it next to `apiCheck`.
-val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":actron-timetravel-test", ":time-travel-example", ":weather-example", ":weather-android")
+val debugModules = setOf(":actron-timetravel", ":actron-timetravel-compose", ":actron-timetravel-test", ":time-travel-example", ":weather", ":weather:shared", ":weather:androidApp", ":weather:desktopApp", ":weather:webApp")
 // Collected once every project is evaluated, at configuration time, so the task's action holds
 // plain strings and the configuration cache can keep it.
 val debugGraphOffenders = mutableListOf<String>()
