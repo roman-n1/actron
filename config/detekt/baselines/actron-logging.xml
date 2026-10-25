@@ -2,8 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>MatchingDeclarationName:JournalSink.kt:LoggerJournalSink : JournalSink</ID>
-    <ID>MatchingDeclarationName:PluginTest.kt:LoggingPluginTest</ID>
-    <ID>TooGenericExceptionCaught:Plugin.kt:&lt;no name provided&gt;$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:LoggingDelivery.kt:LoggingDelivery$e: Exception</ID>
   </CurrentIssues>
 </SmellBaseline>

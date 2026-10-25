@@ -7,13 +7,31 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 
+# User-authorized relocation of the existing logging failure boundary, 2026-10-25.
+# Exact module/section/ID pairs only: the source must disappear and no debt is added.
+AUTHORIZED_RELOCATIONS = {
+    "config/detekt/baselines/actron-logging.xml": (
+        (
+            ("CurrentIssues", "TooGenericExceptionCaught:Plugin.kt:<no name provided>$e: Exception"),
+            ("CurrentIssues", "TooGenericExceptionCaught:LoggingDelivery.kt:LoggingDelivery$e: Exception"),
+        ),
+    ),
+}
+
+
 def entries(xml):
     root = ElementTree.fromstring(xml)
     return {(section.tag, issue.text) for section in root for issue in section}
 
 
-def additions(previous, current):
-    return entries(current) - entries(previous)
+def additions(previous, current, relative=""):
+    before = entries(previous)
+    after = entries(current)
+    added = after - before
+    for source, target in AUTHORIZED_RELOCATIONS.get(relative, ()):
+        if source in before and source not in after and target not in before:
+            added.discard(target)
+    return added
 
 
 def main():
@@ -50,7 +68,7 @@ def main():
             previous = result.stdout
         else:
             previous = empty
-        for section, finding in sorted(additions(previous, path.read_text())):
+        for section, finding in sorted(additions(previous, path.read_text(), relative)):
             violations.append(f"{relative}: {section}: {finding}")
     if violations:
         sys.exit("Detekt baselines may only shrink. New exceptions:\n" + "\n".join(violations))
