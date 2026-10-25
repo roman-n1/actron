@@ -4,6 +4,7 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
+import actron.core.closeAndJoin
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,7 +63,7 @@ class StoreRecorderCursorTest {
             Store(Main()) {
                 coroutineContext(Dispatchers.Unconfined)
                 state<Main> {
-                    action<Act.Increment> { nextState(state.copy(count = state.count + 1)) }
+                    action<Act.Increment> { nextState { state.copy(count = state.count + 1) } }
                     action<Act.EmitCount> { event(Ev.CountUpdated(state.count)) }
                     action<Act.Ping> { event(Ev.Pinged) }
                     action<Act.Block> { launch { gate.await() } }
@@ -70,6 +71,119 @@ class StoreRecorderCursorTest {
                 }
             }
     }
+
+    @Test
+    fun addingEventsFromAPredicateDoesNotInvalidateTheCurrentEvent() =
+        runTest(testDispatcher) {
+            val fixture = Fixture()
+            val recorder = fixture.store.createRecorder()
+            try {
+                fixture.store.dispatchAndAwait(Act.Ping)
+                assertEquals(
+                    Ev.Pinged,
+                    recorder.receiveEvent {
+                        fixture.store.dispatch(Act.EmitCount)
+                        true
+                    },
+                )
+                assertEquals(listOf<Ev>(Ev.CountUpdated(0)), recorder.unconsumedEvents)
+            } finally {
+                fixture.store.closeAndJoin()
+            }
+        }
+
+    @Test
+    fun clearingHistoryFromAPredicateCannotCorruptTheCursor() =
+        runTest(testDispatcher) {
+            val fixture = Fixture()
+            val recorder = fixture.store.createRecorder()
+            try {
+                fixture.store.dispatchAndAwait(Act.Ping)
+                assertFailsWith<IllegalStateException> {
+                    recorder.receiveEvent {
+                        recorder.clear()
+                        true
+                    }
+                }
+                assertTrue(recorder.unconsumedEvents.isEmpty())
+                fixture.store.dispatchAndAwait(Act.EmitCount)
+                assertEquals(Ev.CountUpdated(0), recorder.receiveEvent<Ev.CountUpdated>())
+            } finally {
+                fixture.store.closeAndJoin()
+            }
+        }
+
+    @Test
+    fun recursiveConsumptionFromAPredicateDoesNotSkipTheFollowingEvent() =
+        runTest(testDispatcher) {
+            val fixture = Fixture()
+            val recorder = fixture.store.createRecorder()
+            try {
+                fixture.store.dispatchAndAwait(Act.Ping)
+                fixture.store.dispatchAndAwait(Act.EmitCount)
+                assertFailsWith<IllegalStateException> {
+                    recorder.receiveEvent {
+                        recorder.receiveEvent<Ev.Pinged>()
+                        true
+                    }
+                }
+                assertEquals(listOf<Ev>(Ev.CountUpdated(0)), recorder.unconsumedEvents)
+                assertEquals(Ev.CountUpdated(0), recorder.receiveEvent<Ev.CountUpdated>())
+            } finally {
+                fixture.store.closeAndJoin()
+            }
+        }
+
+    @Test
+    fun retainedHistoryViewsStayLiveAcrossClearWhileUnconsumedEventsAreSnapshots() =
+        runTest(testDispatcher) {
+            val fixture = Fixture()
+            val recorder = fixture.store.createRecorder()
+            val states = recorder.states
+            val events = recorder.events
+            try {
+                fixture.store.dispatchAndAwait(Act.Ping)
+                val tail = recorder.unconsumedEvents
+                assertEquals(listOf<Ev>(Ev.Pinged), events)
+                recorder.clear()
+                assertTrue(states.isEmpty())
+                assertTrue(events.isEmpty())
+                assertEquals(listOf<Ev>(Ev.Pinged), tail)
+                fixture.store.dispatchAndAwait(Act.Increment)
+                fixture.store.dispatchAndAwait(Act.EmitCount)
+                assertEquals(listOf(Main(1)), states)
+                assertEquals(listOf<Ev>(Ev.CountUpdated(1)), events)
+                assertEquals(Ev.CountUpdated(1), recorder.receiveEvent<Ev.CountUpdated>())
+            } finally {
+                fixture.store.closeAndJoin()
+            }
+        }
+
+    @Test
+    fun clearingHistoryDoesNotReleaseItsStoreOwner() =
+        runTest(testDispatcher) {
+            val first = Fixture().store
+            val second = Fixture().store
+            val recorder = first.createRecorder()
+            val handled = mutableListOf<Throwable>()
+            second.patch {
+                exceptionHandler(actron.core.ExceptionHandler { handled += it })
+                plugin(recorder)
+            }
+            try {
+                first.startAndAwait()
+                recorder.clear()
+                second.startAndAwait()
+                assertEquals(1, handled.size)
+                assertTrue("one Store" in handled.single().message.orEmpty())
+                assertTrue(recorder.states.isEmpty())
+                first.dispatchAndAwait(Act.Increment)
+                assertEquals(listOf(Main(1)), recorder.states)
+            } finally {
+                first.closeAndJoin()
+                second.closeAndJoin()
+            }
+        }
 
     @Test
     fun receiveEvent_consumesInOrder_byTypeAndByPredicate_andEventsKeepsThemAll() =
