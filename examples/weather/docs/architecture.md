@@ -1,6 +1,6 @@
 # How Weather uses Actron
 
-[Back to the example](../README.md) · [Testing guide](../shared/src/commonTest/README.md)
+[Back to the example](../README.md) · [Testing guide](../debugTools/src/commonTest/README.md)
 
 Weather has two screens and two machine definitions. Read the search feature first; the weather
 feature applies the same integration to two parallel regions. Navigation is entirely Decompose's
@@ -103,14 +103,14 @@ creates the Decompose stack and feature factories. Selection/back events travel 
 example's `ParentBridge`/`BridgeEndpoint` to the root; they are not Actron actions controlling
 navigation. `BaseComponent.Render()` and `StackComponent` render the active child.
 
-[MachineInstance.kt](../shared/src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
+[MachineInstance.kt](../../../actron-decompose/src/commonMain/kotlin/actron/decompose/MachineInstance.kt)
 owns the Store and its coroutine scope, starts it after construction and closes/cancels it on
 destruction. It has no knowledge of Weather, recording, profiling or restoration.
 [WeatherComponentFactories.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/WeatherComponentFactories.kt)
-uses [retainedMachine](../shared/src/commonMain/kotlin/actron/example/weather/core/component/RetainedMachine.kt)
+uses [retainedMachine](../../../actron-decompose/src/commonMain/kotlin/actron/decompose/RetainedMachine.kt)
 to retain these owners through each child's `InstanceKeeper` and injects only the Store into the
 feature component. Recording is an optional, lazy configuration supplied by
-[WeatherMachineRecording](../shared/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherMachineRecording.kt).
+[WeatherMachineRecording](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherMachineRecording.kt).
 The adapter binds it before startup and chooses fresh creation or checkpoint resumption. The search child
 stays on the back stack while weather is open; popping weather destroys that weather executor.
 A restored weather component does not dispatch a fresh `Refresh` over the restored state.
@@ -126,7 +126,7 @@ These are different representations with different capabilities:
 | `WeatherFrame` | Search/weather checkpoints, route and coverage | Live history preview and continuation |
 | `WeatherRecordingFrame` | Display data, active nodes and coverage | Imported view-only history |
 
-[WeatherHistory.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherHistory.kt)
+[WeatherHistory.kt](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherHistory.kt)
 attaches `DecisionTraceObserver` before the store starts. `BoundedMachineRecorder` retains the
 machine trace; `HistoryTimeline` combines instances into a session-wide limit of 500 entries.
 The host supplies field projections and a `WeatherFrame`; Actron does not interpret its route.
@@ -137,13 +137,13 @@ recreates executors from their checkpoints. Pending read requests restart; compl
 completed; timers retain their remaining delay. This does not restore a suspended call stack or
 guarantee exactly-once external side effects. Later history is removed after successful continuation.
 
-[WeatherSavedState.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherSavedState.kt)
+[WeatherSavedState.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/session/WeatherSavedState.kt)
 declares `checkpointGroup` with one search checkpoint and zero or one weather checkpoints.
 `machinePersistence` validates/serializes each machine. The host maps those checkpoints into its
 frame and registers the encoded result with Essenty `StateKeeper`; Android supplies the saved
 instance-state transport. Only the latest resumable frame is saved, not the debug timeline.
 
-[WeatherRecording.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherRecording.kt)
+[WeatherRecording.kt](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherRecording.kt)
 uses `HistoryRecordingCodec` with the display schema and both graph definitions. Import checks
 schema, machine versions and graph compatibility before displaying data. `HistoryRecordingPanel`
 has no continuation path. Platform `HistoryFiles` adapters open/save bytes; the library has no
@@ -155,7 +155,9 @@ Android or Decompose dependency. File import never creates a feature component o
 | --- | --- |
 | `actron-statechart` | Machine DSL, decisions, queued Store, commands and timers |
 | `actron-compose` | UI-safe collection of store snapshots |
-| `actron-timetravel` | Recording, bounded history, checkpoint persistence and codecs |
+| `actron-persistence` | Checkpoint persistence and resumption |
+| `actron-timetravel` | Recording, bounded history and display codecs |
+| `actron-decompose` | Retained machine setup and component-bound observation |
 | `actron-timetravel-compose` | Reusable history/graph inspector and resizing |
 | `actron-statechart-test` | Scripted executor tests, pure graph exploration and coverage |
 | `actron-timetravel-test` | Optional test-trace export to view-only recordings |
@@ -176,13 +178,13 @@ and `ContactDetailFeatureGraph` under `feature/contact-detail/impl`.
 | Navigation | Decompose components, parent-owned bridges, child factories | The same pattern for search and weather; root handles selection/back |
 | Feature state | A feature owns its state and exposes a component contract | Each Actron Store is the only live feature-state writer; UI models are projections |
 | Creation and lifetime | Factories/feature graphs assemble dependencies; lifecycle releases component work | App factories retain Store owners; components cancel only their own bridge scope |
-| Diagnostics | Shell/tooling integrations sit outside feature contracts | Recording, preview, persistence and file adapters live in `app/debug` |
-| Dependency size | Multiple feature API/implementation modules and substantial feature graphs | One shared module and two feature factories; no DI framework or extra Gradle modules |
+| Diagnostics | Shell/tooling integrations sit outside feature contracts | Recording, preview and file adapters live in `debugTools`; current checkpoints and persistence live in `shared/app/session` |
+| Dependency size | Multiple feature API/implementation modules and substantial feature graphs | One production module, an optional debug module and two feature factories; no DI framework |
 
 The reusable `core` has no dependency on either feature or application composition. Feature
 presentation does not depend on `WeatherHistory`, application recording types or the sibling
 feature. Its component receives its Store and a bridge endpoint. The search toolbar receives
-an explicit settings callback; the app shell owns settings visibility. There is no diagnostic
+an explicit composable settings slot; the app shell owns settings visibility. There is no diagnostic
 composition-local to discover from feature code.
 
 App factories deliberately know both feature implementations and the shared recording session:
@@ -205,7 +207,7 @@ independent consumers or dependencies, rather than to reproduce the production m
 
 ## One-call machine installation
 
-The shared example provides an application adapter, not a new published Actron API:
+`actron-decompose` provides the machine installation API:
 
 ```kotlin
 val store = componentContext.retainedMachine(
@@ -222,15 +224,15 @@ A stable key identifies a Store for the lifetime of that `InstanceKeeper`. Recre
 with that key returns the original Store and does not replace its dependencies. Distinct business
 instances require distinct keys (or, as in Weather, distinct child keepers).
 
-Diagnostics and checkpoint continuation add one option to the same call:
+Diagnostics and checkpoint continuation are independent options on the same call:
 
 ```kotlin
-recording = history.searchRecording()
-// For the weather feature: recording = history.weatherRecording(city)
+recording = history.recording()
+// For the weather feature: recording = history.recording()
 ```
 
-The option is bound only when a new retained Store is created. It supplies the typed checkpoint,
-clock, recording observer and profiler as one configuration. The adapter attaches them before
+Each option is bound only when a new retained Store is created. Restoration supplies checkpoints,
+clock and tracking; recording supplies diagnostic observers and profiler instrumentation. The adapter attaches them before
 startup, so the first decision is recorded. Recreating a host does not bind another recorder.
 Handlers/options must not retain a component, bridge endpoint or UI-lifecycle scope.
 
@@ -239,6 +241,5 @@ are dispatched after configuration/start exactly once for that retained instance
 when resuming an already-started checkpoint. Existing completed regions are not refreshed by
 host recreation or continuation. Destroying the keeper closes the Store and cancels its commands.
 
-The basic Decompose library continues to depend only on Actron core. This prototype lives in
-the example because it also combines machine execution and optional app-owned diagnostics;
-it does not add statechart/time-travel dependencies to `actron-decompose` consumers.
+A single `actron-decompose` module exposes the standard machine/Store integration. It depends
+on core/statechart and Decompose, and has no time-travel, persistence-codec or Compose dependency.

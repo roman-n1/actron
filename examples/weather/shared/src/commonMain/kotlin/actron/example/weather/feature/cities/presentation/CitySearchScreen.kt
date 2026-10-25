@@ -37,7 +37,7 @@ fun CitySearchScreen(
     state: CitySearchUiState,
     modifier: Modifier = Modifier,
     onIntent: (CitySearchIntent) -> Unit,
-    onSettings: () -> Unit = {},
+    settingsAction: @Composable () -> Unit = {},
 ) {
     Surface(modifier.fillMaxSize()) {
         Column(
@@ -48,30 +48,16 @@ fun CitySearchScreen(
                 .testTag("cities-screen"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            val settingsLabel = if (androidx.compose.ui.text.intl.Locale.current.language == "ru") "Настройки" else "Settings"
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Cities", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                IconButton(onClick = onSettings, modifier = Modifier.testTag("debug-settings").semantics { contentDescription = settingsLabel }) {
-                    val color = MaterialTheme.colorScheme.onSurfaceVariant
-                    Canvas(Modifier.size(24.dp)) {
-                        val radius = size.minDimension * 0.31f
-                        val stroke = 2.dp.toPx()
-                        drawCircle(color, radius, style = Stroke(stroke))
-                        drawCircle(color, radius * 0.4f, style = Stroke(stroke))
-                        repeat(8) { tooth ->
-                            val angle = tooth * kotlin.math.PI.toFloat() / 4f
-                            val direction = Offset(cos(angle), sin(angle))
-                            drawLine(color, center + direction * radius, center + direction * (size.minDimension * 0.46f), stroke * 1.6f)
-                        }
-                    }
-                }
+                settingsAction()
             }
             OutlinedTextField(
                 value = state.query,
                 onValueChange = { onIntent(CitySearchIntent.QueryChanged(it)) },
                 label = { Text("Search cities") },
                 singleLine = true,
-                readOnly = !state.enabled,
+                readOnly = state.queryReadOnly,
                 modifier = Modifier.fillMaxWidth().testTag("city-search"),
             )
             when (val phase = state.phase) {

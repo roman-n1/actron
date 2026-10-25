@@ -23,12 +23,12 @@ On Android put the inspector and recorder integration in `src/debug` and use
 `debugImplementation` for the time-travel artifacts. Release should not refer to these types
 or construct an observer. A visibility flag alone does not stop recording or remove code.
 For production checkpoint persistence use [actron-persistence](../actron-persistence/README.md),
-which is re-exported here for existing callers. See [Weather initialization](../examples/weather/README.md#debug-and-release-initialization)
+which is re-exported here for existing callers. See [Weather initialization](../examples/weather/README.md#concise-machine-setup)
 for a complete implementation and a resolved release dependency check.
 
-New here? Run the [disk-to-inspector example](../examples/time-travel/README.md) before
-integrating the APIs below. It closes its live Stores, loads real files, compares reducers,
-and experiments without re-running the command handler. See [installation](../README.md#installation)
+New here? Run the [Weather example](../examples/weather/README.md) before
+integrating the APIs below. It demonstrates live history, preview, continuation and
+view-only file import without re-running the command handler. See [installation](../README.md#installation)
 for dependency setup and current release availability.
 
 Replay for [Actron](../README.md)'s replay-ready machines: record a run of a `MachineStore`, decide

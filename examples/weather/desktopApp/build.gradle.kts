@@ -7,7 +7,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":weather:shared"))
+    implementation(project(":weather:debugTools"))
     implementation(compose.desktop.currentOs)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.coroutines.get()}")
     implementation(libs.decompose.core)

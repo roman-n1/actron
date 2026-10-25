@@ -6,8 +6,8 @@ decisions for Machines; it does not replay them.
 
 Start with the [root concepts](../README.md), follow this module's quick start, and use
 [Time Travel](../actron-timetravel/README.md) when typed snapshots and re-deciding inputs are
-needed. The [desktop example](../examples/time-travel/README.md) writes both a journal and
-replay recordings, showing why these are separate files. Dependency availability and
+needed. The [Weather example](../examples/weather/README.md) demonstrates application recording
+and inspection. Journals and replay recordings have separate contracts. Dependency availability and
 composite-build setup follow [installation](../README.md#installation).
 
 A structured journal for [Actron](../README.md) Stores: what each Store accepted, dropped,

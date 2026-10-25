@@ -217,7 +217,7 @@ execution. Continuing from history starts a new executor/window. Imported displa
 recordings currently omit profiling and do not show the Profile toggle.
 
 See the executable examples in
-[`AdvancedWeatherTestingTest.kt`](../../examples/weather/shared/src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt).
+[`AdvancedWeatherTestingTest.kt`](../../examples/weather/debugTools/src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt).
 They cover temporal cancellation, both forecast/current answer orders, errors and
 timeout, changing Moscow to Kazan, restart during debounce and HTTP, and a removed
 city guard. Test handlers return fixtures; these exploration tests make no real HTTP

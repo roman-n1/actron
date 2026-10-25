@@ -52,6 +52,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":actron-core"))
+            api(project(":actron-statechart"))
             api(libs.decompose.core)
         }
         commonTest.dependencies {

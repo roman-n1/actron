@@ -23,9 +23,7 @@ Read only the modules relevant to the task. This map explains boundaries, not ev
 Examples are applications, not published dependencies:
 
 - `examples/weather`: two-screen Compose/Decompose example, search and parallel current/
-  forecast machines, session history, persistence adapter. Android launcher: `examples/weather-android`.
-- `examples/time-travel`: focused replay/debug application.
-- `examples/durable-effects`: durable/outbox and idempotency example.
+  forecast machines, session history, persistence adapter. platform hosts and optional `debugTools` under the same directory.
 
 Repository-only tooling:
 

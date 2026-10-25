@@ -2,13 +2,12 @@
 
 package actron.example.weather.app
 
-import actron.example.weather.app.debug.WeatherDebugLayout
-import actron.example.weather.app.debug.WeatherFrame
-import actron.example.weather.app.debug.WeatherHistory
-import actron.example.weather.app.debug.WeatherRoute
-import actron.example.weather.app.debug.WeatherSavedState
-import actron.example.weather.app.debug.WeatherSavedStateCodec
-import actron.example.weather.app.debug.retainedWeatherHistory
+import actron.example.weather.app.session.WeatherFrame
+import actron.example.weather.app.session.WeatherRoute
+import actron.example.weather.app.session.WeatherSavedState
+import actron.example.weather.app.session.WeatherSavedStateCodec
+import actron.example.weather.app.session.WeatherSession
+import actron.example.weather.app.session.retainedWeatherSession
 import actron.example.weather.core.component.BaseComponent
 import actron.example.weather.core.component.ParentBridge
 import actron.example.weather.core.component.StackComponent
@@ -45,9 +44,9 @@ class DefaultWeatherRootComponent(
     citySearch: CitySearchRepository,
     hourlyApi: HourlyForecastRepository,
     coroutineContext: CoroutineContext = Dispatchers.Main,
-    private val history: WeatherHistory = retainedWeatherHistory(componentContext),
+    private val history: WeatherSession = retainedWeatherSession(componentContext),
     private val settings: WeatherSettings = WeatherSettings(),
-    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, settings::open, coroutineContext, history),
+    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, { history.SettingsAction(settings::open) }, coroutineContext, history),
     private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history),
 ) : WeatherRootComponent,
     ComponentContext by componentContext {
@@ -112,7 +111,7 @@ class DefaultWeatherRootComponent(
 
     @Composable
     override fun Render() {
-        WeatherDebugLayout(history, onContinue = ::continueFrom, settings = settings) { super<WeatherRootComponent>.Render() }
+        history.Render(settings, ::continueFrom) { super<WeatherRootComponent>.Render() }
     }
 
     fun continueFrom(frame: WeatherFrame) {

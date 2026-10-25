@@ -78,10 +78,9 @@ engine that gives them structure.
 | Describe nested/parallel phases and draw their transitions | [actron-statechart](actron-statechart/README.md) |
 | Keep I/O separate from decisions and replay them | [A pure Machine below](#3-a-machine-makes-decisions-io-runs-afterward) |
 | Connect a Store to Compose | [actron-compose](actron-compose/README.md) |
-| Reproduce a bug from a saved run | [The runnable Time Travel example](examples/time-travel/README.md) |
+| Reproduce a bug from a saved run | [Weather recording and continuation](examples/weather/README.md#session-history-and-replay) |
 | Explore MVI, a live API and an embeddable debug panel | [The Multiplatform weather demo](examples/weather/README.md) |
 | Generate tests from a graph and inspect a late-response scenario | [Weather's generated tests and recordings](examples/weather/README.md#automatically-generated-tests-and-recordings) |
-| Handle retained effects across process death | [The durable outbox example](examples/durable-effects/README.md) |
 | Look up the full original Store DSL | [Store API guide](doc/guides/store-api.md) |
 
 ## 1. A Store for a counter
@@ -216,23 +215,12 @@ Explicit-ID definitions remain available for lower-level tools and existing user
 
 ## 4. Time Travel from a real saved run
 
-The [desktop example](examples/time-travel/README.md) has a cart and an order summary. A bug
-forgets discount 20 on price 100, so both machines show 100 instead of 80.
+The [Weather application](examples/weather/README.md) demonstrates recording, inspection,
+checkpoint continuation and imported view-only recordings in the same two-screen application.
 
 ```sh
-./gradlew :time-travel-example:run
-# The same full workflow without opening a window:
-./gradlew :time-travel-example:run --args='--check'
+./gradlew :weather:desktopApp:run
 ```
-
-Record checkout → reopen the saved files → compare the corrected reducer → see the first
-divergence → branch from its checkpoint → script a price response → return to the original
-replay. Group navigation restores every member at one position. Experiments use a virtual
-clock and application-supplied inputs/routes; they leave the recording and live runtime alone.
-
-An arbitrary coroutine Store can be inspected, but deterministic replay needs the pure
-Machine path and compatible definitions/codecs. Debug tooling belongs in debug dependencies;
-the CI checks that production modules do not depend on it.
 
 ## Skills for your AI
 
@@ -260,11 +248,10 @@ Every library module has its own README with setup, examples and its contract.
 | [actron-diagnostics-sdk](actron-diagnostics-sdk/README.md) | Optional OpenTelemetry and Sentry adapters for JVM/Android |
 | [actron-diagnostics-crashlytics](actron-diagnostics-crashlytics/README.md) | Optional Android Crashlytics adapter |
 | [actron-observability](actron-observability/README.md) | Ordered, bounded diagnostic journal and file storage |
+| [actron-persistence](actron-persistence/README.md) | Current checkpoint codecs and restoration without debug tooling |
 | [actron-timetravel](actron-timetravel/README.md) | Recording, codecs, checkpoints, replay and isolated branches |
 | [actron-timetravel-compose](actron-timetravel-compose/README.md) | Inspector UI and group replay/experiment controls |
-| [time-travel-example](examples/time-travel/README.md) | Runnable JVM debug application; not a published library |
 | [weather](examples/weather/README.md) | Compose Multiplatform MVI weather app with a live API and resizable debug panel; not a published library |
-| [durable-effects-example](examples/durable-effects/README.md) | Runnable JVM outbox and idempotent-effect application; not a published library |
 
 ## Installation
 
@@ -282,8 +269,8 @@ includeBuild("../actron") // path to this repository; its root name is Actron
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.roman-n1:actron-core:5.0.0-alpha.1")
-            // Optional: implementation("io.github.roman-n1:actron-statechart:5.0.0-alpha.1")
+            implementation("io.github.roman-n1:actron-statechart:5.0.0-alpha.1")
+            // For Decompose: implementation("io.github.roman-n1:actron-decompose:5.0.0-alpha.1")
         }
     }
 }
@@ -314,7 +301,7 @@ releases. The original Store DSL, Compose helpers, messaging, logging and test s
 
 | Area | Upstream base 4.0.0 | This fork adds |
 |---|---|---|
-| State management | State-specific Kotlin Store handlers | Optional statechart nodes/transitions as inspectable data |
+| State management | State-specific Kotlin Store handlers | Statechart nodes/transitions as inspectable data |
 | State structure | Ordinary Store states | Hierarchy, parallel regions, history and chart timers |
 | I/O and decisions | Coroutine work in Store handlers | Pure Machine decisions and explicit command/executor checkpoints |
 | Diagnostics | Plugin observation and logging | Ordered structured journal, bounded retention and file readers |

@@ -1,6 +1,6 @@
 # Weather application
 
-A two-screen Compose Multiplatform application for Android, Desktop and the browser.
+A two-screen Compose Multiplatform application for Android, Desktop, iOS and the browser.
 Search for a city, open its current weather and six-hour forecast, refresh or go back.
 Settings contains an optional debug history panel, shown only on the right. Recording starts
 with the machines, independently of panel visibility.
@@ -11,7 +11,7 @@ Start with [How Weather uses Actron](docs/architecture.md): the path from UI int
 decision and HTTP result, the typed search DSL, parallel weather regions, component lifetime,
 and the distinction between preview and restoration.
 
-For tests, read [the test-source README](shared/src/commonTest/README.md). It maps the scripted,
+For tests, read [the test-source README](debugTools/src/commonTest/README.md). It maps the scripted,
 generated and HTTP-cancellation examples to the library APIs and shows how to inspect a
 generated scenario in the running application. Source comments mark the integration points;
 the guides explain the contracts behind those calls.
@@ -25,10 +25,10 @@ Suggested source order:
    call the feature repository, dispatch actions and collect state.
 3. [CityWeatherMachine](shared/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt):
    independent regions in one machine.
-4. [MachineInstance](shared/src/commonMain/kotlin/actron/example/weather/core/component/MachineInstance.kt)
+4. [MachineInstance](../../actron-decompose/src/commonMain/kotlin/actron/decompose/MachineInstance.kt)
    and [WeatherRootComponent](shared/src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt):
    connect Actron execution to Decompose lifetime and navigation.
-5. [GeneratedWeatherScenarios](shared/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt):
+5. [GeneratedWeatherScenarios](debugTools/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt):
    describe test data and properties, then let the graph explorer discover sequences.
 
 ## Run
@@ -45,7 +45,8 @@ The modules follow the same separation as `MyApplication`:
 
 ```text
 examples/weather/
-  shared/       Shared Compose UI, Actron machines, repositories and platform adapters
+  shared/       Production Compose UI, machines, repositories and current checkpoints
+  debugTools/   Optional recorder, profiler, history UI and platform file dialogs
   androidApp/   Android Activity, manifest and device tests
   desktopApp/   JVM entry point and desktop runtime
   webApp/       Shared browser entry point, HTML, JavaScript and Wasm executables
@@ -90,12 +91,13 @@ state broadcasts are needed; the corresponding action type is `Nothing`.
 ```text
 app/WeatherRootComponent.kt       Decompose Search / Weather(city) stack
 app/WeatherComponentFactories.kt  Retained feature Store assembly
-app/debug/                       Recording, preview, checkpoints and platform file adapters
-core/component/                  Base/StackComponent, bridges, retained MachineInstance
+app/session/                     Current checkpoints and process restoration
+debugTools/app/debug/            Optional recording, preview and platform file adapters
+core/component/                  Base/StackComponent and bridges
 core/mvi/RequestState.kt          Shared typed request lifecycle
 feature/cities/
   data/                          HTTP and offline search repositories
-  domain/                        CitySearchRepository, CitySearchRepository
+  domain/                        CitySearchRepository
   presentation/                  Component, machine, command handler, screen and UI projection
 feature/weather/
   data/                          Current/hourly HTTP and offline repositories
@@ -110,13 +112,13 @@ weather destroys that child and cancels its requests. Search stays in the back s
 query and results. Opening another city creates a new weather child and executor. Merely opening
 search does not request weather for a default city.
 
-All platform entry points create `DefaultWeatherRootComponent` and call `root.Render()`.
+Platform entry points select the ordinary or debug root and call `root.Render()`.
 Desktop constructs/destroys it on the Swing UI thread; Android uses the Activity component context.
 Each screen owns its padding and scrolling. There is no `WeatherApp` or `WeatherAppContent` wrapper.
 
 ## Concise machine setup
 
-A normal machine needs one call to the shared example's Decompose adapter:
+A normal machine needs one call to `actron-decompose`:
 
 ```kotlin
 val store = componentContext.retainedMachine(
@@ -127,12 +129,12 @@ val store = componentContext.retainedMachine(
 )
 ```
 
-Add `recording = history.searchRecording()` to record, profile and restore search, or
-`recording = history.weatherRecording(city)` for weather. The option binds once, before
+Add `restoration = session.searchRestoration()` to restore/track search checkpoints.
+Independently add `recording = history.recording()` to enable recording and profiling. The option binds once, before
 startup. `initialActions = listOf(WeatherAction.Refresh)` runs only on fresh creation.
 The adapter owns retention/start/close and the command scope; UI subscriptions still belong
 to their component. See [the installation contract](docs/architecture.md#one-call-machine-installation).
-This helper is currently part of the example, not a published library API.
+The helper is part of `actron-decompose`; these changes have not yet been released to Maven Central.
 
 ## State machines
 
@@ -162,19 +164,20 @@ city data: [GeoNames](https://www.geonames.org/).
 ## Verification
 
 ```sh
-./gradlew :weather:shared:jvmTest :weather:shared:iosSimulatorArm64Test
+./gradlew :weather:shared:jvmTest :weather:debugTools:jvmTest
+./gradlew :weather:shared:iosSimulatorArm64Test :weather:debugTools:iosSimulatorArm64Test
 ./gradlew :weather:webApp:jsBrowserDevelopmentWebpack :weather:webApp:wasmJsBrowserDevelopmentWebpack
 ./gradlew :weather:androidApp:assembleDebug :nullability-guard:checkPolicy
 ```
 
 Tests cover HTTP decoding, debounce and revisions, cancellation and timeouts, independent
 parallel requests, generic serialization, navigation, host recreation and request cleanup.
-The example integrates the library's recording/replay and inspector APIs; its host adapter
+The optional debugTools module integrates the library's recording/replay and inspector APIs; its host adapter
 owns only Weather display frames, screen restoration and platform file access.
 
 ## Session history and replay
 
-Every default feature executor attaches the library's `BoundedMachineRecorder` through a
+Every debug feature executor attaches the library's `BoundedMachineRecorder` through a
 `DecisionTraceObserver` before `start()`. The root retains one `WeatherHistory` across host
 recreation and shares it with both feature factories. Its timeline enforces **500 entries in
 total**, including closed weather screens. Evicting a timeline entry also trims that feature's
@@ -220,8 +223,8 @@ payloads should live on disk with only a reference in saved state.
 
 History is memory-only and disappears on full application restart. The count limit is not a
 byte quota. Selection and preview can each pin an immutable application frame after eviction.
-Weather is an explicit diagnostics demo and includes `actron-timetravel-compose` on all targets.
-Production integrations should isolate this dependency in their debug build.
+Android release uses the ordinary root without diagnostics; Android debug, Desktop, Web and iOS
+opt into `debugTools` and `actron-timetravel-compose`.
 
 Tests cover bounded history, pinned selection after eviction, action details, preview/continue,
 restoring navigation and a pending parallel request, local timestamp formatting, and lifecycle
@@ -266,7 +269,7 @@ Validation:
 
 - `:actron-timetravel:jvmTest`: round trips, original event IDs, invalid UTF-8/JSON, bounds,
   metadata, incompatible schemas/versions/graphs and redaction.
-- `:weather:shared:jvmTest`: screen selection, no continuation controls, live request and
+- `:weather:debugTools:jvmTest`: screen selection, no continuation controls, live request and
   component isolation, cancelled/failed import preservation and Desktop file I/O.
 - `:weather:androidApp:connectedDebugAndroidTest`: actual system document picker save/open and
   cancellation on an Android emulator; no intercepted intents.
@@ -274,7 +277,7 @@ Validation:
 
 ## Automatically generated tests and recordings
 
-[GeneratedWeatherScenarios.kt](shared/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt)
+[GeneratedWeatherScenarios.kt](debugTools/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt)
 shows the developer-facing `machine.scenarios(initial) { ... }` API:
 
 - `actions`: finite search values (empty, Moscow, Kazan), refresh and forecast retry.
@@ -308,10 +311,10 @@ Existing queued-store tests continue to cover actual command execution and cance
 Run the tests and produce ready-to-import recordings:
 
 ```sh
-./gradlew :weather:shared:jvmTest --tests '*Generated*'
+./gradlew :weather:debugTools:jvmTest --tests '*Generated*'
 ```
 
-Files appear in `examples/weather/shared/build/generated-scenarios/`:
+Files appear in `examples/weather/debugTools/build/generated-scenarios/`:
 
 - `late-moscow-command.actron.json`: search Moscow, switch to Kazan, ignore Moscow's late
   command result, then display Kazan's result.
@@ -326,7 +329,7 @@ Importing them runs no test, command or HTTP request. Executable typed scenarios
 
 ## Temporal rules and graph profiling
 
-[AdvancedWeatherTestingTest](shared/src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt)
+[AdvancedWeatherTestingTest](debugTools/src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt)
 demonstrates bounded temporal rules, real executor schedule exploration and mutation testing.
 See the [developer guide](../../doc/guides/temporal-schedules-and-profiling.md) for API usage.
 
@@ -335,3 +338,9 @@ transition to inspect completed queue/processing/command samples. Weather stores
 measurements before each event, per executor instance; old history never follows live metrics.
 Imported display recordings currently omit profiling. Continuing from history starts a new
 measurement window with the recreated executor.
+
+
+The Android release graph uses only `shared`; debug adds `debugTools`. Desktop/Web and the
+included SwiftUI host opt into the debugger explicitly. There is one Weather application;
+the module split keeps diagnostics out of normal runtime dependencies. The production tests
+verify that recorder/panel classes are absent and checkpoint restoration still works.

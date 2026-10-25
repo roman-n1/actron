@@ -20,7 +20,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":weather:shared"))
+            implementation(project(":weather:debugTools"))
             implementation(compose.ui)
             implementation(libs.decompose.core)
             implementation("io.ktor:ktor-client-core:3.5.0")

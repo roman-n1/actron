@@ -33,15 +33,11 @@ include(":actron-timetravel-compose")
 include(":actron-statechart-compose")
 include(":resource-soak")
 project(":resource-soak").projectDir = file("verification/resource-soak")
-include(":time-travel-example")
-project(":time-travel-example").projectDir = file("examples/time-travel")
-include(":weather", ":weather:shared", ":weather:androidApp", ":weather:desktopApp", ":weather:webApp")
+include(":weather", ":weather:shared", ":weather:debugTools", ":weather:androidApp", ":weather:desktopApp", ":weather:webApp")
 project(":weather").projectDir = file("examples/weather")
-listOf("shared", "androidApp", "desktopApp", "webApp").forEach { module ->
+listOf("shared", "debugTools", "androidApp", "desktopApp", "webApp").forEach { module ->
     project(":weather:$module").projectDir = file("examples/weather/$module")
 }
-include(":durable-effects-example")
-project(":durable-effects-example").projectDir = file("examples/durable-effects")
 
 include(":behaviour-review")
 project(":behaviour-review").projectDir = file("verification/behaviour-review")

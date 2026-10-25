@@ -42,7 +42,7 @@ class DefaultCitySearchComponent(
     private val endpoint: BridgeEndpoint<Nothing, CitySearchComponent.News>,
     coroutineContext: CoroutineContext,
     private val store: MachineStore<CitySearchState, CitySearchAction, SearchCitiesCommand, NoEvent>,
-    private val onSettings: () -> Unit,
+    private val settingsAction: @Composable () -> Unit,
 ) : CitySearchComponent,
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
@@ -68,6 +68,6 @@ class DefaultCitySearchComponent(
     override fun Render() {
         // The library collects snapshots for UI; formatting is a pure context -> UI projection.
         val snapshot by state.collectAsUiState()
-        CitySearchScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent, onSettings = onSettings)
+        CitySearchScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent, settingsAction = settingsAction)
     }
 }

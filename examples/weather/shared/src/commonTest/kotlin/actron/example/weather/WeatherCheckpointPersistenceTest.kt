@@ -2,11 +2,11 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.debug.WeatherHistory
-import actron.example.weather.app.debug.WeatherSavedState
-import actron.example.weather.app.debug.WeatherSavedStateCodec
-import actron.example.weather.app.debug.searchRecording
-import actron.example.weather.core.component.retainedMachine
+import actron.decompose.retainedMachine
+import actron.example.weather.app.session.WeatherSavedState
+import actron.example.weather.app.session.WeatherSavedStateCodec
+import actron.example.weather.app.session.WeatherSession
+import actron.example.weather.app.session.searchRestoration
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.domain.*
@@ -43,7 +43,7 @@ class WeatherCheckpointPersistenceTest {
                     requests += query
                     options
                 }
-            var history = WeatherHistory(clockFactory = { clock(testScheduler) })
+            var history = WeatherSession(clockFactory = { clock(testScheduler) })
 
             var keeper = InstanceKeeperDispatcher()
 
@@ -59,7 +59,7 @@ class WeatherCheckpointPersistenceTest {
                     initial = CitySearchState(),
                     handler = citySearchHandler(repo),
                     coroutineContext = coroutineContext,
-                    recording = history.searchRecording(),
+                    restoration = history.searchRestoration(),
                 )
             var machine = instance()
             runCurrent()
@@ -70,11 +70,7 @@ class WeatherCheckpointPersistenceTest {
             destroy()
             runCurrent()
             advanceTimeBy(60_000)
-            history = WeatherSavedStateCodec.decode(saved) { clock(testScheduler) }
-            assertTrue(
-                history.timeline.entries.value
-                    .isEmpty(),
-            )
+            history = WeatherSavedStateCodec.decodeSession(saved) { clock(testScheduler) }
             machine = instance()
             runCurrent()
             assertEquals(RequestState.Debouncing, machine.state.value.context.phase)
@@ -88,7 +84,7 @@ class WeatherCheckpointPersistenceTest {
             val completed = WeatherSavedStateCodec.encode(history)
             destroy()
             runCurrent()
-            history = WeatherSavedStateCodec.decode(completed) { clock(testScheduler) }
+            history = WeatherSavedStateCodec.decodeSession(completed) { clock(testScheduler) }
             machine = instance()
             runCurrent()
             assertEquals("Paris", machine.state.value.context.query)
@@ -106,7 +102,7 @@ class WeatherCheckpointPersistenceTest {
                     calls++
                     awaitCancellation()
                 }
-            var history = WeatherHistory(clockFactory = { clock(testScheduler) })
+            var history = WeatherSession(clockFactory = { clock(testScheduler) })
 
             var keeper = InstanceKeeperDispatcher()
 
@@ -122,7 +118,7 @@ class WeatherCheckpointPersistenceTest {
                     initial = CitySearchState(),
                     handler = citySearchHandler(repo),
                     coroutineContext = coroutineContext,
-                    recording = history.searchRecording(),
+                    restoration = history.searchRestoration(),
                 )
             var machine = instance()
             runCurrent()
@@ -134,7 +130,7 @@ class WeatherCheckpointPersistenceTest {
             val saved = WeatherSavedStateCodec.encode(history)
             destroy()
             runCurrent()
-            history = WeatherSavedStateCodec.decode(saved) { clock(testScheduler) }
+            history = WeatherSavedStateCodec.decodeSession(saved) { clock(testScheduler) }
             machine = instance()
             runCurrent()
             assertEquals(2, calls)
@@ -148,8 +144,8 @@ class WeatherCheckpointPersistenceTest {
 
     @Test
     fun rejectsUnsupportedOrCorruptCheckpoint() {
-        val saved = WeatherSavedStateCodec.encode(WeatherHistory())
-        assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decode(saved.copy(format = 99)) }
-        assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decode(saved.copy(checkpoints = "broken")) }
+        val saved = WeatherSavedStateCodec.encode(WeatherSession())
+        assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decodeSession(saved.copy(format = 99)) }
+        assertFailsWith<IllegalArgumentException> { WeatherSavedStateCodec.decodeSession(saved.copy(checkpoints = "broken")) }
     }
 }

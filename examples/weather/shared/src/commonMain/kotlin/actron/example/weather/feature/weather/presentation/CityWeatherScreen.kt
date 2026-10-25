@@ -2,7 +2,7 @@
 
 package actron.example.weather.feature.weather.presentation
 
-import actron.timetravel.compose.formatHistoryTime
+import actron.example.weather.app.session.formatWeatherTime
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -101,5 +101,5 @@ private fun localizedUpdatedAt(value: String): String {
         } catch (_: IllegalArgumentException) {
             emptyList()
         }
-    return if (parsed.isEmpty()) value else "Updated ${formatHistoryTime(parsed.single())}"
+    return if (parsed.isEmpty()) value else "Updated ${formatWeatherTime(parsed.single())}"
 }

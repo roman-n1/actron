@@ -1,3 +1,28 @@
+public final class actron/decompose/MachineDiagnostics {
+	public fun <init> (Lactron/statechart/machine/CommandHandler;Ljava/util/List;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lactron/statechart/machine/CommandHandler;Ljava/util/List;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getConfigure ()Lkotlin/jvm/functions/Function1;
+	public final fun getHandler ()Lactron/statechart/machine/CommandHandler;
+	public final fun getObservers ()Ljava/util/List;
+}
+
+public abstract interface class actron/decompose/MachineRecording {
+	public abstract fun prepare (Lactron/statechart/machine/Machine;Lactron/statechart/machine/ExecutorCheckpoint;Lactron/statechart/machine/CommandHandler;)Lactron/decompose/MachineDiagnostics;
+}
+
+public final class actron/decompose/MachineRestoration {
+	public fun <init> (Lactron/statechart/machine/MachineClock;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;)V
+	public synthetic fun <init> (Lactron/statechart/machine/MachineClock;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getClock ()Lactron/statechart/machine/MachineClock;
+	public final fun getObservers ()Lkotlin/jvm/functions/Function2;
+	public final fun getRestore ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/decompose/RetainedMachineKt {
+	public static final fun retainedMachine (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Lactron/statechart/machine/Machine;Ljava/lang/Object;Lactron/statechart/machine/CommandHandler;Lactron/decompose/MachineRestoration;Lactron/decompose/MachineRecording;Lkotlin/coroutines/CoroutineContext;Ljava/util/List;)Lactron/statechart/machine/MachineStore;
+	public static synthetic fun retainedMachine$default (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Lactron/statechart/machine/Machine;Ljava/lang/Object;Lactron/statechart/machine/CommandHandler;Lactron/decompose/MachineRestoration;Lactron/decompose/MachineRecording;Lkotlin/coroutines/CoroutineContext;Ljava/util/List;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
+}
+
 public final class actron/decompose/StoreObservationKt {
 	public static final fun observeEvent (Lactron/core/Store;Lcom/arkivanov/essenty/lifecycle/Lifecycle;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
 	public static final fun observeState (Lactron/core/Store;Lcom/arkivanov/essenty/lifecycle/Lifecycle;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;

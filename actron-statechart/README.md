@@ -52,7 +52,7 @@ Choose `StateChartStore` for coroutine hooks/activities, or the
 [pure Machine path](#replay-ready-machine) for explicit commands and deterministic replay.
 The [loading/retry example below](#quick-start) shows the adapter. The
 [root counter](../README.md#3-a-machine-makes-decisions-io-runs-afterward) shows a pure decision;
-the [desktop example](../examples/time-travel/README.md) completes recording and replay.
+the [Weather example](../examples/weather/README.md) adds recording and history.
 
 ## Module overview
 
@@ -521,7 +521,7 @@ pagination transport.
 Retained effects survive screen recreation with a live Store. `StateSaver` does not persist
 the mailbox across process death. For that boundary, keep a pending business intent in durable
 domain context and use a stable business id for idempotent handling. The
-[durable outbox example](../examples/durable-effects/README.md) uses real process crashes to
+[archived durable outbox example](https://github.com/roman-n1/actron/blob/bb173b88/examples/durable-effects/README.md) uses real process crashes to
 check effect/acknowledgement ordering and explains the required external transaction boundary.
 
 [actron-statechart-compose](../actron-statechart-compose/README.md) subscribes a composition to the

@@ -2,8 +2,8 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
 import actron.example.weather.app.WeatherTheme
+import actron.example.weather.app.debug.DebugWeatherRootComponent
 import actron.example.weather.core.network.weatherHttpClient
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
 import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
@@ -21,7 +21,7 @@ fun main() {
     val hourlyApi = OpenMeteoHourlyRepository(client)
     val cities = OpenMeteoCitySearchRepository(client)
     val lifecycle = LifecycleRegistry()
-    val root = DefaultWeatherRootComponent(DefaultComponentContext(lifecycle), api, cities, hourlyApi)
+    val root = DebugWeatherRootComponent(DefaultComponentContext(lifecycle), api, cities, hourlyApi)
     ComposeViewport {
         DisposableEffect(root) {
             lifecycle.resume()

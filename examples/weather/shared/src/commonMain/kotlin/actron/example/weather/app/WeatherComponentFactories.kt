@@ -1,10 +1,10 @@
 package actron.example.weather.app
 
-import actron.example.weather.app.debug.WeatherHistory
-import actron.example.weather.app.debug.searchRecording
-import actron.example.weather.app.debug.weatherRecording
+import actron.decompose.retainedMachine
+import actron.example.weather.app.session.WeatherSession
+import actron.example.weather.app.session.searchRestoration
+import actron.example.weather.app.session.weatherRestoration
 import actron.example.weather.core.component.BridgeEndpoint
-import actron.example.weather.core.component.retainedMachine
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.domain.CitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchComponent
@@ -26,9 +26,9 @@ import kotlin.coroutines.CoroutineContext
 /** Application composition connects feature stores to this application's recording session. */
 internal class DefaultCitySearchComponentFactory(
     private val repository: CitySearchRepository,
-    private val onSettings: () -> Unit,
+    private val settingsAction: @androidx.compose.runtime.Composable () -> Unit,
     private val coroutineContext: CoroutineContext,
-    private val history: WeatherHistory,
+    private val history: WeatherSession,
 ) : CitySearchComponent.Factory {
     override fun create(
         componentContext: ComponentContext,
@@ -40,10 +40,11 @@ internal class DefaultCitySearchComponentFactory(
                 machine = CitySearchMachine.create(),
                 initial = CitySearchState(),
                 handler = citySearchHandler(repository),
-                recording = history.searchRecording(),
+                restoration = history.searchRestoration(),
+                recording = history.recording(),
                 coroutineContext = coroutineContext,
             )
-        return DefaultCitySearchComponent(componentContext, endpoint, coroutineContext, store, onSettings)
+        return DefaultCitySearchComponent(componentContext, endpoint, coroutineContext, store, settingsAction)
     }
 }
 
@@ -51,7 +52,7 @@ internal class DefaultCityWeatherComponentFactory(
     private val repository: WeatherRepository,
     private val hourlyRepository: HourlyForecastRepository,
     private val coroutineContext: CoroutineContext,
-    private val history: WeatherHistory,
+    private val history: WeatherSession,
 ) : CityWeatherComponent.Factory {
     override fun create(
         componentContext: ComponentContext,
@@ -64,7 +65,8 @@ internal class DefaultCityWeatherComponentFactory(
                 machine = CityWeatherMachine.create(),
                 initial = WeatherContext(city),
                 handler = cityWeatherHandler(repository, hourlyRepository),
-                recording = history.weatherRecording(city),
+                restoration = history.weatherRestoration(city),
+                recording = history.recording(),
                 coroutineContext = coroutineContext,
                 initialActions = listOf(WeatherAction.Refresh),
             )

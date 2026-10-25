@@ -7,6 +7,7 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
+import actron.decompose.retainedMachine
 import actron.logging.Logger
 import actron.logging.simpleLogging
 import actron.message.Message
@@ -30,6 +31,7 @@ import actron.statechart.machine.MachineGroup
 import actron.statechart.machine.MachineStore
 import actron.timetravel.MachinePersistence
 import androidx.compose.runtime.Composable
+import com.arkivanov.decompose.ComponentContext
 import kotlinx.coroutines.CoroutineScope
 
 // Compile the persistence boundary from the production Maven graph, without recorder artifacts.
@@ -105,3 +107,10 @@ fun CounterUi(store: Store<Counter, Increment, Ev>): Int = rememberViewStore(sto
 fun MachineUi(store: MachineStore<Int, Increment, Nothing, Ev>) {
     MailboxEffect(store.mailbox) { it.acknowledge() }
 }
+
+fun <C : Any, A : Action, CMD : Any, E : Event> ComponentContext.installPublishedMachine(
+    key: String,
+    machine: Machine<C, A, CMD, E>,
+    initial: C,
+    handler: CommandHandler<CMD, A>,
+) = retainedMachine(key, machine, initial, handler)

@@ -1,7 +1,7 @@
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
 import actron.example.weather.app.WeatherTheme
+import actron.example.weather.app.debug.DebugWeatherRootComponent
 import actron.example.weather.core.network.weatherHttpClient
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
@@ -34,7 +34,7 @@ fun main(args: Array<String>) {
         try {
             val root =
                 runBlocking(Dispatchers.Swing) {
-                    DefaultWeatherRootComponent(DefaultComponentContext(lifecycle), api, cities, hourlyApi)
+                    DebugWeatherRootComponent(DefaultComponentContext(lifecycle), api, cities, hourlyApi)
                         .also { lifecycle.resume() }
                 }
             application(exitProcessOnExit = false) {

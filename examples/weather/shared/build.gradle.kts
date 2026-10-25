@@ -22,7 +22,7 @@ kotlin {
     }
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
-            baseName = "Shared"
+            baseName = "WeatherApp"
             isStatic = true
         }
     }
@@ -34,9 +34,9 @@ kotlin {
     wasmJs { browser() }
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":actron-statechart"))
+            api(project(":actron-decompose"))
+            implementation(project(":actron-persistence"))
             implementation(project(":actron-compose"))
-            implementation(project(":actron-timetravel-compose"))
             implementation("com.arkivanov.decompose:decompose:3.5.0")
             implementation("com.arkivanov.decompose:extensions-compose:3.5.0")
             implementation(compose.foundation)
@@ -47,7 +47,6 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(project(":actron-statechart-test"))
-            implementation(project(":actron-timetravel-test"))
             implementation(libs.kotlin.test)
             implementation(libs.coroutines.test)
             implementation("io.ktor:ktor-client-mock:3.5.0")

@@ -25,7 +25,8 @@ subprojects {
         }
     val baselineName =
         when (project.path) {
-            ":weather:shared" -> "weather-example"
+            ":weather:debugTools" -> "weather-example"
+            ":weather:shared" -> "weather-app"
             ":weather:androidApp" -> "weather-android"
             else -> project.name
         }
