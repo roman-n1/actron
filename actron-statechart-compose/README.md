@@ -16,7 +16,8 @@ machine's concerns live here.
 
 - **`MailboxEffect(mailbox) { delivery -> … }`**: subscribes the composition to the store's
   retained mailbox (handoff §10). The block runs for each `Delivery`, one at a time, oldest
-  first, and acknowledges it once the UI did what the effect asked. What was queued before the
+  first. The caller acknowledges it once the UI did what the effect asked; the helper never
+  acknowledges automatically. What was queued before the
   composition entered is delivered when it enters; what it was handling when it left,
   unacknowledged, waits for the next subscriber, which gets it again with `attempt + 1`, up to
   the policy's budget. One per mailbox at a time, at the screen that owns the store; the block
@@ -67,7 +68,8 @@ subscriber, and `EffectPolicy.Retained(maxAttempts)` bounds how many screens it 
 `Recomposer`, frames sent by hand, no UI): a delivery reaches the block and leaves on
 acknowledgement, what was queued before is delivered on entering, a composition leaving
 mid-handling hands the effect to the next one as attempt 2, the budget ends the redeliveries, the
-latest block is used, a throwing block fails the composition and releases the effect, and a storm
-of 200 recreations while 400 effects flow acknowledges each exactly once, the 200 interrupted
-ones on their second attempt. `MailboxEffectRaceJvmTest` runs the storm with the store on real
-threads.
+latest block is used, replacing the mailbox cancels the old handler and releases its delivery,
+and a throwing block fails the composition and releases the effect. A shared scenario interrupts
+200 deliveries before acknowledgement while 400 effects flow, awaits every retry explicitly,
+and acknowledges each exactly once. `MailboxEffectRaceJvmTest` runs that scenario with the
+producer and store on real threads, without polling progress.
