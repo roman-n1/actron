@@ -30,5 +30,11 @@ Supply display frames and redact sensitive data in the projection and `details` 
 The file contains before/action/after details and snapshots, including ignored inputs.
 It contains no executable handlers or resumable checkpoint. Saving bytes is the host's job.
 
+Each entry describes the before and after contexts, passes the complete details through the
+host's redaction callback, then creates the display snapshot. The snapshot receives cumulative
+transition coverage through that step; ignored and failed decisions do not add hits. The bridge
+keeps input order, including command results and timer inputs, and uses their logical times as
+offsets from `startedAt`.
+
 See [generated scenarios and recording semantics](../actron-statechart-test/README.md#view-generated-scenarios-in-time-travel)
 and [Weather's runnable example](../examples/weather/README.md#automatically-generated-tests-and-recordings).
