@@ -1,12 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>WildcardImport:CrashlyticsDiagnosticSink.kt:import actron.diagnostics.*</ID>
-    <ID>WildcardImport:CrashlyticsDiagnosticSinkTest.kt:import actron.diagnostics.*</ID>
-    <ID>WildcardImport:CrashlyticsDiagnosticSinkTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CrashlyticsDiagnosticSinkTest.kt:import com.google.firebase.crashlytics.*</ID>
-    <ID>WildcardImport:CrashlyticsDiagnosticSinkTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:CrashlyticsDiagnosticSinkTest.kt:import org.mockito.Mockito.*</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>
