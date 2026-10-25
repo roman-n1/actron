@@ -1,36 +1,12 @@
 package actron.observability.file
 
-import actron.core.InputAttribution
-import actron.core.InputId
-import actron.observability.ActivationRef
-import actron.observability.Capability
-import actron.observability.CommandExecution
-import actron.observability.CommandRef
-import actron.observability.DiscardDescriptor
-import actron.observability.DiscardKind
 import actron.observability.ExecutionMode
-import actron.observability.FailureDescriptor
-import actron.observability.FailureDetails
-import actron.observability.FailureRelation
-import actron.observability.GroupSeq
-import actron.observability.InputDescriptor
 import actron.observability.JOURNAL_FORMAT_VERSION
 import actron.observability.JournalEntry
 import actron.observability.JournalRecord
 import actron.observability.MachineGroupId
-import actron.observability.MessageCause
-import actron.observability.MessageRef
-import actron.observability.OutcomeDescriptor
-import actron.observability.OutcomeKind
 import actron.observability.Payload
-import actron.observability.RecordOrdinal
-import actron.observability.RecordSubject
 import actron.observability.RuntimeSessionId
-import actron.observability.StoreInstanceId
-import actron.observability.StoreSeq
-import actron.observability.TimerRef
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.nanoseconds
 
 /**
  * Version of the segment layout below. Bumped when the framing, the header or an encoding
@@ -67,12 +43,6 @@ object JournalFileFormat {
 
     /** The extension of segment names. */
     const val EXTENSION: String = ".journal"
-
-    private const val HEADER_TAG = 0
-    private const val PAYLOAD_OMITTED = 0
-    private const val PAYLOAD_UNAVAILABLE = 1
-    private const val PAYLOAD_PROJECTED = 2
-    private const val PAYLOAD_DESCRIBED = 3
 
     /** `<session>-<index, six digits>.journal`. */
     fun segmentName(
@@ -125,33 +95,20 @@ object JournalFileFormat {
         index: Int,
         fileFormatVersion: Int = JOURNAL_FILE_FORMAT_VERSION,
         recordFormatVersion: Int = JOURNAL_FORMAT_VERSION,
-    ): ByteArray {
-        val payload =
-            ByteWriter(64)
-                .apply {
-                    u8(HEADER_TAG)
-                    i32(fileFormatVersion)
-                    i32(recordFormatVersion)
-                    string(session.value)
-                    string(group.value)
-                    string(mode.name)
-                    i32(index)
-                }.toByteArray()
-        return ByteWriter(MAGIC.size + 8 + payload.size)
-            .apply {
-                raw(MAGIC)
-                raw(Framing.frame(payload))
-            }.toByteArray()
-    }
+    ): ByteArray =
+        JournalSegmentHeaderCodec.encode(
+            SegmentHeader(fileFormatVersion, recordFormatVersion, session, group, mode, index),
+            MAGIC,
+        )
 
     /** The frame of [record]: its store, sequence numbers, elapsed time and entry, framed. */
-    fun frame(record: JournalRecord<*, *, *>): ByteArray = Framing.frame(encodeRecord(record, JOURNAL_FORMAT_VERSION))
+    fun frame(record: JournalRecord<*, *, *>): ByteArray = Framing.frame(JournalRecordCodec.encode(record, JOURNAL_FORMAT_VERSION))
 
     // What a writer of [recordFormatVersion] wrote, so tests can write what an earlier one did.
     internal fun frame(
         record: JournalRecord<*, *, *>,
         recordFormatVersion: Int,
-    ): ByteArray = Framing.frame(encodeRecord(record, recordFormatVersion))
+    ): ByteArray = Framing.frame(JournalRecordCodec.encode(record, recordFormatVersion))
 
     /**
      * Reads [bytes] as the segment [name]: the header, the records that can be read, and what
@@ -172,8 +129,10 @@ object JournalFileFormat {
         }
         val header =
             try {
-                decodeHeader(ByteReader(frames[0].payload))
+                JournalSegmentHeaderCodec.decode(ByteReader(frames[0].payload))
             } catch (e: ByteReader.Malformed) {
+                return DecodedSegment(JournalPrefix.Unreadable, emptyList(), SegmentEnding.Stopped(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}")))
+            } catch (e: IllegalArgumentException) {
                 return DecodedSegment(JournalPrefix.Unreadable, emptyList(), SegmentEnding.Stopped(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}")))
             }
         if (header.fileFormatVersion > JOURNAL_FILE_FORMAT_VERSION || header.recordFormatVersion > JOURNAL_FORMAT_VERSION) {
@@ -183,8 +142,10 @@ object JournalFileFormat {
         for (frame in frames.drop(1)) {
             val record =
                 try {
-                    decodeRecord(ByteReader(frame.payload), header)
+                    JournalRecordCodec.decode(ByteReader(frame.payload), header)
                 } catch (e: ByteReader.Malformed) {
+                    return DecodedSegment(header, records, SegmentEnding.Stopped(SegmentMark.Corrupt(name, frame.offset, records.size, "record: ${e.message}")))
+                } catch (e: IllegalArgumentException) {
                     return DecodedSegment(header, records, SegmentEnding.Stopped(SegmentMark.Corrupt(name, frame.offset, records.size, "record: ${e.message}")))
                 }
             records += record
@@ -192,549 +153,6 @@ object JournalFileFormat {
         // The framing counted the header among the frames it read; records do not include it.
         return DecodedSegment(header, records, read.ending.countRecords(records.size))
     }
-
-    // --- header ---
-
-    private fun decodeHeader(reader: ByteReader): SegmentHeader {
-        if (reader.u8() != HEADER_TAG) throw ByteReader.Malformed("not a header")
-        val fileFormatVersion = reader.i32()
-        val recordFormatVersion = reader.i32()
-        val session = reader.string()
-        val group = reader.string()
-        val mode = reader.string()
-        val index = reader.i32()
-        reader.expectEnd()
-        return SegmentHeader(
-            fileFormatVersion,
-            recordFormatVersion,
-            RuntimeSessionId(session),
-            MachineGroupId(group),
-            enumNamed<ExecutionMode>(mode),
-            index,
-        )
-    }
-
-    // --- records ---
-
-    private fun encodeRecord(
-        record: JournalRecord<*, *, *>,
-        recordFormatVersion: Int,
-    ): ByteArray =
-        ByteWriter()
-            .apply {
-                u8(tagOf(record.entry))
-                when (val subject = record.store) {
-                    RecordSubject.Session -> {
-                        bool(false)
-                    }
-
-                    is StoreInstanceId -> {
-                        bool(true)
-                        string(subject.value)
-                    }
-                }
-                i64(record.groupSeq.value)
-                when (val ordinal = record.storeSeq) {
-                    RecordOrdinal.Session -> {
-                        bool(false)
-                    }
-
-                    is StoreSeq -> {
-                        bool(true)
-                        i64(ordinal.value)
-                    }
-                }
-                duration(record.elapsed)
-                entry(record.entry, recordFormatVersion)
-            }.toByteArray()
-
-    private fun decodeRecord(
-        reader: ByteReader,
-        header: SegmentHeader,
-    ): JournalRecord<Nothing, Nothing, Nothing> {
-        val tag = reader.u8()
-        val store: RecordSubject = if (reader.bool()) StoreInstanceId(reader.string()) else RecordSubject.Session
-        val groupSeq = GroupSeq(reader.i64())
-        val storeSeq: RecordOrdinal = if (reader.bool()) StoreSeq(reader.i64()) else RecordOrdinal.Session
-        if ((store is StoreInstanceId) != (storeSeq is StoreSeq)) throw ByteReader.Malformed("record subject and Store ordinal differ")
-        val elapsed = reader.duration()
-        val entry = reader.entry(tag, header.recordFormatVersion)
-        reader.expectEnd()
-        return JournalRecord(header.recordFormatVersion, header.session, header.group, store, header.mode, groupSeq, storeSeq, elapsed, entry)
-    }
-
-    private fun tagOf(entry: JournalEntry<*, *, *>): Int =
-        when (entry) {
-            is JournalEntry.StoreRegistered -> 1
-            is JournalEntry.InputAccepted -> 2
-            is JournalEntry.InputDiscarded -> 3
-            is JournalEntry.ProcessingStarted -> 4
-            is JournalEntry.StateCommitted -> 5
-            is JournalEntry.EventEmitted -> 6
-            is JournalEntry.FailureReported -> 7
-            is JournalEntry.ProcessingFinished -> 8
-            JournalEntry.StoreClosed -> 9
-            is JournalEntry.InputRejected -> 10
-            is JournalEntry.DecisionCommitted -> 11
-            is JournalEntry.DecisionIgnored -> 12
-            is JournalEntry.JournalGap -> 13
-            JournalEntry.RecordingStopped -> 14
-            is JournalEntry.BridgeSent -> 15
-            is JournalEntry.BridgeReceived -> 16
-            is JournalEntry.EffectQueued -> 17
-            is JournalEntry.EffectHandlingStarted -> 18
-            is JournalEntry.EffectAcknowledged -> 19
-            is JournalEntry.EffectDiscarded -> 20
-            is JournalEntry.ExternalReceived -> 21
-            is JournalEntry.CheckpointCreated -> 22
-            is JournalEntry.CommandsAbandoned -> 23
-            is JournalEntry.BridgeDropped -> 24
-        }
-
-    // [recordFormatVersion] decides the fields a variant has: a field added in a later version is
-    // written only from that version on, and read only from a segment of that version on.
-    private fun ByteWriter.entry(
-        entry: JournalEntry<*, *, *>,
-        recordFormatVersion: Int,
-    ) {
-        when (entry) {
-            is JournalEntry.StoreRegistered -> {
-                string(entry.capability.name)
-            }
-
-            is JournalEntry.InputAccepted -> {
-                i64(entry.input.value)
-                input(entry.kind)
-            }
-
-            is JournalEntry.InputDiscarded -> {
-                i64(entry.input.value)
-                string(entry.reason.kind.name)
-                bool(entry.reason.hasFailure)
-                entry.reason.withFailure { failure(it) }
-            }
-
-            is JournalEntry.ProcessingStarted -> {
-                i64(entry.input.value)
-                i64(entry.ordinal)
-            }
-
-            is JournalEntry.StateCommitted -> {
-                i64(entry.input.value)
-                i64(entry.revision)
-                payload(entry.previous)
-                payload(entry.state)
-            }
-
-            is JournalEntry.EventEmitted -> {
-                attribution(entry.input)
-                payload(entry.event)
-            }
-
-            is JournalEntry.FailureReported -> {
-                attribution(entry.input)
-                failure(entry.failure)
-            }
-
-            is JournalEntry.ProcessingFinished -> {
-                i64(entry.input.value)
-                i64(entry.ordinal)
-                string(entry.outcome.kind.name)
-                i32(entry.outcome.commits)
-                bool(entry.outcome.hasFailure)
-                entry.outcome.withFailure { failure(it) }
-                duration(entry.duration)
-            }
-
-            JournalEntry.StoreClosed -> {
-                Unit
-            }
-
-            is JournalEntry.InputRejected -> {
-                payload(entry.action)
-                string(entry.reason)
-            }
-
-            is JournalEntry.DecisionCommitted -> {
-                attribution(entry.input)
-                i64(entry.revision)
-                list(entry.active) { string(it) }
-                list(entry.transitions) { i32(it) }
-                list(entry.exited) { activation(it) }
-                list(entry.entered) { activation(it) }
-                list(entry.commands) {
-                    i64(it.id)
-                    i64(it.scope)
-                    commandExecution(it.execution)
-                    payload(it.command)
-                }
-                list(entry.cancelledScopes) { i64(it) }
-                list(entry.timersScheduled) {
-                    i64(it.id)
-                    i32(it.transition)
-                    i64(it.activation)
-                    duration(it.deadline)
-                }
-                list(entry.timersCancelled) { i64(it) }
-                i32(entry.effects)
-            }
-
-            is JournalEntry.DecisionIgnored -> {
-                attribution(entry.input)
-                string(entry.reason)
-            }
-
-            is JournalEntry.JournalGap -> {
-                i64(entry.dropped)
-            }
-
-            JournalEntry.RecordingStopped -> {
-                Unit
-            }
-
-            is JournalEntry.BridgeSent -> {
-                attribution(entry.input)
-                message(entry.message)
-                string(entry.to.value)
-                bool(entry.delivered)
-                if (recordFormatVersion >= 7) {
-                    bool(entry.cause.prompted)
-                    entry.cause.withMessage { message(it) }
-                }
-            }
-
-            is JournalEntry.BridgeReceived -> {
-                attribution(entry.input)
-                message(entry.message)
-            }
-
-            is JournalEntry.BridgeDropped -> {
-                message(entry.message)
-                string(entry.to.value)
-                string(entry.reason)
-            }
-
-            is JournalEntry.EffectQueued -> {
-                attribution(entry.input)
-                i64(entry.effect)
-                string(entry.policy)
-                payload(entry.event)
-            }
-
-            is JournalEntry.EffectHandlingStarted -> {
-                i64(entry.effect)
-                i32(entry.attempt)
-            }
-
-            is JournalEntry.EffectAcknowledged -> {
-                i64(entry.effect)
-            }
-
-            is JournalEntry.EffectDiscarded -> {
-                i64(entry.effect)
-                string(entry.reason)
-            }
-
-            is JournalEntry.ExternalReceived -> {
-                attribution(entry.input)
-                string(entry.source)
-            }
-
-            is JournalEntry.CommandsAbandoned -> {
-                string(entry.reason)
-                list(entry.queued) { i64(it) }
-                list(entry.running) { i64(it) }
-            }
-
-            is JournalEntry.CheckpointCreated -> {
-                list(entry.members) { string(it.value) }
-                list(entry.sources) { string(it) }
-                i32(entry.inFlight)
-            }
-        }
-    }
-
-    private fun ByteReader.entry(
-        tag: Int,
-        recordFormatVersion: Int,
-    ): JournalEntry<Nothing, Nothing, Nothing> =
-        when (tag) {
-            1 -> {
-                JournalEntry.StoreRegistered(enumNamed<Capability>(string()))
-            }
-
-            2 -> {
-                JournalEntry.InputAccepted(InputId(i64()), input())
-            }
-
-            3 -> {
-                JournalEntry.InputDiscarded(InputId(i64()), discard())
-            }
-
-            4 -> {
-                JournalEntry.ProcessingStarted(InputId(i64()), i64())
-            }
-
-            5 -> {
-                JournalEntry.StateCommitted(InputId(i64()), i64(), payload(), payload())
-            }
-
-            6 -> {
-                JournalEntry.EventEmitted(attribution(), payload())
-            }
-
-            7 -> {
-                JournalEntry.FailureReported(attribution(), failure())
-            }
-
-            8 -> {
-                JournalEntry.ProcessingFinished(InputId(i64()), i64(), outcome(), duration())
-            }
-
-            9 -> {
-                JournalEntry.StoreClosed
-            }
-
-            10 -> {
-                JournalEntry.InputRejected(payload(), string())
-            }
-
-            11 -> {
-                JournalEntry.DecisionCommitted(
-                    input = attribution(),
-                    revision = i64(),
-                    active = list { string() },
-                    transitions = list { i32() },
-                    exited = list { activation() },
-                    entered = list { activation() },
-                    commands = list { CommandRef(i64(), i64(), commandExecution(), payload()) },
-                    cancelledScopes = list { i64() },
-                    timersScheduled = list { TimerRef(i64(), i32(), i64(), duration()) },
-                    timersCancelled = list { i64() },
-                    effects = i32(),
-                )
-            }
-
-            12 -> {
-                JournalEntry.DecisionIgnored(attribution(), string())
-            }
-
-            13 -> {
-                JournalEntry.JournalGap(i64())
-            }
-
-            14 -> {
-                JournalEntry.RecordingStopped
-            }
-
-            15 -> {
-                JournalEntry.BridgeSent(attribution(), message(), StoreInstanceId(string()), bool(), if (recordFormatVersion >= 7 && bool()) message() else MessageCause.Unprompted)
-            }
-
-            16 -> {
-                JournalEntry.BridgeReceived(attribution(), message())
-            }
-
-            17 -> {
-                JournalEntry.EffectQueued(attribution(), i64(), string(), payload())
-            }
-
-            18 -> {
-                JournalEntry.EffectHandlingStarted(i64(), i32())
-            }
-
-            19 -> {
-                JournalEntry.EffectAcknowledged(i64())
-            }
-
-            20 -> {
-                JournalEntry.EffectDiscarded(i64(), string())
-            }
-
-            21 -> {
-                JournalEntry.ExternalReceived(attribution(), string())
-            }
-
-            22 -> {
-                JournalEntry.CheckpointCreated(list { StoreInstanceId(string()) }, list { string() }, i32())
-            }
-
-            23 -> {
-                JournalEntry.CommandsAbandoned(string(), list { i64() }, list { i64() })
-            }
-
-            24 -> {
-                JournalEntry.BridgeDropped(message(), StoreInstanceId(string()), string())
-            }
-
-            else -> {
-                throw ByteReader.Malformed("unknown entry tag $tag")
-            }
-        }
-
-    private fun ByteWriter.attribution(input: InputAttribution) {
-        bool(input is InputId)
-        input.correlate { i64(it.value) }
-    }
-
-    private fun ByteReader.attribution(): InputAttribution = if (bool()) InputId(i64()) else InputAttribution.Unattributed
-
-    private fun ByteWriter.message(message: MessageRef) {
-        string(message.from.value)
-        i64(message.effect)
-    }
-
-    private fun ByteReader.message(): MessageRef = MessageRef(StoreInstanceId(string()), i64())
-
-    private fun ByteWriter.input(kind: InputDescriptor<*>) {
-        when (kind) {
-            InputDescriptor.Startup -> {
-                u8(1)
-            }
-
-            is InputDescriptor.Dispatch -> {
-                u8(2)
-                payload(kind.action)
-            }
-
-            is InputDescriptor.Transaction -> {
-                u8(3)
-                attribution(kind.origin)
-            }
-
-            is InputDescriptor.Recovery -> {
-                u8(4)
-                failure(kind.failure)
-                attribution(kind.origin)
-            }
-        }
-    }
-
-    private fun ByteReader.input(): InputDescriptor<Nothing> =
-        when (val kind = u8()) {
-            1 -> InputDescriptor.Startup
-            2 -> InputDescriptor.Dispatch(payload())
-            3 -> InputDescriptor.Transaction(attribution())
-            4 -> InputDescriptor.Recovery(failure(), attribution())
-            else -> throw ByteReader.Malformed("unknown input kind $kind")
-        }
-
-    private fun ByteWriter.commandExecution(execution: CommandExecution) {
-        when (execution) {
-            CommandExecution.Independent -> {
-                bool(false)
-                bool(false)
-            }
-
-            is CommandExecution.InLane -> {
-                bool(true)
-                string(execution.lane)
-                bool(true)
-                string(execution.policy)
-            }
-        }
-    }
-
-    private fun ByteReader.commandExecution(): CommandExecution {
-        if (!bool()) {
-            if (bool()) throw ByteReader.Malformed("command policy without a lane")
-            return CommandExecution.Independent
-        }
-        val lane = string()
-        if (!bool()) throw ByteReader.Malformed("command lane without a policy")
-        return CommandExecution.InLane(lane, string())
-    }
-
-    private fun ByteWriter.payload(payload: Payload<*>) {
-        when (payload) {
-            Payload.Omitted -> {
-                u8(PAYLOAD_OMITTED)
-            }
-
-            Payload.Unavailable -> {
-                u8(PAYLOAD_UNAVAILABLE)
-            }
-
-            is Payload.Projected -> {
-                u8(PAYLOAD_PROJECTED)
-                string(payload.label)
-                list(payload.fields.entries.toList()) {
-                    string(it.key)
-                    string(it.value)
-                }
-            }
-
-            is Payload.Described -> {
-                u8(PAYLOAD_DESCRIBED)
-                string(payload.text)
-            }
-
-            is Payload.Retained -> {
-                // The policy decided the object may be shown; a file keeps its text, not the object.
-                u8(PAYLOAD_DESCRIBED)
-                string(payload.value.toString())
-            }
-        }
-    }
-
-    private fun ByteReader.payload(): Payload<Nothing> =
-        when (val kind = u8()) {
-            PAYLOAD_OMITTED -> Payload.Omitted
-            PAYLOAD_UNAVAILABLE -> Payload.Unavailable
-            PAYLOAD_PROJECTED -> Payload.Projected(string(), list { string() to string() }.toMap())
-            PAYLOAD_DESCRIBED -> Payload.Described(string())
-            else -> throw ByteReader.Malformed("unknown payload kind $kind")
-        }
-
-    private fun ByteReader.discard(): DiscardDescriptor {
-        val kind = enumNamed<DiscardKind>(string())
-        return if (bool()) DiscardDescriptor(kind, failure()) else DiscardDescriptor(kind)
-    }
-
-    private fun ByteReader.outcome(): OutcomeDescriptor {
-        val kind = enumNamed<OutcomeKind>(string())
-        val commits = i32()
-        return if (bool()) OutcomeDescriptor(kind, commits, failure()) else OutcomeDescriptor(kind, commits)
-    }
-
-    private fun ByteWriter.failure(failure: FailureDescriptor) {
-        bool("type" in failure.details.attributes)
-        failure.withType { string(it) }
-        bool("message" in failure.details.attributes)
-        failure.withMessage { string(it) }
-        bool(failure.hasCause)
-        failure.withCause { failure(it) }
-        list(failure.suppressed) { failure(it) }
-    }
-
-    private fun ByteReader.failure(): FailureDescriptor {
-        var details: FailureDetails = FailureDetails.Redacted
-        if (bool()) details = FailureDetails.MetadataOnly(string())
-        if (bool()) {
-            val message = string()
-            val named = details
-            details = if (named is FailureDetails.MetadataOnly) FailureDetails.Detailed(named.type, message) else FailureDetails.AnonymousMessage(message)
-        }
-        val related =
-            buildList {
-                if (bool()) add(FailureRelation.Cause(failure()))
-                list { failure() }.forEach { add(FailureRelation.Suppressed(it)) }
-            }
-        return FailureDescriptor(details, related)
-    }
-
-    private fun ByteWriter.activation(ref: ActivationRef) {
-        string(ref.node)
-        i64(ref.activation)
-    }
-
-    private fun ByteReader.activation(): ActivationRef = ActivationRef(string(), i64())
-
-    private fun ByteWriter.duration(duration: Duration) = i64(duration.inWholeNanoseconds)
-
-    private fun ByteReader.duration(): Duration = i64().nanoseconds
-
-    private inline fun <reified T : Enum<T>> enumNamed(name: String): T = enumValues<T>().firstOrNull { it.name == name } ?: throw ByteReader.Malformed("unknown ${T::class.simpleName} '$name'")
 }
 
 /**

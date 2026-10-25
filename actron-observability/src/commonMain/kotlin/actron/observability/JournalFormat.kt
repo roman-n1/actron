@@ -26,112 +26,35 @@ object JournalFormat {
      */
     fun entry(entry: JournalEntry<*, *, *>): String =
         when (entry) {
-            is JournalEntry.StoreRegistered -> {
-                "StoreRegistered ${entry.capability}"
-            }
+            is JournalEntry.StoreRegistered,
+            is JournalEntry.InputAccepted,
+            is JournalEntry.InputDiscarded,
+            is JournalEntry.ProcessingStarted,
+            is JournalEntry.StateCommitted,
+            is JournalEntry.EventEmitted,
+            is JournalEntry.FailureReported,
+            is JournalEntry.ProcessingFinished,
+            JournalEntry.StoreClosed,
+            is JournalEntry.InputRejected,
+            -> JournalEntryText.store(entry)
 
-            is JournalEntry.InputAccepted -> {
-                "InputAccepted ${entry.input} ${input(entry.kind)}"
-            }
+            is JournalEntry.DecisionCommitted,
+            is JournalEntry.DecisionIgnored,
+            is JournalEntry.BridgeSent,
+            is JournalEntry.BridgeReceived,
+            is JournalEntry.BridgeDropped,
+            is JournalEntry.EffectQueued,
+            is JournalEntry.EffectHandlingStarted,
+            is JournalEntry.EffectAcknowledged,
+            is JournalEntry.EffectDiscarded,
+            is JournalEntry.ExternalReceived,
+            is JournalEntry.CommandsAbandoned,
+            -> JournalEntryText.machine(entry)
 
-            is JournalEntry.InputDiscarded -> {
-                "InputDiscarded ${entry.input} ${entry.reason.kind}${entry.reason.detailSuffix}"
-            }
-
-            is JournalEntry.ProcessingStarted -> {
-                "ProcessingStarted ${entry.input} ordinal=${entry.ordinal}"
-            }
-
-            is JournalEntry.StateCommitted -> {
-                "StateCommitted ${entry.input} revision=${entry.revision} ${payload(entry.state)} <- ${payload(entry.previous)}"
-            }
-
-            is JournalEntry.EventEmitted -> {
-                "EventEmitted ${entry.input ?: "?"} ${payload(entry.event)}"
-            }
-
-            is JournalEntry.FailureReported -> {
-                "FailureReported ${entry.input ?: "?"} ${failure(entry.failure)}"
-            }
-
-            is JournalEntry.ProcessingFinished -> {
-                "ProcessingFinished ${entry.input} ordinal=${entry.ordinal} ${outcome(entry.outcome)} in ${entry.duration}"
-            }
-
-            JournalEntry.StoreClosed -> {
-                "StoreClosed"
-            }
-
-            is JournalEntry.InputRejected -> {
-                "InputRejected ${payload(entry.action)} ${entry.reason}"
-            }
-
-            is JournalEntry.DecisionCommitted -> {
-                buildString {
-                    append("DecisionCommitted ").append(entry.input ?: "?").append(" revision=").append(entry.revision)
-                    append(" active=").append(entry.active.joinToString(",", "[", "]"))
-                    if (entry.transitions.isNotEmpty()) append(" transitions=").append(entry.transitions.joinToString(",", "[", "]") { "T$it" })
-                    if (entry.exited.isNotEmpty()) append(" exited=").append(entry.exited.joinToString(",", "[", "]") { "${it.node}/a${it.activation}" })
-                    if (entry.entered.isNotEmpty()) append(" entered=").append(entry.entered.joinToString(",", "[", "]") { "${it.node}/a${it.activation}" })
-                    if (entry.commands.isNotEmpty()) append(" commands=").append(entry.commands.joinToString(",", "[", "]") { "c${it.id}@a${it.scope}${it.execution.journalSuffix} ${payload(it.command)}" })
-                    if (entry.cancelledScopes.isNotEmpty()) append(" cancelled=").append(entry.cancelledScopes.joinToString(",", "[", "]") { "a$it" })
-                    if (entry.timersScheduled.isNotEmpty()) append(" timers=").append(entry.timersScheduled.joinToString(",", "[", "]") { "t${it.id}:T${it.transition}@a${it.activation}+${it.deadline}" })
-                    if (entry.timersCancelled.isNotEmpty()) append(" timersCancelled=").append(entry.timersCancelled.joinToString(",", "[", "]") { "t$it" })
-                    if (entry.effects > 0) append(" effects=").append(entry.effects)
-                }
-            }
-
-            is JournalEntry.DecisionIgnored -> {
-                "DecisionIgnored ${entry.input ?: "?"} ${entry.reason}"
-            }
-
-            is JournalEntry.BridgeSent -> {
-                "BridgeSent ${entry.input ?: "?"} ${entry.message} -> ${entry.to}${if (entry.delivered) "" else " undelivered"}${entry.cause.replySuffix}"
-            }
-
-            is JournalEntry.BridgeReceived -> {
-                "BridgeReceived ${entry.input ?: "?"} ${entry.message}"
-            }
-
-            is JournalEntry.BridgeDropped -> {
-                "BridgeDropped ${entry.message} -> ${entry.to} ${entry.reason}"
-            }
-
-            is JournalEntry.EffectQueued -> {
-                "EffectQueued ${entry.input ?: "?"} e${entry.effect} ${entry.policy} ${payload(entry.event)}"
-            }
-
-            is JournalEntry.EffectHandlingStarted -> {
-                "EffectHandlingStarted e${entry.effect} attempt=${entry.attempt}"
-            }
-
-            is JournalEntry.EffectAcknowledged -> {
-                "EffectAcknowledged e${entry.effect}"
-            }
-
-            is JournalEntry.EffectDiscarded -> {
-                "EffectDiscarded e${entry.effect} ${entry.reason}"
-            }
-
-            is JournalEntry.ExternalReceived -> {
-                "ExternalReceived ${entry.input ?: "?"} from ${entry.source}"
-            }
-
-            is JournalEntry.CheckpointCreated -> {
-                "CheckpointCreated members=${entry.members.joinToString(",", "[", "]")} sources=${entry.sources.joinToString(",", "[", "]")} inFlight=${entry.inFlight}"
-            }
-
-            is JournalEntry.CommandsAbandoned -> {
-                "CommandsAbandoned ${entry.reason} queued=${entry.queued.joinToString(",", "[", "]") { "c$it" }} running=${entry.running.joinToString(",", "[", "]") { "c$it" }}"
-            }
-
-            is JournalEntry.JournalGap -> {
-                "JournalGap dropped=${entry.dropped}"
-            }
-
-            JournalEntry.RecordingStopped -> {
-                "RecordingStopped"
-            }
+            is JournalEntry.CheckpointCreated,
+            is JournalEntry.JournalGap,
+            JournalEntry.RecordingStopped,
+            -> JournalEntryText.session(entry)
         }
 
     /**
@@ -158,20 +81,5 @@ object JournalFormat {
             failure.withMessage { append(": ").append(it) }
             failure.withCause { append(" <- ").append(failure(it)) }
             if (failure.suppressed.isNotEmpty()) append(" +").append(failure.suppressed.size).append(" suppressed")
-        }
-
-    private fun input(kind: InputDescriptor<*>): String =
-        when (kind) {
-            InputDescriptor.Startup -> "Startup"
-            is InputDescriptor.Dispatch -> "Dispatch ${payload(kind.action)}"
-            is InputDescriptor.Transaction -> "Transaction origin=${kind.origin ?: "?"}"
-            is InputDescriptor.Recovery -> "Recovery origin=${kind.origin ?: "?"} ${failure(kind.failure)}"
-        }
-
-    private fun outcome(outcome: OutcomeDescriptor): String =
-        buildString {
-            append(outcome.kind)
-            if (outcome.commits > 0) append(" commits=").append(outcome.commits)
-            outcome.withFailure { append(' ').append(failure(it)) }
         }
 }

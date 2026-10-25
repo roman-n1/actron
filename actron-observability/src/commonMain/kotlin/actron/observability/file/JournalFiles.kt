@@ -30,7 +30,7 @@ data class JournalFileContents(
     val marks: List<SegmentMark> get() = events.filterIsInstance<JournalFileEvent.Mark>().map { it.mark }
 
     /** Whether every record of the session's segments was read with nothing missing or damaged. */
-    val isComplete: Boolean get() = marks.none { it !is SegmentMark.Unfinished }
+    val isComplete: Boolean get() = marks.all { it is SegmentMark.Unfinished }
 }
 
 /**
