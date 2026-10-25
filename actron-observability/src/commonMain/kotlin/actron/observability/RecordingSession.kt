@@ -9,12 +9,8 @@ import actron.core.State
 import actron.core.StoreProbe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlin.time.Duration
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
@@ -152,29 +148,12 @@ class RecordingSession(
     private val sinks: List<JournalSink> = emptyList(),
     private val timeSource: TimeSource = TimeSource.Monotonic,
 ) : JournalPublisher {
-    private val startedAt: TimeMark = timeSource.markNow()
-
-    // Guards everything below down to `stopped`. Entered without suspending (tryLock), so the
-    // section must stay tiny; see the class documentation.
-    private val lock = Mutex()
-    private val retained = ArrayDeque<JournalRecord<*, *, *>>()
-    private val storeSeqs = mutableMapOf<StoreInstanceId, Long>()
+    private val recordLog = JournalRecordLog(id, group, mode, config.retainedRecords, timeSource.markNow())
+    private val lifecycle = JournalSessionLifecycle()
     private val probed = mutableSetOf<StoreInstanceId>()
-    private var nextGroupSeq = 0L
-    private var published = 0L
-    private var evicted = 0L
-    private var droppedForSinks = 0L
-    private var pendingGap = 0L
     private var sinkFailures = 0L
     private var policyFailures = 0L
-    private var publishedAfterStop = 0L
-    private var stopped = false
-
-    private val queue = Channel<JournalRecord<*, *, *>>(config.writerQueueCapacity)
-    private val writer: Job =
-        scope.launch {
-            for (record in queue) deliver(record)
-        }
+    private val delivery = JournalDeliveryQueue(scope, config.writerQueueCapacity, ::deliver)
 
     /**
      * Creates the probe that records a Store into this session as [store], and publishes its
@@ -189,7 +168,7 @@ class RecordingSession(
         store: StoreInstanceId,
         policy: PayloadPolicy<S, A, E>,
     ): StoreProbe<S, A, E> {
-        locked {
+        lifecycle.locked {
             require(probed.add(store)) { "[Actron] Store $store is already recorded by this session; give every instance its own StoreInstanceId" }
         }
         publishRecord(store, JournalEntry.StoreRegistered(Capability.InspectOnly))
@@ -200,53 +179,37 @@ class RecordingSession(
      * The retained records, oldest first, in [GroupSeq] order. A copy; safe to read while Stores
      * keep publishing.
      */
-    fun records(): List<JournalRecord<*, *, *>> = locked { retained.toList() }
+    fun records(): List<JournalRecord<*, *, *>> = lifecycle.locked { recordLog.snapshot() }
 
     /**
      * The counters as of now.
      */
     val stats: JournalStats
         get() =
-            locked {
+            lifecycle.locked {
                 JournalStats(
-                    published = published,
-                    retained = retained.size,
-                    evicted = evicted,
-                    droppedForSinks = droppedForSinks,
+                    published = recordLog.published,
+                    retained = recordLog.retained,
+                    evicted = recordLog.evicted,
+                    droppedForSinks = delivery.droppedForSinks,
                     sinkFailures = sinkFailures,
                     policyFailures = policyFailures,
-                    publishedAfterStop = publishedAfterStop,
+                    publishedAfterStop = lifecycle.publishedAfterStop,
                 )
             }
 
     override val boundary: JournalBoundary get() =
-        locked {
-            if (published == 0L) JournalBoundary.Beginning else GroupSeq(published)
+        lifecycle.locked {
+            if (recordLog.published == 0L) JournalBoundary.Beginning else GroupSeq(recordLog.published)
         }
 
     /**
      * Publishes [JournalEntry.RecordingStopped], stops accepting records, writes what is queued
-     * and ends the writer. Idempotent.
+     * and ends the writer. Idempotent; concurrent calls await the same writer. Cancelling a caller cancels
+     * only its wait; delivery continues while the writer's owning scope remains active.
      */
     suspend fun close() {
-        // Stop first, so nothing publishes after the closing records; then send them with the
-        // suspending `send`: the last gap and the stop record reach the sinks even when the queue
-        // is full, unlike the records of the hot path.
-        val closing =
-            locked {
-                if (stopped) return@locked emptyList()
-                stopped = true
-                buildList {
-                    if (pendingGap > 0) {
-                        add(allocate(RecordSubject.Session, JournalEntry.JournalGap(pendingGap)).also(::retain))
-                        pendingGap = 0
-                    }
-                    add(allocate(RecordSubject.Session, JournalEntry.RecordingStopped).also(::retain))
-                }
-            }
-        for (record in closing) queue.send(record)
-        queue.close()
-        writer.join()
+        lifecycle.close(recordLog, delivery)
     }
 
     internal fun now(): TimeMark = timeSource.markNow()
@@ -255,7 +218,7 @@ class RecordingSession(
         store: StoreInstanceId,
         error: Throwable,
     ) {
-        locked { policyFailures++ }
+        lifecycle.locked { policyFailures++ }
         notify(JournalFailure.PolicyFailed(store, error))
     }
 
@@ -286,75 +249,9 @@ class RecordingSession(
         store: RecordSubject,
         entry: JournalEntry<*, *, *>,
     ) {
-        return locked {
-            if (stopped) {
-                publishedAfterStop++
-                return@locked Unit
-            }
-            if (pendingGap > 0) {
-                val gap = allocate(RecordSubject.Session, JournalEntry.JournalGap(pendingGap))
-                retain(gap)
-                if (queue.trySend(gap).isSuccess) {
-                    pendingGap = 0
-                } else {
-                    // The writer may free a slot between the two offers; the record must not take
-                    // it, or a sink would see a hole with no gap in front of the next record.
-                    lost()
-                    val record = allocate(store, entry)
-                    retain(record)
-                    lost()
-                    return@locked Unit
-                }
-            }
-            val record = allocate(store, entry)
-            retain(record)
-            if (queue.trySend(record).isFailure) lost()
+        lifecycle.publish {
+            delivery.offer(recordLog, store, entry)
         }
-    }
-
-    private fun allocate(
-        store: RecordSubject,
-        entry: JournalEntry<*, *, *>,
-    ): JournalRecord<*, *, *> {
-        published++
-        val groupSeq = GroupSeq(++nextGroupSeq)
-        val storeSeq: RecordOrdinal =
-            when (store) {
-                RecordSubject.Session -> {
-                    RecordOrdinal.Session
-                }
-
-                is StoreInstanceId -> {
-                    val next = (storeSeqs[store] ?: 0L) + 1
-                    storeSeqs[store] = next
-                    StoreSeq(next)
-                }
-            }
-        return JournalRecord(
-            formatVersion = JOURNAL_FORMAT_VERSION,
-            session = id,
-            group = group,
-            store = store,
-            mode = mode,
-            groupSeq = groupSeq,
-            storeSeq = storeSeq,
-            elapsed = startedAt.elapsedNow(),
-            entry = entry,
-        )
-    }
-
-    private fun retain(record: JournalRecord<*, *, *>) {
-        if (config.retainedRecords == 0) return
-        while (retained.size >= config.retainedRecords) {
-            retained.removeFirst()
-            evicted++
-        }
-        retained.addLast(record)
-    }
-
-    private fun lost() {
-        pendingGap++
-        droppedForSinks++
     }
 
     private suspend fun deliver(record: JournalRecord<*, *, *>) {
@@ -364,7 +261,7 @@ class RecordingSession(
             } catch (e: Exception) {
                 // The writer's own cancellation ends it; any other exception is the sink's failure.
                 if (e is CancellationException && !currentCoroutineContext().isActive) throw e
-                locked { sinkFailures++ }
+                lifecycle.locked { sinkFailures++ }
                 notify(JournalFailure.SinkFailed(sink, e))
             }
         }
@@ -375,17 +272,6 @@ class RecordingSession(
             config.onFailure(failure)
         } catch (_: Exception) {
             // The failure handler is the last resort; its own failure has nowhere to go.
-        }
-    }
-
-    private inline fun <T : Any> locked(block: () -> T): T {
-        while (!lock.tryLock()) {
-            // Spin: the holder is inside a section of a few field writes.
-        }
-        try {
-            return block()
-        } finally {
-            lock.unlock()
         }
     }
 }

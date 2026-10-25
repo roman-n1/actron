@@ -12,6 +12,7 @@ import actron.observability.DiscardDescriptor
 import actron.observability.DiscardKind
 import actron.observability.ExecutionMode
 import actron.observability.FailureDescriptor
+import actron.observability.FailureDetails
 import actron.observability.GroupSeq
 import actron.observability.InputDescriptor
 import actron.observability.JOURNAL_FORMAT_VERSION
@@ -107,6 +108,8 @@ class JournalFileFormatTest {
             record(28, JournalEntry.RecordingStopped, store = actron.observability.RecordSubject.Session, ordinal = actron.observability.RecordOrdinal.Session),
             record(29, JournalEntry.CommandsAbandoned("StoreClosed", listOf(3, 4), listOf(2))),
             record(30, JournalEntry.BridgeDropped(MessageRef(StoreInstanceId("root-1"), 3), store, "StoreClosed")),
+            record(31, JournalEntry.FailureReported(InputAttribution.Unattributed, FailureDescriptor(FailureDetails.AnonymousMessage("ошибка 🌍")))),
+            record(32, JournalEntry.EventEmitted(InputId(7), Payload.Projected("данные", linkedMapOf("z" to "末", "a" to "")))),
         )
 
     /** What the file keeps of [all]: a retained object becomes its text. */
@@ -127,6 +130,38 @@ class JournalFileFormatTest {
                 for (record in records) raw(JournalFileFormat.frame(record))
                 if (finished) raw(JournalFileFormat.END)
             }.toByteArray()
+
+    @Test
+    fun everyEntry_keepsItsOriginalWireBytes() {
+        assertEquals(JournalWireGolden.HEADER_V7, JournalFileFormat.header(session, group, ExecutionMode.Live, 0).toHex())
+        assertEquals(JournalWireGolden.framesV7, all.map { JournalFileFormat.frame(it).toHex() })
+        val pinned = (JournalWireGolden.HEADER_V7 + JournalWireGolden.framesV7.joinToString("") + "0000000000000000").fromHex()
+        val decoded = JournalFileFormat.decodeSegment("golden-v7", pinned)
+        assertEquals(expected, decoded.records)
+        assertTrue(decoded.finished)
+        kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
+    }
+
+    @Test
+    fun earlierVersions_keepTheirOriginalWireBytesAndCauseSemantics() {
+        assertEquals(JournalWireGolden.HEADER_V6, JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = 6).toHex())
+        val expectedEntries =
+            expected.map {
+                val entry = it.entry
+                if (entry is JournalEntry.BridgeSent) entry.copy(cause = actron.observability.MessageCause.Unprompted) else entry
+            }
+        for (version in 1..6) {
+            // The only version-dependent field is BridgeSent.cause, introduced in version 7.
+            assertEquals(JournalWireGolden.framesV6, all.map { JournalFileFormat.frame(it, recordFormatVersion = version).toHex() }, "version $version")
+            val header = JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = version)
+            val pinned = header + JournalWireGolden.framesV6.joinToString("").fromHex() + JournalFileFormat.END
+            val decoded = JournalFileFormat.decodeSegment("golden-v$version", pinned)
+            assertEquals(version, decoded.header.recordFormatVersion)
+            assertEquals(expectedEntries, decoded.records.map { it.entry }, "version $version")
+            assertTrue(decoded.finished)
+            kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
+        }
+    }
 
     @Test
     fun everyEntryKind_roundTripsThroughASegment() {
