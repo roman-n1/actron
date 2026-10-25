@@ -2,10 +2,15 @@ package actron.timetravel.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
+import actron.statechart.machine.TransitionCoverage
 import actron.statechart.test.ScenarioStep
 import actron.statechart.test.ScenarioTrace
-import actron.timetravel.*
+import actron.timetravel.HistoryDefinition
+import actron.timetravel.HistoryDetails
+import actron.timetravel.HistoryExportSettings
+import actron.timetravel.HistoryMachine
+import actron.timetravel.HistoryRecord
+import actron.timetravel.HistoryRecording
 import kotlinx.serialization.json.JsonElement
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -31,11 +36,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event, S : Any> ScenarioTrace<C, A, CMD
     val identity = HistoryMachine(1, machineName, initial.definition.value)
     var coverage = TransitionCoverage(initial.definition, initial.version)
 
-    fun fields(state: MachineSnapshot<C>): List<StateField> =
-        listOf(
-            StateField("active", state.configuration.active.joinToString()),
-            StateField("revision", state.revision.toString()),
-        ) + historyFields(describe(state.context))
+    val projection = ScenarioHistoryDetails(describe)
     val entries =
         steps.mapIndexed { index, step ->
             val decision = step.explained.decision
@@ -46,33 +47,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event, S : Any> ScenarioTrace<C, A, CMD
                 identity,
                 0,
                 (startedAt + input.now.sinceStart).toString(),
-                details(
-                    HistoryDetails(
-                        input =
-                            when (input) {
-                                is MachineInput.Dispatch -> input.action.toString()
-                                is MachineInput.CommandResult -> input.action.toString()
-                                else -> input.toString()
-                            },
-                        source =
-                            when (input) {
-                                is MachineInput.Dispatch -> "Action"
-                                is MachineInput.CommandResult -> "Command result"
-                                is MachineInput.TimerFired -> "Timer"
-                                else -> "Runtime"
-                            },
-                        outcome = decision.outcome.toString(),
-                        before = fields(step.before),
-                        after = fields(step.after),
-                        operations =
-                            decision.commands.map { "Start ${it.command}" } +
-                                decision.timersScheduled.map { "Schedule $it" } +
-                                decision.timersCancelled.map { "Cancel timer $it" } +
-                                decision.cancelledScopes.map { "Cancel scope $it" } +
-                                decision.effects.map { "Emit ${it.event}" },
-                        explanation = step.explained.explanation.describe(),
-                    ),
-                ),
+                details(projection.project(step)),
                 snapshot(step, coverage),
             )
         }

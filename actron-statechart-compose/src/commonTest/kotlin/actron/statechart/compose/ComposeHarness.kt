@@ -5,6 +5,7 @@ import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withRunningRecomposer
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
@@ -53,6 +54,8 @@ internal class ComposeHarness(
     }
 
     fun pumpFrame() {
+        // A headless composition has no platform snapshot manager to publish state writes.
+        Snapshot.sendApplyNotifications()
         scheduler.runCurrent()
         frameTimeNanos += 16_000_000L
         frameClock.sendFrame(frameTimeNanos)

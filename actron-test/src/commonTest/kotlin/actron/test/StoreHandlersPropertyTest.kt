@@ -2,6 +2,7 @@ package actron.test
 
 import actron.core.ExceptionHandler
 import actron.core.Store
+import actron.core.closeAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.currentTime
@@ -22,6 +23,7 @@ import kotlin.test.assertTrue
  *          --Go(t), other class--> exit #x (first matching s) --> enter #e' (first matching t)
  * ```
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class StoreHandlersPropertyTest {
     private fun render(regs: List<Registration>): String {
         fun name(k: kotlin.reflect.KClass<*>) = k.simpleName ?: "?"
@@ -97,35 +99,23 @@ class StoreHandlersPropertyTest {
                         }
                     }
                 val table = store.describeHandlers()
-                val expected = mutableListOf<String>()
-
-                fun observeFirstState(
-                    list: List<StateHandlerDescription>,
-                    state: KtState,
-                    kind: String,
-                ) {
-                    val index = list.indexOfFirst { it.stateType.isInstance(state) }
-                    if (index >= 0) expected += "$kind#${list[index].index}"
-                }
-                observeFirstState(table.enter, initial, "enter")
+                val expected = ExpectedHandlerTrace(table)
+                expected.enter(initial)
                 if (fail) {
-                    table.recover
-                        .firstOrNull { kotlin.test.assertNotNull(it.stateType).isInstance(initial) && kotlin.test.assertNotNull(it.exceptionType).isInstance(error) }
-                        ?.let {
-                            expected += "recover#${it.index}"
-                            recovered++
-                        }
+                    recovered += expected.recover(initial, error)
                 } else if (target::class != initial::class) {
-                    observeFirstState(table.exit, initial, "exit")
-                    observeFirstState(table.enter, target, "enter")
+                    expected.exit(initial)
+                    expected.enter(target)
                     moved++
                 }
 
-                store.startAndAwait()
-                store.dispatchAndAwait(KtAction.P)
-
-                assertEquals(expected, log, "seed=$seed initial=$initial target=$target fail=$fail error=$error")
-                store.close()
+                try {
+                    store.startAndAwait()
+                    store.dispatchAndAwait(KtAction.P)
+                    assertEquals(expected.entries, log, "seed=$seed initial=$initial target=$target fail=$fail error=$error")
+                } finally {
+                    store.closeAndJoin()
+                }
             }
             assertTrue(recovered > 30 && moved > 60, "recovered=$recovered moved=$moved")
         }
@@ -195,5 +185,34 @@ class StoreHandlersPropertyTest {
             "#1 state<${name(anonymousState)}> / recover<${name(anonymousError)}>",
             RecoverHandlerDescription(1, anonymousState, anonymousError).toString(),
         )
+    }
+}
+
+/** Independent expected trace for one generated handler table, separate from scenario execution. */
+private class ExpectedHandlerTrace(
+    private val table: StoreHandlers,
+) {
+    val entries = mutableListOf<String>()
+
+    fun enter(state: KtState) = recordStateHandler(table.enter, state, "enter")
+
+    fun exit(state: KtState) = recordStateHandler(table.exit, state, "exit")
+
+    fun recover(
+        state: KtState,
+        error: Exception,
+    ): Int {
+        val selected = table.recover.filter { it.stateType.isInstance(state) && it.exceptionType.isInstance(error) }.take(1)
+        entries += selected.map { "recover#${it.index}" }
+        return selected.size
+    }
+
+    private fun recordStateHandler(
+        handlers: List<StateHandlerDescription>,
+        state: KtState,
+        kind: String,
+    ) {
+        val index = handlers.indexOfFirst { it.stateType.isInstance(state) }
+        if (index >= 0) entries += "$kind#${handlers[index].index}"
     }
 }

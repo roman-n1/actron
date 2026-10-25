@@ -7,6 +7,7 @@ import actron.core.AutoStartPolicy
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
+import actron.core.closeAndJoin
 import actron.test.patch
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.DefaultComponentContext
@@ -33,6 +34,85 @@ class StoreObservationTest {
     private data object Increment : Action
 
     private data object Changed : Event
+
+    @Test
+    fun eventObserverIsReadyBeforeStartupAndDoesNotStartTheStore() =
+        runTest {
+            val lifecycle = TrackingLifecycle().apply { create() }
+            var entered = false
+            val values = mutableListOf<Changed>()
+            val store =
+                Store<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                    state<Counter> {
+                        enter {
+                            entered = true
+                            event(Changed)
+                        }
+                    }
+                }
+            try {
+                store.observeEvent(lifecycle) { values += it }
+                runCurrent()
+                assertTrue(!entered)
+                assertTrue(values.isEmpty())
+                assertEquals(1, lifecycle.callbacks.size)
+                store.start()
+                runCurrent()
+                assertTrue(entered)
+                assertEquals(listOf(Changed), values)
+                lifecycle.destroy()
+                assertTrue(lifecycle.callbacks.isEmpty())
+            } finally {
+                lifecycle.destroy()
+                store.closeAndJoin()
+            }
+        }
+
+    @Test
+    fun closingOneEventHandleKeepsSiblingEventAndStateObserversAlive() =
+        runTest {
+            val lifecycle = TrackingLifecycle().apply { create() }
+            val store =
+                Store<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                    autoStartPolicy(AutoStartPolicy.OnDispatch)
+                    state<Counter> {
+                        action<Increment> {
+                            event(Changed)
+                            nextState { Counter(state.value + 1) }
+                        }
+                    }
+                }
+            val states = mutableListOf<Counter>()
+            val closedEvents = mutableListOf<Changed>()
+            val liveEvents = mutableListOf<Changed>()
+            try {
+                val stateHandle = store.observeState(lifecycle) { states += it }
+                val closed = store.observeEvent(lifecycle) { closedEvents += it }
+                val live = store.observeEvent(lifecycle) { liveEvents += it }
+                assertEquals(3, lifecycle.callbacks.size)
+                closed.close()
+                closed.close()
+                assertEquals(2, lifecycle.callbacks.size)
+                runCurrent()
+                store.dispatch(Increment)
+                runCurrent()
+                assertEquals(listOf(Counter(), Counter(1)), states)
+                assertTrue(closedEvents.isEmpty())
+                assertEquals(listOf(Changed), liveEvents)
+                lifecycle.destroy()
+                assertTrue(lifecycle.callbacks.isEmpty())
+                live.close()
+                stateHandle.close()
+                store.dispatch(Increment)
+                runCurrent()
+                assertEquals(Counter(2), store.currentState)
+                assertEquals(listOf(Counter(), Counter(1)), states)
+                assertEquals(listOf(Changed), liveEvents)
+            } finally {
+                lifecycle.destroy()
+                store.closeAndJoin()
+            }
+        }
 
     @Test
     fun componentRecreationReusesStoreButDropsOldObservers() =
