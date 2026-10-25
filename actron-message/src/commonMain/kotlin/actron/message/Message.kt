@@ -1,24 +1,11 @@
 package actron.message
 
 import actron.core.StoreScope
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * Marker interface for process-wide messages sent through Actron's shared message bus.
  */
 interface Message
-
-internal object MessageHub {
-    // The buffer lets a sender continue while receivers are still handling earlier messages; a
-    // sender suspends only when a receiver falls this far behind.
-    private val _messages = MutableSharedFlow<Message>(extraBufferCapacity = 64)
-    val messages: SharedFlow<Message> get() = _messages
-
-    suspend fun send(message: Message) {
-        _messages.emit(message)
-    }
-}
 
 /**
  * Sends a [Message] to Actron's process-wide shared message bus.
