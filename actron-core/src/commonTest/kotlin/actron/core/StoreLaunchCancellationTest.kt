@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -33,7 +35,7 @@ class StoreLaunchCancellationTest {
         runTest {
             val lane = LaunchLane()
             val store =
-                Store<Active, Action, Nothing>(Active(), backgroundScope.coroutineContext) {
+                createRuntimeStore<Active, Action, Nothing>(Active(), backgroundScope.coroutineContext) {
                     state<Active> {
                         action<Start> {
                             launch(control = LaunchControl.CancelPrevious(lane)) {
@@ -69,7 +71,7 @@ class StoreLaunchCancellationTest {
             val lane = LaunchLane()
             val events = mutableListOf<Output>()
             val store =
-                Store<Active, Action, Output>(Active(), backgroundScope.coroutineContext) {
+                createRuntimeStore<Active, Action, Output>(Active(), backgroundScope.coroutineContext) {
                     plugin(Plugin(onEvent = { _, event -> events += event }))
                     state<Active> {
                         action<Start> {
@@ -101,7 +103,7 @@ class StoreLaunchCancellationTest {
             val lane = LaunchLane()
             val reported = mutableListOf<Throwable>()
             val store =
-                Store<Active, Action, Nothing>(Active(), backgroundScope.coroutineContext) {
+                createRuntimeStore<Active, Action, Nothing>(Active(), backgroundScope.coroutineContext) {
                     exceptionHandler(ExceptionHandler { reported += it })
                     state<Active> {
                         action<Start> {
@@ -139,7 +141,7 @@ class StoreLaunchCancellationTest {
                 val observed = mutableListOf<Output>()
                 val recorded = mutableListOf<Output>()
                 val store =
-                    Store<State, Stop, Output>(Active(), backgroundScope.coroutineContext) {
+                    createRuntimeStore<State, Stop, Output>(Active(), backgroundScope.coroutineContext) {
                         plugin(Plugin(onEvent = { _, event -> recorded += event }))
                         state<Active> {
                             enter {
@@ -179,7 +181,7 @@ class StoreLaunchCancellationTest {
                 val outcome = CompletableDeferred<Throwable>()
                 var nestedRan = false
                 val store =
-                    Store<Active, Start, Nothing>(Active(), backgroundScope.coroutineContext) {
+                    createRuntimeStore<Active, Start, Nothing>(Active(), backgroundScope.coroutineContext) {
                         state<Active> {
                             if (fromEnter) {
                                 enter {

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +27,7 @@ class StoreInstanceIsolationTest {
         runTest {
             for (lane in listOf(LaunchLane.ByAction, LaunchLane())) {
                 fun tab() =
-                    Store<Result, Action, Nothing>(Result(), backgroundScope.coroutineContext) {
+                    createRuntimeStore<Result, Action, Nothing>(Result(), backgroundScope.coroutineContext) {
                         state<Result> {
                             action<Load> {
                                 launch(control = LaunchControl.CancelPrevious(lane)) {

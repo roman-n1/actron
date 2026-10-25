@@ -27,12 +27,10 @@
     <ID>WildcardImport:GeneratedWeatherScenarios.kt:import actron.example.weather.feature.weather.domain.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenarios.kt:import actron.example.weather.feature.weather.presentation.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenarios.kt:import actron.statechart.test.*</ID>
-    <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import actron.statechart.test.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:GraphDiagnosticDemo.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:GraphDiagnosticDemoTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:GraphDiagnosticDemoTest.kt:import actron.statechart.*</ID>
     <ID>WildcardImport:GraphDiagnosticDemoTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:HistoryFiles.android.kt:import androidx.compose.runtime.*</ID>
@@ -41,8 +39,6 @@
     <ID>WildcardImport:HistoryFiles.jvm.kt:import androidx.compose.runtime.*</ID>
     <ID>WildcardImport:HistoryFiles.jvm.kt:import kotlinx.coroutines.*</ID>
     <ID>WildcardImport:HourlyForecastTest.kt:import actron.example.weather.feature.weather.presentation.*</ID>
-    <ID>WildcardImport:Main.kt:import actron.example.weather.feature.weather.data.*</ID>
-    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:WeatherDebugLayout.kt:import androidx.compose.foundation.layout.*</ID>
     <ID>WildcardImport:WeatherDebugLayout.kt:import androidx.compose.material3.*</ID>
     <ID>WildcardImport:WeatherDebugLayout.kt:import androidx.compose.runtime.*</ID>
@@ -50,7 +46,6 @@
     <ID>WildcardImport:WeatherHistory.kt:import actron.example.weather.feature.weather.presentation.*</ID>
     <ID>WildcardImport:WeatherHistory.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:WeatherHistory.kt:import actron.timetravel.*</ID>
-    <ID>WildcardImport:WeatherHistoryTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:WeatherHistoryTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
     <ID>WildcardImport:WeatherHistoryTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:WeatherHistoryTest.kt:import kotlin.test.*</ID>
@@ -58,7 +53,6 @@
     <ID>WildcardImport:WeatherMachinesCoverageTest.kt:import actron.example.weather.feature.weather.presentation.*</ID>
     <ID>WildcardImport:WeatherMachinesCoverageTest.kt:import actron.statechart.test.*</ID>
     <ID>WildcardImport:WeatherMachinesCoverageTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:WeatherProcessRestoreTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:WeatherProcessRestoreTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
     <ID>WildcardImport:WeatherProcessRestoreTest.kt:import actron.example.weather.feature.weather.domain.*</ID>
     <ID>WildcardImport:WeatherProcessRestoreTest.kt:import actron.example.weather.feature.weather.presentation.*</ID>
@@ -67,17 +61,14 @@
     <ID>WildcardImport:WeatherRecording.kt:import actron.example.weather.feature.weather.presentation.*</ID>
     <ID>WildcardImport:WeatherRecording.kt:import actron.timetravel.*</ID>
     <ID>WildcardImport:WeatherRecording.kt:import actron.timetravel.compose.*</ID>
-    <ID>WildcardImport:WeatherRecordingIsolationTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:WeatherRecordingIsolationTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
     <ID>WildcardImport:WeatherRecordingIsolationTest.kt:import actron.example.weather.feature.weather.domain.*</ID>
     <ID>WildcardImport:WeatherRecordingIsolationTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:WeatherRecordingTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:WeatherRecordingTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
     <ID>WildcardImport:WeatherRecordingTest.kt:import actron.example.weather.feature.weather.presentation.*</ID>
     <ID>WildcardImport:WeatherRecordingTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:WeatherRecordingTest.kt:import actron.timetravel.*</ID>
     <ID>WildcardImport:WeatherRecordingTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:WeatherRecordingUiTest.kt:import actron.example.weather.core.debug.*</ID>
     <ID>WildcardImport:WeatherRecordingUiTest.kt:import androidx.compose.ui.test.*</ID>
     <ID>WildcardImport:WeatherRecordingUiTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:WeatherRecordingViewer.kt:import actron.example.weather.feature.cities.presentation.*</ID>

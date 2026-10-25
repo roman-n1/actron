@@ -9,7 +9,7 @@
 Actron is a Kotlin Multiplatform library for features whose behavior includes requests,
 cancellation, retries, timers, and independent processes running at the same time.
 
-The recommended screen API is **a typed state machine + `MachineStore`**. Send an action from
+The screen API is **our typed StateChart machine + `MachineStore`**. Send an action from
 any thread. The runtime queues inputs, makes one pure decision at a time, commits the next
 state in one place, and executes commands afterward. Command handlers call your use cases
 and return actions; they never write state. Compose observes state on the UI dispatcher.
@@ -37,11 +37,12 @@ includes logging and Time Travel. [Orbit](https://github.com/orbit-mvi/orbit-mvi
 concise coroutine-based intents, reductions, and ViewModel integration. Actron's focus is
 **an executable statechart with pure decisions and explicit command/timer lifetimes**.
 Use it when those lifetimes and transitions deserve to be visible in the feature definition.
-A small form or counter may not need a statechart.
+A small form or counter can use a single-state chart.
 
 Actron does not provide navigation, repositories, or dependency injection. The weather example
-uses Decompose for component lifetimes and navigation. `actron-core` remains a flexible,
-lower-level Store API; arbitrary core handlers do not have the pure Machine contract.
+uses Decompose for component lifetimes and navigation. `actron-core` is the internal execution
+engine. Application reducers use our StateChart implementation; handwritten replacement
+reducers and the former standalone Store DSL are not supported.
 Library and example sources follow a CI-enforced [null-free policy](doc/guides/absence-policy.md),
 including compiler-resolved types; absence is modeled as explicit domain states.
 
@@ -63,7 +64,7 @@ and codecs. Replay, branching and inspector APIs are currently experimental.
 ### Start small. Make complexity explicit.
 
 A counter can use a single state. A loading screen needs clear phases. A feature with nested or
-parallel lifetimes can use a statechart. Add recording and Time Travel when you need them;
+parallel lifetimes can add hierarchy and parallel regions. Add recording and Time Travel when you need them;
 choose the modules that fit your feature.
 
 The name carries the idea: **Act** for the actions that drive behavior, **-tron** for the
@@ -78,11 +79,9 @@ engine that gives them structure.
 | Describe nested/parallel phases and draw their transitions | [actron-statechart](actron-statechart/README.md) |
 | Keep I/O separate from decisions and replay them | [A pure Machine below](#3-a-machine-makes-decisions-io-runs-afterward) |
 | Connect a Store to Compose | [actron-compose](actron-compose/README.md) |
-| Reproduce a bug from a saved run | [The runnable Time Travel example](examples/time-travel/README.md) |
+| Reproduce a bug from a saved run | [Weather recording and continuation](examples/weather/README.md#session-history-and-replay) |
 | Explore MVI, a live API and an embeddable debug panel | [The Multiplatform weather demo](examples/weather/README.md) |
 | Generate tests from a graph and inspect a late-response scenario | [Weather's generated tests and recordings](examples/weather/README.md#automatically-generated-tests-and-recordings) |
-| Handle retained effects across process death | [The durable outbox example](examples/durable-effects/README.md) |
-| Look up the full original Store DSL | [Store API guide](doc/guides/store-api.md) |
 
 ## 1. A Store for a counter
 
@@ -133,7 +132,8 @@ The queue preserves acceptance order per machine. A single-thread dispatcher or 
 pins processing to one physical thread; Default/IO pools still process inputs sequentially,
 but may use different threads. See the [full threading contract](doc/guides/machine-mvi.md).
 
-For the original, more permissive coroutine Store DSL, see [actron-core](actron-core/README.md).
+The Store engine has no public construction DSL. For retained components, use
+[`retainedMachine`](actron-decompose/README.md).
 
 ## 2. Which kind of state machine do you need?
 
@@ -180,12 +180,7 @@ the short overload supplies the binding. The runtime exposes both graph and data
 
 ## 3. A Machine makes decisions; I/O runs afterward
 
-There are two ways to execute a chart:
-
-| Runtime | Use it when… | State exposed by the Store |
-|---|---|---|
-| `StateChartStore` | You want chart lifetimes with coroutine activities and hooks | `ChartState<C>` |
-| `Machine` + `MachineStore` | You want pure decisions, explicit commands and replay | `MachineSnapshot<C>` |
+A StateChart `Machine` defines behavior; `MachineStore` executes it and exposes `MachineSnapshot<C>`.
 
 A pure `Machine` takes a snapshot and an input and returns a `Decision`. Commands, timer
 changes and effects are data in that decision. `MachineStore` commits it, then a
@@ -216,23 +211,12 @@ Explicit-ID definitions remain available for lower-level tools and existing user
 
 ## 4. Time Travel from a real saved run
 
-The [desktop example](examples/time-travel/README.md) has a cart and an order summary. A bug
-forgets discount 20 on price 100, so both machines show 100 instead of 80.
+The [Weather application](examples/weather/README.md) demonstrates recording, inspection,
+checkpoint continuation and imported view-only recordings in the same two-screen application.
 
 ```sh
-./gradlew :time-travel-example:run
-# The same full workflow without opening a window:
-./gradlew :time-travel-example:run --args='--check'
+./gradlew :weather:desktopApp:run
 ```
-
-Record checkout → reopen the saved files → compare the corrected reducer → see the first
-divergence → branch from its checkpoint → script a price response → return to the original
-replay. Group navigation restores every member at one position. Experiments use a virtual
-clock and application-supplied inputs/routes; they leave the recording and live runtime alone.
-
-An arbitrary coroutine Store can be inspected, but deterministic replay needs the pure
-Machine path and compatible definitions/codecs. Debug tooling belongs in debug dependencies;
-the CI checks that production modules do not depend on it.
 
 ## Skills for your AI
 
@@ -246,10 +230,10 @@ Every library module has its own README with setup, examples and its contract.
 
 | Module | Purpose |
 |---|---|
-| [actron-core](actron-core/README.md) | Store DSL, immutable state, actions/events, coroutine lifetimes and persistence |
-| [actron-decompose](actron-decompose/README.md) | Lifecycle-bound observation and retained Store integration for Decompose |
+| [actron-core](actron-core/README.md) | Internal execution engine and shared action/event/lifetime contracts |
+| [actron-decompose](actron-decompose/README.md) | One-call retained machine setup and lifecycle-bound observation for Decompose |
 | [actron-compose](actron-compose/README.md) | `ViewStore`, state rendering, derived UI values and transient event collection |
-| [actron-message](actron-message/README.md) | Process-wide message plugin for ordinary Stores |
+| [actron-message](actron-message/README.md) | Transient messages from command handlers and runtime subscriptions |
 | [actron-logging](actron-logging/README.md) | Store logging and structured journal output |
 | [actron-test](actron-test/README.md) | Await processing, record states/events and diagnose handlers |
 | [actron-statechart](actron-statechart/README.md) | Declarative model, validation, diagrams, chart runtime and pure Machines |
@@ -260,13 +244,10 @@ Every library module has its own README with setup, examples and its contract.
 | [actron-diagnostics-sdk](actron-diagnostics-sdk/README.md) | Optional OpenTelemetry and Sentry adapters for JVM/Android |
 | [actron-diagnostics-crashlytics](actron-diagnostics-crashlytics/README.md) | Optional Android Crashlytics adapter |
 | [actron-observability](actron-observability/README.md) | Ordered, bounded diagnostic journal and file storage |
-| [actron-persistence](actron-persistence/README.md) | Current-checkpoint codecs and restoration without debugger dependencies |
-| [actron-timetravel](actron-timetravel/README.md) | Debug recording, replay and isolated branches |
+| [actron-persistence](actron-persistence/README.md) | Current checkpoint codecs and restoration without debug tooling |
+| [actron-timetravel](actron-timetravel/README.md) | Recording, codecs, checkpoints, replay and isolated branches |
 | [actron-timetravel-compose](actron-timetravel-compose/README.md) | Inspector UI and group replay/experiment controls |
-| [time-travel-example](examples/time-travel/README.md) | Runnable JVM debug application; not a published library |
-| [weather-app](examples/weather-app/README.md) | Production weather screens, execution and checkpoint persistence; no debugger |
-| [weather-example](examples/weather/README.md) | Optional weather debugger and Desktop/browser demo launcher; Android debug-only |
-| [durable-effects-example](examples/durable-effects/README.md) | Runnable JVM outbox and idempotent-effect application; not a published library |
+| [weather](examples/weather/README.md) | Compose Multiplatform MVI weather app with a live API and resizable debug panel; not a published library |
 
 ## Installation
 
@@ -284,8 +265,8 @@ includeBuild("../actron") // path to this repository; its root name is Actron
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.roman-n1:actron-core:5.0.0-alpha.1")
-            // Optional: implementation("io.github.roman-n1:actron-statechart:5.0.0-alpha.1")
+            implementation("io.github.roman-n1:actron-statechart:5.0.0-alpha.1")
+            // For Decompose: implementation("io.github.roman-n1:actron-decompose:5.0.0-alpha.1")
         }
     }
 }
@@ -302,9 +283,8 @@ For an Android-only build, the same dependency line belongs in `dependencies { �
 
 Actron was previously named Koma in this fork, based on upstream
 [koma-kt/koma](https://github.com/koma-kt/koma) **4.0.0**. The source repository is currently
-[roman-n1/actron](https://github.com/roman-n1/actron). It adds an optional declarative statechart
-model, pure decision machines, structured recording and Time Travel.
-The original Store DSL remains available under the `actron.*` packages.
+[roman-n1/actron](https://github.com/roman-n1/actron). It uses its own declarative StateChart model, pure decision machines, structured recording
+and Time Travel. The original standalone Store DSL has been removed from the application API.
 See [Migrating from Koma](doc/guides/migrating-from-koma.md) for the breaking rename.
 
 Actron evolves independently. Source, binary and runtime interoperability with upstream
@@ -312,11 +292,11 @@ Koma 4.0.0 are unsupported; consumers must migrate to Actron and recompile. Comp
 with Koma does not constrain Actron's API or releases.
 
 The comparison is with the recorded **upstream base 4.0.0**, not a claim about future upstream
-releases. The original Store DSL, Compose helpers, messaging, logging and test support remain.
+releases. Compose helpers, messaging, logging and runtime test support remain.
 
 | Area | Upstream base 4.0.0 | This fork adds |
 |---|---|---|
-| State management | State-specific Kotlin Store handlers | Optional statechart nodes/transitions as inspectable data |
+| State management | State-specific Kotlin Store handlers | Statechart nodes/transitions as inspectable data |
 | State structure | Ordinary Store states | Hierarchy, parallel regions, history and chart timers |
 | I/O and decisions | Coroutine work in Store handlers | Pure Machine decisions and explicit command/executor checkpoints |
 | Diagnostics | Plugin observation and logging | Ordered structured journal, bounded retention and file readers |
@@ -336,7 +316,7 @@ records the individual changes and their route back upstream.
 
 - [Kotlin code style](doc/guides/code-style.md): `./gradlew ktlintCheck` to verify, `./scripts/format-kotlin.sh` to format the entire repository.
 
-- [Store API guide](doc/guides/store-api.md): recovery, launch/transaction, persistence, policies and full plugin examples.
+- [Machine MVI guide](doc/guides/machine-mvi.md): decisions, commands, lifetime and execution policies.
 - [Absence policy](doc/guides/absence-policy.md): migration away from null and optional containers, API changes and the CI guard.
 - [Device resource budgets](verification/resource-soak/README.md): required Android/iOS soak runs, resource cleanup, memory plateau and commit latency reports.
 - [Internal documentation](doc/internal/README.md): architecture, decisions, review evidence and roadmap.

@@ -1,0 +1,208 @@
+package actron.example.weather.app.debug
+
+import actron.core.Action
+import actron.core.Event
+import actron.core.InputAttribution
+import actron.example.weather.app.session.WeatherFrame
+import actron.example.weather.app.session.WeatherRoute
+import actron.example.weather.app.session.WeatherSession
+import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.weather.presentation.CityWeatherMachine
+import actron.statechart.machine.*
+import actron.timetravel.*
+import actron.timetravel.compose.HistoryGraph
+import actron.timetravel.compose.HistoryGraphCoverage
+import actron.timetravel.compose.HistoryGraphProfile
+import actron.timetravel.compose.HistoryPanelState
+import kotlinx.coroutines.flow.MutableStateFlow
+
+/** App adapter: owns typed machine checkpoints and Decompose route; UI lives in the library. */
+class WeatherHistory(
+    val capacity: Int = 500,
+    val exportSettings: HistoryExportSettings = HistoryExportSettings("Weather"),
+    initialFrame: WeatherFrame = WeatherFrame(),
+    initialBranch: Long = 0,
+    clockFactory: () -> MachineClock = { MachineClock.monotonic() },
+) : WeatherSession(initialFrame, initialBranch, clockFactory) {
+    @androidx.compose.runtime.Composable
+    override fun Render(
+        settings: actron.example.weather.app.WeatherSettings,
+        onContinue: (WeatherFrame) -> Unit,
+        content: @androidx.compose.runtime.Composable () -> Unit,
+    ) {
+        WeatherDebugLayout(this, onContinue, settings = settings, content = content)
+    }
+
+    @androidx.compose.runtime.Composable
+    override fun SettingsAction(onClick: () -> Unit) {
+        WeatherSettingsButton(onClick)
+    }
+
+    override fun <C : Any, A : Action, CMD : Any, E : Event> recording(): actron.decompose.MachineRecording<C, A, CMD, E> = weatherRecording()
+
+    val timeline = HistoryTimeline<WeatherFrame>(capacity)
+    val panel = HistoryPanelState<WeatherFrame>()
+    val panelLayout = actron.timetravel.compose.HistoryPanelLayoutState()
+    val panelVisible = MutableStateFlow(false)
+    private val searchChart = CitySearchMachine.create().chart
+    private val weatherChart = CityWeatherMachine.create().chart
+
+    private fun profile(entry: HistoryEntry<WeatherFrame>): HistoryGraphProfile = entry.snapshot.profiles[DefinitionId(entry.machine.stableId)]?.let { HistoryGraphProfile.Recorded(it) } ?: HistoryGraphProfile.Unavailable
+
+    fun graph(entry: HistoryEntry<WeatherFrame>): HistoryGraph =
+        when (entry.machine.stableId) {
+            "city-search" -> {
+                HistoryGraph.Machine(
+                    searchChart,
+                    entry.snapshot.search.snapshot.configuration.active
+                        .toSet(),
+                    HistoryGraphCoverage.Recorded(
+                        entry.snapshot.coverage[DefinitionId("city-search")]
+                            ?.hits
+                            .orEmpty(),
+                    ),
+                    profile(entry),
+                )
+            }
+
+            "city-weather" -> {
+                when (val route = entry.snapshot.route) {
+                    WeatherRoute.Search -> {
+                        HistoryGraph.Unavailable
+                    }
+
+                    is WeatherRoute.Weather -> {
+                        HistoryGraph.Machine(
+                            weatherChart,
+                            route.checkpoint.snapshot.configuration.active
+                                .toSet(),
+                            HistoryGraphCoverage.Recorded(
+                                entry.snapshot.coverage[DefinitionId("city-weather")]
+                                    ?.hits
+                                    .orEmpty(),
+                            ),
+                            profile(entry),
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                HistoryGraph.Unavailable
+            }
+        }
+
+    fun <C : Any, A : Action, CMD : Any, E : Event> observer(
+        machine: Machine<C, A, CMD, E>,
+        checkpoint: ExecutorCheckpoint<C, CMD>,
+        describe: (C) -> List<StateField>,
+        profiler: MachineProfiler<C, A, CMD, E> = MachineProfiler(machine),
+    ): DecisionTraceObserver<C, A, CMD, E> {
+        val identity =
+            timeline.machine(
+                when (machine.id.value) {
+                    "city-search" -> "City Search"
+                    "city-weather" -> "City Weather"
+                    else -> machine.id.value
+                },
+                stableId = machine.id.value,
+            )
+        val generation = branch
+        // The per-instance ring buffer retains executable decisions; timeline stores host frames.
+        val recorder = BoundedMachineRecorder(machine, checkpoint, capacity)
+        var previous = checkpoint
+        return object : DecisionTraceObserver<C, A, CMD, E> {
+            // Trace precedes commit. Append only after the independent session observer updated its checkpoint.
+            private var pending: () -> Unit = {}
+
+            private fun committed() {
+                val append = pending
+                pending = {}
+                append()
+            }
+
+            override fun onCommitted(
+                input: InputAttribution,
+                machineInput: MachineInput<A>,
+                decision: Decision<C, CMD, E>,
+            ) = committed()
+
+            override fun onIgnored(
+                input: InputAttribution,
+                machineInput: MachineInput<A>,
+                reason: IgnoreReason,
+            ) = committed()
+
+            override fun onFailed(
+                input: InputAttribution,
+                machineInput: MachineInput<A>,
+                failure: actron.observability.FailureDescriptor,
+            ) = committed()
+
+            override fun onDecided(
+                input: InputAttribution,
+                machineInput: MachineInput<A>,
+                explained: ExplainedDecision<C, CMD, E>,
+            ) {
+                pending = append@{
+                    if (generation != branch) return@append
+                    val decision = explained.decision
+                    val step: RecordedStep<C, A, CMD, E> =
+                        when (val outcome = decision.outcome) {
+                            DecisionOutcome.Handled -> {
+                                recorder.onCommitted(input, machineInput, decision)
+                                RecordedStep.Committed(machineInput, decision)
+                            }
+
+                            is DecisionOutcome.Ignored -> {
+                                recorder.onIgnored(input, machineInput, outcome.reason)
+                                RecordedStep.Ignored(machineInput, outcome.reason)
+                            }
+
+                            is DecisionOutcome.Failed -> {
+                                recorder.onFailed(input, machineInput, outcome.failure)
+                                RecordedStep.Failed(machineInput, outcome.failure)
+                            }
+                        }
+                    // Apply the recorded outcome to checkpoint bookkeeping without executing IO again.
+                    val after = previous.carriedPast(step)
+                    val coverage = frame.coverage.getOrElse(machine.id) { TransitionCoverage(machine.id, machine.version) }.record(decision)
+                    // Freeze completed measurements before this event. They never follow the live store
+                    // when an old frame is selected; imported display recordings omit profiling.
+                    frame = frame.at(after.now).copy(coverage = frame.coverage + (machine.id to coverage), profiles = frame.profiles + (machine.id to profiler.snapshot()))
+                    if (frame.canResume()) resumableFrame = frame
+
+                    fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)
+                    val details =
+                        HistoryDetails(
+                            input =
+                                when (machineInput) {
+                                    is MachineInput.Dispatch -> machineInput.action.toString()
+                                    is MachineInput.CommandResult -> machineInput.action.toString()
+                                    is MachineInput.BridgeReceived -> machineInput.action.toString()
+                                    else -> machineInput.toString()
+                                },
+                            source =
+                                when (machineInput) {
+                                    is MachineInput.Dispatch -> "Action"
+                                    is MachineInput.TimerFired -> "Timer"
+                                    is MachineInput.CommandResult -> "Command result"
+                                    else -> "Runtime"
+                                },
+                            outcome = decision.outcome.toString(),
+                            before = fields(previous.snapshot),
+                            after = fields(after.snapshot),
+                            operations =
+                                decision.commands.map { "Start ${it.command}" } + decision.timersScheduled.map { "Schedule $it" } +
+                                    decision.timersCancelled.map { "Cancel timer $it" } + decision.cancelledScopes.map { "Cancel scope $it" },
+                            explanation = explained.explanation.describe(),
+                        )
+                    previous = after
+                    val index = recorder.nextStep
+                    // Global eviction trims the corresponding recorder too, bounding both histories.
+                    timeline.append(identity, generation, details, frame, discard = { recorder.discardBefore(index) })
+                }
+            }
+        }
+    }
+}

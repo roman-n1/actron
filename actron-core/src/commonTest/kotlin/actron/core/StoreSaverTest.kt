@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +29,7 @@ class StoreSaverTest {
         exceptionHandler: ExceptionHandler = ExceptionHandler.Ignore,
         recovery: StoreBuilder.StateHandlerConfig<AppState, AppAction, Nothing, AppState>.() -> Unit = {},
     ): Store<AppState, AppAction, Nothing> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             coroutineContext(Dispatchers.Unconfined)
             stateSaver(stateSaver)
             exceptionHandler(exceptionHandler)

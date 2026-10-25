@@ -60,7 +60,7 @@ class StoreAwaitIdleTest {
         val gate = CompletableDeferred<Unit>()
         val handled = mutableListOf<Throwable>()
         val store: Store<State, Act, Nothing> by lazy {
-            Store(Counter()) {
+            createRuntimeStore(Counter()) {
                 coroutineContext(Dispatchers.Default)
                 exceptionHandler(ExceptionHandler { handled += it })
                 state<Counter> {
@@ -161,7 +161,7 @@ class StoreAwaitIdleTest {
 
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             val store: Store<State, Act, Nothing> =
-                Store(Counter()) {
+                createRuntimeStore(Counter()) {
                     coroutineContext(Dispatchers.Default)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<Counter> {
@@ -196,7 +196,7 @@ class StoreAwaitIdleTest {
 
                 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
                 val store: Store<State, Act, Nothing> =
-                    Store(Counter()) {
+                    createRuntimeStore(Counter()) {
                         coroutineContext(Dispatchers.Default)
                         state<Counter> {
                             action<Act.Add> {

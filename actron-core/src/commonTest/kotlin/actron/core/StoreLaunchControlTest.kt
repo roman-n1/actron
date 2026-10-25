@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -49,7 +51,7 @@ class StoreLaunchControlTest {
     ): Store<AppState, AppAction, Nothing> {
         val primaryLane = LaunchLane()
         val secondaryLane = LaunchLane()
-        return Store(AppState.Active()) {
+        return createRuntimeStore(AppState.Active()) {
             coroutineContext(testDispatcher)
 
             state<AppState.Active> {

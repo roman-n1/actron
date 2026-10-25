@@ -14,12 +14,12 @@ implementation("io.github.roman-n1:actron-logging:5.0.0-alpha.1")
 
 ## Simple Store logs
 
-Add this plugin inside the `Store { … }` builder, alongside its state handlers:
+Add this plugin inside the `MachineStore(...) { … }` runtime configuration:
 
 ```kotlin
 import actron.logging.simpleLogging
 
-// Inside Store { ... }
+// Inside MachineStore(...) { ... }
 plugin(simpleLogging(tag = "Counter"))
 ```
 

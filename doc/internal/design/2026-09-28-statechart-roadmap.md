@@ -101,7 +101,7 @@ state/transition/guard/timer coverage and deletion shrinking of a failing sequen
 [six-wave gap follow-up](2026-10-06-gap-roadmap.md) also adds explanations, automatic transition
 semantics, durability/migrations, scoped child composition and the typed DSL/diagram.
 The debug timeline, group replay and replay/experiment workflow are implemented, with a
-[runnable disk-to-inspector example](../../../examples/time-travel/README.md) added on 2026-10-03.
+[runnable disk-to-inspector example](https://github.com/roman-n1/actron/blob/bb173b88/examples/time-travel/README.md) added on 2026-10-03.
 
 ### Phase 0 — architectural contract
 
@@ -253,6 +253,16 @@ follow from this.
   "removable when" names the alternative that would let the fork drop it.
 
 ### Divergence inventory vs upstream 4.0.0
+
+2026-10-25: the supported application API is now StateChart-only. The standalone `Store(...)`
+factories were replaced by the internal `createRuntimeStore` bridge; `StoreBuilder` requires
+`InternalActronApi`. The coroutine `StateChartStore` adapter and its configuration/scopes moved
+to commonTest regression fixtures and are excluded from production artifacts. Public consumers
+use `Machine` / `MachineStore` and `retainedMachine`; no compatibility aliases or alternate
+handwritten reducer contract remain. Message sending no longer requires an engine DSL scope.
+See [the API decision](../adr/2026-10-25-statechart-only-api.md) and published-consumer compile
+contracts for the intentional source/ABI break. Earlier rows describe the historical runtime work.
+
 
 Columns: what changed; where (files, symbols); since (stability-review round, commit); the
 regression tests that pin it; upstream status (`not proposed`, `prepared: upstream-pr/<topic>`,
@@ -431,7 +441,7 @@ The messenger pilot, device measurements and publishing remain work, not conditi
 4. **Phase 8 (implemented 2026-10-06).** Invariants, bounded executable exploration,
    guard/state/transition/timer coverage and shrinking. See the six-wave gap follow-up above.
    The debug timeline and group replay/experiment inspector are implemented; the
-   [desktop example](../../../examples/time-travel/README.md) demonstrates the complete file
+   [desktop example](https://github.com/roman-n1/actron/blob/bb173b88/examples/time-travel/README.md) demonstrates the complete file
    workflow. Real messenger wiring and device measurements remain separate work.
 5. **Bridge to actron-strict** — optional, as a separate module; design in
    [`2026-09-28-actron-strict-comparison.md`](./2026-09-28-actron-strict-comparison.md).

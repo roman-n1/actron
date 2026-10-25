@@ -5,12 +5,12 @@ Read only the modules relevant to the task. This map explains boundaries, not ev
 
 | Need | Module / boundary |
 |---|---|
-| Ordinary Store, actions/events, lifecycle, immutable state | `actron-core` |
+| Internal execution engine and shared action/event/lifecycle contracts | `actron-core`; application construction uses `MachineStore` |
 | Compose rendering of ordinary stores | `actron-compose` |
-| Process-wide messages between ordinary Stores | `actron-message`; not a substitute for typed machine commands |
+| Transient process-wide messages from command handlers | `actron-message`; not a substitute for typed machine commands |
 | Logging a Store | `actron-logging` |
-| Test ordinary Stores | `actron-test`; machine scenarios belong in the module below |
-| Typed DSL, hierarchy, parallel states, invoke, executor | `actron-statechart` |
+| Runtime test helpers for Stores and machines | `actron-test`; machine scenarios belong in the module below |
+| Application reducer: our StateChart Machine, typed DSL, hierarchy, parallel states, invoke, executor | `actron-statechart` |
 | Deliver retained machine effects in Compose | `actron-statechart-compose` |
 | Scripted machine commands, virtual clocks, coverage, exploration | `actron-statechart-test`; test dependencies only |
 | Bounded recording, persistence codecs, replay, branching, groups | `actron-timetravel` |
@@ -23,9 +23,7 @@ Read only the modules relevant to the task. This map explains boundaries, not ev
 Examples are applications, not published dependencies:
 
 - `examples/weather`: two-screen Compose/Decompose example, search and parallel current/
-  forecast machines, session history, persistence adapter. Android launcher: `examples/weather-android`.
-- `examples/time-travel`: focused replay/debug application.
-- `examples/durable-effects`: durable/outbox and idempotency example.
+  forecast machines, session history, persistence adapter. platform hosts and optional `debugTools` under the same directory.
 
 Repository-only tooling:
 

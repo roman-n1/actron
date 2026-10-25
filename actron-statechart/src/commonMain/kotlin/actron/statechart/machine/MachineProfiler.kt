@@ -238,6 +238,6 @@ class MachineProfiler<C : Any, A : Action, CMD : Any, E : Event>(
 }
 
 /** Installs queue/processing boundaries; also register the profiler as a decision observer. */
-fun <C : Any, A : Action, CMD : Any, E : Event> actron.statechart.StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.profileWith(profiler: MachineProfiler<C, A, CMD, E>) {
+fun <C : Any, A : Action, CMD : Any, E : Event> MachineConfiguration<C, A, E>.profileWith(profiler: MachineProfiler<C, A, CMD, E>) {
     probe(profiler.probe)
 }

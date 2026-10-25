@@ -120,7 +120,7 @@ class StoreProbeTest {
         plugins: List<Plugin<AppState, AppAction, AppEvent>> = emptyList(),
         extraProbes: List<StoreProbe<AppState, AppAction, AppEvent>> = emptyList(),
     ): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Loading) {
+        createRuntimeStore(AppState.Loading) {
             coroutineContext(context)
             exceptionHandler(exceptionHandler)
             stateSaver(stateSaver)
@@ -454,7 +454,7 @@ class StoreProbeTest {
             val enterError = ArithmeticException("enter")
             val handled = mutableListOf<Throwable>()
             val store =
-                Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                     coroutineContext(dispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     probe(probe)
@@ -725,7 +725,7 @@ class StoreProbeTest {
             val failing = StoreProbe<AppState, AppAction, AppEvent> { if (it is StoreTrace.StateCommitted<*>) throw probeError }
             val handled = mutableListOf<Throwable>()
             val store =
-                Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                     coroutineContext(dispatcher)
                     exceptionHandler(ExceptionHandler { handled += it })
                     probe(failing, probe)
@@ -749,7 +749,7 @@ class StoreProbeTest {
             val dispatcher = UnconfinedTestDispatcher(testScheduler)
             val probe = RecordingProbe<AppState, AppAction, AppEvent>()
             val store =
-                Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                     coroutineContext(dispatcher)
                     state<AppState.Loading> { enter { nextState { AppState.Ready() } } }
                 }
@@ -804,7 +804,7 @@ class StoreProbeTest {
         }
 
     private fun stormStore(recorded: Channel<StoreTrace<StormState, StormAction, Nothing>>): Store<StormState, StormAction, Nothing> =
-        Store(StormState.Open()) {
+        createRuntimeStore(StormState.Open()) {
             coroutineContext(Dispatchers.Default)
             probe(StoreProbe { recorded.trySend(it) })
             state<StormState.Open> {
@@ -940,7 +940,7 @@ class StoreProbeTest {
             val total = senders * perSender
             val recorded = Channel<StoreTrace<Counter, CounterAction, Nothing>>(Channel.UNLIMITED)
             val store: Store<Counter, CounterAction, Nothing> =
-                Store(Counter()) {
+                createRuntimeStore(Counter()) {
                     coroutineContext(Dispatchers.Default)
                     probe(StoreProbe { recorded.trySend(it) })
                     state<Counter> {

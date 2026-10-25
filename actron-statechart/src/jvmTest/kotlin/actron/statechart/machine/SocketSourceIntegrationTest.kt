@@ -167,7 +167,7 @@ class SocketSourceIntegrationTest {
 
     private class Fixture(
         admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
-        plugin: Plugin<MachineSnapshot<List<Int>>, MachineInput<Frame>, Ev> = actron.core.Plugin(),
+        plugin: Plugin<MachineSnapshot<List<Int>>, Frame, Ev> = actron.core.Plugin(),
     ) {
         val server = ServerSocket(0, 4, InetAddress.getLoopbackAddress()).apply { soTimeout = 5_000 }
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -351,9 +351,9 @@ class SocketSourceIntegrationTest {
                 val entered = CompletableDeferred<Unit>()
                 val release = CompletableDeferred<Unit>()
                 val blocker =
-                    object : Plugin<MachineSnapshot<List<Int>>, MachineInput<Frame>, Ev> {
+                    object : Plugin<MachineSnapshot<List<Int>>, Frame, Ev> {
                         override suspend fun onState(
-                            scope: PluginScope<MachineSnapshot<List<Int>>, MachineInput<Frame>>,
+                            scope: PluginScope<MachineSnapshot<List<Int>>, Frame>,
                             prevState: MachineSnapshot<List<Int>>,
                             state: MachineSnapshot<List<Int>>,
                         ) {

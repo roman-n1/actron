@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import actron.test.startAndAwait
@@ -442,7 +445,7 @@ class StateChartHistoryPropertyTest {
         val runtime = StateChartRuntime(chart, { s: RandomState -> s.id }, guards)
         var configuration = runtime.initialConfiguration()
         var index = 0
-        return Store(RandomState(chart.activeLeaves(configuration).single())) {
+        return createRuntimeStore(RandomState(chart.activeLeaves(configuration).single())) {
             coroutineContext(StandardTestDispatcher(scope.testScheduler))
             pendingActionPolicy(PendingActionPolicy.Keep)
             state<RandomState> {

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart.machine
 
 import actron.core.Action
@@ -19,9 +21,9 @@ import actron.core.StoreProbe
 import actron.core.StoreSetting
 import actron.core.StoreTrace
 import actron.core.closeAndJoin
+import actron.core.createRuntimeStore
 import actron.core.currentInputId
 import actron.core.observeState
-import actron.statechart.StoreConfiguration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -152,7 +154,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore(
     admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
     observers: List<DecisionObserver<C, A, CMD, E>> = emptyList(),
     mailbox: MailboxConfig<E> = MailboxConfig(),
-    builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit = {},
+    builder: MachineConfiguration<C, A, E>.() -> Unit = {},
 ): MachineStore<C, A, CMD, E> = MachineStoreImpl(machine, context, handler, scope, clock, coroutineContext, admission, observers, mailbox, builder)
 
 @OptIn(InternalActronApi::class, ExperimentalActronApi::class)
@@ -166,7 +168,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val admission: AdmissionPolicy,
     private val observers: List<DecisionObserver<C, A, CMD, E>>,
     mailboxConfig: MailboxConfig<E>,
-    builder: StoreConfiguration<MachineSnapshot<C>, MachineInput<A>, E>.() -> Unit,
+    builder: MachineConfiguration<C, A, E>.() -> Unit,
     private val origin: StoreOrigin<C, CMD> = StoreOrigin.Fresh,
     recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
 ) : MachineStore<C, A, CMD, E>,
@@ -209,9 +211,11 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
             onClosed = { queued, running -> observe { it.onClosed(queued, running) } },
         )
 
-    // Plugins given to the store through `patch {}` (actron-test), adapted to the inner store; the
+    // Configured plugins and test patches share one adapter to the inner store; the
     // executor hands them every effect, since the inner store never sees the effects.
     private val adaptedPlugins = mutableListOf<AdaptedPlugin<C, A, E>>()
+
+    private fun configuredPlugin(plugin: Plugin<MachineSnapshot<C>, A, E>): AdaptedPlugin<C, A, E> = AdaptedPlugin(plugin, this).also { adaptedPlugins += it }
 
     private val publication = MachineStorePublication(scheduler::apply, ::observe, ::deliverEffect)
     private val decisions = MachineStoreDecisions(machine, observers, ::observe, publication)
@@ -241,12 +245,11 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
 
     /** The underlying Actron Store; the module's own tests feed it raw machine inputs. */
     internal val inner: Store<MachineSnapshot<C>, MachineInput<A>, E> =
-        Store(initialSnapshot, coroutineContext + lifetime.marker) {
+        createRuntimeStore(initialSnapshot, coroutineContext + lifetime.marker) {
             // Pin restoration even when no saver is configured or initialState is patched.
             if (origin is StoreOrigin.Resumed) stateSaver(origin.adaptStateSaver(StateSaver.Noop()))
-            // Registered before the configuration, so first-match selection never lets a
-            // configured enter {} or action {} run in the machine's place; recover {} handlers
-            // configured below still apply.
+            // Only these engine handlers decide snapshots. Public configuration supplies runtime
+            // options and typed plugins, without another state handler or recovery writer.
             state<MachineSnapshot<C>> {
                 enter {
                     if (origin is StoreOrigin.Resumed) {
@@ -286,7 +289,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
                     }
                 },
             )
-            StoreConfiguration(this, lifetime.marker, origin::adaptStateSaver).builder()
+            MachineConfiguration(actron.statechart.StoreConfiguration(this, lifetime.marker, origin::adaptStateSaver), this@MachineStoreImpl::configuredPlugin).builder()
             plugin(Executor())
             validateRecovery { previous, recovered ->
                 require(previous == recovered) { "[Actron] MachineStore recover {} may not change the snapshot; dispatch an action the machine decides" }

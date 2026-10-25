@@ -29,7 +29,7 @@ class StoreBuilderBoundaryTest {
             val escaped = CompletableDeferred<StoreBuilder<Counter, Command, Nothing>>()
             val traces = mutableListOf<StoreTrace<Counter, Command, Nothing>>()
             val store =
-                Store<Counter, Command, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Command, Nothing>(Counter()) {
                     escaped.complete(this)
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { traces += it })
@@ -59,7 +59,7 @@ class StoreBuilderBoundaryTest {
             val patchedTraces = mutableListOf<StoreTrace<Counter, Command, Nothing>>()
             val reported = mutableListOf<Throwable>()
             val store =
-                Store<Counter, Command, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Command, Nothing>(Counter()) {
                     escaped.complete(this)
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler { reported += it })

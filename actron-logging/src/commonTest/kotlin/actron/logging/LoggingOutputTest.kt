@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.logging
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.Event
 import actron.core.State
 import actron.core.Store
 import actron.core.closeAndJoin
+import actron.core.createRuntimeStore
 import actron.test.awaitIdle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -41,7 +44,7 @@ class LoggingOutputTest {
             val entries = mutableListOf<Entry>()
             val logger = Logger { severity, tag, message -> entries += Entry(severity, tag, message()) }
             val store: Store<CounterState, CounterAction, CounterEvent> =
-                Store(CounterState(0)) {
+                createRuntimeStore(CounterState(0)) {
                     coroutineContext(Dispatchers.Unconfined)
                     plugin(simpleLogging(tag = "Chat", severity = Logger.Severity.Info, logger = logger))
                     state<CounterState> {
@@ -70,7 +73,7 @@ class LoggingOutputTest {
         runTest(testDispatcher) {
             val entries = mutableListOf<String>()
             val store: Store<CounterState, CounterAction, CounterEvent> =
-                Store(CounterState(0)) {
+                createRuntimeStore(CounterState(0)) {
                     coroutineContext(Dispatchers.Unconfined)
                     plugin(simpleLogging(logger = { _, _, message -> entries += message() }))
                     state<CounterState> {
@@ -90,7 +93,7 @@ class LoggingOutputTest {
             val entries = mutableListOf<String>()
             val logger = Logger { _, _, message -> entries += message() }
             val store: Store<CounterState, CounterAction, CounterEvent> =
-                Store(CounterState(0)) {
+                createRuntimeStore(CounterState(0)) {
                     coroutineContext(Dispatchers.Default)
                     plugin(simpleLogging(logger = logger))
                     state<CounterState> {
@@ -143,7 +146,7 @@ class LoggingOutputTest {
             var readyEntered = 0
             val logger = Logger { _, _, message -> throw IllegalStateException("logger failed on: ${message()}") }
             val store: Store<FlowState, FlowAction, Nothing> =
-                Store(FlowState.Loading) {
+                createRuntimeStore(FlowState.Loading) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(actron.core.ExceptionHandler { handled += it })
                     plugin(simpleLogging(logger = logger))

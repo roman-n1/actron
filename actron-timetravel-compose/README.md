@@ -151,8 +151,8 @@ command handlers. Install recording before the bug happens. Drive an explicit, I
 preview from the selected replay/branch snapshots; the [MVI weather demo](../examples/weather/README.md)
 demonstrates application-frame preview and continuation with the newer HistoryPanel.
 
-For a complete runnable recording → disk → replay → experiment workflow, see the
-[Time Travel desktop example](../examples/time-travel/README.md).
+For runnable recording, preview, continuation and view-only file import, see the
+[Weather application](../examples/weather/README.md).
 
 A Compose Multiplatform screen over the [actron-timetravel](../actron-timetravel/README.md)
 inspector: the debug UI of the

@@ -1,6 +1,9 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.test
 
 import actron.core.Store
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -118,7 +121,7 @@ class ActionMatchDiagnosticsPropertyTest {
     }
 
     private fun TestScope.startupChainStore(log: MutableList<String>): Store<KtState, KtAction, KtEvent> =
-        Store(KtState.A(0)) {
+        createRuntimeStore(KtState.A(0)) {
             coroutineContext(StandardTestDispatcher(testScheduler))
             state<KtState.A> {
                 enter {
@@ -202,7 +205,7 @@ class ActionMatchDiagnosticsPropertyTest {
     fun suspendingOverloadQueuesBehindAnInFlightDispatchAndSeesItsResult() =
         runTest {
             val store: Store<KtState, KtAction, KtEvent> =
-                Store(KtState.B) {
+                createRuntimeStore(KtState.B) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<KtState.B> {
                         action<KtAction.P> {

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -167,7 +169,7 @@ class TodoUseCaseTest {
         repository: TodoRepository = MockTodoRepository(true),
         initialState: AppState = AppState.Idle,
     ): Store<AppState, AppAction, Nothing> =
-        Store(initialState) {
+        createRuntimeStore(initialState) {
             coroutineContext(Dispatchers.Unconfined)
 
             // Idle state handling

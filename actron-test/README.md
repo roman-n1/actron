@@ -1,6 +1,6 @@
 # actron-test
 
-Test an ordinary Store without guessing how many scheduler ticks finish an action.
+Runtime test helpers shared by Actron machines and the internal Store engine.
 Await startup/processing, observe states and events, patch configuration before startup,
 and inspect which handlers match an action.
 
@@ -34,7 +34,7 @@ fun incrementChangesTheState() = runTest {
     val store = counterStore(this)
     try {
         store.dispatchAndAwait(CounterAction.Increment)
-        assertEquals(CounterState(1), store.currentState)
+        assertEquals(CounterState(1), store.currentState.context)
     } finally {
         store.close()
     }

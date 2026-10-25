@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -7,6 +9,7 @@ import actron.core.PendingActionPolicy
 import actron.core.PluginExecutionPolicy
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import actron.test.startAndAwait
@@ -195,7 +198,7 @@ class StateChartConformancePropertyTest {
     ): Store<Node, RandomAction, NoEvent> {
         val runtime = StateChartRuntime(chart, ::idOf, guards)
         var dispatchIndex = 0
-        return Store(initialState = nodeOf(chart.initial)) {
+        return createRuntimeStore(initialState = nodeOf(chart.initial)) {
             coroutineContext(dispatcher)
             pendingActionPolicy(PendingActionPolicy.Keep)
             state<Node> {
@@ -481,7 +484,7 @@ class StateChartConformancePropertyTest {
     private fun TestScope.delayedStore(chart: StateChartDefinition): Pair<Store<Node, RandomAction, NoEvent>, StateChartConformance<Node, RandomAction, NoEvent>> {
         val conformance = StateChartConformance<Node, RandomAction, NoEvent>(chart, ::idOf)
         val store =
-            Store<Node, RandomAction, NoEvent>(initialState = Node.N0) {
+            createRuntimeStore<Node, RandomAction, NoEvent>(initialState = Node.N0) {
                 coroutineContext(StandardTestDispatcher(testScheduler))
                 pendingActionPolicy(PendingActionPolicy.Keep)
                 state<Node.N0> {
@@ -608,7 +611,7 @@ class StateChartConformancePropertyTest {
     private fun TestScope.chainedStore(chart: StateChartDefinition): Pair<Store<Node, RandomAction, NoEvent>, StateChartConformance<Node, RandomAction, NoEvent>> {
         val conformance = StateChartConformance<Node, RandomAction, NoEvent>(chart, ::idOf)
         val store =
-            Store<Node, RandomAction, NoEvent>(initialState = Node.N0) {
+            createRuntimeStore<Node, RandomAction, NoEvent>(initialState = Node.N0) {
                 coroutineContext(StandardTestDispatcher(testScheduler))
                 state<Node.N0> { enter { nextState { Node.N1 } } }
                 state<Node.N1> { enter { nextState { Node.N2 } } }
@@ -672,7 +675,7 @@ class StateChartConformancePropertyTest {
     private fun TestScope.recoveringStore(chart: StateChartDefinition): Pair<Store<Node, RandomAction, NoEvent>, StateChartConformance<Node, RandomAction, NoEvent>> {
         val conformance = StateChartConformance<Node, RandomAction, NoEvent>(chart, ::idOf)
         val store =
-            Store<Node, RandomAction, NoEvent>(initialState = Node.N0) {
+            createRuntimeStore<Node, RandomAction, NoEvent>(initialState = Node.N0) {
                 coroutineContext(StandardTestDispatcher(testScheduler))
                 state<Node.N0> {
                     action<RandomAction.Go> {
@@ -771,7 +774,7 @@ class StateChartConformancePropertyTest {
                 val strict = StateChartConformance<Node, RandomAction, NoEvent>(chartOf(n0, Transition(n0, n1, ping)).let { it.copy(states = it.states + AtomicState(n2)) }, ::idOf)
                 val loose = StateChartConformance<Node, RandomAction, NoEvent>(chartOf(n0, Transition(n0, n1, ping), Transition(n0, n2, go)), ::idOf)
                 val store =
-                    Store<Node, RandomAction, NoEvent>(initialState = Node.N0) {
+                    createRuntimeStore<Node, RandomAction, NoEvent>(initialState = Node.N0) {
                         coroutineContext(StandardTestDispatcher(testScheduler))
                         pluginExecutionPolicy(policy)
                         state<Node.N0> { action<RandomAction.Go> { nextState { Node.N2 } } }

@@ -35,7 +35,7 @@ class StoreEventOriginTest {
             val traces = mutableListOf<StoreTrace<Snapshot, Command, Message>>()
             val reported = mutableListOf<Throwable>()
             val store =
-                Store<Snapshot, Command, Message>(Snapshot) {
+                createRuntimeStore<Snapshot, Command, Message>(Snapshot) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler { reported += it })
                     probe(StoreProbe { traces += it })

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -133,7 +135,7 @@ class WebSocketUseCaseTest {
     private fun createTestStore(
         webSocketService: WebSocketService,
     ): Store<AppState, AppAction, Nothing> =
-        Store {
+        createRuntimeStore {
             initialState(AppState.Disconnected)
             coroutineContext(Dispatchers.Unconfined)
 

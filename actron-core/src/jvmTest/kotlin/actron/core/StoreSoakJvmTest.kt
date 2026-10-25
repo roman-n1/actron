@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +76,7 @@ class StoreSoakJvmTest {
         busyEnters: AtomicInteger,
         incOnIo: Boolean = false,
     ): Store<S, A, Ev> =
-        Store(S.Idle()) {
+        createRuntimeStore(S.Idle()) {
             coroutineContext(Dispatchers.Default)
             pendingActionPolicy(policy)
             exceptionHandler(ExceptionHandler { synchronized(handled) { handled += it } })

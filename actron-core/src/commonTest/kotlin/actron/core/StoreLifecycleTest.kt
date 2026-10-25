@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +64,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             val log = mutableListOf<String>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Idle> {
                         enter { log += "enter Idle(${state.value})" }
@@ -104,7 +106,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             val log = mutableListOf<String>()
             val store: Store<AppState, AppAction, AppEvent> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     plugin(
                         Plugin(
@@ -134,7 +136,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             var cancelled = false
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Idle> {
                         enter {
@@ -164,7 +166,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<AppState.Idle> {
@@ -190,7 +192,7 @@ class StoreLifecycleTest {
             val handled = mutableListOf<Throwable>()
             var recoverCount = 0
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     state<AppState.Idle> {
@@ -218,7 +220,7 @@ class StoreLifecycleTest {
     fun recover_fromEnterException_canMoveToAnotherState() =
         runTest(testDispatcher) {
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Idle> {
                         action<AppAction.Load> { nextState { AppState.Loading } }
@@ -239,7 +241,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             val handled = mutableListOf<Throwable>()
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle(value = 7)) {
+                createRuntimeStore(AppState.Idle(value = 7)) {
                     coroutineContext(Dispatchers.Unconfined)
                     exceptionHandler(ExceptionHandler { handled += it })
                     stateSaver(
@@ -259,7 +261,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             val saved = mutableListOf<AppState>()
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     stateSaver(StateSaver(save = { saved += it }, restore = { it }))
                     state<AppState.Idle> {
@@ -287,7 +289,7 @@ class StoreLifecycleTest {
         runTest(testDispatcher) {
             var cancelled = false
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Idle> {
                         action<AppAction.LaunchWork> {
@@ -317,7 +319,7 @@ class StoreLifecycleTest {
             var enterCount = 0
             var active = 0
             val store: Store<AppState, AppAction, Nothing> =
-                Store(AppState.Idle()) {
+                createRuntimeStore(AppState.Idle()) {
                     coroutineContext(Dispatchers.Unconfined)
                     state<AppState.Idle> {
                         enter {

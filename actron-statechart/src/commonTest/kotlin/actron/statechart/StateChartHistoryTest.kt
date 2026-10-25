@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import kotlinx.coroutines.Dispatchers
@@ -408,7 +411,7 @@ class StateChartHistoryTest {
 
     /** Keeps the screen to return to in the state, like a real app would. */
     private fun createStore(forgetful: Boolean): Store<ChatState, ChatAction, ChatEvent> =
-        Store(ChatState.Splash) {
+        createRuntimeStore(ChatState.Splash) {
             coroutineContext(Dispatchers.Unconfined)
             state<ChatState.Splash> { action<ChatAction.Start> { nextState { ChatState.Composing } } }
             state<ChatState.Composing> {

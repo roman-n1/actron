@@ -33,12 +33,11 @@ include(":actron-timetravel-compose")
 include(":actron-statechart-compose")
 include(":resource-soak")
 project(":resource-soak").projectDir = file("verification/resource-soak")
-include(":time-travel-example")
-project(":time-travel-example").projectDir = file("examples/time-travel")
-include(":weather-example")
-project(":weather-example").projectDir = file("examples/weather")
-include(":durable-effects-example")
-project(":durable-effects-example").projectDir = file("examples/durable-effects")
+include(":weather", ":weather:shared", ":weather:debugTools", ":weather:androidApp", ":weather:desktopApp", ":weather:webApp")
+project(":weather").projectDir = file("examples/weather")
+listOf("shared", "debugTools", "androidApp", "desktopApp", "webApp").forEach { module ->
+    project(":weather:$module").projectDir = file("examples/weather/$module")
+}
 
 include(":behaviour-review")
 project(":behaviour-review").projectDir = file("verification/behaviour-review")
@@ -46,9 +45,4 @@ project(":behaviour-review").projectDir = file("verification/behaviour-review")
 include(":nullability-guard")
 project(":nullability-guard").projectDir = file("verification/nullability-guard")
 
-include(":weather-android")
-project(":weather-android").projectDir = file("examples/weather-android")
-
 include(":actron-persistence")
-include(":weather-app")
-project(":weather-app").projectDir = file("examples/weather-app")

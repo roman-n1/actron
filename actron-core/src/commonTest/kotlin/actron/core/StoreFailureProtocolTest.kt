@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -19,7 +21,7 @@ class StoreFailureProtocolTest {
             val recoveryFailure = UnsupportedOperationException("recovery", userCause)
             val reported = mutableListOf<Throwable>()
             val store =
-                Store<Ready, Fail, Nothing>(Ready) {
+                createRuntimeStore<Ready, Fail, Nothing>(Ready) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler { reported += it })
                     state<Ready> {

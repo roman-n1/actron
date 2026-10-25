@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 /** Frozen executable registrations; selection and introspection use the same entries. */

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +36,7 @@ class StoreMultiThreadedTest {
             val total = senders * perSender
             var committed = 0
             val store: Store<Counter, CounterAction, Nothing> =
-                Store(Counter()) {
+                createRuntimeStore(Counter()) {
                     coroutineContext(Dispatchers.Default)
                     plugin(Plugin(onState = { _, _ -> committed++ }))
                     state<Counter> {
@@ -89,7 +91,7 @@ class StoreMultiThreadedTest {
             val perRound = 200
             repeat(rounds) { round ->
                 val store: Store<Seen, Add, Nothing> =
-                    Store(Seen()) {
+                    createRuntimeStore(Seen()) {
                         coroutineContext(Dispatchers.Default)
                         state<Seen> {
                             action<Add> { nextState { state.copy(values = state.values + action.value) } }
@@ -131,7 +133,7 @@ class StoreMultiThreadedTest {
             var inRound = false
             var overlaps = 0
             val store: Store<Quiet, Emit, Note> =
-                Store(Quiet()) {
+                createRuntimeStore(Quiet()) {
                     coroutineContext(Dispatchers.Default)
                     plugin(
                         Plugin(

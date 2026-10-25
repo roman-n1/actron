@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.Dispatchers
@@ -67,7 +69,7 @@ class StorePatchTest {
         val pluginRecords = mutableListOf<String>()
 
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 stateSaver(setupSaver)
                 plugin(recordingPlugin("setup", pluginRecords))
 
@@ -98,7 +100,7 @@ class StorePatchTest {
         val pluginRecords = mutableListOf<String>()
 
         val store: Store<AppState, AppAction, Nothing> =
-            Store {
+            createRuntimeStore {
                 initialState(AppState(count = 0))
                 stateSaver(setupSaver)
                 plugin(recordingPlugin("setup", pluginRecords))
@@ -129,7 +131,7 @@ class StorePatchTest {
         val pluginRecords = mutableListOf<String>()
 
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 coroutineContext(Dispatchers.Unconfined)
                 plugin(recordingPlugin("setup", pluginRecords))
 
@@ -152,7 +154,7 @@ class StorePatchTest {
         val pluginRecords = mutableListOf<String>()
 
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 coroutineContext(Dispatchers.Unconfined)
                 plugin(
                     recordingPlugin("setup1", pluginRecords),
@@ -184,7 +186,7 @@ class StorePatchTest {
         runTest {
             val testDispatcher = StandardTestDispatcher(testScheduler)
             val store =
-                Store<PendingPolicyState, PendingPolicyAction, Nothing>(initialState = PendingPolicyState.Initial) {
+                createRuntimeStore<PendingPolicyState, PendingPolicyAction, Nothing>(initialState = PendingPolicyState.Initial) {
                     coroutineContext(testDispatcher)
                     pendingActionPolicy(PendingActionPolicy.ClearOnStateExit)
 
@@ -218,7 +220,7 @@ class StorePatchTest {
     @Test
     fun patch_shouldOverrideAutoStartPolicyFromBuilder() {
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 coroutineContext(Dispatchers.Unconfined)
                 autoStartPolicy(AutoStartPolicy.OnDispatchOrStateCollection)
 
@@ -243,7 +245,7 @@ class StorePatchTest {
     @Test
     fun patch_shouldOverrideInitialStateFromBuilder() {
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 state<AppState> {
                     action<AppAction.Increment> {
                         nextState { AppState(count = state.count + 1) }
@@ -260,7 +262,7 @@ class StorePatchTest {
     fun patch_shouldPassLastInitialStateToRestorationOnce() {
         val restoredFrom = mutableListOf<AppState>()
         val store =
-            Store<AppState, AppAction, Nothing>(AppState(0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(AppState(0)) {
                 stateSaver(
                     StateSaver(save = {}, restore = { initial ->
                         restoredFrom += initial
@@ -281,7 +283,7 @@ class StorePatchTest {
     @Test
     fun patch_shouldRejectInitialStateChangeAfterCurrentStateIsRead() {
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 state<AppState> {
                     action<AppAction.Increment> {
                         nextState { AppState(count = state.count + 1) }
@@ -301,7 +303,7 @@ class StorePatchTest {
     @Test
     fun patch_shouldRejectStateSaverChangeAfterCurrentStateIsRead() {
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 state<AppState> {
                     action<AppAction.Increment> {
                         nextState { AppState(count = state.count + 1) }
@@ -322,7 +324,7 @@ class StorePatchTest {
     fun patch_shouldAllowOtherChangesAfterCurrentStateIsRead() {
         val pluginRecords = mutableListOf<String>()
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 coroutineContext(Dispatchers.Unconfined)
 
                 state<AppState> {
@@ -347,7 +349,7 @@ class StorePatchTest {
     @Test
     fun patch_shouldRejectCoroutineContextChangeAfterCollectEvent() {
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 coroutineContext(Dispatchers.Unconfined)
 
                 state<AppState> {
@@ -370,7 +372,7 @@ class StorePatchTest {
     fun patch_shouldAllowOtherChangesAfterCollectEvent() {
         val pluginRecords = mutableListOf<String>()
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState(count = 0)) {
                 coroutineContext(Dispatchers.Unconfined)
 
                 state<AppState> {

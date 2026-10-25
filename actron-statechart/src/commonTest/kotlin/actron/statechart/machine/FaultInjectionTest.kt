@@ -133,7 +133,7 @@ class FaultInjectionTest {
 
     private fun TestScope.newStore(
         inject: (Int, String) -> Unit = { _, _ -> },
-        configure: actron.statechart.StoreConfiguration<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing>.() -> Unit = {},
+        configure: MachineConfiguration<Ctx, Act, Nothing>.() -> Unit = {},
         handled: MutableList<Throwable>,
         committed: MutableList<MachineSnapshot<Ctx>>,
     ): Pair<MachineStore<Ctx, Act, Fetch, Nothing>, CoroutineScope> {

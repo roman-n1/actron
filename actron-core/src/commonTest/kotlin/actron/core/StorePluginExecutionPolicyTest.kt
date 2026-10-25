@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -32,7 +34,7 @@ class StorePluginExecutionPolicyTest {
         patch: StorePatchBuilder<AppState, AppAction, Nothing>.() -> Unit = {},
     ): Store<AppState, AppAction, Nothing> {
         val store =
-            Store<AppState, AppAction, Nothing>(initialState = AppState()) {
+            createRuntimeStore<AppState, AppAction, Nothing>(initialState = AppState()) {
                 coroutineContext(testDispatcher)
                 pluginExecutionPolicy(setupPolicy)
 

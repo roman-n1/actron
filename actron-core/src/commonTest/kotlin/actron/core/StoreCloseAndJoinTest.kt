@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.core
 
@@ -28,7 +28,7 @@ class StoreCloseAndJoinTest {
             val cleanupEntered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
             val store =
-                Store<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
                     state<Snapshot> {
                         enter {
                             subscribe {
@@ -68,7 +68,7 @@ class StoreCloseAndJoinTest {
             val release = CompletableDeferred<Unit>()
             var actions = 0
             val store =
-                Store<Snapshot, Ping, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Snapshot, Ping, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
                     plugin(
                         Plugin(onStart = {
                             launch {
@@ -110,9 +110,9 @@ class StoreCloseAndJoinTest {
             val ready = CompletableDeferred<Store<Snapshot, Ping, Nothing>>()
             val checked = CompletableDeferred<Unit>()
             var actions = 0
-            val peer = Store<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {}
+            val peer = createRuntimeStore<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {}
             val store =
-                Store<Snapshot, Ping, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Snapshot, Ping, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
                     state<Snapshot> {
                         enter {
                             launch {
@@ -146,7 +146,7 @@ class StoreCloseAndJoinTest {
         runTest {
             var consumed = false
             val store =
-                Store<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Snapshot, Nothing, Nothing>(Snapshot, StandardTestDispatcher(testScheduler)) {
                     stateSaver(
                         StateSaver(save = {}, restore = {
                             consumed = true

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,7 +50,7 @@ class StoreCancelLaunchTest {
         onStart: (Int) -> Unit = {},
         onCancel: (Int) -> Unit = {},
     ): Store<AppState, AppAction, Nothing> =
-        Store(AppState.Active) {
+        createRuntimeStore(AppState.Active) {
             coroutineContext(testDispatcher)
 
             state<AppState.Active> {

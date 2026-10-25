@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,7 +17,7 @@ class StoreStartupRegressionTest {
     fun patchIsRejectedAsSoonAsStartupIsRequested() =
         runTest {
             for (dispatch in listOf(false, true)) {
-                val store = Store<Active, Input, Nothing>(Active, backgroundScope.coroutineContext) { }
+                val store = createRuntimeStore<Active, Input, Nothing>(Active, backgroundScope.coroutineContext) { }
                 try {
                     if (dispatch) store.dispatch(Input) else store.start()
                     assertFailsWith<IllegalStateException> { store.patchForTest { plugin(Plugin()) } }
@@ -29,7 +31,7 @@ class StoreStartupRegressionTest {
     fun patchIsRejectedAfterPartialPluginStartup() =
         runTest {
             val store =
-                Store<Active, Input, Nothing>(Active, backgroundScope.coroutineContext) {
+                createRuntimeStore<Active, Input, Nothing>(Active, backgroundScope.coroutineContext) {
                     exceptionHandler(ExceptionHandler.Ignore)
                     plugin(Plugin(), Plugin(onStart = { error("not started") }))
                 }

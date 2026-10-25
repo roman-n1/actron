@@ -1,64 +1,31 @@
 # actron-message
 
-A small **process-wide, transient message bus** for ordinary Actron Stores. A sender calls
-`message(...)` from a Store DSL scope; the receiving Store installs `receiveMessages` and
-turns a message into its own action. The receiver remains responsible for state changes.
-
-Use it for simple notifications among ordinary Stores. For replay-ready groups, use
-[MachineGroup routes](../actron-statechart/README.md#running-a-machine): those carry explicit
-member/message identities and recorded delivery ordering.
-
-## Dependency
-
-Follow [installation](../README.md#installation), then add:
+A process-wide, transient notification bus. Send `message(...)` from a machine command handler
+or another application-owned coroutine. Pure StateChart decisions must not perform I/O.
+No Store DSL scope is required.
 
 ```kotlin
-implementation("io.github.roman-n1:actron-message:5.0.0-alpha.1")
-```
-
-## A selection notification
-
-```kotlin
-import actron.core.Action
-import actron.core.State
-import actron.core.Store
-import actron.core.StoreScope
 import actron.message.Message
 import actron.message.message
-import actron.message.receiveMessages
-import kotlinx.coroutines.CoroutineScope
+import actron.statechart.machine.CommandHandler
 
 data class ContactSelected(val id: String) : Message
-data class SelectionState(val selectedId: String? = null) : State
-data class SelectContact(val id: String) : Action
+data class NotifySelection(val id: String)
 
-fun selectionStore(scope: CoroutineScope): Store<SelectionState, SelectContact, Nothing> =
-    Store(SelectionState(), context = scope.coroutineContext) {
-        plugin(receiveMessages { incoming ->
-            if (incoming is ContactSelected) dispatch(SelectContact(incoming.id))
-        })
-        state<SelectionState> {
-            action<SelectContact> {
-                nextState { state.copy(selectedId = action.id) }
-            }
-        }
-    }
-
-// Call from the sender's action/enter/launch scope; the receiver handles its own action.
-suspend fun StoreScope.notifySelection(id: String) {
-    message(ContactSelected(id))
+val handler = CommandHandler<NotifySelection, Nothing> { command, _ ->
+    message(ContactSelected(command.command.id))
 }
 ```
 
-The plugin subscribes as the Store starts, before that Store's initial enter hooks proceed.
-Sending does not start another Store for you: a receiver must already be subscribed to see
-the message. Past messages are not replayed, and all subscribers share one process-wide bus.
-Keep receiver callbacks short; dispatch an action and let the Store own the resulting work.
-Closing the Store ends its subscription. A failed receiver callback is reported, and later
-messages can still be received.
+`receiveMessages` is a runtime plugin. It subscribes at startup, before initial machine commands
+run, and cancels its subscription when the runtime closes. Keep callbacks short. Convert incoming
+notifications into declared machine inputs; receivers never write snapshots directly. Messages
+are not replayed, so a receiver must already be subscribed when a notification is sent.
 
-This bus does not promise persisted delivery, request/reply pairing or deterministic replay.
-Do not use it as a replacement for recorded MachineGroup routes.
-See [Message.kt](src/commonMain/kotlin/actron/message/Message.kt),
-[Plugin.kt](src/commonMain/kotlin/actron/message/Plugin.kt) and the
-[extended message example](../doc/guides/store-api.md#message).
+For recorded machine-to-machine interactions, use
+[MachineGroup routes](../actron-statechart/README.md#running-a-machine). They preserve member,
+message and delivery identities. This bus does not promise persisted delivery, request/reply
+pairing or deterministic replay.
+
+See [installation](../README.md#installation), [Message.kt](src/commonMain/kotlin/actron/message/Message.kt)
+and [Plugin.kt](src/commonMain/kotlin/actron/message/Plugin.kt).

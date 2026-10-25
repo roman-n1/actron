@@ -1,8 +1,11 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.test
 
 import actron.core.ExceptionHandler
 import actron.core.Store
 import actron.core.closeAndJoin
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.currentTime
@@ -128,7 +131,7 @@ class StoreHandlersPropertyTest {
 
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             val store: Store<KtState, KtAction, KtEvent> =
-                Store(KtState.B) {
+                createRuntimeStore(KtState.B) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<KtState.B> {
                         action<KtAction.P> {

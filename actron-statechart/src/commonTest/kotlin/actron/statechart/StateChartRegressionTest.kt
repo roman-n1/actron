@@ -1,9 +1,12 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.core.StateSaver
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -686,7 +689,7 @@ class StateChartRegressionTest {
             val timed = chart.copy(transitions = listOf(byAction, byTimer))
             val conformance = StateChartConformance<Leaf, ChartAction, ChartEvent>(timed) { if (it is Leaf.A) a else b }
             val store =
-                actron.core.Store<Leaf, ChartAction, ChartEvent>(Leaf.A) {
+                actron.core.createRuntimeStore<Leaf, ChartAction, ChartEvent>(Leaf.A) {
                     coroutineContext(kotlinx.coroutines.Dispatchers.Unconfined)
                     plugin(conformance)
                     state<Leaf.A> { enter { nextState { Leaf.B } } }

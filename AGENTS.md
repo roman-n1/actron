@@ -21,6 +21,8 @@
 
 - Один владелец факта; производные значения вычисляются из него. Не копируй mutable state
   между Store, плагинами, chart и tooling ради удобного доступа.
+- Публичный редюсер — только наша StateChart Machine; произвольный `when`-редюсер и старый
+  Store DSL не поддерживаются. `createRuntimeStore`/`StoreBuilder` — внутренний API модулей.
 - Core содержит механизм Store и контракты, не Compose, logging, persistence приложения
   или statechart. Направление зависимости — от адаптеров к core.
 - Общая логика — commonMain, платформенные детали — за контрактом либо expect/actual.

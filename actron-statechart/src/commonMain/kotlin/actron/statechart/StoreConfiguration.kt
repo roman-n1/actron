@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -12,35 +14,21 @@ import actron.core.State
 import actron.core.StateSaver
 import actron.core.StoreBuilder
 import actron.core.StoreProbe
-import actron.core.StoreScope
 import actron.observability.recordTo
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
 /**
- * Runtime settings shared by chart and machine adapters. The adapter owns its initial state
+ * Machine runtime settings. The runtime owns its initial state
  * and handlers; this scope cannot install competing handlers or write a machine snapshot.
  * Settings called repeatedly use the last value; plugins and probes append in call order.
  */
 @ActronStoreDsl
-open class StoreConfiguration<S : State, A : Action, E : Event> internal constructor(
+internal open class StoreConfiguration<S : State, A : Action, E : Event> internal constructor(
     @PublishedApi internal val delegate: StoreBuilder<S, A, E>,
+    private val ownerContext: CoroutineContext = EmptyCoroutineContext,
+    private val adaptStateSaver: (StateSaver<S>) -> StateSaver<S> = { it },
 ) {
-    private var ownerContext: CoroutineContext = EmptyCoroutineContext
-    private var adaptStateSaver: (StateSaver<S>) -> StateSaver<S> = { it }
-
-    internal constructor(delegate: StoreBuilder<S, A, E>, ownerContext: CoroutineContext) : this(delegate) {
-        this.ownerContext = ownerContext
-    }
-
-    internal constructor(
-        delegate: StoreBuilder<S, A, E>,
-        ownerContext: CoroutineContext,
-        adaptStateSaver: (StateSaver<S>) -> StateSaver<S>,
-    ) : this(delegate, ownerContext) {
-        this.adaptStateSaver = adaptStateSaver
-    }
-
     /** Sets the Store processing context. Command execution retains the MachineStore's own scope. */
     fun coroutineContext(context: CoroutineContext) = delegate.coroutineContext(context + ownerContext)
 
@@ -70,59 +58,20 @@ open class StoreConfiguration<S : State, A : Action, E : Event> internal constru
     ) = delegate.probe(first, *rest)
 }
 
-/** Recovery of chart data without access to configuration, timers, or arbitrary state writes. */
-@ActronStoreDsl
-interface ChartRecoveryScope<C : Any, E : Event, T : Exception> {
-    /** The underlying handler scope, for extensions such as `store.message(...)`. */
-    val store: StoreScope
-
-    /** The failure being handled. */
-    val error: T
-
-    /** Working context; committed once if this recovery handler completes successfully. */
-    var context: C
-
-    /** Emits an event immediately, before recovery commits. */
-    suspend fun event(event: E)
-}
-
-/** Chart runtime settings and recovery handlers which can change context only. */
-@ActronStoreDsl
-class ChartStoreConfiguration<C : Any, A : Action, E : Event> internal constructor(
-    delegate: StoreBuilder<ChartState<C>, A, E>,
-) : StoreConfiguration<ChartState<C>, A, E>(delegate) {
-    /**
-     * Handles [T], updating only context. The first matching handler wins. A throwing handler
-     * commits no context change and reaches the exception handler. To change active nodes,
-     * dispatch a declared chart action after recovery.
-     */
-    inline fun <reified T : Exception> recover(
-        dispatcher: CoroutineContext = EmptyCoroutineContext,
-        noinline block: suspend ChartRecoveryScope<C, E, T>.() -> Unit,
-    ) {
-        delegate.state<ChartState<C>> {
-            recover<T>(dispatcher) {
-                val underlying = this
-                val scope =
-                    object : ChartRecoveryScope<C, E, T> {
-                        override val store: StoreScope = underlying
-                        override val error: T = underlying.error
-                        override var context: C = underlying.state.context
-
-                        override suspend fun event(event: E) = underlying.event(event)
-                    }
-                scope.block()
-                nextState { state.copy(context = scope.context) }
-            }
-        }
-    }
-}
-
 /** Records adapter processing using the same journal contract as the core Store builder. */
-fun <S : State, A : Action, E : Event> StoreConfiguration<S, A, E>.recordTo(
+internal fun <S : State, A : Action, E : Event> StoreConfiguration<S, A, E>.recordTo(
     session: actron.observability.RecordingSession,
     store: actron.observability.StoreInstanceId,
     policy: actron.observability.PayloadPolicy<S, A, E> = actron.observability.PayloadPolicy.metadataOnly(),
 ) {
     delegate.recordTo(session, store, policy)
+}
+
+/** Journal scheduler inputs while application plugins receive normal feature actions. */
+fun <C : Any, A : Action, E : Event> actron.statechart.machine.MachineConfiguration<C, A, E>.recordTo(
+    session: actron.observability.RecordingSession,
+    store: actron.observability.StoreInstanceId,
+    policy: actron.observability.PayloadPolicy<actron.statechart.machine.MachineSnapshot<C>, actron.statechart.machine.MachineInput<A>, E> = actron.observability.PayloadPolicy.metadataOnly(),
+) {
+    runtime.recordTo(session, store, policy)
 }

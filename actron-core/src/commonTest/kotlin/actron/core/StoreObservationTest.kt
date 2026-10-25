@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.core
 
@@ -25,7 +25,7 @@ class StoreObservationTest {
     fun cancellingOneObserverLeavesOtherObserversAndTheStoreRunning() =
         runTest {
             val store =
-                Store<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     state<Counter> {
                         action<Increment> {
                             event(Changed)
@@ -64,7 +64,7 @@ class StoreObservationTest {
             var entered = false
             val observed = mutableListOf<Counter>()
             val store =
-                Store<Counter, Nothing, Nothing>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Nothing, Nothing>(Counter(), StandardTestDispatcher(testScheduler)) {
                     state<Counter> { enter { entered = true } }
                 }
             try {
@@ -87,7 +87,7 @@ class StoreObservationTest {
             var entered = false
             val values = mutableListOf<Counter>()
             val store =
-                Store<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     autoStartPolicy(AutoStartPolicy.OnDispatch)
                     state<Counter> {
                         enter {
@@ -116,7 +116,7 @@ class StoreObservationTest {
             val storeScheduler = TestCoroutineScheduler()
             val storeDispatcher = StandardTestDispatcher(storeScheduler, "store")
             val handles = mutableListOf<AutoCloseable>()
-            val store = Store<Counter, Increment, Nothing>(Counter(), storeDispatcher) {}
+            val store = createRuntimeStore<Counter, Increment, Nothing>(Counter(), storeDispatcher) {}
             var calls = 0
             try {
                 handles +=
@@ -143,7 +143,7 @@ class StoreObservationTest {
             val states = mutableListOf<Counter>()
             val events = mutableListOf<Changed>()
             val store =
-                Store<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     exceptionHandler(ExceptionHandler { reported += it })
                     state<Counter> {
                         action<Increment> {
@@ -176,7 +176,7 @@ class StoreObservationTest {
             val emit = CompletableDeferred<Unit>()
             val received = mutableListOf<Changed>()
             val store =
-                Store<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     state<Counter> {
                         enter {
                             launch {

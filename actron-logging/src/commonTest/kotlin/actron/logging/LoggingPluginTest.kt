@@ -1,9 +1,12 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.logging
 
 import actron.core.Action
 import actron.core.Plugin
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -55,7 +58,7 @@ private fun createTestStore(
     initialState: CounterState,
     plugin: Plugin<CounterState, CounterAction, Nothing>,
 ): Store<CounterState, CounterAction, Nothing> =
-    Store(initialState) {
+    createRuntimeStore(initialState) {
         coroutineContext(Dispatchers.Unconfined)
         plugin(plugin)
         state<CounterState> {

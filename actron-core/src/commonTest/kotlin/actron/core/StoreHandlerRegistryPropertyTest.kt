@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -170,7 +172,7 @@ class StoreHandlerRegistryPropertyTest {
             for (parentFirst in listOf(true, false)) {
                 val log = mutableListOf<Int>()
                 val store: Store<RtState, RtAction, RtEvent> =
-                    Store(RtState.A(0)) {
+                    createRuntimeStore(RtState.A(0)) {
                         coroutineContext(StandardTestDispatcher(testScheduler))
                         val parent: RtBuilder.() -> Unit = {
                             state<RtState> {
@@ -221,7 +223,7 @@ class StoreHandlerRegistryPropertyTest {
     @Test
     fun interleavedKindsInOneBlockKeepPerKindOrder() {
         val store: Store<RtState, RtAction, RtEvent> =
-            Store(RtState.A(0)) {
+            createRuntimeStore(RtState.A(0)) {
                 state<RtState.A> {
                     exit { }
                     recover<IllegalStateException> { }

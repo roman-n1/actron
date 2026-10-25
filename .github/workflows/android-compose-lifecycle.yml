@@ -35,7 +35,8 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: ./gradlew :actron-compose:connectedAndroidDeviceTest :weather-android:connectedDebugAndroidTest --max-workers=2
+          # Both suites own the same foreground device and must not run concurrently.
+          script: ./gradlew :actron-compose:connectedAndroidDeviceTest :weather:androidApp:connectedDebugAndroidTest --max-workers=2 --no-parallel
       - name: Upload device test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,5 +45,5 @@ jobs:
           path: |
             actron-compose/build/reports/androidTests/
             actron-compose/build/outputs/androidTest-results/
-            examples/weather-android/build/reports/androidTests/
-            examples/weather-android/build/outputs/androidTest-results/
+            examples/weather/androidApp/build/reports/androidTests/
+            examples/weather/androidApp/build/outputs/androidTest-results/

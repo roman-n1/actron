@@ -17,7 +17,6 @@ import actron.statechart.AtomicState
 import actron.statechart.CompoundState
 import actron.statechart.StateChartDefinition
 import actron.statechart.StateId
-import actron.statechart.StoreConfiguration
 import actron.statechart.Transition
 import actron.test.awaitIdle
 import actron.test.dispatchAndAwait
@@ -75,7 +74,7 @@ class AdmissionShutdownJvmTest {
         policy: AdmissionPolicy = AdmissionPolicy.Bounded(1),
         observers: List<DecisionObserver<Int, Tick, Nothing, Never>> = emptyList(),
         coroutineContext: CoroutineContext = kotlinx.coroutines.Dispatchers.Default,
-        configure: StoreConfiguration<MachineSnapshot<Int>, MachineInput<Tick>, Never>.() -> Unit = {},
+        configure: MachineConfiguration<Int, Tick, Never>.() -> Unit = {},
     ) : AutoCloseable {
         val clock = GatedClock()
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -200,9 +199,9 @@ class AdmissionShutdownJvmTest {
             val failOnce = AtomicBoolean(true)
             Fixture(configure = {
                 plugin(
-                    object : Plugin<MachineSnapshot<Int>, MachineInput<Tick>, Never> {
+                    object : Plugin<MachineSnapshot<Int>, Tick, Never> {
                         override suspend fun onStart(
-                            scope: PluginScope<MachineSnapshot<Int>, MachineInput<Tick>>,
+                            scope: PluginScope<MachineSnapshot<Int>, Tick>,
                             state: MachineSnapshot<Int>,
                         ) {
                             if (failOnce.compareAndSet(true, false)) error("startup failed")
@@ -475,11 +474,11 @@ class AdmissionShutdownJvmTest {
             val checked = AtomicBoolean(false)
             Fixture(configure = {
                 plugin(
-                    object : Plugin<MachineSnapshot<Int>, MachineInput<Tick>, Never> {
+                    object : Plugin<MachineSnapshot<Int>, Tick, Never> {
                         override suspend fun onAction(
-                            scope: PluginScope<MachineSnapshot<Int>, MachineInput<Tick>>,
+                            scope: PluginScope<MachineSnapshot<Int>, Tick>,
                             state: MachineSnapshot<Int>,
-                            action: MachineInput<Tick>,
+                            action: Tick,
                         ) {
                             assertFailsWith<IllegalStateException> { storePublication.getCompleted().dispatchAndAwait(Tick) }
                             assertFailsWith<IllegalStateException> { storePublication.getCompleted().awaitIdle() }

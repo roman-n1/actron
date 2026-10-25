@@ -9,7 +9,7 @@ The explicit-ID chart examples below document the lower-level API, which remains
 A search screen can be **Loading** while its context contains a query and selected contacts.
 Loading is a node because it owns a request and accepts particular actions. The query and
 selection are ordinary context fields, not extra nodes. The runtime combines active nodes
-with context into `ChartState<C>` or `MachineSnapshot<C>` for the UI.
+with context into `MachineSnapshot<C>` for the UI.
 
 | Shape | Behaviour | Example |
 |---|---|---|
@@ -48,11 +48,10 @@ diagram exporter and runtime the same transition model. A **guard** decides whet
 transition may fire; an **effect** changes context or describes work. Their labels are in the
 model and their functions are supplied to its executor.
 
-Choose `StateChartStore` for coroutine hooks/activities, or the
-[pure Machine path](#replay-ready-machine) for explicit commands and deterministic replay.
+Use the [Machine runtime](#replay-ready-machine) for explicit commands and deterministic replay.
 The [loading/retry example below](#quick-start) shows the adapter. The
 [root counter](../README.md#3-a-machine-makes-decisions-io-runs-afterward) shows a pure decision;
-the [desktop example](../examples/time-travel/README.md) completes recording and replay.
+the [Weather example](../examples/weather/README.md) adds recording and history.
 
 ## Module overview
 
@@ -64,9 +63,8 @@ draw it, generate test paths from it, and run it as an ordinary Actron `Store`.
   timers, with guard and effect labels.
 - **Tools.** `validate()`, `toMermaid()`, `shortestPathTo()`, `transitionCoveragePaths()`, and the
   `StateChartConformance` plugin, which checks a running Store against the chart.
-- **Runtime.** `StateChartStore` runs a definition as a `Store<ChartState<C>, A, E>`, so Compose,
-  `actron-test`, plugins and state savers work as with any Store. `StateChartRuntime` is the pure
-  step function underneath, if you want to hold the configuration yourself.
+- **Runtime.** `MachineStore` queues inputs, commits machine decisions and executes commands.
+  Compose observes its snapshots; application code does not own another mutable configuration.
 - **Machine.** `actron.statechart.machine` decides a chart as a pure function over snapshots, with
   commands, timers and events as data: the replay-ready path of the time-travel work (see below).
 
@@ -79,8 +77,7 @@ so it is built and published together with it and is not meant to run against an
 
 Status: the **pure chart/machine model, snapshots, decisions and checkpoints are stable in the
 fork**, held by `apiCheck`. The Store adapters and their constrained runtime settings are also
-stable. Chart scopes delegate Store extensions through `store`; chart recovery can update context
-only, and the MachineStore builder cannot install arbitrary handlers or recovery. `ExternalSource`,
+stable. The MachineStore builder cannot install arbitrary handlers or recovery. `ExternalSource`,
 `MachineStore.feed` and `MachineGroup.source` also remain experimental; see the
 [stable core boundary](../doc/internal/adr/2026-10-01-stable-core.md#store-adapter-boundary-2026-10-03-review).
 The module lives in the fork
@@ -137,6 +134,15 @@ simulator arm64), JVM, JS and Wasm.
 
 ## Quick start
 
+Use the [typed counter](../README.md#1-a-store-for-a-counter) or
+[Weather's search machine](../examples/weather/shared/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt).
+`typedStateMachine` derives the graph from state types; `MachineStore` executes its decisions.
+For Decompose, [`retainedMachine`](../actron-decompose/README.md) owns creation, startup and cleanup.
+The standalone Store DSL and coroutine StateChartStore adapter are no longer application APIs.
+
+
+The explicit-ID examples below use this model:
+
 A list screen that loads, retries a failed load up to three times, and shows an error after that.
 
 ```kotlin
@@ -150,7 +156,7 @@ sealed interface ListEvent : Event {
     data object GaveUp : ListEvent
 }
 
-data class ListContext(val items: List<String> = emptyList(), val attempts: Int = 0)
+data class ListContext(val items: List<String> = emptyList(), val attempts: Int = 0, val query: String = "")
 
 val idle = StateId("Idle")
 val loading = StateId("Loading")
@@ -174,107 +180,14 @@ val listChart = StateChartDefinition(
 )
 ```
 
-The Store gives the labels their implementations and says what each state does:
-
-```kotlin
-fun listStore(
-    load: suspend () -> List<String>,
-    initial: ListContext = ListContext(),
-    coroutineContext: CoroutineContext = EmptyCoroutineContext,
-) = StateChartStore<ListContext, ListAction, ListEvent>(listChart, initial, coroutineContext) {
-        guard("canRetry") { state, _ -> state.context.attempts < 3 }
-        effect("storeItems") { context, action -> context.copy(items = (action as ListAction.Loaded).items) }
-        effect("countAttempt") { context, _ -> context.copy(attempts = context.attempts + 1) }
-        effect("resetAttempts") { context, _ -> context.copy(attempts = 0) }
-
-        // Runs while Loading is active; cancelled when it is exited. The self-loop on Failed exits
-        // and re-enters Loading, so each retry starts a new load.
-        activity(loading) {
-            val response: ListAction = try {
-                ListAction.Loaded(load())
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                ListAction.Failed
-            }
-            dispatch(response)
-        }
-        onEnter(error) { event(ListEvent.GaveUp) }
-
-        // The usual Actron Store configuration: state saver, plugins, exception handler, recover {}.
-        store {
-            exceptionHandler(ExceptionHandler { /* log */ })
-        }
-    }
-```
-
-In the UI, the state is `ChartState<ListContext>`: where the chart is, and the data.
-
-```kotlin
-val store = listStore(load = { api.items() })
-store.dispatch(ListAction.Load)
-store.state.collect { state ->
-    when {
-        state.isActive(loading) -> showSpinner()
-        state.isActive(content) -> showItems(state.context.items)
-        state.isActive(error) -> showRetryButton()
-    }
-}
-```
-
-What the builder offers:
-
-| Call | What it does |
-|---|---|
-| `guard(label) { state, action -> Boolean }` | Implements a guard label. Reads the state before the step. |
-| `effect(label) { context, action -> context }` | Implements an effect label: a pure context update. |
-| `onEnter(id) { }` / `onExit(id) { }` | Hooks: read and assign `context`, read `action`, `event(e)`; `onEnter` can `launch { }` work that lives while the state is active. |
-| `activity(id) { }` | Work that runs while the state is active, including after a restore. |
-| `store { }` | Runtime settings: saver, plugins, exception handler, start policy and context-only `recover<T>`. |
-
-In one step: exit hooks (innermost first), effects, enter hooks (outermost first), then work of
-exited states is cancelled and activities and timers of entered states start. The UI sees one new
-state. Building the Store fails fast when a guard or effect label has no implementation, or a hook
-names an undeclared state.
-
-Actions dispatched from an activity or `onEnter { launch { } }` are tied to that activation of
-the node. If the node exits before the queued action is handled, the action is discarded, even
-if the same node has already been entered again. This prevents an old load or connection attempt
-from completing a newer one.
-
-Recovery uses a constrained scope:
-
-```kotlin
-store {
-    recover<IllegalStateException> {
-        context = context.copy(lastError = error.message)
-    }
-}
-```
-
-`ChartRecoveryScope` exposes `error`, `context`, `event(e)` and `store` for StoreScope extensions;
-it cannot replace configuration or timers. The first matching recovery handler wins. Context is
-committed once when recovery completes; if recovery throws, its context update is discarded and
-the failure reaches `exceptionHandler`. Events already emitted are not rolled back. To change
-active nodes, emit an event and dispatch a declared action from its receiver, or dispatch from the
-exception handler. `MachineStore` has runtime configuration only: failures are reported to its
-exception handler, while domain recovery is an explicit machine input and decision.
-
-Chart hooks and activities no longer inherit `StoreScope`. For message extensions, use
-`store.message(message)`; activity `event`, `dispatch` and `updateContext` retain their activation
-gates. Extensions called through `store` keep their own contract and gain no activation gate.
-
-A heartbeat modelled as a self-loop timer on a node restarts that node's activities on every
-firing, and an action one of them dispatched just before the firing is discarded with the old
-activation. Keep such a timer in a parallel region of its own, apart from the node whose
-activities dispatch.
 
 ## Hierarchy, history, parallel regions, timers
 
 The full example is the messenger in
 [`src/commonTest/kotlin/actron/statechart/example/MessengerChart.kt`](src/commonTest/kotlin/actron/statechart/example/MessengerChart.kt):
 sign-in, a session with a connection region and a UI region, reconnect backoff, message resend,
-and settings that return to the same chat. It is the file to copy from. The pieces:
+and settings that return to the same chat. It is a legacy runtime regression fixture. For application
+code, use the [typed hierarchy DSL](#typed-hierarchy-history-and-completion). The structural pieces:
 
 ```kotlin
 val states = listOf(
@@ -315,9 +228,9 @@ val transitions = listOf(
   the active leaves. Until the parent has been exited once, the history enters its `default`, or
   the parent's initial child.
 - **Parallel.** One action may fire one transition per region, all in one step. A transition out
-  of the parallel state (like `SignOut`) exits every region. `ChartState.activeLeaves(definition)`
+  of the parallel state (like `SignOut`) exits every region. `definition.activeLeaves(snapshot.configuration)`
   lists one leaf per active region.
-- **Timers.** `StateChartStore` runs timers as coroutines in the Store, so `runTest` virtual time
+- **Timers.** `MachineStore` runs timers as coroutines, so `runTest` virtual time
   drives them in tests. A timer's guard is asked when it fires, with `TimerFired` as the action.
 
 ## Replay-ready machine
@@ -373,8 +286,7 @@ action: declare `ActionMatcher.of<CommandFailure>("CommandFailure")` on a transi
 it. An expected failure of a service (a 404, an offline error) is not this; the handler turns it
 into a typed `CommandResult`.
 
-A chart is either a legacy `StateChartStore` or a `Machine`; the two are not mixed. Building a
-`Machine` fails fast for the same reasons `StateChartStore` does: a missing guard or effect
+Building a `Machine` fails fast for a missing guard or effect
 implementation, a rule for an undeclared node, undeclared endpoints, an instant timer loop.
 
 ### Handling an action without leaving a node
@@ -521,7 +433,7 @@ pagination transport.
 Retained effects survive screen recreation with a live Store. `StateSaver` does not persist
 the mailbox across process death. For that boundary, keep a pending business intent in durable
 domain context and use a stable business id for idempotent handling. The
-[durable outbox example](../examples/durable-effects/README.md) uses real process crashes to
+[archived durable outbox example](https://github.com/roman-n1/actron/blob/bb173b88/examples/durable-effects/README.md) uses real process crashes to
 check effect/acknowledgement ordering and explains the required external transaction boundary.
 
 [actron-statechart-compose](../actron-statechart-compose/README.md) subscribes a composition to the
@@ -624,46 +536,11 @@ Markdown file. Asserting it in a test keeps the diagram in the docs honest.
 `toMermaid(active)` highlights the given states (a snapshot's `configuration.active`), which is
 how the inspector draws a replay's or a branch's position.
 
-Generate paths and replay them against the Store with `actron-test` and the conformance plugin:
-
-```kotlin
-@Test
-fun everyPathReplays() = runTest {
-    for (path in listChart.transitionCoveragePaths()) {
-        val conformance = StateChartConformance.withActiveLeaves<ChartState<ListContext>, ListAction, ListEvent>(listChart) {
-            it.activeLeaves(listChart).toSet()
-        }
-        val store = listStore(load = { awaitCancellation() }, contextFor(path), backgroundScope.coroutineContext)
-            .patch { plugin(conformance) }
-        store.startAndAwait()
-        path.transitions.forEachIndexed { i, transition ->
-            when (val trigger = transition.trigger) {
-                is Trigger.After -> advanceTimeBy(trigger.delay)
-                is Trigger.OnAction -> store.dispatchAndAwait(sampleFor(trigger.matcher))
-                Trigger.Always, Trigger.Completion -> Unit
-            }
-            runCurrent()
-            assertEquals(path.activeLeaves[i], store.currentState.activeLeaves(listChart))
-        }
-        assertEquals(emptyList(), conformance.violations)
-        store.close()
-    }
-}
-```
-
-Paths ignore guards, so the test makes the guards on each path true. `sampleFor` returns an action
-the matcher matches (for example `samples.first { matcher.matches(it) }`), and `contextFor` a
-context in which the path's guards hold: here `ListContext(attempts = 3)` for a path through
-`giveUp`, since `retry` is tried first, and `ListContext()` otherwise. The messenger
-test (`MessengerChartTest`) does this for a chart with timers, guards, regions and history.
-
-- `shortestPathTo(id)` returns one path to a state; `transitionCoveragePaths()` returns paths that
-  together take every reachable transition. Each `StateChartPath` has `transitions`, `triggers`,
-  `actions`, `startLeaves` and `activeLeaves` (one list per step).
-- `StateChartConformance` also works on a hand-written Actron Store: map your sealed state to its
-  leaf with `StateChartConformance(chart) { state -> when (state) { ... } }`. It reports
-  `violations` (undeclared states, undeclared transitions, a transition taken for the wrong action)
-  and `coveredTransitions` / `uncoveredTransitions`.
+For executable paths, use [MachineTestDriver and graph scenarios](../actron-statechart-test/README.md).
+They run the same machine decisions with explicit commands and virtual time. The
+[Weather tests](../examples/weather/debugTools/src/commonTest/README.md) demonstrate generated
+coverage, stale responses and command cancellation through the production machine API.
+`shortestPathTo(id)` and `transitionCoveragePaths()` remain structural queries; they ignore guards.
 
 ## R8 and code shrinking
 
@@ -674,9 +551,7 @@ provided the chart does not rely on them either:
 - **Use `ActionMatcher.of<A>("Name")`.** It matches by type (`isInstance`); the name is only for
   diagrams and diagnostics. `ActionMatcher("Name")` without a type matches by the action's simple
   class name, which R8 renames: do not use it in app code.
-- **Map your own states explicitly.** For `StateChartConformance` or `StateChartRuntime` on a
-  hand-written Store, write the state-to-leaf mapping as a `when` over your sealed type.
-- **Saved state is data.** `ChartState` holds `StateId` strings, the history and timer tokens keyed
+- **Saved state is data.** `MachineSnapshot` holds `StateId` strings, the history and timer tokens keyed
   by transition index, so a `StateSaver` can persist it without reflection. Treat a change to the
   chart as a change to the saved format. The active nodes and history records are checked against
   the new hierarchy: a snapshot whose active nodes the chart cannot produce falls back to the
@@ -684,20 +559,11 @@ provided the chart does not rely on them either:
   is dropped on its own (the next transition into that history state takes the default target).
   Context schema migrations remain the application's responsibility.
 
-## StateChartStore runtime ownership
+## One machine runtime
 
-Registrations and `maxMicrosteps` are frozen when `StateChartStore` is built. Retaining and
-editing the DSL builder later does not change that Store. This copies registration collections;
-callback objects and the application data captured by them retain their original identity.
-
-`ChartStoreBindings` owns the frozen registrations; `ChartStoreHooks` adapts their transient
-DSL scopes. `ChartStoreActivities` owns committed activation jobs and guards late activity
-callbacks. `ChartStoreWork` runs activity/timer tasks in the existing Store subscription, outside
-the transition lock. `ChartStoreTimers` owns timer rules and stale-firing diagnostics; the token
-map remains in `ChartState`. `ChartStoreStartup` resolves restored state and initial activations.
-`ChartStoreTransition` stages tentative activations and launches until the complete macrostep
-succeeds, cancelling them on rollback. The host retains orchestration and failure boundaries.
-No helper introduces another Store, root scope or writable copy of chart state.
+All supported application reducers use our concrete `Machine` and `MachineStore`.
+The former coroutine chart adapter exists only as test regression infrastructure. It is not an alternate
+runtime or a compatibility path. See the [API decision](../doc/internal/adr/2026-10-25-statechart-only-api.md).
 
 ## Persistence across process restarts
 
@@ -708,48 +574,24 @@ a snapshot. `restore(initialState)` returns the saved snapshot or its supplied i
 reported to the Store's exception handler and also falls back to the declared initial state.
 Configure an exception handler that reports persistence failures if you need to diagnose them.
 
-The two live adapters intentionally restore differently:
+A `StateSaver` restores only a snapshot. An already started snapshot is restarted at the current
+machine's initial configuration with its restored business context; old commands and deadlines
+are not present in that snapshot. A reset from another definition/version is reported.
 
-| Adapter | Nodes and business context | Work after startup |
-|---|---|---|
-| `StateChartStore` | Valid saved configuration and context are retained. Invalid active nodes fall back to the new chart's initial configuration with the saved context. Invalid history records are discarded. | Enter hooks and their launched work do not run for valid restored nodes; declared activities restart. Each timer restarts with its full declared delay. |
-| `MachineStore` | An already started saved snapshot starts at the current machine's initial configuration, retaining its context and using the current definition/version. | Fresh startup commands and timers run. Old in-flight commands and timer deadlines are not resumed. |
-
-A `MachineStore` reset from another definition/version is also reported to its exception handler;
-a reset from an already started snapshot of the same definition/version is expected behavior.
-
-`MachineStore.checkpoint()` and Time Travel replay are separate executor-level mechanisms. A
-`StateSaver` snapshot does not include the command payloads and lanes needed to resume execution.
-For business deadlines that must survive downtime, persist the absolute deadline in your context
-and explicitly derive the next action from it when the application resumes.
-
-The [persistent restore integration tests](src/jvmTest/kotlin/actron/statechart/PersistentRestoreJvmTest.kt)
-write and restore snapshots in separate JVMs with an application-owned file codec. They cover
-timer/activity behavior, abrupt process death with pending work, changed definitions, missing
-files, truncated data and rejected schema versions. They verify process-independent persistence;
-Android Activity recreation and platform storage durability require their own application/device
-tests.
+To resume work, use [`actron-persistence`](../actron-persistence/README.md) and
+`resumeMachineStore` with an executor checkpoint. That checkpoint contains command lanes and
+timer deadlines. Pending read requests may run again; irreversible work needs an application
+recovery policy. Weather demonstrates ordinary checkpoint restoration without debug recording.
 
 ## Limitations
 
 - External sources and debug tooling remain experimental; no release has been published yet.
-- Guards and effects are labels in the model; their code lives in the Store builder, so tools see
-  the label, not the condition. Paths ignore guards.
-- The conformance plugin sees leaves, not guards or clocks: when two transitions lead to the same
-  leaves (such as two timers from `Backoff` to `Connecting`), it credits the first one, and a timer
-  self-loop is never credited.
-- Enter hooks do not run again for a configuration restored by a `StateSaver`; activities do.
-  Timers of a restored configuration restart with their full delay.
-- A step whose hook or effect throws is not committed, but events that its hooks already emitted
-  are not taken back, and a timer whose firing failed does not fire again until its state is
-  re-entered.
-- Adapter runtime configuration does not expose `state`, `initialState` or pending-action policies.
-  Active nodes change through chart/machine transitions, not competing Store handlers.
-- In a hook, `context` is the hook's value; do not name a surrounding parameter `context`, or it
-  shadows it.
-- A chart store's activities and timers run in a task runner subscribed from the chart's
-  `enter {}`, so actron-test's `awaitIdle()` returns while an activity awaits its node's exit and
-  while a timer waits: they are the chart's data, not launches to wait for.
+- Structural paths ignore guard values; executable scenarios must provide inputs and payloads.
+- Runtime configuration cannot install arbitrary state handlers or replace a snapshot.
+- Context and nested data must be immutable. Pure guards, updates and hooks must not perform I/O.
+- Snapshot persistence alone does not resume pending commands; use executor checkpoints.
+- A failed decision commits no state or effects. Command failures return as machine inputs.
+- In a hook, avoid naming surrounding parameters `context`, which shadows the hook's context.
 
 ## State types shared by graph, UI and recordings
 
@@ -1051,7 +893,7 @@ val machine = Machine<Context, Act, Command, Ev>(id, version, chart) {
 `compound(id, initial) { ... }` and `parallel(id) { ... }` nest state declarations; parent
 transitions use `transitions(id) { onDone(target) }`. A compound completes when its active child
 is final; a parallel completes when every region completes. Eventless transitions run first,
-then completion transitions, until stable. `Machine` and `StateChartStore` commit a macrostep
+then completion transitions, until stable. `Machine` commits a macrostep
 once; pure runtime users drive individual `automaticStep` calls. Guards see updated context
 between microsteps. A limit overflow fails and rolls back the entire Machine decision.
 

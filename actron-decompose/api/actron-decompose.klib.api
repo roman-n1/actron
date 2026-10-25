@@ -6,5 +6,32 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.roman-n1:actron-decompose>
+abstract fun interface <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.decompose/MachineRecording { // actron.decompose/MachineRecording|null[0]
+    abstract fun prepare(actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.statechart.machine/ExecutorCheckpoint<#A, #C>, actron.statechart.machine/CommandHandler<#C, #B>): actron.decompose/MachineDiagnostics<#A, #B, #C, #D> // actron.decompose/MachineRecording.prepare|prepare(actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>;actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>;actron.statechart.machine.CommandHandler<1:2,1:1>){}[0]
+}
+
+final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.decompose/MachineDiagnostics { // actron.decompose/MachineDiagnostics|null[0]
+    constructor <init>(actron.statechart.machine/CommandHandler<#C, #B>, kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> = ..., kotlin/Function1<actron.statechart.machine/MachineConfiguration<#A, #B, #D>, kotlin/Unit> = ...) // actron.decompose/MachineDiagnostics.<init>|<init>(actron.statechart.machine.CommandHandler<1:2,1:1>;kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>;kotlin.Function1<actron.statechart.machine.MachineConfiguration<1:0,1:1,1:3>,kotlin.Unit>){}[0]
+
+    final val configure // actron.decompose/MachineDiagnostics.configure|{}configure[0]
+        final fun <get-configure>(): kotlin/Function1<actron.statechart.machine/MachineConfiguration<#A, #B, #D>, kotlin/Unit> // actron.decompose/MachineDiagnostics.configure.<get-configure>|<get-configure>(){}[0]
+    final val handler // actron.decompose/MachineDiagnostics.handler|{}handler[0]
+        final fun <get-handler>(): actron.statechart.machine/CommandHandler<#C, #B> // actron.decompose/MachineDiagnostics.handler.<get-handler>|<get-handler>(){}[0]
+    final val observers // actron.decompose/MachineDiagnostics.observers|{}observers[0]
+        final fun <get-observers>(): kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>> // actron.decompose/MachineDiagnostics.observers.<get-observers>|<get-observers>(){}[0]
+}
+
+final class <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> actron.decompose/MachineRestoration { // actron.decompose/MachineRestoration|null[0]
+    constructor <init>(actron.statechart.machine/MachineClock = ..., kotlin/Function2<actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>>> = ..., kotlin/Function2<actron.statechart.machine/Machine<#A, #B, #C, #D>, #A, actron.statechart.machine/ExecutorCheckpoint<#A, #C>>) // actron.decompose/MachineRestoration.<init>|<init>(actron.statechart.machine.MachineClock;kotlin.Function2<actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>,actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>,kotlin.collections.List<actron.statechart.machine.DecisionObserver<1:0,1:1,1:2,1:3>>>;kotlin.Function2<actron.statechart.machine.Machine<1:0,1:1,1:2,1:3>,1:0,actron.statechart.machine.ExecutorCheckpoint<1:0,1:2>>){}[0]
+
+    final val clock // actron.decompose/MachineRestoration.clock|{}clock[0]
+        final fun <get-clock>(): actron.statechart.machine/MachineClock // actron.decompose/MachineRestoration.clock.<get-clock>|<get-clock>(){}[0]
+    final val observers // actron.decompose/MachineRestoration.observers|{}observers[0]
+        final fun <get-observers>(): kotlin/Function2<actron.statechart.machine/Machine<#A, #B, #C, #D>, actron.statechart.machine/ExecutorCheckpoint<#A, #C>, kotlin.collections/List<actron.statechart.machine/DecisionObserver<#A, #B, #C, #D>>> // actron.decompose/MachineRestoration.observers.<get-observers>|<get-observers>(){}[0]
+    final val restore // actron.decompose/MachineRestoration.restore|{}restore[0]
+        final fun <get-restore>(): kotlin/Function2<actron.statechart.machine/Machine<#A, #B, #C, #D>, #A, actron.statechart.machine/ExecutorCheckpoint<#A, #C>> // actron.decompose/MachineRestoration.restore.<get-restore>|<get-restore>(){}[0]
+}
+
 final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.decompose/observeEvent(com.arkivanov.essenty.lifecycle/Lifecycle, kotlin/Function1<#C, kotlin/Unit>): kotlin/AutoCloseable // actron.decompose/observeEvent|observeEvent@actron.core.Store<0:0,0:1,0:2>(com.arkivanov.essenty.lifecycle.Lifecycle;kotlin.Function1<0:2,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
 final fun <#A: actron.core/State, #B: actron.core/Action, #C: actron.core/Event> (actron.core/Store<#A, #B, #C>).actron.decompose/observeState(com.arkivanov.essenty.lifecycle/Lifecycle, kotlin/Function1<#A, kotlin/Unit>): kotlin/AutoCloseable // actron.decompose/observeState|observeState@actron.core.Store<0:0,0:1,0:2>(com.arkivanov.essenty.lifecycle.Lifecycle;kotlin.Function1<0:0,kotlin.Unit>){0§<actron.core.State>;1§<actron.core.Action>;2§<actron.core.Event>}[0]
+final fun <#A: kotlin/Any, #B: actron.core/Action, #C: kotlin/Any, #D: actron.core/Event> (com.arkivanov.decompose/ComponentContext).actron.decompose/retainedMachine(kotlin/String, actron.statechart.machine/Machine<#A, #B, #C, #D>, #A, actron.statechart.machine/CommandHandler<#C, #B>, actron.decompose/MachineRestoration<#A, #B, #C, #D> = ..., actron.decompose/MachineRecording<#A, #B, #C, #D> = ..., kotlin.coroutines/CoroutineContext = ..., kotlin.collections/List<#B> = ...): actron.statechart.machine/MachineStore<#A, #B, #C, #D> // actron.decompose/retainedMachine|retainedMachine@com.arkivanov.decompose.ComponentContext(kotlin.String;actron.statechart.machine.Machine<0:0,0:1,0:2,0:3>;0:0;actron.statechart.machine.CommandHandler<0:2,0:1>;actron.decompose.MachineRestoration<0:0,0:1,0:2,0:3>;actron.decompose.MachineRecording<0:0,0:1,0:2,0:3>;kotlin.coroutines.CoroutineContext;kotlin.collections.List<0:1>){0§<kotlin.Any>;1§<actron.core.Action>;2§<kotlin.Any>;3§<actron.core.Event>}[0]

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class, ExperimentalTime::class, actron.core.InternalActronApi::class)
 
 package actron.observability.file
 
@@ -9,6 +9,7 @@ import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.observability.ExecutionMode
 import actron.observability.GroupSeq
 import actron.observability.JOURNAL_FORMAT_VERSION
@@ -85,7 +86,7 @@ class JournalFileSinkTest {
             val failures = mutableListOf<JournalFailure>()
             val session = RecordingSession(backgroundScope, id = session, group = group, sinks = listOf(sink), timeSource = TestTimeSource(), config = actron.observability.JournalConfig(onFailure = { failures += it }))
             val store =
-                Store<AppState, AppAction, AppEvent>(AppState.Loading) {
+                createRuntimeStore<AppState, AppAction, AppEvent>(AppState.Loading) {
                     coroutineContext(UnconfinedTestDispatcher(testScheduler))
                     exceptionHandler(ExceptionHandler.Ignore)
                     recordTo(session, store, PayloadPolicy.retainAll())

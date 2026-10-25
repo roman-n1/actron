@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.CompletableDeferred
@@ -30,7 +32,7 @@ class StoreCloseJvmTest {
             val saved = mutableListOf<Box>()
             val entered = CompletableDeferred<Unit>()
             val store: Store<Box, Bump, Nothing> =
-                Store(Box()) {
+                createRuntimeStore(Box()) {
                     coroutineContext(Dispatchers.Default)
                     stateSaver(StateSaver(save = { synchronized(saved) { saved += it } }, restore = { it }))
                     state<Box> {

@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.core
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,7 +24,7 @@ class StoreStartupExceptionJvmTest {
         assertFailsWith<Throwable> {
             runTest {
                 val store =
-                    Store<Active, Input, Output>(Active, backgroundScope.coroutineContext) {
+                    createRuntimeStore<Active, Input, Output>(Active, backgroundScope.coroutineContext) {
                         exceptionHandler(
                             ExceptionHandler {
                                 reports++

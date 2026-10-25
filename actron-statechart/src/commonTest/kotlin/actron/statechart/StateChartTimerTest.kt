@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.statechart
 
 import actron.core.Action
@@ -6,6 +8,7 @@ import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
 import actron.test.patch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -417,7 +420,7 @@ class StateChartTimerTest {
      * Retry reconnects after 4 seconds, a key press clears the typing indicator after 3 seconds.
      */
     private fun TestScope.createStore(restoresItself: Boolean = false): Store<MessengerState, MessengerAction, MessengerEvent> =
-        Store<MessengerState, MessengerAction, MessengerEvent>(MessengerState.Offline) {
+        createRuntimeStore<MessengerState, MessengerAction, MessengerEvent>(MessengerState.Offline) {
             coroutineContext(StandardTestDispatcher(testScheduler))
             pendingActionPolicy(PendingActionPolicy.Keep)
             state<MessengerState.Offline> {

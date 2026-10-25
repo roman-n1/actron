@@ -1,12 +1,53 @@
 # Actron + Decompose
 
-`actron-decompose` binds callback observation to Essenty lifecycle destruction. It targets the
-same platforms as core and uses Decompose 3.5.0. It does not add navigation or feature contracts.
+`actron-decompose` installs an Actron machine in a Decompose component with one call and
+binds Store observation to Essenty lifecycle destruction. Statechart is the standard machine
+implementation and is exposed transitively; no second Decompose adapter module is required.
+The module does not depend on persistence codecs, time travel or Compose.
 The core module has no dependency on Decompose.
 
 Use `implementation(project(":actron-decompose"))` from a checkout. The artifact is configured as
 `io.github.roman-n1:actron-decompose` with the repository's version; these local changes have not
 been published. See the root installation guide for release availability.
+
+## One-call machine installation
+
+Given your machine definition and command handler:
+
+```kotlin
+val store = componentContext.retainedMachine(
+    key = "city-search",
+    machine = CitySearchMachine.create(),
+    initial = CitySearchState(),
+    handler = citySearchHandler(repository),
+)
+```
+
+Import `actron.decompose.retainedMachine`. The helper retains one Store and its command scope
+per keeper/key, configures it, then starts it. The default processor is `Dispatchers.Main`;
+pass `coroutineContext` for another owning dispatcher or tests. A retained key keeps the original
+Store and dependencies; use a unique stable key per machine/business identity. Creation and
+keeper destruction run on the keeper's owning thread. Handlers must not capture a component,
+endpoint or a component-lifecycle scope.
+
+Two independent optional parameters extend that same call:
+
+```kotlin
+restoration = session.searchRestoration(), // App-owned checkpoint and checkpoint tracking.
+recording = history.recording(),          // Optional diagnostic observers/profiling.
+```
+
+`MachineRestoration` lazily supplies a checkpoint, its clock and tracking observers.
+`MachineRecording` lazily binds diagnostic observers and optional handler/Store instrumentation.
+Both bind only for a newly retained instance, before startup. Restoration works without recording;
+recording can be used without restoration. Neither option is a global singleton or a second Store.
+The library does not prescribe a serialization format or a debugger implementation.
+
+`initialActions` are dispatched once after a fresh Store starts. They are skipped on checkpoint
+resumption and host recreation. A mismatching definition/version is rejected before startup.
+Destroying the keeper closes the Store and cancels its scope; construction failure cancels the
+new scope too. The Weather application demonstrates the minimal path, checkpoint-only operation,
+and the same feature with diagnostics enabled in its `debugTools` module.
 
 ## Two lifetimes
 

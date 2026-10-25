@@ -5,43 +5,28 @@ package consumer
 import actron.compose.rememberViewStore
 import actron.core.Action
 import actron.core.Event
-import actron.core.State
-import actron.core.Store
+import actron.decompose.retainedMachine
 import actron.logging.Logger
 import actron.logging.simpleLogging
 import actron.message.Message
 import actron.message.message
 import actron.message.receiveMessages
 import actron.observability.StoreInstanceId
-import actron.statechart.ActionMatcher
-import actron.statechart.AtomicState
-import actron.statechart.ChartState
-import actron.statechart.StateChartDefinition
-import actron.statechart.StateChartStore
-import actron.statechart.StateId
-import actron.statechart.Transition
 import actron.statechart.compose.MailboxEffect
-import actron.statechart.machine.CommandHandler
-import actron.statechart.machine.DefinitionId
-import actron.statechart.machine.DefinitionVersion
-import actron.statechart.machine.ExecutorCheckpoint
-import actron.statechart.machine.Machine
-import actron.statechart.machine.MachineGroup
-import actron.statechart.machine.MachineStore
+import actron.statechart.machine.*
 import actron.timetravel.MachinePersistence
 import androidx.compose.runtime.Composable
+import com.arkivanov.decompose.ComponentContext
 import kotlinx.coroutines.CoroutineScope
 
-// Compile the persistence boundary from the production Maven graph, without recorder artifacts.
 fun <C : Any, A : Action, CMD : Any, E : Event> restorePublishedCheckpoint(
     persistence: MachinePersistence<C, A, CMD, E>,
     checkpoint: ExecutorCheckpoint<C, CMD>,
 ): ExecutorCheckpoint<C, CMD> = persistence.restore(persistence.save(checkpoint))
 
-// [*] --> Counting; Counting --> Counting: Increment / count++
 data class Counter(
     val count: Int = 0,
-) : State
+)
 
 data object Increment : Action
 
@@ -49,49 +34,37 @@ data object Ev : Event
 
 data object Ping : Message
 
-fun counter(scope: CoroutineScope): Store<Counter, Increment, Ev> =
-    Store(Counter(), context = scope.coroutineContext) {
-        plugin(simpleLogging(logger = Logger { _, _, _ -> }))
+data object SendPing
+
+val machine =
+    typedStateMachine<Counter, Increment, SendPing, Ev>(
+        DefinitionId("published-counter"),
+        DefinitionVersion("1"),
+        Counter(),
+    ) {
         state<Counter> {
-            action<Increment> {
-                nextState { state.copy(count = state.count + 1) }
-                message(Ping)
-            }
+            on<Increment, Counter> { context, _ -> context.copy(count = context.count + 1) }
+            onEnter { if (context.count > 0) command(SendPing) }
         }
     }
 
-fun receiver(scope: CoroutineScope): Store<Counter, Increment, Ev> =
-    Store(Counter(), context = scope.coroutineContext) {
+fun counter(scope: CoroutineScope): MachineStore<Counter, Increment, SendPing, Ev> =
+    MachineStore(machine, Counter(), CommandHandler { _, _ -> message(Ping) }, scope, coroutineContext = scope.coroutineContext) {
+        plugin(simpleLogging(logger = Logger { _, _, _ -> }))
+    }
+
+fun receiver(scope: CoroutineScope): MachineStore<Counter, Increment, SendPing, Ev> =
+    MachineStore(machine, Counter(), CommandHandler { _, _ -> }, scope, coroutineContext = scope.coroutineContext) {
         plugin(receiveMessages { if (it == Ping) dispatch(Increment) })
-        state<Counter> { action<Increment> { nextState { state.copy(count = state.count + 1) } } }
     }
 
-val counting = StateId("Counting")
-val definition =
-    StateChartDefinition(
-        counting,
-        listOf(AtomicState(counting)),
-        listOf(
-            Transition(counting, counting, ActionMatcher.of<Increment>("Increment"), effect = actron.statechart.EffectKey("increment")),
-        ),
-    )
-val machine =
-    Machine<Int, Increment, Nothing, Ev>(DefinitionId("published-counter"), DefinitionVersion("1"), definition) {
-        effect("increment") { count, _ -> count + 1 }
-    }
-
-fun chart(scope: CoroutineScope): Store<ChartState<Int>, Increment, Ev> =
-    StateChartStore(definition, 0, scope.coroutineContext) {
-        effect("increment") { count, _ -> count + 1 }
-    }
-
-fun runningMachine(scope: CoroutineScope): MachineStore<Int, Increment, Nothing, Ev> {
+fun runningMachine(scope: CoroutineScope): MachineStore<Counter, Increment, SendPing, Ev> {
     val group = MachineGroup()
-    val member = group.member<Int, Increment, Nothing, Ev>(StoreInstanceId("published"))
+    val member = group.member<Counter, Increment, SendPing, Ev>(StoreInstanceId("published"))
     return MachineStore(
         machine,
-        0,
-        CommandHandler<Nothing, Increment> { _, _ -> },
+        Counter(),
+        CommandHandler { _, _ -> },
         scope,
         coroutineContext = scope.coroutineContext,
         observers = listOf(member),
@@ -99,9 +72,16 @@ fun runningMachine(scope: CoroutineScope): MachineStore<Int, Increment, Nothing,
 }
 
 @Composable
-fun CounterUi(store: Store<Counter, Increment, Ev>): Int = rememberViewStore(store).select { it.count }
+fun CounterUi(store: MachineStore<Counter, Increment, SendPing, Ev>): Int = rememberViewStore(store).select { it.context.count }
 
 @Composable
-fun MachineUi(store: MachineStore<Int, Increment, Nothing, Ev>) {
+fun MachineUi(store: MachineStore<Counter, Increment, SendPing, Ev>) {
     MailboxEffect(store.mailbox) { it.acknowledge() }
 }
+
+fun <C : Any, A : Action, CMD : Any, E : Event> ComponentContext.installPublishedMachine(
+    key: String,
+    machine: Machine<C, A, CMD, E>,
+    initial: C,
+    handler: CommandHandler<CMD, A>,
+) = retainedMachine(key, machine, initial, handler)

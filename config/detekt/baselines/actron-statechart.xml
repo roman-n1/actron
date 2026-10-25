@@ -23,7 +23,6 @@
     <ID>CognitiveComplexMethod:Mailbox.kt:MailboxImpl$override fun subscribe: Flow&lt;Delivery&lt;E&gt;&gt;</ID>
     <ID>CognitiveComplexMethod:Mermaid.kt:fun StateChartDefinition.toMermaid: String</ID>
     <ID>CognitiveComplexMethod:Mermaid.kt:private fun StateChartDefinition.mermaidContainers: Map&lt;StateId, StateId&gt;</ID>
-    <ID>CognitiveComplexMethod:MessengerChart.kt:@OptIn(ExperimentalActronApi::class) fun MessengerStore: MessengerStore</ID>
     <ID>CognitiveComplexMethod:Migration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.validateSnapshotStructure: List&lt;String&gt;</ID>
     <ID>CognitiveComplexMethod:MviThreadingJvmTest.kt:MviThreadingJvmTest$@Test fun concurrentProducersAndParallelResultsReduceSequentiallyOnSelectedThread</ID>
     <ID>CognitiveComplexMethod:ParallelReference.kt:ParallelReference$fun fire: ParallelDecision</ID>

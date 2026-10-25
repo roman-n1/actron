@@ -1,9 +1,12 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.test
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
+import actron.core.createRuntimeStore
 import kotlinx.coroutines.Dispatchers
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,7 +42,7 @@ class StoreHandlersTest {
     sealed interface AppEvent : Event
 
     private fun createStore(): Store<AppState, AppAction, AppEvent> =
-        Store(AppState.Loading) {
+        createRuntimeStore(AppState.Loading) {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
@@ -108,7 +111,7 @@ class StoreHandlersTest {
 
     @Test
     fun emptyKindsRenderAsNone() {
-        val store: Store<AppState, AppAction, AppEvent> = Store(AppState.Loading) {}
+        val store: Store<AppState, AppAction, AppEvent> = createRuntimeStore(AppState.Loading) {}
 
         assertEquals(
             "enter: none\naction: none\nexit: none\nrecover: none",

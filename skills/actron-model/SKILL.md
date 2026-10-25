@@ -16,6 +16,10 @@ the signatures in `actron-statechart/src/commonMain/kotlin/actron/statechart/mac
 
 ## Modeling decisions
 
+- Our concrete StateChart `Machine` is the only application reducer. Do not introduce a
+  handwritten reducer interface, standalone Store DSL, or legacy coroutine chart adapter.
+  `StoreBuilder` and `createRuntimeStore` are internal engine infrastructure.
+
 - Prefer the typed DSL used by Weather's `CitySearchMachine.kt` and `CityWeatherMachine.kt`.
   A direct sealed state can be the complete context. A context-based machine binds its state
   once through read/write functions. Do not maintain a separate phase enum and StateId map.
@@ -36,8 +40,8 @@ the signatures in `actron-statechart/src/commonMain/kotlin/actron/statechart/mac
 ## Implement and verify
 
 Follow the module's nearest working example rather than inventing constructors. Weather is
-under `examples/weather-app/src/commonMain/kotlin/actron/example/weather/`; its root/components
-show how to connect reusable machines, independent use cases and UI.
+under `examples/weather/shared/src/commonMain/kotlin/actron/example/weather/`; its root/components
+show how to connect reusable machines, feature command handlers and UI.
 
 Use the smallest relevant tests and compile targets. New public Kotlin API requires the
 repository's API dump/check workflow. Changes must pass `ktlintCheck` and `checkNullability`;

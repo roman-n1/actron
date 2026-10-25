@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.core
 
@@ -34,7 +34,7 @@ class StoreOwnershipRegressionTest {
                 val errors = mutableListOf<Throwable>()
                 var attempts = 0
                 val store =
-                    Store<Counter, Increment, Nothing>(Counter()) {
+                    createRuntimeStore<Counter, Increment, Nothing>(Counter()) {
                         coroutineContext(StandardTestDispatcher(testScheduler))
                         pluginExecutionPolicy(policy)
                         exceptionHandler(ExceptionHandler { errors += it })
@@ -76,7 +76,7 @@ class StoreOwnershipRegressionTest {
             val started = mutableListOf<Int>()
             val lane = LaunchLane()
             val store =
-                Store<Counter, Work, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Work, Nothing>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<Counter> {
                         action<Work> {

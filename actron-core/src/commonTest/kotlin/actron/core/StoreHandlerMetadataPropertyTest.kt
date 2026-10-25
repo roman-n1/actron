@@ -94,7 +94,7 @@ class StoreHandlerMetadataPropertyTest {
 
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             val store: Store<RtState, RtAction, RtEvent> =
-                Store(RtState.A(0)) {
+                createRuntimeStore(RtState.A(0)) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<RtState.A> {
                         action<RtAction.P> {

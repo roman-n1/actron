@@ -107,7 +107,7 @@ class ExternalSourceTest {
     private inner class Fixture(
         scope: TestScope,
         admission: AdmissionPolicy = AdmissionPolicy.Unbounded,
-        plugin: Plugin<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing> = actron.core.Plugin(),
+        plugin: Plugin<MachineSnapshot<Ctx>, Act, Nothing> = actron.core.Plugin(),
     ) {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val executionScope = CoroutineScope(dispatcher + SupervisorJob())
@@ -196,9 +196,9 @@ class ExternalSourceTest {
             val gate = CompletableDeferred<Unit>()
             var stuck = false
             val slow =
-                object : Plugin<MachineSnapshot<Ctx>, MachineInput<Act>, Nothing> {
+                object : Plugin<MachineSnapshot<Ctx>, Act, Nothing> {
                     override suspend fun onState(
-                        scope: PluginScope<MachineSnapshot<Ctx>, MachineInput<Act>>,
+                        scope: PluginScope<MachineSnapshot<Ctx>, Act>,
                         prevState: MachineSnapshot<Ctx>,
                         state: MachineSnapshot<Ctx>,
                     ) {

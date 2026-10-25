@@ -34,7 +34,7 @@ class StorePublicationBoundaryTest {
             val hookRelease = CompletableDeferred<Unit>()
             val log = mutableListOf<String>()
             val store =
-                Store<Counter, Command, Message>(Counter()) {
+                createRuntimeStore<Counter, Command, Message>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { if (it is StoreTrace.StateCommitted) log += "commit:${it.state.value}" })
                     stateSaver(StateSaver(save = { log += "save:${it.value}" }, restore = { it }))
@@ -80,7 +80,7 @@ class StorePublicationBoundaryTest {
             val reported = mutableListOf<Throwable>()
             val hookFailure = IllegalStateException("event hook")
             val store =
-                Store<Counter, Command, Message>(Counter()) {
+                createRuntimeStore<Counter, Command, Message>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     probe(StoreProbe { traces += it })
                     exceptionHandler(ExceptionHandler { reported += it })

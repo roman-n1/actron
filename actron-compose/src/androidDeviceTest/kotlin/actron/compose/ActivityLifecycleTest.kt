@@ -1,3 +1,5 @@
+@file:OptIn(actron.core.InternalActronApi::class)
+
 package actron.compose
 
 import actron.core.Action
@@ -5,6 +7,7 @@ import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
+import actron.core.createRuntimeStore
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -334,7 +337,7 @@ private class Fixture {
 
     private fun newStore(saver: StateSaver<Counter>): TrackedStore =
         TrackedStore(
-            Store<Counter, Increment, Nothing>(Counter(0)) {
+            createRuntimeStore<Counter, Increment, Nothing>(Counter(0)) {
                 stateSaver(saver)
                 state<Counter> { action<Increment> { nextState { state.copy(value = state.value + 1) } } }
             },

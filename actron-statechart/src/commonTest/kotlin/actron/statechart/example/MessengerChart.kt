@@ -12,6 +12,7 @@ import actron.statechart.HistoryState
 import actron.statechart.ParallelState
 import actron.statechart.StateChartDefinition
 import actron.statechart.StateChartStore
+import actron.statechart.StateChartStoreBuilder
 import actron.statechart.StateId
 import actron.statechart.Transition
 import actron.statechart.Trigger
@@ -20,9 +21,8 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration.Companion.seconds
 
 /*
- * A messenger screen as one statechart, run by a StateChartStore. This file is the example to
- * copy from; MessengerChartTest drives it scenario by scenario and replays every generated test
- * path against it.
+ * Legacy coroutine-adapter regression fixture. Application examples use MachineStore.
+ * MessengerChartTest drives the retained historical semantics scenario by scenario.
  *
  * Layout of this file, in the order an app would write it:
  * 1. actions, events and the context (the data that goes with the chart);
@@ -350,7 +350,7 @@ object MessengerChart {
 
 /** The Store type the UI collects: a plain Actron Store. */
 @OptIn(ExperimentalActronApi::class)
-typealias MessengerStore = Store<ChartState<MessengerContext>, MessengerAction, MessengerEvent>
+internal typealias MessengerStore = Store<ChartState<MessengerContext>, MessengerAction, MessengerEvent>
 
 /**
  * Creates the messenger Store: the chart's guards and effects, and the work each state does.
@@ -361,80 +361,96 @@ typealias MessengerStore = Store<ChartState<MessengerContext>, MessengerAction, 
  * exited, and both report back by dispatching an action.
  */
 @OptIn(ExperimentalActronApi::class)
-fun MessengerStore(
+internal fun MessengerStore(
     services: MessengerServices,
     initial: MessengerContext = MessengerContext(),
     coroutineContext: CoroutineContext = kotlinx.coroutines.Dispatchers.Default,
 ): MessengerStore =
     StateChartStore(MessengerChart.definition, initial, coroutineContext) {
-        // The parameter is not called `context`: inside the hooks below, `context` must be the hook
-        // scope's context (the value as updated by this step), and a parameter of that name would
-        // shadow it.
-        // Guards: read the state before the step; a timer's guard gets TimerFired as the action.
-        guard("quickReconnect") { state, _ -> state.context.connectAttempts <= state.context.policy.quickReconnects }
-        guard("slowReconnect") { state, _ -> state.context.connectAttempts > state.context.policy.quickReconnects }
-        guard("canResend") { state, _ -> state.context.sendFailures <= state.context.policy.resends }
-        guard("resendsExhausted") { state, _ -> state.context.sendFailures > state.context.policy.resends }
+        decisions()
+        authentication(services)
+        delivery(services)
+        connection(services)
+    }
 
-        // Effects: pure context updates, run between the exit and the enter hooks of a step.
-        effect("rememberUser") { c, action -> c.copy(account = MessengerAccount.Authenticated((action as MessengerAction.SignInSucceeded).user)) }
-        effect("forgetUser") { c, _ -> MessengerContext(policy = c.policy) }
-        effect("resetAttempts") { c, _ -> c.copy(connectAttempts = 0) }
-        effect("countAttempt") { c, _ -> c.copy(connectAttempts = c.connectAttempts + 1) }
-        effect("rememberChat") { c, action -> c.copy(conversation = Conversation.Opened((action as MessengerAction.OpenChat).chatId)) }
-        effect("queueMessage") { c, action -> c.copy(outgoing = OutgoingMessage.Queued((action as MessengerAction.SendMessage).text), sendFailures = 0) }
-        effect("markDelivered") { c, _ ->
-            c.copy(
-                delivered =
-                    when (val message = c.outgoing) {
-                        OutgoingMessage.Composing -> c.delivered
-                        is OutgoingMessage.Queued -> c.delivered + message.text
-                    },
-                outgoing = OutgoingMessage.Composing,
-            )
-        }
-        effect("countSendFailure") { c, _ -> c.copy(sendFailures = c.sendFailures + 1) }
-        effect("resetSendFailures") { c, _ -> c.copy(sendFailures = 0) }
-        effect("dropMessage") { c, _ -> c.copy(outgoing = OutgoingMessage.Composing, sendFailures = 0) }
+private typealias MessengerBuilder = StateChartStoreBuilder<MessengerContext, MessengerAction, MessengerEvent>
 
-        // Work that needs the action that entered the state: onEnter + launch.
-        onEnter(MessengerChart.signingIn) {
-            val submit = action
-            if (submit !is MessengerAction.SubmitCredentials) return@onEnter
-            launch {
-                val result = attempt { services.signIn(submit.login, submit.password) }
-                dispatch(result.fold({ MessengerAction.SignInSucceeded(it) }, { MessengerAction.SignInFailed(it.message ?: "unknown") }))
-            }
-        }
-        onEnter(MessengerChart.signedOut) {
-            val failed = action
-            if (failed is MessengerAction.SignInFailed) event(MessengerEvent.SignInError(failed.reason))
-        }
-        onEnter(MessengerChart.sending) {
-            val conversation = context.conversation
-            if (conversation !is Conversation.Opened) return@onEnter
-            val message = context.outgoing
-            if (message !is OutgoingMessage.Queued) return@onEnter
-            launch {
-                val sent = attempt { services.send(conversation.id, message.text) }.isSuccess
-                dispatch(if (sent) MessengerAction.MessageDelivered else MessengerAction.SendFailed)
-            }
-        }
-        onEnter(MessengerChart.failed) {
-            val message = context.outgoing
-            if (message is OutgoingMessage.Queued) event(MessengerEvent.MessageNotSent(message.text))
-        }
+private fun MessengerBuilder.decisions() {
+    // The parameter is not called `context`: inside the hooks below, `context` must be the hook
+    // scope's context (the value as updated by this step), and a parameter of that name would
+    // shadow it.
+    // Guards: read the state before the step; a timer's guard gets TimerFired as the action.
+    guard("quickReconnect") { state, _ -> state.context.connectAttempts <= state.context.policy.quickReconnects }
+    guard("slowReconnect") { state, _ -> state.context.connectAttempts > state.context.policy.quickReconnects }
+    guard("canResend") { state, _ -> state.context.sendFailures <= state.context.policy.resends }
+    guard("resendsExhausted") { state, _ -> state.context.sendFailures > state.context.policy.resends }
 
-        // Work that only needs to know it is in the state, and must restart after a restore: activity.
-        activity(MessengerChart.connecting) {
-            val opened = attempt { services.connect() }.isSuccess
-            dispatch(if (opened) MessengerAction.ConnectionOpened else MessengerAction.ConnectFailed)
-        }
-        activity(MessengerChart.online) {
-            services.awaitDisconnect()
-            dispatch(MessengerAction.ConnectionLost)
+    // Effects: pure context updates, run between the exit and the enter hooks of a step.
+    effect("rememberUser") { c, action -> c.copy(account = MessengerAccount.Authenticated((action as MessengerAction.SignInSucceeded).user)) }
+    effect("forgetUser") { c, _ -> MessengerContext(policy = c.policy) }
+    effect("resetAttempts") { c, _ -> c.copy(connectAttempts = 0) }
+    effect("countAttempt") { c, _ -> c.copy(connectAttempts = c.connectAttempts + 1) }
+    effect("rememberChat") { c, action -> c.copy(conversation = Conversation.Opened((action as MessengerAction.OpenChat).chatId)) }
+    effect("queueMessage") { c, action -> c.copy(outgoing = OutgoingMessage.Queued((action as MessengerAction.SendMessage).text), sendFailures = 0) }
+    effect("markDelivered") { c, _ ->
+        c.copy(
+            delivered =
+                when (val message = c.outgoing) {
+                    OutgoingMessage.Composing -> c.delivered
+                    is OutgoingMessage.Queued -> c.delivered + message.text
+                },
+            outgoing = OutgoingMessage.Composing,
+        )
+    }
+    effect("countSendFailure") { c, _ -> c.copy(sendFailures = c.sendFailures + 1) }
+    effect("resetSendFailures") { c, _ -> c.copy(sendFailures = 0) }
+    effect("dropMessage") { c, _ -> c.copy(outgoing = OutgoingMessage.Composing, sendFailures = 0) }
+}
+
+private fun MessengerBuilder.authentication(services: MessengerServices) {
+    // Work that needs the action that entered the state: onEnter + launch.
+    onEnter(MessengerChart.signingIn) {
+        val submit = action
+        if (submit !is MessengerAction.SubmitCredentials) return@onEnter
+        launch {
+            val result = attempt { services.signIn(submit.login, submit.password) }
+            dispatch(result.fold({ MessengerAction.SignInSucceeded(it) }, { MessengerAction.SignInFailed(it.message ?: "unknown") }))
         }
     }
+    onEnter(MessengerChart.signedOut) {
+        val failed = action
+        if (failed is MessengerAction.SignInFailed) event(MessengerEvent.SignInError(failed.reason))
+    }
+}
+
+private fun MessengerBuilder.delivery(services: MessengerServices) {
+    onEnter(MessengerChart.sending) {
+        val conversation = context.conversation
+        if (conversation !is Conversation.Opened) return@onEnter
+        val message = context.outgoing
+        if (message !is OutgoingMessage.Queued) return@onEnter
+        launch {
+            val sent = attempt { services.send(conversation.id, message.text) }.isSuccess
+            dispatch(if (sent) MessengerAction.MessageDelivered else MessengerAction.SendFailed)
+        }
+    }
+    onEnter(MessengerChart.failed) {
+        val message = context.outgoing
+        if (message is OutgoingMessage.Queued) event(MessengerEvent.MessageNotSent(message.text))
+    }
+}
+
+private fun MessengerBuilder.connection(services: MessengerServices) {
+    // Work that only needs to know it is in the state, and must restart after a restore: activity.
+    activity(MessengerChart.connecting) {
+        val opened = attempt { services.connect() }.isSuccess
+        dispatch(if (opened) MessengerAction.ConnectionOpened else MessengerAction.ConnectFailed)
+    }
+    activity(MessengerChart.online) {
+        services.awaitDisconnect()
+        dispatch(MessengerAction.ConnectionLost)
+    }
+}
 
 /**
  * Runs a service call and captures its failure, but lets cancellation through: when the state that

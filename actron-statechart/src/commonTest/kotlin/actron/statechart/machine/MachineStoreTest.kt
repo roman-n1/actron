@@ -207,7 +207,7 @@ class MachineStoreTest {
     private class Harness(
         scope: TestScope,
         machine: Machine<ListContext, ListAction, ListCommand, ListEvent>,
-        configure: actron.statechart.StoreConfiguration<MachineSnapshot<ListContext>, MachineInput<ListAction>, ListEvent>.() -> Unit = {},
+        configure: MachineConfiguration<ListContext, ListAction, ListEvent>.() -> Unit = {},
     ) {
         val handler = Handler()
         val handled = mutableListOf<Throwable>()
@@ -229,7 +229,7 @@ class MachineStoreTest {
 
     private fun TestScope.harness(
         machine: Machine<ListContext, ListAction, ListCommand, ListEvent> = listMachine(),
-        configure: actron.statechart.StoreConfiguration<MachineSnapshot<ListContext>, MachineInput<ListAction>, ListEvent>.() -> Unit = {},
+        configure: MachineConfiguration<ListContext, ListAction, ListEvent>.() -> Unit = {},
     ) = Harness(this, machine, configure)
 
     // --- commit protocol ---

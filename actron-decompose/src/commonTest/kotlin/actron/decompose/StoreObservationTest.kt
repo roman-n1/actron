@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.decompose
 
@@ -8,6 +8,7 @@ import actron.core.Event
 import actron.core.State
 import actron.core.Store
 import actron.core.closeAndJoin
+import actron.core.createRuntimeStore
 import actron.test.patch
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.DefaultComponentContext
@@ -42,7 +43,7 @@ class StoreObservationTest {
             var entered = false
             val values = mutableListOf<Changed>()
             val store =
-                Store<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     state<Counter> {
                         enter {
                             entered = true
@@ -73,7 +74,7 @@ class StoreObservationTest {
         runTest {
             val lifecycle = TrackingLifecycle().apply { create() }
             val store =
-                Store<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Increment, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     autoStartPolicy(AutoStartPolicy.OnDispatch)
                     state<Counter> {
                         action<Increment> {
@@ -124,7 +125,7 @@ class StoreObservationTest {
             fun retained(context: ComponentContext) =
                 context.instanceKeeper.getOrCreateCloseable("counter") {
                     created++
-                    Store<Counter, Increment, Changed>(Counter(), dispatcher) {
+                    createRuntimeStore<Counter, Increment, Changed>(Counter(), dispatcher) {
                         autoStartPolicy(AutoStartPolicy.OnDispatch)
                         state<Counter> {
                             action<Increment> {
@@ -177,7 +178,7 @@ class StoreObservationTest {
         runTest {
             val lifecycle = TrackingLifecycle().apply { create() }
             val store =
-                Store<Counter, Increment, Nothing>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Increment, Nothing>(Counter(), StandardTestDispatcher(testScheduler)) {
                     state<Counter> { action<Increment> { nextState { Counter(state.value + 1) } } }
                 }
             val values = mutableListOf<Counter>()
@@ -205,7 +206,7 @@ class StoreObservationTest {
             val lifecycle = LifecycleRegistry().apply { create() }
             val values = mutableListOf<Counter>()
             val store =
-                Store<Counter, Increment, Nothing>(Counter(), UnconfinedTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Increment, Nothing>(Counter(), UnconfinedTestDispatcher(testScheduler)) {
                     autoStartPolicy(AutoStartPolicy.OnDispatch)
                     state<Counter> { action<Increment> { nextState { Counter(state.value + 1) } } }
                 }
@@ -233,7 +234,7 @@ class StoreObservationTest {
                 }
             var entered = false
             val store =
-                Store<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
+                createRuntimeStore<Counter, Nothing, Changed>(Counter(), StandardTestDispatcher(testScheduler)) {
                     state<Counter> {
                         enter {
                             entered = true

@@ -28,14 +28,14 @@ class StoreExecutionOwnershipTest {
     fun handlerCanAwaitAnotherStoreWithoutBeingMistakenForItsOwnHandler() =
         runTest {
             val peer =
-                Store<Counter, Command, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Command, Nothing>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<Counter> {
                         action<Command.Increment> { nextState { Counter(state.value + 1) } }
                     }
                 }
             val store =
-                Store<Counter, Command, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Command, Nothing>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<Counter> {
                         action<Command.Increment> {
@@ -60,7 +60,7 @@ class StoreExecutionOwnershipTest {
         runTest {
             val entered = mutableListOf<Counter>()
             val store =
-                Store<Counter, Command, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Command, Nothing>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     state<Counter> { enter { entered += state } }
                 }
@@ -85,7 +85,7 @@ class StoreExecutionOwnershipTest {
             val expectedOrigin = CompletableDeferred<InputAttribution>()
             val observed = mutableListOf<Pair<Int, InputAttribution>>()
             val store =
-                Store<Counter, Command, Nothing>(Counter()) {
+                createRuntimeStore<Counter, Command, Nothing>(Counter()) {
                     coroutineContext(StandardTestDispatcher(testScheduler))
                     plugin(
                         Plugin(onAction = { _, action ->
