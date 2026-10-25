@@ -2,69 +2,10 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CognitiveComplexMethod:BehaviouralArtifacts.kt:fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.behaviouralSnapshot: BehaviouralSnapshot</ID>
-    <ID>CognitiveComplexMethod:BehaviouralArtifacts.kt:private fun reviewArtifacts: Map&lt;String, String&gt;</ID>
-    <ID>CognitiveComplexMethod:Exploration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.explorePaths: BehaviouralExplorationReport&lt;C, A&gt;</ID>
-    <ID>CognitiveComplexMethod:GeneratedScenarios.kt:ScenarioModel$private fun choices: List&lt;MachineInput&lt;A&gt;&gt;</ID>
-    <ID>CognitiveComplexMethod:MutationTesting.kt:suspend fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.testMutations: MutationReport</ID>
-    <ID>CognitiveComplexMethod:ScheduleExploration.kt:suspend fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.exploreSchedules: ScheduleReport&lt;A&gt;</ID>
-    <ID>CognitiveComplexMethod:Shrinking.kt:fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.shrink: ShrinkReport&lt;C, A&gt;</ID>
-    <ID>CognitiveComplexMethod:TemporalRules.kt:TemporalRules$fun respondsWithin</ID>
-    <ID>CognitiveComplexMethod:TestPlan.kt:internal fun &lt;T : Any&gt; selectCoverage: Selection</ID>
-    <ID>ComplexCondition:GeneratedScenarios.kt:ScenarioModel$!active &amp;&amp; ReplyMode.LateAction in modes &amp;&amp; steps.none { val input = it.input input is MachineInput.Dispatch &amp;&amp; input.action == action }</ID>
-    <ID>ComplexCondition:GeneratedScenarios.kt:ScenarioModel$(active || ReplyMode.LateCommand in modes) &amp;&amp; steps.none { val input = it.input input is MachineInput.CommandResult &amp;&amp; input.command == command.id &amp;&amp; input.action == action }</ID>
-    <ID>ComplexCondition:TemporalRules.kt:TemporalReport$violations.isNotEmpty() || pending.isNotEmpty() || (requireTriggers &amp;&amp; triggers.values.any { it == 0 })</ID>
-    <ID>CyclomaticComplexMethod:BehaviouralArtifacts.kt:fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.behaviouralSnapshot: BehaviouralSnapshot</ID>
-    <ID>CyclomaticComplexMethod:BehaviouralArtifacts.kt:private fun reviewArtifacts: Map&lt;String, String&gt;</ID>
-    <ID>CyclomaticComplexMethod:CoverageTargets.kt:fun StateChartDefinition.requirements: CoverageRequirements</ID>
-    <ID>CyclomaticComplexMethod:Exploration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.explorePaths: BehaviouralExplorationReport&lt;C, A&gt;</ID>
-    <ID>CyclomaticComplexMethod:GeneratedScenarios.kt:ScenarioModel$private fun choices: List&lt;MachineInput&lt;A&gt;&gt;</ID>
-    <ID>CyclomaticComplexMethod:ScheduleExploration.kt:suspend fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.exploreSchedules: ScheduleReport&lt;A&gt;</ID>
-    <ID>LongMethod:BehaviouralArtifacts.kt:fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.behaviouralSnapshot: BehaviouralSnapshot</ID>
-    <ID>LongMethod:BehaviouralArtifacts.kt:private fun reviewArtifacts: Map&lt;String, String&gt;</ID>
-    <ID>LongMethod:Exploration.kt:internal fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.explorePaths: BehaviouralExplorationReport&lt;C, A&gt;</ID>
-    <ID>LongMethod:ScheduleExploration.kt:suspend fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.exploreSchedules: ScheduleReport&lt;A&gt;</ID>
-    <ID>MatchingDeclarationName:ActionGenerators.kt:ActionGenerator&lt;C : Any, A : Action&gt;</ID>
-    <ID>MatchingDeclarationName:CoverageRecorder.kt:MachineCoverageRecorder&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : DecisionTraceObserver</ID>
-    <ID>MatchingDeclarationName:Shrinking.kt:ShrinkReport&lt;C : Any, A : Action&gt;</ID>
-    <ID>NestedBlockDepth:ScheduleExploration.kt:suspend fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.exploreSchedules: ScheduleReport&lt;A&gt;</ID>
-    <ID>ThrowsCount:ScheduleExploration.kt:suspend fun &lt;C : Any, A : Action, CMD : Any, E : Event&gt; Machine&lt;C, A, CMD, E&gt;.exploreSchedules: ScheduleReport&lt;A&gt;</ID>
-    <ID>ThrowsCount:TestPlan.kt:MachineTestPlan$fun assertReady</ID>
+    <!-- User rule and verifier failures become explicit test results; they must not look like successful checks. -->
     <ID>TooGenericExceptionCaught:GeneratedScenarios.kt:ScenarioRule$error: Exception</ID>
     <ID>TooGenericExceptionCaught:MutationTesting.kt:error: Exception</ID>
+    <!-- The stable public test-driver facade delegates history, execution, commands and coverage to their owners. -->
     <ID>TooManyFunctions:MachineTestDriver.kt:MachineTestDriver&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
-    <ID>WildcardImport:ActionGenerators.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:AdvancedTestingTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:AdvancedTestingTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:BehaviouralArtifacts.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:BehaviouralArtifacts.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:BehaviouralArtifacts.kt:import kotlinx.serialization.json.*</ID>
-    <ID>WildcardImport:BehaviouralArtifactsTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:BehaviouralArtifactsTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:BehaviouralArtifactsTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:BehaviouralArtifactsTest.kt:import kotlinx.serialization.json.*</ID>
-    <ID>WildcardImport:CompetitiveTargetsTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:CompetitiveTargetsTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CompetitiveTargetsTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:CoverageRecorder.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CoverageTargets.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:CoverageTargets.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:DerivedFeaturesTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:DerivedFeaturesTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:DerivedFeaturesTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:Exploration.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:GeneratedScenarios.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:GeneratedScenariosTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:GeneratedScenariosTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:MachineTestDslTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:MachineTestDslTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:ModelBasedTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:ModelBasedTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:ModelBasedTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:MutationTesting.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:ScheduleExploration.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:Shrinking.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:TargetedTestPlan.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:TestPlan.kt:import actron.statechart.machine.*</ID>
   </CurrentIssues>
 </SmellBaseline>

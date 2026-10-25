@@ -196,20 +196,13 @@ class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
         if (snapshot.context != expected) throw AssertionError("[Actron] Expected the context $expected, but it is ${snapshot.context}")
     }
 
-    private var checkedSnapshots = 0
+    private val invariantHistory = DriverInvariantHistory(machine)
 
-    /** Checks every newly recorded stable snapshot, including transient states between settles. */
-    fun assertInvariants() {
-        val states = recorder.states
-        while (checkedSnapshots < states.size) {
-            val state = states[checkedSnapshots]
-            if (state.isStarted) {
-                val violations = machine.checkInvariants(state)
-                if (violations.isNotEmpty()) throw AssertionError("[Actron] Invariants violated at revision ${state.revision}: ${violations.map { it.name }}")
-            }
-            checkedSnapshots++
-        }
-    }
+    /**
+     * Checks every newly recorded stable snapshot, including transient states between settles.
+     * Clearing [recorder] starts a new history; its new snapshots are still checked.
+     */
+    fun assertInvariants() = invariantHistory.check(recorder.states)
 
     /** The end-of-test check; see [MachineStore.assertNoPendingWork]. */
     suspend fun assertNoPendingWork() = store.assertNoPendingWork(recorder)

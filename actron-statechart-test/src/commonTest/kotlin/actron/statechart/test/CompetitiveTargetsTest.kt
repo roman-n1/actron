@@ -4,9 +4,26 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
-import actron.statechart.machine.*
-import kotlin.test.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.CompoundState
+import actron.statechart.FinalState
+import actron.statechart.HistoryState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.Trigger
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.TransitionId
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class CompetitiveTargetsTest {
