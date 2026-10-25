@@ -1,7 +1,5 @@
 package actron.compose
 
-import actron.core.Action
-import actron.core.Event
 import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
@@ -9,7 +7,6 @@ import actron.core.Store
 import androidx.compose.runtime.AbstractApplier
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
@@ -26,10 +23,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -108,190 +101,6 @@ class ViewStoreJvmTest {
                 owner.viewModelStore.clear()
                 Dispatchers.resetMain()
             }
-        }
-
-    @Test
-    fun select_derivesFromTheState_andItsReadersRecomposeOnlyWhenTheDerivedValueChanges() =
-        runTest(testDispatcher) {
-            val store = TestStore(UiState.Ready(1))
-            val buckets = mutableListOf<Int>()
-            val parents = mutableListOf<Int>()
-            withNodeComposition(TestNode(), content = {
-                val viewStore = rememberViewStore(store)
-                parents += 1
-                BucketReader(viewStore, buckets)
-            }, afterSetContent = { pumpFrame ->
-                store.state.value = UiState.Ready(2)
-                repeat(2) { pumpFrame() }
-                store.state.value = UiState.Ready(12)
-                repeat(2) { pumpFrame() }
-                store.state.value = UiState.Ready(15)
-                repeat(2) { pumpFrame() }
-            })
-
-            assertEquals(listOf(0, 1), buckets, "the reader recomposed once for 1 -> 12 (a new bucket) and not for 1 -> 2 or 12 -> 15 (the same bucket)")
-            assertEquals(1, parents.size, "the parent did not read the state, so it never recomposed")
-        }
-
-    @Test
-    fun select_usesTheLatestMapper() =
-        runTest(testDispatcher) {
-            val store = TestStore(UiState.Ready(3))
-            val factor = mutableStateOf(1)
-            val seen = mutableListOf<Int>()
-            withNodeComposition(TestNode(), content = {
-                val viewStore = rememberViewStore(store)
-                val multiplier = factor.value
-                seen += viewStore.select { (it as UiState.Ready).value * multiplier }
-            }, afterSetContent = { pumpFrame ->
-                factor.value = 10
-                repeat(2) { pumpFrame() }
-            })
-
-            assertEquals(listOf(3, 30), seen)
-        }
-
-    @Test
-    fun stateContent_callsBlockOnlyForMatchingState() =
-        runTest(testDispatcher) {
-            val renderedValues = mutableListOf<Int>()
-
-            withComposition(
-                content = {
-                    ViewStore<UiState, Nothing, Nothing>(state = UiState.Ready(10))
-                        .stateContent<UiState.Ready> {
-                            renderedValues += state.value
-                        }
-
-                    ViewStore<UiState, Nothing, Nothing>(state = UiState.Loading)
-                        .stateContent<UiState.Ready> {
-                            renderedValues += state.value
-                        }
-                },
-            )
-
-            assertEquals(listOf(10), renderedValues)
-        }
-
-    @Test
-    fun eventEffect_collectsOnlySpecifiedEventType() =
-        runTest(testDispatcher) {
-            val events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-            val handled = mutableListOf<UiEvent.ValueChanged>()
-
-            withComposition(
-                content = {
-                    ViewStore<UiState, UiAction, UiEvent>(
-                        state = UiState.Ready(0),
-                        eventFlow = events,
-                    ).eventEffect<UiEvent.ValueChanged> { event ->
-                        handled += event
-                    }
-                },
-                afterSetContent = {
-                    assertTrue(events.tryEmit(UiEvent.Reset))
-                    assertTrue(events.tryEmit(UiEvent.ValueChanged(42)))
-                },
-            )
-
-            assertEquals(listOf(UiEvent.ValueChanged(42)), handled)
-        }
-
-    @Test
-    fun eventEffect_usesLatestViewStoreAndLambdaAfterRecomposition() =
-        runTest(testDispatcher) {
-            val events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-            val handled = mutableListOf<String>()
-            var label = "initial"
-            var viewState: UiState = UiState.Ready(1)
-            val frameClock = BroadcastFrameClock()
-            var frameTimeNanos = 0L
-
-            suspend fun pumpFrame() {
-                testScheduler.runCurrent()
-                frameTimeNanos += 16_000_000L
-                frameClock.sendFrame(frameTimeNanos)
-                testScheduler.runCurrent()
-            }
-
-            withContext(frameClock) {
-                withRunningRecomposer { recomposer ->
-                    val composition = Composition(NoOpApplier(), recomposer)
-                    try {
-                        composition.setContent {
-                            ViewStore<UiState, UiAction, UiEvent>(
-                                state = viewState,
-                                eventFlow = events,
-                            ).eventEffect<UiEvent.ValueChanged> { event ->
-                                handled += "${(state as UiState.Ready).value}:$label:${event.value}"
-                            }
-                        }
-                        repeat(2) { pumpFrame() }
-
-                        label = "updated"
-                        viewState = UiState.Ready(2)
-                        composition.setContent {
-                            ViewStore<UiState, UiAction, UiEvent>(
-                                state = viewState,
-                                eventFlow = events,
-                            ).eventEffect<UiEvent.ValueChanged> { event ->
-                                handled += "${(state as UiState.Ready).value}:$label:${event.value}"
-                            }
-                        }
-                        repeat(2) { pumpFrame() }
-
-                        assertTrue(events.tryEmit(UiEvent.ValueChanged(42)))
-                        repeat(2) { pumpFrame() }
-                    } finally {
-                        composition.dispose()
-                        pumpFrame()
-                    }
-                }
-            }
-
-            assertEquals(listOf("2:updated:42"), handled)
-        }
-
-    @Suppress("DEPRECATION")
-    @Test
-    fun render_delegatesToStateContent() =
-        runTest(testDispatcher) {
-            val renderedValues = mutableListOf<Int>()
-
-            withComposition(
-                content = {
-                    ViewStore<UiState, Nothing, Nothing>(state = UiState.Ready(7))
-                        .render<UiState.Ready> {
-                            renderedValues += state.value
-                        }
-                },
-            )
-
-            assertEquals(listOf(7), renderedValues)
-        }
-
-    @Suppress("DEPRECATION")
-    @Test
-    fun handle_delegatesToEventEffect() =
-        runTest(testDispatcher) {
-            val events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-            val handled = mutableListOf<UiEvent.ValueChanged>()
-
-            withComposition(
-                content = {
-                    ViewStore<UiState, UiAction, UiEvent>(
-                        state = UiState.Ready(0),
-                        eventFlow = events,
-                    ).handle<UiEvent.ValueChanged> { event ->
-                        handled += event
-                    }
-                },
-                afterSetContent = {
-                    assertTrue(events.tryEmit(UiEvent.ValueChanged(100)))
-                },
-            )
-
-            assertEquals(listOf(UiEvent.ValueChanged(100)), handled)
         }
 
     @Test
@@ -518,55 +327,6 @@ class ViewStoreJvmTest {
         }
 
     @Test
-    fun stateContent_callbackRunAfterStateTypeChanged_readsLastNarrowedState() =
-        runTest(testDispatcher) {
-            val store = TestStore(UiState.Ready(1))
-            val readValueObservations = mutableListOf<() -> Int>()
-
-            withComposition(
-                content = {
-                    rememberViewStore { store }.stateContent<UiState.Ready> {
-                        readValueObservations.add({ state.value })
-                    }
-                },
-                afterSetContent = {
-                    assertEquals(1, readValueObservations.last()())
-
-                    store.state.value = UiState.Ready(5)
-                    testScheduler.runCurrent()
-                    assertEquals(5, readValueObservations.last()())
-
-                    // A click handler of the Ready content that runs before recomposition removes it.
-                    store.state.value = UiState.Loading
-                    testScheduler.runCurrent()
-                    assertEquals(5, readValueObservations.last()())
-                },
-            )
-        }
-
-    @Test
-    fun stateContent_callbackThatNeverReadStateDuringComposition_readsLastNarrowedState() =
-        runTest(testDispatcher) {
-            val store = TestStore(UiState.Ready(1))
-            val readValueObservations = mutableListOf<() -> Int>()
-
-            withComposition(
-                content = {
-                    rememberViewStore { store }.stateContent<UiState.Ready> {
-                        // Reads state only inside the callback, as a click handler does.
-                        readValueObservations.add({ state.value })
-                    }
-                },
-                afterSetContent = {
-                    // A click handler of the Ready content that runs before recomposition removes it.
-                    store.state.value = UiState.Loading
-                    testScheduler.runCurrent()
-                    assertEquals(1, readValueObservations.last()())
-                },
-            )
-        }
-
-    @Test
     fun childThatDoesNotReadViewStoreState_doesNotUpdateRenderedNodeOnStateUpdate() =
         runTest(testDispatcher) {
             val store = TestStore(UiState.Ready(1))
@@ -695,6 +455,37 @@ class ViewStoreJvmTest {
             )
 
             assertEquals(1, alwaysCloseStore.closeCount)
+        }
+
+    @Test
+    fun rememberViewStore_keyChangeReturningSameStoreKeepsItsViewAndCloseOwnership() =
+        runTest(testDispatcher) {
+            val store = TestStore(UiState.Ready(0))
+            val storeKey = mutableStateOf(0)
+            val autoClose = mutableStateOf(false)
+            val createdForKeys = mutableListOf<Int>()
+            val views = mutableListOf<ViewStore<UiState, UiAction, UiEvent>>()
+
+            withNodeComposition(
+                TestNode(),
+                content = {
+                    views +=
+                        rememberViewStore(key = storeKey.value, autoClose = autoClose.value) {
+                            createdForKeys += storeKey.value
+                            store
+                        }
+                },
+                afterSetContent = { pumpFrame ->
+                    storeKey.value = 1
+                    autoClose.value = true
+                    repeat(2) { pumpFrame() }
+                },
+            )
+
+            assertEquals(listOf(0, 1), createdForKeys)
+            assertTrue(views.size >= 2)
+            views.forEach { assertSame(views.first(), it) }
+            assertEquals(0, store.closeCount, "the same Store keeps its original close ownership")
         }
 
     @Test
@@ -840,195 +631,6 @@ class ViewStoreJvmTest {
                 },
             )
         }
-
-    private suspend fun TestScope.withComposition(
-        content: @Composable () -> Unit,
-        afterSetContent: suspend () -> Unit = {},
-    ) {
-        val frameClock = BroadcastFrameClock()
-        var frameTimeNanos = 0L
-
-        suspend fun pumpFrame() {
-            testScheduler.runCurrent()
-            frameTimeNanos += 16_000_000L
-            frameClock.sendFrame(frameTimeNanos)
-            testScheduler.runCurrent()
-        }
-
-        withContext(frameClock) {
-            withRunningRecomposer { recomposer ->
-                val composition = Composition(NoOpApplier(), recomposer)
-                try {
-                    composition.setContent(content)
-                    repeat(2) { pumpFrame() }
-
-                    afterSetContent()
-                    repeat(2) { pumpFrame() }
-                } finally {
-                    composition.dispose()
-                    pumpFrame()
-                }
-            }
-        }
-    }
-
-    private suspend fun TestScope.withNodeComposition(
-        root: TestNode,
-        content: @Composable () -> Unit,
-        afterSetContent: suspend (pumpFrame: suspend () -> Unit) -> Unit = {},
-    ) {
-        val frameClock = BroadcastFrameClock()
-        var frameTimeNanos = 0L
-
-        suspend fun pumpFrame() {
-            testScheduler.runCurrent()
-            Snapshot.sendApplyNotifications()
-            frameTimeNanos += 16_000_000L
-            frameClock.sendFrame(frameTimeNanos)
-            testScheduler.runCurrent()
-        }
-
-        withContext(frameClock) {
-            withRunningRecomposer { recomposer ->
-                val composition = Composition(TestApplier(root), recomposer)
-                try {
-                    composition.setContent(content)
-                    repeat(2) { pumpFrame() }
-
-                    afterSetContent(::pumpFrame)
-                    repeat(2) { pumpFrame() }
-                } finally {
-                    composition.dispose()
-                    pumpFrame()
-                }
-            }
-        }
-    }
-}
-
-private sealed interface UiState : State {
-    data object Loading : UiState
-
-    data object Busy : UiState
-
-    data class Ready(
-        val value: Int,
-    ) : UiState
-}
-
-private sealed interface UiAction : Action {
-    data object Increment : UiAction
-}
-
-private sealed interface UiEvent : Event {
-    data object Reset : UiEvent
-
-    data class ValueChanged(
-        val value: Int,
-    ) : UiEvent
-}
-
-private class TestStore(
-    initialState: UiState,
-) : Store<UiState, UiAction, UiEvent> {
-    override val state = MutableStateFlow(initialState)
-    private val eventFlow = MutableSharedFlow<UiEvent>()
-    override val event: Flow<UiEvent> = eventFlow
-    override val currentState: UiState get() = state.value
-
-    val dispatchedActions = mutableListOf<UiAction>()
-    var closeCount: Int = 0
-        private set
-
-    override fun start() = Unit
-
-    override fun dispatch(action: UiAction) {
-        dispatchedActions += action
-    }
-
-    override fun collectState(state: (UiState) -> Unit) = Unit
-
-    override fun collectEvent(event: (UiEvent) -> Unit) = Unit
-
-    override fun close() {
-        closeCount++
-    }
-}
-
-@Composable
-private fun BucketReader(
-    viewStore: ViewStore<UiState, UiAction, UiEvent>,
-    log: MutableList<Int>,
-) {
-    val bucket = viewStore.select { (it as UiState.Ready).value / 10 }
-    log += bucket
-}
-
-@Composable
-private fun StateNode(state: UiState) {
-    ComposeNode<TestNode, TestApplier>(
-        factory = { TestNode() },
-        update = {
-            set(state) {
-                this.state = it
-            }
-        },
-    )
-}
-
-private class TestNode {
-    val children = mutableListOf<TestNode>()
-    val renderHistory = mutableListOf<UiState>()
-    var state: UiState
-        get() = renderHistory.last()
-        set(value) {
-            renderHistory += value
-        }
-
-    val singleChild: TestNode
-        get() = children.single()
-}
-
-private class TestApplier(
-    root: TestNode,
-) : AbstractApplier<TestNode>(root) {
-    override fun insertTopDown(
-        index: Int,
-        instance: TestNode,
-    ) = Unit
-
-    override fun insertBottomUp(
-        index: Int,
-        instance: TestNode,
-    ) {
-        current.children.add(index, instance)
-    }
-
-    override fun move(
-        from: Int,
-        to: Int,
-        count: Int,
-    ) {
-        val children = current.children
-        val moved = children.subList(from, from + count).toList()
-        repeat(count) {
-            children.removeAt(from)
-        }
-        children.addAll(if (to > from) to - count else to, moved)
-    }
-
-    override fun remove(
-        index: Int,
-        count: Int,
-    ) {
-        repeat(count) {
-            current.children.removeAt(index)
-        }
-    }
-
-    override fun onClear() {
-        root.children.clear()
-    }
 }
 
 private class NoOpApplier : AbstractApplier<Unit>(Unit) {
