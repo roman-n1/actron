@@ -4,12 +4,47 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.TransitionId
+import actron.statechart.machine.check
+import actron.statechart.machine.typedStateMachine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 class AdvancedTestingTest {
+    @Test
+    fun cancelledScheduleClosesEveryCommandBeforePropagatingCancellation() =
+        runTest {
+            val handlers = mutableListOf<ScriptedCommandHandler<Int, Act>>()
+            val cancellation = CancellationException("stop exploration")
+            val failure =
+                assertFailsWith<CancellationException> {
+                    machine().exploreSchedules(
+                        Context(),
+                        this,
+                        setup = {
+                            send(Act.Load)
+                            handlers += handler
+                        },
+                        choices = { throw cancellation },
+                        check = {},
+                    )
+                }
+            assertTrue(failure === cancellation)
+            val handler = handlers.single()
+            assertEquals(2, handler.started.size)
+            assertEquals(handler.started.map { it.id }, handler.cancelled)
+            assertTrue(handler.running.isEmpty())
+        }
+
     sealed interface Phase {
         data object Idle : Phase
 

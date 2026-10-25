@@ -4,8 +4,17 @@ import actron.core.Action
 import actron.core.Event
 import actron.observability.FailureDescriptor
 import actron.statechart.StateId
-import actron.statechart.machine.*
-import kotlin.random.Random
+import actron.statechart.machine.Decision
+import actron.statechart.machine.DecisionOutcome
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.InvariantViolation
+import actron.statechart.machine.InvariantViolationException
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineSnapshot
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.TransitionId
 
 /** Supplies typed payloads and command answers; a deterministic function of snapshot and time. */
 fun interface MachineInputGenerator<C : Any, A : Action> {
@@ -215,152 +224,7 @@ internal fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.e
     inspect: (List<ScenarioStep<C, A, CMD, E>>) -> List<InvariantViolation> = { emptyList() },
     goalsMet: () -> Boolean = { true },
 ): BehaviouralExplorationReport<C, A> {
-    require(maxDepth >= 0 && maxDecisions > 0 && maxFailures > 0) { "[Actron] Invalid exploration limits" }
-    val coverage = MachineCoverageRecorder(this)
-    val failures = mutableListOf<SequenceFailure<C, A>>()
-    var decisions = 0
-    var checked = 0L
-    var truncated = false
-    val scenarios = linkedMapOf<MachineCoverage, MachineScenario<A>>()
-    val emptyCoverage = coverage.snapshot()
-    val goalMet: () -> Boolean =
-        when (strategy) {
-            ExplorationStrategy.AllTransitions -> {
-                val requirements = chart.requirements(CoverageTarget.AllTransitions)
-
-                fun(): Boolean = requirements.missing(coverage.snapshot()).isEmpty
-            }
-
-            is ExplorationStrategy.Cover -> {
-                val requirements = chart.requirements(strategy.target)
-
-                fun(): Boolean = requirements.missing(coverage.snapshot()).isEmpty
-            }
-
-            else -> {
-                { false }
-            }
-        }
-
-    data class Path<C : Any, A : Action, CMD : Any, E : Event>(
-        val snapshot: MachineSnapshot<C>,
-        val inputs: List<MachineInput<A>>,
-        val now: MachineTime,
-        val depth: Int,
-        val transitions: Set<TransitionId> = emptySet(),
-        val localCoverage: MachineCoverage,
-        val steps: List<ScenarioStep<C, A, CMD, E>> = emptyList(),
-    )
-
-    fun decidePath(
-        path: Path<C, A, CMD, E>,
-        input: MachineInput<A>,
-        depth: Int,
-        advance: (Path<C, A, CMD, E>) -> Unit,
-    ): Boolean {
-        if (decisions >= maxDecisions || failures.size >= maxFailures) {
-            truncated = true
-            return false
-        }
-        require(input.now >= path.now) { "[Actron] Generator moved virtual time backwards" }
-        val explained = decideExplained(path.snapshot, input)
-        decisions++
-        coverage.accept(explained)
-        checked += invariants.size + checksPerStep
-        val inputs = path.inputs + input
-        val covered = path.transitions + explained.decision.transitions
-        val local =
-            path.localCoverage.copy(
-                states =
-                    path.localCoverage.states.copy(
-                        covered =
-                            path.localCoverage.states.covered + explained.explanation.active +
-                                explained.decision.snapshot.configuration.active + explained.decision.entered.map { it.node },
-                    ),
-                transitions = path.localCoverage.transitions.copy(covered = covered),
-                guards =
-                    path.localCoverage.guards.copy(
-                        covered =
-                            path.localCoverage.guards.covered +
-                                explained.explanation.guards
-                                    .filter { it.result == actron.statechart.GuardCheck.Allowed || it.result == actron.statechart.GuardCheck.Rejected }
-                                    .map { GuardOutcome(it.transition, it.result == actron.statechart.GuardCheck.Allowed) },
-                    ),
-                timers = path.localCoverage.timers.copy(covered = covered intersect path.localCoverage.timers.expected),
-            )
-        if (local !in scenarios) {
-            scenarios[local] = MachineScenario("scenario-${scenarios.size + 1}", inputs.toList())
-        } else {
-            val previous = scenarios.getValue(local)
-            if (inputs.size < previous.inputs.size) scenarios[local] = previous.copy(inputs = inputs.toList())
-        }
-        val steps = if (retainSteps) path.steps + ScenarioStep(path.snapshot, input, explained) else emptyList()
-        val violations = inspect(steps)
-        val problems = mutableListOf<SequenceProblem>()
-        sequenceFailure(inputs, explained.decision) { problems += it.problems }
-        if (violations.isNotEmpty()) problems += SequenceProblem.Invariants(violations)
-        if (problems.isNotEmpty()) {
-            failures += SequenceFailure(inputs, explained.decision.snapshot, problems)
-            return false
-        }
-        advance(Path(explained.decision.snapshot, inputs, input.now, depth, covered, local, steps))
-        return true
-    }
-
-    require(initial.definition == id && initial.version == version) { "[Actron] Snapshot belongs to another machine or version" }
-    val initialPath = Path<C, A, CMD, E>(initial, emptyList(), now, 0, localCoverage = emptyCoverage.copy(states = emptyCoverage.states.copy(covered = initial.configuration.active)))
-    var start = initialPath
-    var mayExplore = true
-    if (!initial.isStarted) {
-        mayExplore = decidePath(initialPath, MachineInput.Start(now), 0) { start = it }
-    } else {
-        coverage.observeInitial(initial)
-        scenarios[initialPath.localCoverage] = MachineScenario("initial", emptyList())
-        checked += invariants.size
-        val violations = checkInvariants(initial)
-        if (violations.isNotEmpty()) {
-            failures += SequenceFailure(emptyList(), initial, listOf(SequenceProblem.Invariants(violations)))
-            mayExplore = false
-        }
-    }
-    when (strategy) {
-        ExplorationStrategy.BreadthFirst, ExplorationStrategy.AllTransitions, is ExplorationStrategy.Cover -> {
-            val queue = ArrayDeque<Path<C, A, CMD, E>>()
-            if (mayExplore) queue.addLast(start)
-            while (queue.isNotEmpty() && !truncated) {
-                if (goalMet() && goalsMet()) break
-                val path = queue.removeFirst()
-                if (path.depth == maxDepth) continue
-                for (input in generator(path.snapshot, path.now, path.steps)) {
-                    decidePath(path, input, path.depth + 1, queue::addLast)
-                    if (truncated || (goalMet() && goalsMet())) break
-                }
-            }
-        }
-
-        is ExplorationStrategy.RandomWalk -> {
-            val random = Random(strategy.seed)
-            repeat(strategy.runs) {
-                var path = start
-                var advancing = mayExplore
-                while (advancing && path.depth < maxDepth && !truncated) {
-                    val choices = generator(path.snapshot, path.now, path.steps)
-                    if (choices.isEmpty()) break
-                    advancing = decidePath(path, choices[random.nextInt(choices.size)], path.depth + 1) { path = it }
-                }
-            }
-        }
-    }
-    val report =
-        ExplorationReport(
-            decisions,
-            checked,
-            coverage.snapshot(),
-            failures.toList(),
-            truncated,
-            maxDepth,
-            scenarios.values.toList(),
-            scenarios.map { (observations, scenario) -> ScenarioCoverage(scenario, observations.transitions.covered) },
-        )
-    return BehaviouralExplorationReport(report, scenarios.map { (observations, scenario) -> BehaviouralScenarioCoverage(scenario, observations) })
+    val limits = ExplorationLimits(maxDepth, maxDecisions, maxFailures)
+    val hooks = ExplorationHooks(generator, retainSteps, checksPerStep, inspect, goalsMet)
+    return ModelExplorer(this, strategy, limits, hooks).run(initial, now)
 }

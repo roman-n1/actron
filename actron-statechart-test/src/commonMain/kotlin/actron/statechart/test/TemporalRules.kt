@@ -18,7 +18,8 @@ data class TemporalReport(
     val triggers: Map<String, Int>,
 ) {
     fun assertSatisfied(requireTriggers: Boolean = true) {
-        if (violations.isNotEmpty() || pending.isNotEmpty() || (requireTriggers && triggers.values.any { it == 0 })) throw AssertionError("[Actron] Temporal rules: violations=$violations; pending=$pending; triggers=$triggers")
+        val missingTriggers = requireTriggers && triggers.values.any { it == 0 }
+        if (violations.isNotEmpty() || pending.isNotEmpty() || missingTriggers) throw AssertionError("[Actron] Temporal rules: violations=$violations; pending=$pending; triggers=$triggers")
     }
 }
 
@@ -50,35 +51,8 @@ class TemporalRules<C : Any, A : Action, CMD : Any, E : Event> {
         satisfied: (trigger: ScenarioStep<C, A, CMD, E>, later: ScenarioStep<C, A, CMD, E>) -> Boolean,
     ) {
         require(within.isFinite() && within >= Duration.ZERO && maxSteps >= 0)
-        add(name) { steps ->
-            val violations = mutableListOf<TemporalFinding>()
-            val pending = mutableListOf<TemporalFinding>()
-            val triggers = steps.indices.filter { triggered(steps[it]) }
-            for (start in triggers) {
-                val trigger = steps[start]
-                var resolved = false
-                for (index in start..steps.lastIndex) {
-                    val current = steps[index]
-                    val elapsed = current.input.now - trigger.input.now
-                    if (elapsed > within || index - start > maxSteps) {
-                        violations += TemporalFinding(name, start, index, "Response deadline exceeded")
-                        resolved = true
-                        break
-                    }
-                    if (satisfied(trigger, current)) {
-                        resolved = true
-                        break
-                    }
-                    if (index - start == maxSteps) {
-                        violations += TemporalFinding(name, start, index, "No response at the response deadline")
-                        resolved = true
-                        break
-                    }
-                }
-                if (!resolved) pending += TemporalFinding(name, start, steps.lastIndex, "Trace ended before this obligation was resolved")
-            }
-            TemporalReport(violations, pending, mapOf(name to triggers.size))
-        }
+        val response = ResponseWindow(name, within, maxSteps, triggered, satisfied)
+        add(name, response::check)
     }
 
     private fun add(

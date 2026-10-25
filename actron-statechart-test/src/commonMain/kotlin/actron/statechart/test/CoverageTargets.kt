@@ -1,7 +1,11 @@
 package actron.statechart.test
 
-import actron.statechart.*
-import actron.statechart.machine.*
+import actron.statechart.GuardCondition
+import actron.statechart.HistoryState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.machine.TransitionId
 
 /** Finite obligations. Error semantics are supplied by the application, never inferred from names. */
 sealed interface CoverageTarget {
@@ -40,14 +44,8 @@ data class CoverageRequirements(
     operator fun plus(other: CoverageRequirements): CoverageRequirements = CoverageRequirements(states + other.states, transitions + other.transitions, guards + other.guards)
 }
 
-fun StateChartDefinition.requirements(target: CoverageTarget): CoverageRequirements {
-    val ids = states.mapTo(linkedSetOf()) { it.id }
-
-    fun checked(requested: Set<StateId>): Set<StateId> {
-        require(requested.all { it in ids && node(it) !is HistoryState }) { "[Actron] Coverage target must name declared active states" }
-        return requested
-    }
-    return when (target) {
+fun StateChartDefinition.requirements(target: CoverageTarget): CoverageRequirements =
+    when (target) {
         CoverageTarget.AllStates -> {
             CoverageRequirements(states = states.filter { it !is HistoryState }.mapTo(linkedSetOf()) { it.id })
         }
@@ -77,12 +75,12 @@ fun StateChartDefinition.requirements(target: CoverageTarget): CoverageRequireme
         }
 
         is CoverageTarget.TargetStates -> {
-            CoverageRequirements(states = checked(target.states))
+            CoverageRequirements(states = checkedActiveStates(target.states))
         }
 
         is CoverageTarget.Custom -> {
             target.requirements.also { requirements ->
-                checked(requirements.states)
+                checkedActiveStates(requirements.states)
                 require(
                     requirements.transitions.all { it.index in transitions.indices } &&
                         requirements.guards.all {
@@ -93,7 +91,7 @@ fun StateChartDefinition.requirements(target: CoverageTarget): CoverageRequireme
         }
 
         is CoverageTarget.AllErrorPaths -> {
-            val errors = checked(target.errorStates)
+            val errors = checkedActiveStates(target.errorStates)
             CoverageRequirements(
                 transitions =
                     transitions
@@ -104,6 +102,11 @@ fun StateChartDefinition.requirements(target: CoverageTarget): CoverageRequireme
             )
         }
     }
+
+private fun StateChartDefinition.checkedActiveStates(requested: Set<StateId>): Set<StateId> {
+    val ids = states.mapTo(linkedSetOf()) { it.id }
+    require(requested.all { it in ids && node(it) !is HistoryState }) { "[Actron] Coverage target must name declared active states" }
+    return requested
 }
 
 /** Transition-based metrics; history pseudo-nodes are never incorrectly counted as active states. */
