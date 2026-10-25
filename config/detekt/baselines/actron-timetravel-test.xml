@@ -1,13 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>WildcardImport:ScenarioRecording.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:ScenarioRecording.kt:import actron.timetravel.*</ID>
-    <ID>WildcardImport:ScenarioRecordingTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:ScenarioRecordingTest.kt:import actron.statechart.test.*</ID>
-    <ID>WildcardImport:ScenarioRecordingTest.kt:import actron.timetravel.*</ID>
-    <ID>WildcardImport:ScenarioRecordingTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:ScenarioRecordingTest.kt:import kotlinx.serialization.json.*</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>

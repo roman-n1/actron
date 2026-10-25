@@ -2,11 +2,26 @@ package actron.timetravel.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
-import actron.statechart.test.*
-import actron.timetravel.*
-import kotlinx.serialization.json.*
-import kotlin.test.*
+import actron.statechart.machine.DecisionOutcome
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.typedStateMachine
+import actron.statechart.test.scenarios
+import actron.timetravel.HistoryExportSettings
+import actron.timetravel.HistoryRecordingCodec
+import actron.timetravel.HistoryTimeline
+import actron.timetravel.historyDefinition
+import actron.timetravel.historyFields
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 

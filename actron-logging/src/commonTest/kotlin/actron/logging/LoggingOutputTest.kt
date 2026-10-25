@@ -4,12 +4,12 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
+import actron.core.closeAndJoin
+import actron.test.awaitIdle
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -98,18 +98,23 @@ class LoggingOutputTest {
                     }
                 }
 
-            withContext(Dispatchers.Default) {
-                repeat(200) { store.dispatch(CounterAction.Increment) }
-                withTimeout(10_000) { store.state.first { it.count == 200 } }
-            }
-
-            val expected =
-                (0 until 200).flatMap {
-                    listOf("Action: Increment", "State: CounterState(count=${it + 1}) <- CounterState(count=$it)")
+            try {
+                withContext(Dispatchers.Default) {
+                    repeat(200) { store.dispatch(CounterAction.Increment) }
+                    // State publication precedes onState: wait for the whole input, including hooks.
+                    store.awaitIdle()
                 }
-            // Hooks run under the Store's lock, so the plain list is written by one hook at a time.
-            assertEquals(expected, entries)
-            store.close()
+
+                assertEquals(CounterState(200), store.currentState)
+                val expected =
+                    (0 until 200).flatMap {
+                        listOf("Action: Increment", "State: CounterState(count=${it + 1}) <- CounterState(count=$it)")
+                    }
+                // Hooks serialize writes; awaitIdle above also finishes them before this read.
+                assertEquals(expected, entries)
+            } finally {
+                store.closeAndJoin()
+            }
         }
 
     private sealed interface FlowState : State {

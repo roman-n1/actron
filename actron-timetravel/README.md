@@ -4,6 +4,28 @@ Use this module to **reproduce a recorded Machine decision**, find the first dif
 try another input from its historical checkpoint. A replay is an offline computation, not a
 live Store rewound in place. Ordinary Store logging alone cannot supply a replay recording.
 
+## Initialization and build variants
+
+There is no global initialization or automatic recorder. Attach observers explicitly before
+starting a machine, only in the build that needs debugging. Configure bounded histories once:
+
+```kotlin
+val configuration = HistoryConfiguration(capacity = 1000) // default: 500, must be > 0
+val timeline = HistoryTimeline<AppFrame>(configuration)
+val recorder = BoundedMachineRecorder(machine, checkpoint, configuration)
+```
+
+Capacity counts entries, not bytes. A timeline and recorder remain separate owners; when
+combining machines, trim each recorder as its global timeline entries are evicted (the Weather
+adapter demonstrates this). Captures, pinned entries and external references can outlive a ring.
+
+On Android put the inspector and recorder integration in `src/debug` and use
+`debugImplementation` for the time-travel artifacts. Release should not refer to these types
+or construct an observer. A visibility flag alone does not stop recording or remove code.
+For production checkpoint persistence use [actron-persistence](../actron-persistence/README.md),
+which is re-exported here for existing callers. See [Weather initialization](../examples/weather/README.md#debug-and-release-initialization)
+for a complete implementation and a resolved release dependency check.
+
 New here? Run the [disk-to-inspector example](../examples/time-travel/README.md) before
 integrating the APIs below. It closes its live Stores, loads real files, compares reducers,
 and experiments without re-running the command handler. See [installation](../README.md#installation)
@@ -110,7 +132,11 @@ val store = MachineStore(listMachine, ListContext(), handler, scope = appScope, 
 val recording = recorder.recording()
 
 val session = ReplaySession(listMachine, recording)
-session.verify { mismatch -> println(mismatch.describe()) } // true if a mismatch was reported
+when (val result = session.verification()) {
+    ReplayVerification.Passed -> println("Recording matches")
+    is ReplayVerification.Diverged -> println(result.mismatch.describe())
+}
+// Existing verify(from, to, onMismatch) remains supported.
 session.seek(12)                         // the snapshot after twelve steps
 session.stepForward()                    // Matched, Diverged or Finished at the final checkpoint
 
@@ -205,6 +231,9 @@ val recording = recorder.recording()
 
 val session = GroupReplaySession(mapOf(pickerId to pickerMachine, rootId to rootMachine), recording)
 session.verify()                          // [] or the GroupMismatches, in order of position
+val pickerView = session.memberViews.getValue(pickerId)
+session.seek(3)
+println(pickerView.snapshot)               // always follows the group cursor
 session.seek(12); session.snapshotOf(rootId)
 when (val cut = group.checkpoint()) {
     is GroupCut.Ready -> GroupReplaySession(machines, recording.since(cut.checkpoint))
@@ -457,3 +486,58 @@ identity consistency and timestamps are validated. A ring-buffer recording is se
 for viewing because every retained event contains a complete display snapshot; original event
 IDs and gaps are preserved. The codec is not an authenticity check or a credential scrubber.
 Import into a detached viewer and replace its old recording only after full validation succeeds.
+
+### Group recording file internals
+
+`GroupRecordingFileSink` owns member registration, order accounting, queue admission and
+writer failure/cancellation policy. Its single writer delegates segment state, rotation,
+flushing and retention to `GroupOrderSegmentWriter`. Header metadata is still read when a
+segment opens; queued decisions and cuts carry their original positions and messages in flight.
+The sink preserves the primary storage failure when releasing an output also fails.
+
+`GroupRecordingFileFormat` owns wire encoding and decoding, including legacy headers and
+valid-prefix diagnostics. `GroupOrderHistory` reads continuity of the order stream;
+`GroupRecordingRange` intersects it with member recordings, checks idle checkpoints and cuts,
+and reconstructs the readable history. An unfinished segment can continue into its successor;
+other damage starts a new range while retaining earlier diagnostics. These internal boundaries
+do not change public APIs, file versions, bytes or replay semantics.
+
+### Inspector internals
+
+`Inspector` remains the public read-model facade. `InspectorTimelineBuilder` owns journal
+correlation by Store and input, late processing records, payload counts and stable placement
+of pending inputs around file-damage marks. Typed timeline slots keep finished positions and
+processings that are still collecting records distinct.
+
+`InspectorRecordings` aligns checkpoints and recorded steps with journal decisions. A mismatch
+rejects every proposed attachment for that Store while preserving attachments of other Stores.
+`InspectorSummary` derives Store views and ordered completeness reasons from the final timeline,
+attachment status and journal counters. Replay availability, diagnostic text and ordering retain
+their existing contracts; these components do not hold live Stores or start work.
+
+### Replay internals
+
+`ReplaySession` owns its cursor and calls the pure machine once per checked input. The stateless
+`ReplayComparison` owns ordered timer, outcome, snapshot and intent diagnostics. Verification
+stops at the first divergence without moving the cursor; failure comparison still uses type,
+not message or cause details.
+
+`GroupReplayMembers` owns the member sessions and maps their positions into the group order.
+`GroupReplayCausality` checks recorded bridge/source relationships independently of machine
+execution; its result is computed lazily once per group replay. Request/reply checks use what
+the sender had heard when an effect was emitted. Forward stepping rejects causality errors
+before deciding a member; full verification keeps member divergences before bridge diagnostics
+at the same position. Existing API signatures and diagnostic ordering are preserved.
+
+Group replay owns the group cursor. `memberViews` exposes live read-only member positions,
+snapshots and checkpoints; move through the group session. The legacy `members` sessions
+remain available but are deprecated: moving them independently cannot change group reads,
+branches or the next group step. Request/reply causality checks the pair name and the
+requesters known when the reply was emitted.
+
+`GroupRecording` captures shallow snapshots of all constructor collections, so later changes
+to the caller's maps, lists and sets cannot change validation or cached replay diagnostics.
+Member recordings, source snapshots and application payloads retain their identity.
+`ReplaySession.verification(from, to)` returns `ReplayVerification.Passed` or the first
+`ReplayVerification.Diverged`, without moving the cursor. The callback-based `verify` retains
+its existing Boolean result and callback contract.

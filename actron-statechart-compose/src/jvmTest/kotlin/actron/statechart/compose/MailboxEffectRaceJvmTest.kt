@@ -3,6 +3,7 @@
 package actron.statechart.compose
 
 import actron.core.ExperimentalActronApi
+import actron.core.closeAndJoin
 import actron.statechart.compose.MailboxFixture.Act
 import actron.statechart.compose.MailboxFixture.Ev
 import actron.statechart.machine.Delivery
@@ -14,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -26,8 +28,8 @@ import kotlin.time.TimeSource
 /**
  * The storm of `MailboxEffectTest` with the store on real threads: its executor queues the
  * effects and rings the mailbox from `Dispatchers.Default` while the composition, on the test
- * dispatcher, is recreated mid-handling. What is mid-handling at each recreation is no longer
- * known; that every effect is acknowledged exactly once and none is left over still is.
+ * dispatcher, is recreated after a delivery-start signal and before acknowledgement. The test
+ * awaits each retry and acknowledgement while the producer continues on real threads.
  */
 class MailboxEffectRaceJvmTest {
     private val testDispatcher = StandardTestDispatcher()
@@ -37,47 +39,15 @@ class MailboxEffectRaceJvmTest {
         runTest(testDispatcher) {
             val effects = 400
             val recreations = 200
-            val storeScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val storeScope = CoroutineScope(Dispatchers.Default + SupervisorJob(backgroundScope.coroutineContext.job))
             val store = MailboxFixture.store(storeScope, coroutineContext = kotlinx.coroutines.Dispatchers.Default, maxRetained = effects)
-            val gates = mutableMapOf<EffectId, CompletableDeferred<Unit>>()
-            val taken = mutableListOf<Delivery<Ev>>()
-            val acknowledged = mutableListOf<Boolean>()
-            val content: @Composable () -> Unit = {
-                MailboxEffect(store.mailbox) { delivery ->
-                    taken += delivery
-                    gates.getOrPut(delivery.id) { CompletableDeferred() }.await()
-                    acknowledged += delivery.acknowledge()
-                }
-            }
-
-            withComposeHarness {
+            try {
                 val producer = storeScope.launch { repeat(effects) { store.dispatch(Act.Navigate("chat/$it")) } }
-                compose(content)
-                var recreated = 0
-                var opened = 0
-                val deadline = TimeSource.Monotonic.markNow() + 60.seconds
-                while (acknowledged.size < effects) {
-                    check(deadline.hasNotPassedNow()) { "no progress: ${acknowledged.size} acknowledged, ${taken.size} taken, pending ${store.mailbox.pending.size}" }
-                    pumpFrame() // whatever the executor queued so far is taken, one at a time
-                    if (taken.size > opened) {
-                        gates.getValue(taken.last().id).complete(Unit)
-                        opened = taken.size
-                        pumpFrame()
-                        if (recreated < recreations) {
-                            compose(content)
-                            recreated++
-                        }
-                    }
-                }
+                verifyMailboxRecreations(store, effects, recreations)
                 producer.join()
+            } finally {
+                store.closeAndJoin()
+                storeScope.cancel()
             }
-
-            assertEquals(effects, acknowledged.size)
-            assertTrue(acknowledged.all { it }, "an acknowledgement of an effect no longer pending: ${acknowledged.count { !it }}")
-            assertEquals(effects, taken.map { it.id }.toSet().size, "every effect reached a block")
-            assertTrue(taken.any { it.attempt == 2 }, "no recreation interrupted a delivery: ${taken.size} deliveries")
-            assertTrue(store.mailbox.pending.isEmpty(), "left over: ${store.mailbox.pending.size}")
-            store.close()
-            storeScope.cancel()
         }
 }

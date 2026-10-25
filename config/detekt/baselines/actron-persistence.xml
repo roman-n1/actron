@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: DecodeFailure</ID>
+    <ID>SwallowedException:RecordingCodec.kt:RecordingCodec$e: SerializationException</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:CitySearchScreen.kt:@Composable fun CitySearchScreen</ID>
+    <ID>CognitiveComplexMethod:CityWeatherScreen.kt:@Composable fun CityWeatherScreen</ID>
+    <ID>WildcardImport:CitySearchMachine.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:CityWeatherMachine.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:MachineInstance.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:OpenMeteoHourlyRepository.kt:import actron.statechart.*</ID>
+    <ID>WildcardImport:OpenMeteoHourlyRepository.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.example.weather.feature.cities.domain.*</ID>
+    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
+    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import actron.statechart.machine.*</ID>
+    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:WeatherCheckpointPersistenceTest.kt:import kotlinx.coroutines.test.*</ID>
+    <ID>WildcardImport:WeatherSavedState.kt:import actron.example.weather.feature.cities.presentation.*</ID>
+    <ID>WildcardImport:WeatherSavedState.kt:import actron.example.weather.feature.weather.presentation.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

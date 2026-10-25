@@ -16,6 +16,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * from the scheduler's current time, so stores created one after another on one scheduler have
  * comparable times.
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @ExperimentalActronApi
 class VirtualMachineClock(
     private val scheduler: TestCoroutineScheduler,

@@ -1,20 +1,20 @@
 package actron.timetravel.compose
 
-import actron.statechart.*
-import actron.statechart.machine.*
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.machine.MachineSnapshot
+import actron.statechart.machine.TransitionId
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
@@ -32,122 +32,18 @@ fun <C : Any> StateChartPanel(
     modifier: Modifier = Modifier,
 ) {
     var selection by remember(chart) { mutableStateOf<ChartSelection>(ChartSelection.Overview) }
-    val nodes = remember(chart) { chart.states.distinctBy { it.id } }
-    val positions = remember(nodes) { nodes.mapIndexed { index, node -> node.id to (index % 3 to index / 3) }.toMap() }
+    val positions = remember(chart) { chartPositions(chart) }
     val outline = MaterialTheme.colorScheme.outlineVariant
     val highlight = MaterialTheme.colorScheme.primary
     Column(modifier.testTag("statechart-panel"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Revision ${snapshot.revision} · ${snapshot.commands.size} commands · ${snapshot.timers.size} timers")
         for (violation in inspection.violations) Text("Invariant failed: ${violation.name}", color = MaterialTheme.colorScheme.error)
-        Box(Modifier.horizontalScroll(rememberScrollState())) {
-            Box(Modifier.width(580.dp).height((maxOf(1, (nodes.size + 2) / 3) * 96).dp)) {
-                Canvas(Modifier.matchParentSize()) {
-                    fun center(id: StateId): Offset {
-                        val (x, y) = positions.getValue(id)
-                        return Offset((x * 190 + 97).dp.toPx(), (y * 96 + 48).dp.toPx())
-                    }
-                    for ((index, transition) in chart.transitions.withIndex()) {
-                        if (transition.source !in positions || transition.target !in positions) continue
-                        val from = center(transition.source)
-                        val to = center(transition.target)
-                        val id = TransitionId(index)
-                        var selected = selection == ChartSelection.Transition(id)
-                        inspection.withExplanation { explanation -> if (explanation.candidates.any { it.transition == id && it.disposition == CandidateDisposition.Selected }) selected = true }
-                        val color = if (selected) highlight else outline
-                        if (from == to) {
-                            drawCircle(color, 26.dp.toPx(), from + Offset(55.dp.toPx(), -12.dp.toPx()), style = Stroke(2.dp.toPx()))
-                        } else {
-                            val vector = to - from
-                            val length = vector.getDistance()
-                            val direction = vector / length
-                            val xDistance = if (kotlin.math.abs(direction.x) < 0.001f) Float.POSITIVE_INFINITY else 79.dp.toPx() / kotlin.math.abs(direction.x)
-                            val yDistance = if (kotlin.math.abs(direction.y) < 0.001f) Float.POSITIVE_INFINITY else 30.dp.toPx() / kotlin.math.abs(direction.y)
-                            val border = minOf(xDistance, yDistance) + 5.dp.toPx()
-                            val end = to - direction * border
-                            val start = from + direction * border
-                            drawLine(color, start, end, strokeWidth = 2.dp.toPx())
-                            val normal = Offset(-direction.y, direction.x)
-                            drawLine(color, end, end - direction * 9.dp.toPx() + normal * 5.dp.toPx(), strokeWidth = 2.dp.toPx())
-                            drawLine(color, end, end - direction * 9.dp.toPx() - normal * 5.dp.toPx(), strokeWidth = 2.dp.toPx())
-                        }
-                    }
-                }
-                for (node in nodes) {
-                    val (x, y) = positions.getValue(node.id)
-                    val active = snapshot.isActive(node.id)
-                    val wasActive = node.id in previousActive
-                    Surface(
-                        color =
-                            when {
-                                active -> MaterialTheme.colorScheme.primaryContainer
-                                wasActive -> MaterialTheme.colorScheme.tertiaryContainer
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            },
-                        shape = MaterialTheme.shapes.small,
-                        modifier =
-                            Modifier
-                                .offset((x * 190 + 18).dp, (y * 96 + 18).dp)
-                                .width(158.dp)
-                                .height(60.dp)
-                                .clickable { selection = ChartSelection.Node(node.id) }
-                                .testTag("chart-node-${node.id.value}"),
-                    ) {
-                        Column(Modifier.padding(8.dp)) {
-                            Text(node.id.value, maxLines = 1)
-                            Text(
-                                if (active) {
-                                    "active"
-                                } else if (wasActive) {
-                                    "previous"
-                                } else {
-                                    "inactive"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        StateChartDiagram(chartNodes(positions, snapshot, previousActive), chartEdges(chart, positions, selection, inspection), highlight, outline) { selection = ChartSelection.Node(it) }
         for ((index, transition) in chart.transitions.withIndex()) {
             OutlinedButton(onClick = { selection = ChartSelection.Transition(TransitionId(index)) }, modifier = Modifier.testTag("chart-transition-$index")) {
                 Text("T$index: ${transition.source} → ${transition.target} · ${transition.triggerLabel}")
             }
         }
-        val selected = selection
-        if (selected is ChartSelection.Node) {
-            val id = selected.id
-            Text("State $id · parent ${chart.node(id).parent} · activation ${snapshot.activations[id] ?: "none"}", modifier = Modifier.testTag("chart-detail"))
-            snapshot.timers.forEach { (timer, record) ->
-                if (chart.transitions.getOrNull(record.transition.index)?.source == id) Text("Timer $timer · ${record.deadline}")
-            }
-        }
-        if (selected is ChartSelection.Transition) {
-            val id = selected.id
-            val transition = chart.transitions[id.index]
-            var disposition = "no evaluation recorded"
-            inspection.withExplanation { explanation ->
-                for (candidate in explanation.candidates) {
-                    if (candidate.transition == id) {
-                        disposition = candidate.disposition.toString()
-                        break
-                    }
-                }
-            }
-            Text("$id · ${transition.kind} · $disposition", modifier = Modifier.testTag("chart-detail"))
-            if (inspection is ChartInspection.Decided) for (guard in inspection.explanation.guards) if (guard.transition == id) Text("${guard.label} = ${guard.result}")
-        }
+        StateChartDetails(chart, snapshot, selection, inspection)
     }
-}
-
-private sealed interface ChartSelection {
-    data object Overview : ChartSelection
-
-    data class Node(
-        val id: StateId,
-    ) : ChartSelection
-
-    data class Transition(
-        val id: TransitionId,
-    ) : ChartSelection
 }

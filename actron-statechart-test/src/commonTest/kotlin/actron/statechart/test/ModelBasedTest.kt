@@ -2,9 +2,31 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.*
-import actron.statechart.machine.*
-import kotlin.test.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.CompoundState
+import actron.statechart.GuardCheck
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
+import actron.statechart.Trigger
+import actron.statechart.machine.ActionHandling
+import actron.statechart.machine.CandidateDisposition
+import actron.statechart.machine.DecisionOutcome
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.IgnoreReason
+import actron.statechart.machine.InvariantViolation
+import actron.statechart.machine.InvariantViolationException
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class ModelBasedTest {

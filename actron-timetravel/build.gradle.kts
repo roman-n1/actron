@@ -60,7 +60,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(project(":actron-statechart"))
+            api(project(":actron-persistence"))
             api(libs.serialization.json)
         }
         commonTest.dependencies {

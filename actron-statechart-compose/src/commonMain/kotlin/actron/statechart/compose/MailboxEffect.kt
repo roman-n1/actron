@@ -10,8 +10,9 @@ import androidx.compose.runtime.rememberUpdatedState
 
 /**
  * Subscribes this composition to a [MachineStore][actron.statechart.machine.MachineStore]'s
- * retained [mailbox]: [block] runs for each [Delivery], in the mailbox's order, one at a time,
- * and acknowledges it once the UI did what the effect asked. The subscription lives as long as
+ * retained [mailbox]: [block] runs for each [Delivery], in the mailbox's order, one at a time.
+ * The caller acknowledges it once the UI did what the effect asked; this helper does not
+ * acknowledge automatically. The subscription lives as long as
  * the composition: what was queued before it entered is delivered when it enters; what it was
  * handling when it left, unacknowledged, waits for the next subscriber, which gets it again with
  * `attempt + 1`, up to the policy's budget. That is the mailbox's contract (handoff §10); this
@@ -20,7 +21,8 @@ import androidx.compose.runtime.rememberUpdatedState
  * One `MailboxEffect` per mailbox at a time, at the screen that owns the store: the mailbox
  * hands each effect to one subscriber, whichever asks first, so the block handles every kind of
  * effect the policy keeps, with a `when`, and acknowledges each. There is no filter by type for
- * that reason. The latest [block] is used; a block that throws fails the composition, as a
+ * that reason. The latest [block] is used for the next delivery; updating it does not restart
+ * a suspended handler. A block that throws fails the composition, as a
  * `LaunchedEffect` does, and the effect waits for the next subscriber.
  *
  * ```kotlin

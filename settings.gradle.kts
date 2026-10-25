@@ -48,3 +48,5 @@ project(":behaviour-review").projectDir = file("verification/behaviour-review")
 
 include(":nullability-guard")
 project(":nullability-guard").projectDir = file("verification/nullability-guard")
+
+include(":actron-persistence")

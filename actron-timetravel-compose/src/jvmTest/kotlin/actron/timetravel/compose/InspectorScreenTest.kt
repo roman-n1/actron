@@ -26,8 +26,10 @@ import actron.statechart.CompoundState
 import actron.statechart.StateChartDefinition
 import actron.statechart.StateId
 import actron.statechart.Transition
+import actron.statechart.machine.ConcurrencyPolicy
 import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.LaneId
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineTime
@@ -36,7 +38,15 @@ import actron.timetravel.RecordedStep
 import actron.timetravel.Recording
 import actron.timetravel.ReplaySession
 import actron.timetravel.inspect.Inspector
+import actron.timetravel.recordInputs
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -44,8 +54,11 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -247,5 +260,74 @@ class InspectorScreenTest {
             onNodeWithTag("branch-decision-0").assertTextContains("#0 chat-7 Inc: handled revision=2; context", substring = true)
             onNodeWithTag("branch-advance").performClick()
             onNodeWithTag("branch-chat-7").assertTextContains("now 1s", substring = true)
+        }
+
+    @Test
+    fun combinedGroupAndBranchPreserveTheirDistinctWideAndStackedContent() =
+        runComposeUiTest {
+            val replay = GroupReplayFixture.controls().also { it.seek(4) }
+            val recorded = replay.session.recording
+            val state = InspectorState(Inspector.of(GroupReplayFixture.journal(recorded), recorded.members), InspectorMode.Branch)
+            val branch = BranchControls(replay.session.branch(emptyList()), replay.session.memberViews.mapValues { it.value.machine }, listOf(BranchInput.Dispatch(GroupReplayFixture.b, "Inc", GroupReplayFixture.Inc)))
+            var width by mutableStateOf(500.dp)
+            setContent { MaterialTheme { InspectorScreen(state, groupReplay = replay, branch = branch, modifier = Modifier.size(width, 1000.dp)) } }
+            onNodeWithTag("group-timeline").assertExists()
+            onNodeWithTag("group-position").assertExists()
+            onNodeWithTag("branch").assertExists()
+            onNodeWithTag("branch").performScrollTo()
+            onNodeWithTag("branch-input-root-2-Inc").performScrollTo().assertIsDisplayed().performClick()
+            onNodeWithTag("branch-root-2").assertTextContains("Ctx(n=12)", substring = true)
+            runOnIdle { width = 1200.dp }
+            onNodeWithTag("group-timeline").assertExists()
+            onNodeWithTag("group-position").assertDoesNotExist()
+            onNodeWithTag("branch").assertExists()
+            runOnIdle {
+                assertEquals(4, replay.position)
+                assertEquals(GroupReplayFixture.Ctx(11), replay.snapshot(GroupReplayFixture.b).context)
+            }
+        }
+
+    @Test
+    fun aStalePositionKeepsItsHeadingButShowsNoUnrelatedJournalDetail() =
+        runComposeUiTest {
+            val state = InspectorState(Inspector.of(journal()))
+            state.selection = InspectorSelection.Position(999)
+            setContent { MaterialTheme { PositionPanel(state, Modifier.size(600.dp, 600.dp)) } }
+            onNodeWithTag("position").assertTextContains("Position 999", substring = true)
+            onNodeWithTag("position").assertTextContains("select a position", substring = true)
+            runOnIdle { state.select(1) }
+            onNodeWithTag("position").assertTextContains("Processing #1 Startup", substring = true)
+            onNodeWithTag("position").assertTextContains("attach the Store's recording", substring = true)
+            runOnIdle { state.refresh(Inspector.of(emptyList())) }
+            onNodeWithTag("position").assertTextContains("select a position", substring = true)
+            onNodeWithText("snapshots are what the journal kept", substring = true).assertDoesNotExist()
+        }
+
+    @Test
+    fun mappedBranchAnswerTargetsTheAwaitingCommandAndLeavesReplayUntouched() =
+        runComposeUiTest {
+            val loading = StateId("Loading")
+            val chart = StateChartDefinition(root, listOf(CompoundState(root, initial = idle), AtomicState(idle, parent = root), AtomicState(loading, parent = root)), listOf(Transition(idle, loading, ActionMatcher.of<Act.Inc>("Inc")), Transition(loading, idle, ActionMatcher.of<Act.Inc>("Inc"), effect = actron.statechart.EffectKey("inc"))))
+            val fetching =
+                Machine<Ctx, Act, String, Nothing>(DefinitionId("fetching"), DefinitionVersion("1"), chart) {
+                    effect("inc") { c, _ -> c.copy(n = c.n + 1) }
+                    onEnter(loading) { command("fetch", LaneId("load"), ConcurrencyPolicy.Latest) }
+                }
+            val recorded = fetching.recordInputs(fetching.initialSnapshot(Ctx()), listOf(MachineInput.Start(MachineTime.Zero), MachineInput.Dispatch(Act.Inc, MachineTime(10.milliseconds))))
+            val replay = ReplaySession(fetching, recorded).also { it.seek(it.length) }
+            val checkpoint = replay.checkpoint
+            val answer = BranchInput.Answer(store, "Loaded", Act.Inc)
+            val branch = BranchControls(GroupBranch(mapOf(store to replay.branch()), emptyList()), mapOf(store to fetching), listOf(answer))
+            val command = branch.awaiting(store).single().id
+            setContent { MaterialTheme { BranchPanel(branch, Modifier.size(1000.dp, 800.dp)) } }
+            onNodeWithTag("branch-awaiting-chat-7-${command.value}").assertExists()
+            onNodeWithText("awaiting c${command.value} fetch in load", substring = true).assertExists()
+            onNodeWithTag("branch-answer-chat-7-${command.value}-Loaded").performClick()
+            onNodeWithTag("branch-awaiting-chat-7-${command.value}").assertDoesNotExist()
+            onNodeWithTag("branch-chat-7").assertTextContains("Ctx(n=1)", substring = true)
+            runOnIdle {
+                assertEquals(checkpoint, replay.checkpoint)
+                assertEquals(1, branch.decisions.size)
+            }
         }
 }

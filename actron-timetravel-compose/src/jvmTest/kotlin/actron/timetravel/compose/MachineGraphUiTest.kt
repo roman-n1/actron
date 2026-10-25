@@ -1,17 +1,42 @@
 package actron.timetravel.compose
 
-import actron.statechart.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.FinalState
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
 import actron.statechart.machine.TransitionId
-import actron.timetravel.*
+import actron.timetravel.HistoryDetails
+import actron.timetravel.HistoryTimeline
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.test.*
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertContentDescriptionContains
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.moveTo
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class MachineGraphUiTest {
@@ -100,9 +125,16 @@ class MachineGraphUiTest {
                     .single()
                     .text
             assertNotEquals(initial, zoomed)
-            onNodeWithTag("history-entry-2").performClick()
+            onRoot().performKeyInput {
+                keyDown(Key.AltLeft)
+                pressKey(Key.DirectionDown)
+                keyUp(Key.AltLeft)
+            }
             onNodeWithTag("machine-graph").assertContentDescriptionContains("Loading", substring = true)
             onNodeWithTag("graph-scale").assertTextEquals(zoomed)
+            onNodeWithTag("history-previous").performClick()
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Idle", substring = true)
+            onNodeWithTag("history-next").performClick()
             onNodeWithTag("history-event-tab").performClick()
             onNodeWithTag("history-transition").assertExists()
             onNodeWithTag("history-graph-tab").performClick()

@@ -43,6 +43,7 @@ import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.ConcurrencyPolicy
 import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.IgnoreReason
 import actron.statechart.machine.LaneId
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineClock
@@ -53,6 +54,7 @@ import actron.statechart.machine.effectsOf
 import actron.statechart.recordTo
 import actron.statechart.test.VirtualMachineClock
 import actron.timetravel.MachineRecorder
+import actron.timetravel.RecordedStep
 import actron.timetravel.Recording
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -556,4 +558,96 @@ class InspectorTest {
         assertEquals(MessageRef(StoreInstanceId("p"), 7), sent.cause)
         assertTrue(InspectorText.line(sent).endsWith("Sent s/e3 -> p reply-to=p/e7"), InspectorText.line(sent))
     }
+
+    @Test
+    fun aLateRevisionMismatchRollsBackOnlyThatStoresAttachments() =
+        runTest {
+            val run = run(PayloadPolicy.metadataOnly(), tabs = 2)
+            val original = run.recordings.getValue(tab1)
+            val at = original.steps.indexOfLast { it is RecordedStep.Committed }
+            val steps = original.steps.toMutableList()
+            val step = assertIs<RecordedStep.Committed<Ctx, Act, Fetch, Ev>>(steps[at])
+            steps[at] = step.copy(decision = step.decision.copy(snapshot = step.decision.snapshot.copy(revision = 999)))
+            val mismatched = Recording(original.definition, original.version, original.start, steps)
+
+            val inspector = Inspector.of(run.session, run.recordings + (tab1 to mismatched))
+
+            val status = assertIs<RecordingStatus.Mismatch>(inspector.stores.first().recording)
+            assertTrue(status.reason.startsWith("step $at: recorded revision 999, the journal has "), status.reason)
+            val rejected = inspector.timelineOf(tab1).filterIsInstance<TimelineItem.Processing>().filter { it.isDecision }
+            assertTrue(rejected.isNotEmpty() && rejected.all { it.attachment == ProcessingAttachment.JournalOnly })
+            val attached = inspector.timelineOf(tab2).filterIsInstance<TimelineItem.Processing>().filter { it.isDecision }
+            assertTrue(attached.isNotEmpty() && attached.all { it.attachment is ProcessingAttachment.Recorded })
+            assertIs<Availability.Unavailable>(inspector.replayability(tab1))
+            assertEquals(Availability.Available, inspector.replayability(tab2))
+        }
+
+    @Test
+    fun checkpointRecordingAttachesOnlyDecisionsAfterItsStartingRevision() =
+        runTest {
+            val run = run(PayloadPolicy.metadataOnly())
+            val original = run.recordings.getValue(tab1)
+            val from =
+                original.steps.indexOfFirst {
+                    it is RecordedStep.Committed && it.decision.snapshot.revision == 2L
+                } + 1
+            assertTrue(from > 0 && from < original.length)
+            val tail = original.since(original.checkpointAt(from))
+
+            val inspector = Inspector.of(run.session, mapOf(tab1 to tail))
+
+            assertEquals(RecordingStatus.Attached(tail.length), inspector.stores.single().recording)
+            val decisions = inspector.timeline.filterIsInstance<TimelineItem.Processing>().filter { it.isDecision }
+            assertEquals(original.length, decisions.size)
+            assertTrue(decisions.take(from).all { it.attachment == ProcessingAttachment.JournalOnly })
+            assertTrue(decisions.drop(from).all { it.attachment is ProcessingAttachment.Recorded })
+            val attached = assertIs<ProcessingAttachment.Recorded>(decisions[from].attachment)
+            assertEquals(tail.initial, attached.before)
+            assertEquals(tail.snapshotAt(1), attached.after)
+        }
+
+    @Test
+    fun anIgnoredReasonMismatchIsReportedWithoutAttachingMatchingEarlierSteps() =
+        runTest {
+            val run = run(PayloadPolicy.metadataOnly())
+            val original = run.recordings.getValue(tab1)
+            val at = original.steps.indexOfFirst { it is RecordedStep.Ignored }
+            val steps = original.steps.toMutableList()
+            val step = assertIs<RecordedStep.Ignored<Ctx, Act, Fetch, Ev>>(steps[at])
+            assertEquals(IgnoreReason.StaleCommand, step.reason)
+            steps[at] = step.copy(reason = IgnoreReason.NoTransition)
+
+            val inspector = Inspector.of(run.session, mapOf(tab1 to Recording(original.definition, original.version, original.start, steps)))
+
+            assertEquals(RecordingStatus.Mismatch("step $at: recorded as ignored (NoTransition), the journal says StaleCommand"), inspector.stores.single().recording)
+            assertTrue(inspector.timeline.filterIsInstance<TimelineItem.Processing>().all { it.attachment == ProcessingAttachment.JournalOnly })
+        }
+
+    @Test
+    fun aFailedStepAcceptsRecoveredOutcomeButRejectsHandledOutcome() =
+        runTest {
+            val run = run(PayloadPolicy.metadataOnly())
+            val recording = run.recordings.getValue(tab1)
+            val at = recording.steps.indexOfFirst { it is RecordedStep.Failed }
+            assertTrue(at > 0)
+
+            fun inspectedAs(kind: OutcomeKind): Inspector {
+                val records =
+                    run.session.records().map { record ->
+                        val entry = record.entry
+                        if (entry is JournalEntry.ProcessingFinished && entry.outcome.kind == OutcomeKind.Failed) {
+                            record.copy(entry = entry.copy(outcome = OutcomeDescriptor(kind, 0)))
+                        } else {
+                            record
+                        }
+                    }
+                return Inspector.of(records, run.recordings)
+            }
+            val recovered = inspectedAs(OutcomeKind.Recovered)
+            assertEquals(RecordingStatus.Attached(recording.length), recovered.stores.single().recording)
+            val handled = inspectedAs(OutcomeKind.Handled)
+            val mismatch = assertIs<RecordingStatus.Mismatch>(handled.stores.single().recording)
+            assertTrue(mismatch.reason.startsWith("step $at: recorded as failed, the journal says Handled for input "), mismatch.reason)
+            assertTrue(handled.timeline.filterIsInstance<TimelineItem.Processing>().all { it.attachment == ProcessingAttachment.JournalOnly })
+        }
 }

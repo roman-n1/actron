@@ -59,12 +59,12 @@ class StoreRecorderTest {
             coroutineContext(Dispatchers.Unconfined)
             state<AppState.Loading> {
                 enter {
-                    nextState(AppState.Main(count = 0))
+                    nextState { AppState.Main(count = 0) }
                 }
             }
             state<AppState.Main> {
                 action<AppAction.Increment> {
-                    nextState(state.copy(count = state.count + 1))
+                    nextState { state.copy(count = state.count + 1) }
                 }
                 action<AppAction.EmitEvent> {
                     event(AppEvent.CountUpdated(state.count))

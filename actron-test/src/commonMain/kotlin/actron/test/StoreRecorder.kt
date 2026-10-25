@@ -19,34 +19,36 @@ import actron.core.Store
  * [events] that a test moves as it accounts for each event, so a test that ends with
  * [assertNoUnconsumedEvents] (or [assertNoPendingWork]) has seen every event the Store emitted
  * and none it did not expect. [events] keeps every event whether received or not.
+ *
+ * [states] and [events] are live read-only views; [unconsumedEvents] is a snapshot. Inspect or
+ * clear history after the Store has settled (for example after [awaitIdle]); history and cursor
+ * operations are not a concurrent collection API. One recorder accepts only one Store owner,
+ * even if two Stores attempt startup concurrently. Clearing history does not release ownership.
  */
 class StoreRecorder<S : State, A : Action, E : Event> internal constructor() : Plugin<S, A, E> {
-    private val recordedStates = mutableListOf<S>()
-    private val recordedEvents = mutableListOf<E>()
-    private var cursor = 0
+    private val history = RecorderHistory<S, E>()
+    private val owner = RecorderOwner<S, A>()
 
     /**
      * State snapshots recorded for this Store.
      */
-    val states: List<S> = recordedStates
+    val states: List<S> = history.states
 
     /**
      * Events recorded for this Store.
      */
-    val events: List<E> = recordedEvents
+    val events: List<E> = history.events
 
     /**
      * The recorded events not yet received with [receiveEvent], in order.
      */
-    val unconsumedEvents: List<E> get() = recordedEvents.subList(cursor, recordedEvents.size).toList()
+    val unconsumedEvents: List<E> get() = history.unconsumedEvents
 
     /**
      * Clears all recorded history and the cursor.
      */
     fun clear() {
-        recordedStates.clear()
-        recordedEvents.clear()
-        cursor = 0
+        history.clear()
     }
 
     /**
@@ -68,46 +70,30 @@ class StoreRecorder<S : State, A : Action, E : Event> internal constructor() : P
      *
      * @throws AssertionError if every recorded event was received already, or the next one does
      * not satisfy [predicate]; the cursor does not move then
+     * @throws IllegalStateException if the predicate clears history or consumes another event;
+     * its own changes remain, but this call does not consume a second event
      */
-    fun receiveEvent(predicate: (E) -> Boolean): E {
-        val next = peekUnconsumed("an event")
-        if (!predicate(next)) throw AssertionError("[Actron] The next unconsumed event $next does not satisfy the predicate; unconsumed: $unconsumedEvents")
-        consumeNext()
-        return next
-    }
+    fun receiveEvent(predicate: (E) -> Boolean): E = history.receiveEvent(predicate)
 
     /**
      * Fails when a recorded event was not received with [receiveEvent].
      *
      * @throws AssertionError listing the unconsumed events
      */
-    fun assertNoUnconsumedEvents() {
-        val left = unconsumedEvents
-        if (left.isNotEmpty()) throw AssertionError("[Actron] ${left.size} recorded event(s) were not received: $left")
-    }
+    fun assertNoUnconsumedEvents() = history.assertNoUnconsumedEvents()
 
     @PublishedApi
-    internal fun peekUnconsumed(expected: String): E {
-        if (cursor >= recordedEvents.size) throw AssertionError("[Actron] Expected $expected, but every recorded event was received already (${recordedEvents.size} recorded)")
-        return recordedEvents[cursor]
-    }
+    internal fun peekUnconsumed(expected: String): E = history.peekUnconsumed(expected)
 
     @PublishedApi
-    internal fun consumeNext() {
-        cursor++
-    }
-
-    // The Store this recorder was started on; the lists are plain, so one recorder cannot serve
-    // two Stores (their hook rounds are serialized per Store only).
-    private var acceptsOwner: (PluginScope<S, A>) -> Boolean = { true }
+    internal fun consumeNext() = history.consumeNext()
 
     override suspend fun onStart(
         scope: PluginScope<S, A>,
         state: S,
     ) {
-        check(acceptsOwner(scope)) { "[Actron] A StoreRecorder records one Store; create one per Store with createRecorder()" }
-        acceptsOwner = { it === scope }
-        recordedStates.add(state)
+        owner.claim(scope)
+        history.recordState(state)
     }
 
     override suspend fun onState(
@@ -115,7 +101,7 @@ class StoreRecorder<S : State, A : Action, E : Event> internal constructor() : P
         prevState: S,
         state: S,
     ) {
-        recordedStates.add(state)
+        history.recordState(state)
     }
 
     override suspend fun onEvent(
@@ -123,7 +109,7 @@ class StoreRecorder<S : State, A : Action, E : Event> internal constructor() : P
         state: S,
         event: E,
     ) {
-        recordedEvents.add(event)
+        history.recordEvent(event)
     }
 }
 

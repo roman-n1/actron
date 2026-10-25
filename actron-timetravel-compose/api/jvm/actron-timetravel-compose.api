@@ -172,6 +172,22 @@ public final class actron/timetravel/compose/ChartInspection$Unrequested : actro
 	public fun withExplanation (Lkotlin/jvm/functions/Function1;)V
 }
 
+public final class actron/timetravel/compose/ComposableSingletons$GraphControlsKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$GraphControlsKt;
+	public fun <init> ()V
+	public final fun getLambda$-1131320760$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1632552576$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-996738071$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$605375034$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$GroupExperimentPanelKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$GroupExperimentPanelKt;
+	public fun <init> ()V
+	public final fun getLambda$-1295374977$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1445364234$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
 public final class actron/timetravel/compose/ComposableSingletons$GroupReplayPanelsKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$GroupReplayPanelsKt;
 	public fun <init> ()V
@@ -187,61 +203,129 @@ public final class actron/timetravel/compose/ComposableSingletons$GroupTimeTrave
 	public final fun getLambda$-957906810$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
+public final class actron/timetravel/compose/ComposableSingletons$HistoryEventDetailKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryEventDetailKt;
+	public fun <init> ()V
+	public final fun getLambda$-1207304075$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$HistoryEventListKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryEventListKt;
+	public fun <init> ()V
+	public final fun getLambda$2107454617$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$HistoryFieldsKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryFieldsKt;
+	public fun <init> ()V
+	public final fun getLambda$-330957281$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-43487224$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-646043356$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-846772515$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1231879279$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1689005740$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$2082004685$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$471952809$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$475836177$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelHeaderKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelHeaderKt;
+	public fun <init> ()V
+	public final fun getLambda$-256565133$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
 public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelKt;
 	public fun <init> ()V
-	public final fun getLambda$-1783452858$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 	public final fun getLambda$-1911225578$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-2096170075$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-2119479730$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-674864114$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-942593106$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$1473182053$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$1506636049$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$1963115848$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
 	public final fun getLambda$402596983$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$471632189$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelLayoutKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelLayoutKt;
+	public fun <init> ()V
+	public final fun getLambda$1186433791$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$600843126$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelNavigationKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelNavigationKt;
+	public fun <init> ()V
+	public final fun getLambda$-1023339030$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-207395252$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-713854225$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-979421062$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$116171346$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1398165592$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$21394699$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$250184650$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$478974601$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$InspectorBranchKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$InspectorBranchKt;
+	public fun <init> ()V
+	public final fun getLambda$-1922947939$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$InspectorLayoutKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$InspectorLayoutKt;
+	public fun <init> ()V
+	public final fun getLambda$1158396223$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$InspectorPositionKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$InspectorPositionKt;
+	public fun <init> ()V
+	public final fun getLambda$-434770730$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$InspectorReplayBarKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$InspectorReplayBarKt;
+	public fun <init> ()V
+	public final fun getLambda$-605942581$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1476326420$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$866336012$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class actron/timetravel/compose/ComposableSingletons$InspectorScreenKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$InspectorScreenKt;
 	public fun <init> ()V
-	public final fun getLambda$-1637034819$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1665992068$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 	public final fun getLambda$-1975403855$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-31442733$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-487216622$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-992257523$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$1090293836$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-384590932$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
 	public final fun getLambda$1473650759$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$203915517$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$296566250$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$873159957$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
-public final class actron/timetravel/compose/ComposableSingletons$MachineGraphKt {
-	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$MachineGraphKt;
+public final class actron/timetravel/compose/ComposableSingletons$ReplayTimeTravelPanelKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$ReplayTimeTravelPanelKt;
 	public fun <init> ()V
-	public final fun getLambda$-1001051187$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1686045858$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$182200868$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$710227180$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1162199427$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
-public final class actron/timetravel/compose/ComposableSingletons$TimeTravelPanelKt {
-	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$TimeTravelPanelKt;
+public final class actron/timetravel/compose/ComposableSingletons$TimeTravelBranchKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$TimeTravelBranchKt;
 	public fun <init> ()V
-	public final fun getLambda$-1422572858$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1442989076$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-1647928043$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1754760837$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1904079325$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-2071037708$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-587411892$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$1011482011$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$1378975204$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$1796026766$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$1971260679$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$457263343$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-83448087$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$2132926029$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$918277620$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$980106048$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$TimeTravelLayoutKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$TimeTravelLayoutKt;
+	public fun <init> ()V
+	public final fun getLambda$-1673869452$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1088657849$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class actron/timetravel/compose/ComposableSingletons$TimeTravelNavigationKt {
+	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$TimeTravelNavigationKt;
+	public fun <init> ()V
+	public final fun getLambda$1011244136$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1905179047$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$923815472$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class actron/timetravel/compose/GroupReplayControls {
@@ -384,6 +468,33 @@ public final class actron/timetravel/compose/GroupVerification$Unchecked : actro
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class actron/timetravel/compose/HistoryContinuation {
+}
+
+public final class actron/timetravel/compose/HistoryContinuation$Available : actron/timetravel/compose/HistoryContinuation {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lactron/timetravel/compose/HistoryContinuation$Available;
+	public static synthetic fun copy$default (Lactron/timetravel/compose/HistoryContinuation$Available;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/compose/HistoryContinuation$Available;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConsequences ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/compose/HistoryContinuation$Unavailable : actron/timetravel/compose/HistoryContinuation {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lactron/timetravel/compose/HistoryContinuation$Unavailable;
+	public static synthetic fun copy$default (Lactron/timetravel/compose/HistoryContinuation$Unavailable;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/compose/HistoryContinuation$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class actron/timetravel/compose/HistoryGraph {
 }
 
@@ -462,6 +573,7 @@ public final class actron/timetravel/compose/HistoryGraphProfile$Unavailable : a
 
 public final class actron/timetravel/compose/HistoryPanelKt {
 	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun HistoryRecordingPanel (Lactron/timetravel/HistoryRecording;Lactron/timetravel/compose/HistoryPanelState;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 }
 

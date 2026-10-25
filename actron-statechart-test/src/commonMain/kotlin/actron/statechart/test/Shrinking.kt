@@ -2,14 +2,9 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
-
-/** Replay attempts and the smallest reproducing prefix found within the budget. */
-data class ShrinkReport<C : Any, A : Action>(
-    val failure: SequenceFailure<C, A>,
-    val attempts: Int,
-    val truncated: Boolean,
-)
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineSnapshot
 
 /** Replays inputs from the same snapshot and reports the first failure, without executing IO. */
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.replaySequence(
@@ -64,42 +59,5 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.shrink(
     preservesFailure: (original: SequenceFailure<C, A>, candidate: SequenceFailure<C, A>) -> Boolean,
 ): ShrinkReport<C, A> {
     require(maxAttempts > 0) { "[Actron] Shrinking needs a positive attempt budget" }
-    var attempts = 1
-    var observed: () -> SequenceFailure<C, A> = { error("[Actron] Failure callback was not called") }
-    require(replaySequence(initial, inputs) { failure -> observed = { failure } }) { "[Actron] Sequence does not fail" }
-    var best = observed()
-    val original = best
-    require(preservesFailure(original, original)) { "[Actron] Preservation predicate rejected the original failure" }
-    var size = maxOf(1, best.inputs.size / 2)
-    var truncated = false
-    while (best.inputs.isNotEmpty()) {
-        var reduced = false
-        var position = 0
-        while (position < best.inputs.size) {
-            if (attempts >= maxAttempts) {
-                truncated = true
-                break
-            }
-            val candidate = best.inputs.take(position) + best.inputs.drop(position + size)
-            attempts++
-            replaySequence(initial, candidate) { failure ->
-                if (preservesFailure(original, failure)) {
-                    best = failure
-                    reduced = true
-                }
-            }
-            if (reduced) break
-            position += size
-        }
-        if (truncated) break
-        if (reduced) {
-            // Restart large deletions after a reduction; the final pass tests every single input.
-            size = maxOf(1, best.inputs.size / 2)
-        } else if (size > 1) {
-            size = maxOf(1, size / 2)
-        } else {
-            break
-        }
-    }
-    return ShrinkReport(best, attempts, truncated)
+    return SequenceShrinker(this, initial, inputs, maxAttempts, preservesFailure).run()
 }

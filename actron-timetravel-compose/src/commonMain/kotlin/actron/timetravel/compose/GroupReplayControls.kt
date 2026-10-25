@@ -51,7 +51,7 @@ class GroupReplayControls(
         private set
 
     val length: Int get() = session.length
-    val members: List<StoreInstanceId> = session.members.keys.sortedBy { it.value }
+    val members: List<StoreInstanceId> = session.memberViews.keys.sortedBy { it.value }
     val canStepBackward: Boolean get() = position > 0
     val canStepForward: Boolean get() = position < length && movement is GroupReplayMovement.Open
 
@@ -97,7 +97,7 @@ class GroupReplayControls(
     }
 
     fun mermaid(store: StoreInstanceId): String =
-        session.members
+        session.memberViews
             .getValue(store)
             .machine.chart
             .toMermaid(snapshot(store).configuration.active)

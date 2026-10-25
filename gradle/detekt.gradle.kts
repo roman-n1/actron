@@ -70,3 +70,6 @@ tasks.register("detekt") {
     dependsOn(detektAll)
 }
 tasks.named("check") { dependsOn(detektAll) }
+
+// The same blocking path runs locally and in the existing CI quality job.
+detektAll.configure { dependsOn("checkComposeNoBooleanLogic") }

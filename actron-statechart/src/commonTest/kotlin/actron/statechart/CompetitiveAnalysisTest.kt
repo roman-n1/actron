@@ -2,8 +2,20 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.statechart.machine.*
-import kotlin.test.*
+import actron.statechart.machine.ActionExplanation
+import actron.statechart.machine.DefinitionId
+import actron.statechart.machine.DefinitionVersion
+import actron.statechart.machine.Machine
+import actron.statechart.machine.MachineInput
+import actron.statechart.machine.MachineTime
+import actron.statechart.machine.TransitionId
+import actron.statechart.machine.whyNot
+import actron.statechart.machine.whyThisTransition
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class CompetitiveAnalysisTest {
     private data object Go : Action

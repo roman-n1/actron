@@ -4,6 +4,13 @@ Android-only Firebase adapter. Construct CrashlyticsDiagnosticSink with the appl
 FirebaseCrashlytics. Decision metadata becomes a log breadcrumb; failures use a sanitized exception
 and report-local CustomKeysAndValues. No global custom-key mutation or SDK initialization is performed.
 
+The presence of a fault determines whether to report; an outcome label alone does not. If failure
+type metadata was redacted, the fault still creates a non-fatal report with a fixed synthetic marker,
+without an `actron.failure.type` key or the original exception/cause/message. Crashlytics requires a
+Throwable for reporting. Known types retain the existing sanitized exception, and one event creates
+at most one report using its first available failure type. Breadcrumb logging precedes reporting;
+SDK exceptions propagate to the recording caller as required by `DiagnosticSink`.
+
 This optional artifact isolates Firebase dependencies from common diagnostics and the other SDK
 adapters. Firebase lifecycle and collection/consent remain application configuration.
 

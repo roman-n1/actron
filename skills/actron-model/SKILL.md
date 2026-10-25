@@ -36,7 +36,7 @@ the signatures in `actron-statechart/src/commonMain/kotlin/actron/statechart/mac
 ## Implement and verify
 
 Follow the module's nearest working example rather than inventing constructors. Weather is
-under `examples/weather/src/commonMain/kotlin/actron/example/weather/`; its root/components
+under `examples/weather-app/src/commonMain/kotlin/actron/example/weather/`; its root/components
 show how to connect reusable machines, independent use cases and UI.
 
 Use the smallest relevant tests and compile targets. New public Kotlin API requires the

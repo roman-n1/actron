@@ -2,7 +2,12 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class EventRouteTest {
     private data object Tick : Event

@@ -6,11 +6,21 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.InputId
 import actron.observability.StoreInstanceId
-import actron.statechart.*
+import actron.statechart.ActionMatcher
+import actron.statechart.AtomicState
+import actron.statechart.FinalState
+import actron.statechart.GuardCheck
+import actron.statechart.GuardKey
+import actron.statechart.StateChartDefinition
+import actron.statechart.StateId
+import actron.statechart.Transition
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class DiagnosticsTest {
     private data object Go : Action

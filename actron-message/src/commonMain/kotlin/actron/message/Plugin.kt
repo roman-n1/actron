@@ -7,9 +7,7 @@ import actron.core.PluginLaunchScope
 import actron.core.PluginScope
 import actron.core.State
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 
 /**
@@ -35,24 +33,26 @@ fun <S : State, A : Action, E : Event> receiveMessages(block: suspend PluginLaun
             scope: PluginScope<S, A>,
             state: S,
         ) {
-            val subscribed = CompletableDeferred<Unit>()
-            scope.launch {
-                MessageHub.messages
-                    .onSubscription { subscribed.complete(Unit) }
-                    .collect { message ->
-                        try {
-                            block(message)
-                        } catch (e: Exception) {
-                            // The subscription's own cancellation (the Store closing) ends it; any
-                            // other exception, including an expired withTimeout, is reported through
-                            // the Store's exception handler and the subscription continues.
-                            if (e is CancellationException && !currentCoroutineContext().isActive) throw e
-                            // A CancellationException thrown in a launch would only cancel it, so an
-                            // expired withTimeout is reported wrapped, with the original as its cause.
-                            scope.launch { throw if (e is CancellationException) IllegalStateException("[Actron] receiveMessages {} block was cancelled: ${e.message}", e) else e }
-                        }
+            MessageSubscription(scope) { message -> receive(scope, message) }.start()
+        }
+
+        private suspend fun PluginLaunchScope<S, A>.receive(
+            scope: PluginScope<S, A>,
+            message: Message,
+        ) {
+            try {
+                block(message)
+            } catch (e: Exception) {
+                // Store cancellation ends collection; cancellation of an active block is reported
+                // without terminating the subscription. Keep the original exception as the cause.
+                if (e is CancellationException && !currentCoroutineContext().isActive) throw e
+                scope.launch {
+                    throw if (e is CancellationException) {
+                        IllegalStateException("[Actron] receiveMessages {} block was cancelled: ${e.message}", e)
+                    } else {
+                        e
                     }
+                }
             }
-            subscribed.await()
         }
     }

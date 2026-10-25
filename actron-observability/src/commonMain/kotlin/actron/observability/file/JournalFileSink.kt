@@ -118,8 +118,8 @@ class JournalFileSink(
             if (closed) return
             val current = binding
             if (current is SessionBinding.Bound) {
-                require(record.session == current.session && record.group == current.group) {
-                    "[Actron] JournalFileSink writes session ${current.session} group ${current.group}; got ${record.session} ${record.group}"
+                require(record.session == current.session && record.group == current.group && record.mode == current.mode) {
+                    "[Actron] JournalFileSink writes session ${current.session} group ${current.group}; got ${record.session} ${record.group}; mode ${record.mode}, expected ${current.mode}"
                 }
             }
             try {
@@ -176,6 +176,7 @@ class JournalFileSink(
         // After the session's own segments, should the same session id write again.
         index = JournalFileFormat.namedSegments(storage, record.session).maxOfOrNull { it.first }?.plus(1) ?: 0
         open()
+        retain()
     }
 
     private fun open() {

@@ -7,12 +7,22 @@ import actron.core.InputAttribution
 import actron.core.Store
 import actron.core.StoreLifecycle
 import actron.observability.FailureDescriptor
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 
@@ -80,7 +90,8 @@ fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD 
 /**
  * Restores the complete composition without entry hooks. Timers pause during absence; only
  * previously running commands use recovery policies. Queued work starts normally. The result
- * is unstarted. Close the old store before replacing it; never run both against the same IO.
+ * is unstarted. Parent and active-child snapshots are structurally validated before runtime
+ * creation. Close the old store before replacing it; never run both against the same IO.
  */
 @ExperimentalActronApi
 fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> resumeInvokedMachineStore(
@@ -101,6 +112,8 @@ fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD 
         cp: ExecutorCheckpoint<C, CMD>,
     ) {
         require(cp.snapshot.definition == definition.id && cp.snapshot.version == definition.version) { "Checkpoint belongs to a different machine" }
+        val issues = definition.validateSnapshotStructure(cp.snapshot)
+        require(issues.isEmpty()) { "Checkpoint snapshot is invalid: ${issues.joinToString()}" }
         require(definition.checkInvariants(cp.snapshot).isEmpty()) { "Checkpoint violates machine invariants" }
         require(cp.effects.isEmpty() && cp.ending.isEmpty()) { "Cannot resume undelivered effects or terminal command outcomes" }
     }

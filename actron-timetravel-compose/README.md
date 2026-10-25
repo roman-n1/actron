@@ -11,6 +11,31 @@ replay → experiment → return workflow, `GroupReplayControls` for replay only
 `HistoryPanel(timeline, state, onContinue)` displays a bounded, session-wide
 `HistoryTimeline<S>` across machine instances. It provides a machine filter, chronological
 inputs, expandable action payloads, before/after states and field changes.
+The complete interactive graph and the graphical **state before → action → state after**
+diagram share one event cursor. Previous/next buttons work in either tab; **More** also provides
+first/last visible event and navigation back/forward. Alt+Up/Down moves through visible events;
+Alt+Left/Right returns through inspection locations. Text editing keeps its own keyboard behavior.
+
+Search matches action, source, outcome, machine name/ID and changed field paths/values. Terms
+are combined; `#12` matches event 12 exactly. Search and machine/bookmark filters change only
+the list: the selected snapshot and graph remain pinned. A banner identifies a hidden selection
+or a snapshot outside the retained window. **Show in history** clears filters to reveal a retained
+selection. Search covers only retained entries and the structured fields supplied by the host.
+
+Click the small bookmark icon on an event row to add or remove its bookmark without changing
+selection or preview. A filled icon marks a bookmarked event; **Bookmarks only** filters the list.
+**More** can pin an event's state after the event as comparison **A**. Selecting
+another event supplies **B**. A/B compares fields of the same logical machine; the graphical
+transition above always describes the selected event's original before/action/after. A different
+machine falls back to that event's own changes and displays an explanation. Clear A to return
+to ordinary before/after comparisons. Each field has search, focus, full-value expansion and
+previous/next change navigation. Field navigation searches the same logical machine across the
+retained history, independently of list filters, using recorded before/after changes.
+
+Bookmarks and the last 50 inspection locations retain event IDs and are pruned on eviction.
+One comparison A retains display fields, not an executable snapshot. Navigation restores filters,
+the event/graph tab and field inspection settings; A remains pinned until cleared or replaced.
+These annotations last for this panel state and are not exported with recordings.
 Register each lifetime with `timeline.machine("City Weather", stableId = "city-weather")`.
 Use the same stable ID across recreations of one logical machine and distinct IDs for unrelated
 machines, even when their display names match. The default stable ID is the supplied name.
@@ -27,6 +52,13 @@ without interactive handlers. Switching to Live clears preview. Continue here in
 callback for the selected preview; `canContinue` can reject unsupported checkpoints. The library records only machine events and has no screen or navigation model. The host owns
 navigation, cancellation and safe executor restart. The weather example demonstrates this
 using `resumeMachineStore` and read-only weather requests.
+For a precise explanation use the additive overload with
+`continuation = { snapshot -> HistoryContinuation.Available("Unfinished reads will restart.") }`
+or `HistoryContinuation.Unavailable("A command completion has not been processed.")`.
+The host supplies localized messages based on its actual executor constraints; the panel also
+shows how many later retained events will be removed. The Boolean overload remains supported
+with a generic explanation. `HistoryRecordingPanel` exposes the inspection tools without Live
+or continuation controls.
 
 The timeline is bounded by entry count, not bytes. It stores no files and does not automatically
 capture machines. Keep snapshots immutable and install recording even when the panel is hidden.
@@ -34,7 +66,9 @@ The panel should receive bounded layout constraints (for example a right-hand ap
 
 ## Interactive machine graph
 
-The event list stays visible while the detail area switches between **Event** and **Graph**.
+On wide panels the event list stays visible while the detail area switches between **Event**
+and **Graph**. Below 640 dp, selecting an event collapses the list to give the graph and transition
+more height; **Show event list** reopens it without losing selection.
 Supply typed graph data for each selected entry:
 
 ```kotlin
@@ -305,3 +339,98 @@ frames so navigating the past cannot display future measurements. Imported recor
 omit profiles use `HistoryGraphProfile.Unavailable`.
 
 See [profiling semantics and the Weather integration](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).
+
+## History panel internals
+
+`HistoryPanel` and `HistoryRecordingPanel` remain the public entry points. The facade collects
+retained entries, derives the filtered list and owns continuation ordering: capture the old
+head, call the host, truncate the abandoned future, then clear selection. Entries appended by
+the host during restoration survive that truncation.
+
+`HistoryPanelState` owns selection and preview; `HistoryInspection` owns filters, bookmarks,
+field inspection and navigation. UI components read these existing owners directly:
+
+- `HistoryPanelHeader` renders the live/history status, mode switch and machine picker.
+- `HistoryEventList` renders search, bookmarks and event rows.
+- `HistoryPanelLayout` keeps list scroll/collapse state while placing the list and selected
+  event for wide or narrow hosts. Graph viewports remain owned by the facade and keyed by
+  logical machine, so changing width or tabs does not replace them.
+- `HistoryPanelNavigation` renders the event cursor and handles keyboard navigation after
+  child editors and graphs have had a chance to consume their keys.
+- `HistoryEventDetail` renders the selected event, its payload, state transition and the
+  host-supplied continuation capability. Payload expansion is scoped to the selected event.
+
+The imported recording viewer uses the same inspection components, keeps the host's actions
+slot and exposes neither live mode nor continuation. Public Kotlin APIs are unchanged by this
+split. The JVM API dump also includes compiler-generated `ComposableSingletons`; their entries
+are regenerated when composable bodies move between files, with API checks still enabled.
+
+
+## Inspector screen internals
+
+`InspectorScreen.kt` retains all existing public entry points in the same JVM facade. Internal
+layout, Store cards, timeline, selected position, replay bar and branch rendering live in
+separate components. Journal presentation mappers prepare diagnostic text, availability and
+colors; branch mappers prepare the current command IDs and scripted actions. These are
+short-lived immutable display snapshots; `InspectorState` and the controls still own state.
+Wide screens retain their side-by-side panes; narrow screens retain the stacked
+journal/replay/branch sections. Each nested scrolling pane is bounded by the viewport height,
+avoiding the original infinite-height measurement failure. Renderer callbacks continue to
+call the same controls.
+
+The project follows the [Compose presentation policy](../skills/compose-presentation/SKILL.md).
+`checkComposeNoBooleanLogic` rejects new boolean operators in composable bodies and `uimodel`
+packages. It is part of `detekt` and CI, with an exact shrink-only inventory for older files.
+Inspector and the extracted History panel components are outside that remaining debt.
+
+The Inspector split also adds generated klib stability metadata for internal presentation
+variants. Authored JVM/klib signatures remain unchanged; generated entries are reviewed
+separately rather than excluded from API validation.
+
+
+## Machine graph internals
+
+`MachineGraph` keeps the existing graph/coverage/profile contracts. Layout is a pure
+`layoutGraph(definition, measureLabel)` calculation: `GraphRoutingMetrics` reserves measured
+label columns and routing space, `GraphNodePlacement` places the hierarchy, and
+`GraphEdgeRouting` allocates ports and orthogonal lanes. Original transition IDs, declaration
+order, malformed hierarchy handling and geometry remain unchanged.
+
+`GraphInteraction` owns selection and profile expansion for the current definition;
+`GraphSurface` owns the canvas size and `GraphViewport` retains scale/offset for the logical
+machine. Snapshot changes keep selection and zoom, definition changes reset selection and
+profile expansion, and size changes do not silently refit an initialized viewport.
+`GraphPresentation` derives highlight, coverage, heat and stroke choices; `GraphDrawing`
+renders those immutable decisions. Controls, gestures and detail cards use the same owners.
+The graph components contain no remaining Compose boolean-operator debt.
+
+
+## Selection lifetime and remaining analysis inventory
+
+Live inspector refresh follows the selected journal event within the same run, using its
+subject, event kind and group sequence. A sliding retained window changes its view index;
+eviction, a different run or an event without a stable position clears selection.
+`HistoryPanelState` binds to its timeline or imported recording. The first attachment keeps
+host-preselected entries. A different source clears selection, preview, navigation, comparison,
+bookmarks and filters; hiding and reopening the same recording keeps its selection.
+Graph transition details always use the original `TransitionId`, including after invalid
+edges have been omitted from layout.
+
+`TimeTravelPanel` retains its public overloads in the same JVM facade. Layout, timeline,
+navigation, journal, replay and branch components have separate responsibilities.
+`StateChartPanel` owns selection; pure presentation functions prepare a single grid,
+activity, valid edges and recorded details. Drawing never evaluates guards or machine inputs.
+
+The module has no remaining Compose boolean-operator baseline entries or wildcard imports.
+The remaining three Detekt entries are deliberate API obligations:
+
+- `InspectorScreen` keeps the existing public overloads and component functions in their
+  original JVM facade for binary compatibility.
+- `BranchControls` exposes the existing branch operation facade; its twelve public methods
+  cover snapshots, commands, inputs, virtual time and display definitions. Splitting the
+  public surface to satisfy a counter would break existing callers.
+- `ChartInspection.Checkpoint.withExplanation` implements the public sealed contract as a
+  no-op because a checkpoint has invariant observations and no next-decision explanation.
+
+All other module baseline entries were removed after fixing their causes. Rule thresholds,
+exclusions and policy enforcement remain unchanged.

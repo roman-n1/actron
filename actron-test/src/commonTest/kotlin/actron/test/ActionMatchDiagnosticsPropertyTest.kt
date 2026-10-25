@@ -29,6 +29,7 @@ import kotlin.test.assertTrue
  * any  --action<KtAction>-->  (fallback, #1)
  * ```
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ActionMatchDiagnosticsPropertyTest {
     private fun expectedText(
         s: KtState,

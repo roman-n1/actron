@@ -1,14 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>LongMethod:CausalTrace.kt:CausalTraceHub.&lt;no name provided&gt;$override fun onDecided</ID>
-    <ID>MatchingDeclarationName:DiagnosticFailure.kt:BehaviouralDiagnosticException : RuntimeException</ID>
-    <ID>WildcardImport:CausalTrace.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CausalTraceTest.kt:import actron.core.*</ID>
-    <ID>WildcardImport:CausalTraceTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:CausalTraceTest.kt:import actron.statechart.machine.*</ID>
-    <ID>WildcardImport:CausalTraceTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:TraceMetadata.kt:import actron.statechart.machine.*</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>
