@@ -36,11 +36,11 @@ object DefaultLogger : Logger {
     ) {
         if (isDisabled) return
         when (severity) {
-            Logger.Severity.Verbose -> Kermit.v(tag, throwable, message)
-            Logger.Severity.Debug -> Kermit.d(tag, throwable, message)
-            Logger.Severity.Info -> Kermit.i(tag, throwable, message)
-            Logger.Severity.Warn -> Kermit.w(tag, throwable, message)
-            Logger.Severity.Error -> Kermit.e(tag, throwable, message)
+            Logger.Severity.Verbose -> Kermit.v(throwable = throwable, tag = tag, message = message)
+            Logger.Severity.Debug -> Kermit.d(throwable = throwable, tag = tag, message = message)
+            Logger.Severity.Info -> Kermit.i(throwable = throwable, tag = tag, message = message)
+            Logger.Severity.Warn -> Kermit.w(throwable = throwable, tag = tag, message = message)
+            Logger.Severity.Error -> Kermit.e(throwable = throwable, tag = tag, message = message)
         }
     }
 

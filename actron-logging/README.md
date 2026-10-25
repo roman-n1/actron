@@ -61,4 +61,4 @@ Choose payloads deliberately: simple logs contain their full string representati
 a structured journal follows its `PayloadPolicy`. Use synthetic/debug data for verbose logs.
 See [Logger](src/commonMain/kotlin/actron/logging/Logger.kt),
 [logging plugin](src/commonMain/kotlin/actron/logging/Plugin.kt) and
-[journal sink](src/commonMain/kotlin/actron/logging/JournalSink.kt).
+[journal sink](src/commonMain/kotlin/actron/logging/LoggerJournalSink.kt).
