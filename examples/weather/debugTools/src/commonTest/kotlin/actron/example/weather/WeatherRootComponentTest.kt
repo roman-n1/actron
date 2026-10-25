@@ -49,7 +49,7 @@ class WeatherRootComponentTest {
             lifecycle.resume()
             try {
                 testScheduler.runCurrent()
-                val history = keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("Missing history") }
+                val history = keeper.getOrCreate<WeatherHistory>(key = "weather-debug-history") { error("Missing history") }
                 val search =
                     root
                         .getChildStack()
@@ -59,12 +59,14 @@ class WeatherRootComponentTest {
                 val searchEntry =
                     history.timeline.entries.value
                         .last()
+                val frozenProfiles = searchEntry.snapshot.profiles.toMap()
+                assertTrue(frozenProfiles.isNotEmpty())
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
                 testScheduler.runCurrent()
                 val entry =
                     history.timeline.entries.value
                         .last()
-                assertTrue(entry.snapshot.canResume())
+                assertTrue(entry.snapshot.application.canResume())
                 assertEquals(1, currentCalls)
                 assertEquals(1, hourlyCalls)
                 history.panel.select(entry)
@@ -75,7 +77,8 @@ class WeatherRootComponentTest {
                 testScheduler.runCurrent()
                 assertEquals(1, currentCalls, "Completed region must not reload")
                 assertEquals(2, hourlyCalls, "Pending read request must restart")
-                assertEquals(1L, history.branch)
+                assertEquals(1L, history.session.branch)
+                assertEquals(frozenProfiles, searchEntry.snapshot.profiles, "Continuing and live profiling cannot mutate a historical diagnostic frame")
                 assertTrue(
                     history.timeline.entries.value
                         .contains(entry),
@@ -144,7 +147,7 @@ class WeatherRootComponentTest {
                     SampleHourlyRepository,
                     coroutineContext,
                 )
-            val history = keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("Root must install history before creating children") }
+            val history = keeper.getOrCreate<WeatherHistory>(key = "weather-debug-history") { error("Root must install history before creating children") }
             firstLifecycle.resume()
             testScheduler.runCurrent()
             val initialCalls = requests.size
@@ -179,7 +182,7 @@ class WeatherRootComponentTest {
                     coroutineContext,
                 )
             lifecycle.resume()
-            assertSame(history, keeper.getOrCreate<WeatherHistory>(key = "weather-history") { error("History must survive recreation") })
+            assertSame(history, keeper.getOrCreate<WeatherHistory>(key = "weather-debug-history") { error("History must survive recreation") })
             assertTrue(
                 history.timeline.entries.value
                     .containsAll(retainedEntries),

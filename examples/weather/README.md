@@ -178,16 +178,19 @@ owns only Weather display frames, screen restoration and platform file access.
 ## Session history and replay
 
 Every debug feature executor attaches the library's `BoundedMachineRecorder` through a
-`DecisionTraceObserver` before `start()`. The root retains one `WeatherHistory` across host
-recreation and shares it with both feature factories. Its timeline enforces **500 entries in
+`DecisionTraceObserver` before `start()`. The debug shell retains one `WeatherHistory` across host
+recreation and supplies recording to both feature factories. `WeatherSession` independently owns
+checkpoints, route and time; it has no UI hooks or diagnostic fields. Its timeline enforces **500 entries in
 total**, including closed weather screens. Evicting a timeline entry also trims that feature's
 recorder with `discardBefore`, advancing its replay checkpoint. Closed feature recorders are
 released when their last timeline entry disappears; indices remain stable.
 
 Open the gear next to **Cities**, then enable **Debug panel** for the reusable library `HistoryPanel`. The global
 chronology contains only machine events and groups lifetimes by stable machine ID.
-Navigation stays in the example: `WeatherFrame` carries the route, and the root restores the
-Decompose stack through the generic panel callback. The library treats that frame as an opaque snapshot. Each selection shows
+Navigation stays in the example: `WeatherFrame` carries the route. The debug-only
+`WeatherHistoryFrame` adds frozen coverage and profiles. The debug shell unwraps the application
+frame and asks the ordinary root to restore its Decompose stack. The library treats the combined
+frame as an opaque snapshot. Each selection shows
 the input action with its payload between the before/after active states, structured field
 changes. Technical diagnostics remain in the recording model. Event and update timestamps
 use the device's local time zone and locale.

@@ -35,6 +35,8 @@ class WeatherRecordingViewer {
     var busy: Boolean by mutableStateOf(false)
         private set
 
+    val canAccessFiles: Boolean get() = !busy
+
     private var generation = 0
 
     fun dismissMessage() {
@@ -138,13 +140,12 @@ internal fun RowScope.RecordingActions(
     history: WeatherHistory,
 ) {
     val russian = androidx.compose.ui.text.intl.Locale.current.language == "ru"
-    val controls = weatherDebugControls(true, viewer)
-    TextButton({ viewer.open(files) }, enabled = controls.canAccessFiles, modifier = Modifier.testTag("recording-open")) {
+    TextButton({ viewer.open(files) }, enabled = viewer.canAccessFiles, modifier = Modifier.testTag("recording-open")) {
         FileDirectionIcon(importing = true)
         Spacer(Modifier.width(4.dp))
         Text(if (russian) "Импорт" else "Import")
     }
-    TextButton({ viewer.save(files, history) }, enabled = controls.canAccessFiles, modifier = Modifier.testTag("recording-save")) {
+    TextButton({ viewer.save(files, history) }, enabled = viewer.canAccessFiles, modifier = Modifier.testTag("recording-save")) {
         FileDirectionIcon(importing = false)
         Spacer(Modifier.width(4.dp))
         Text(if (russian) "Экспорт" else "Export")

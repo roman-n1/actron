@@ -14,7 +14,6 @@
     <ID>TooGenericExceptionCaught:HistoryFiles.android.kt:error: Exception</ID>
     <ID>TooGenericExceptionCaught:HistoryFiles.js.kt:&lt;no name provided&gt;$error: Exception</ID>
     <ID>TooGenericExceptionCaught:HistoryFiles.jvm.kt:&lt;no name provided&gt;$error: Exception</ID>
-    <ID>TooManyFunctions:WeatherHistory.kt:WeatherHistory : Instance</ID>
     <ID>WildcardImport:AdvancedWeatherTestingTest.kt:import actron.example.weather.core.mvi.*</ID>
     <ID>WildcardImport:AdvancedWeatherTestingTest.kt:import actron.example.weather.feature.cities.presentation.*</ID>
     <ID>WildcardImport:AdvancedWeatherTestingTest.kt:import actron.example.weather.feature.weather.domain.*</ID>
@@ -30,9 +29,6 @@
     <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import actron.statechart.machine.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import actron.statechart.test.*</ID>
     <ID>WildcardImport:GeneratedWeatherScenariosTest.kt:import kotlin.test.*</ID>
-    <ID>WildcardImport:GraphDiagnosticDemo.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:GraphDiagnosticDemoTest.kt:import actron.statechart.*</ID>
-    <ID>WildcardImport:GraphDiagnosticDemoTest.kt:import kotlin.test.*</ID>
     <ID>WildcardImport:HistoryFiles.android.kt:import androidx.compose.runtime.*</ID>
     <ID>WildcardImport:HistoryFiles.android.kt:import kotlinx.coroutines.*</ID>
     <ID>WildcardImport:HistoryFiles.js.kt:import androidx.compose.runtime.*</ID>

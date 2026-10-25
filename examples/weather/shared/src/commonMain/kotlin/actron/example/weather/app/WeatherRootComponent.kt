@@ -18,7 +18,6 @@ import actron.example.weather.feature.cities.presentation.CitySearchComponent
 import actron.example.weather.feature.weather.domain.HourlyForecastRepository
 import actron.example.weather.feature.weather.domain.WeatherRepository
 import actron.example.weather.feature.weather.presentation.CityWeatherComponent
-import androidx.compose.runtime.Composable
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
@@ -44,10 +43,9 @@ class DefaultWeatherRootComponent(
     citySearch: CitySearchRepository,
     hourlyApi: HourlyForecastRepository,
     coroutineContext: CoroutineContext = Dispatchers.Main,
-    private val history: WeatherSession = retainedWeatherSession(componentContext),
-    private val settings: WeatherSettings = WeatherSettings(),
-    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, { history.SettingsAction(settings::open) }, coroutineContext, history),
-    private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history),
+    private val session: WeatherSession = retainedWeatherSession(componentContext),
+    private val searchFactory: CitySearchComponent.Factory = DefaultCitySearchComponentFactory(citySearch, coroutineContext, session),
+    private val weatherFactory: CityWeatherComponent.Factory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, session),
 ) : WeatherRootComponent,
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
@@ -68,10 +66,10 @@ class DefaultWeatherRootComponent(
     private val stackFlow = stack.toStateFlow()
 
     init {
-        stateKeeper.register("weather-checkpoint", WeatherSavedState.serializer()) { WeatherSavedStateCodec.encode(history) }
+        stateKeeper.register("weather-checkpoint", WeatherSavedState.serializer()) { WeatherSavedStateCodec.encode(session) }
         val navigationObserver =
             stack.subscribe { value ->
-                if (value.active.configuration is ChildConfiguration.Search && history.frame.route is WeatherRoute.Weather) history.back()
+                if (value.active.configuration is ChildConfiguration.Search && session.frame.route is WeatherRoute.Weather) session.back()
             }
         lifecycle.doOnDestroy {
             stateKeeper.unregister("weather-checkpoint")
@@ -82,8 +80,8 @@ class DefaultWeatherRootComponent(
             if (stack.value.active.configuration is ChildConfiguration.Search) {
                 when (news) {
                     is CitySearchComponent.News.CitySelected -> {
-                        history.openCity(news.city)
-                        navigation.push(ChildConfiguration.Weather(news.city, history.branch))
+                        session.openCity(news.city)
+                        navigation.push(ChildConfiguration.Weather(news.city, session.branch))
                     }
                 }
             }
@@ -92,7 +90,7 @@ class DefaultWeatherRootComponent(
             if (stack.value.active.configuration is ChildConfiguration.Weather) {
                 when (news) {
                     CityWeatherComponent.News.BackClicked -> {
-                        history.back()
+                        session.back()
                         navigation.pop()
                     }
                 }
@@ -109,17 +107,12 @@ class DefaultWeatherRootComponent(
             is ChildConfiguration.Weather -> weatherFactory.create(context, configuration.city, weatherBridge.endpoint)
         }
 
-    @Composable
-    override fun Render() {
-        history.Render(settings, ::continueFrom) { super<WeatherRootComponent>.Render() }
-    }
-
     fun continueFrom(frame: WeatherFrame) {
         // New branch keys replace retained children; their MachineInstances resume saved checkpoints.
-        history.beginBranch(frame)
+        session.beginBranch(frame)
         when (val route = frame.route) {
-            WeatherRoute.Search -> navigation.replaceAll(ChildConfiguration.Search(history.branch))
-            is WeatherRoute.Weather -> navigation.replaceAll(ChildConfiguration.Search(history.branch), ChildConfiguration.Weather(route.checkpoint.snapshot.context.city, history.branch))
+            WeatherRoute.Search -> navigation.replaceAll(ChildConfiguration.Search(session.branch))
+            is WeatherRoute.Weather -> navigation.replaceAll(ChildConfiguration.Search(session.branch), ChildConfiguration.Weather(route.checkpoint.snapshot.context.city, session.branch))
         }
     }
 

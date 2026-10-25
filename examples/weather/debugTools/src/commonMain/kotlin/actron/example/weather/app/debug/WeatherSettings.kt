@@ -1,4 +1,4 @@
-package actron.example.weather.app
+package actron.example.weather.app.debug
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

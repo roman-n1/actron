@@ -1,13 +1,18 @@
 package actron.example.weather
 
-import actron.example.weather.app.WeatherSettings
+import actron.example.weather.app.DefaultWeatherRootComponent
 import actron.example.weather.app.WeatherTheme
-import actron.example.weather.app.session.WeatherSession
-import actron.example.weather.feature.cities.presentation.CitySearchScreen
-import actron.example.weather.feature.cities.presentation.toUiState
+import actron.example.weather.feature.cities.data.LocalCitySearchRepository
+import actron.example.weather.feature.weather.data.SampleHourlyRepository
+import actron.example.weather.feature.weather.data.SampleWeatherRepository
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.runComposeUiTest
+import com.arkivanov.decompose.DefaultComponentContext
+import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.destroy
+import com.arkivanov.essenty.lifecycle.resume
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
@@ -26,17 +31,17 @@ class WeatherProductionUiTest {
     @Test
     fun normalScreenHasNoDebugEntryPoint() =
         runComposeUiTest {
-            val session = WeatherSession()
-            setContent {
-                WeatherTheme {
-                    session.Render(WeatherSettings(), onContinue = {}) {
-                        CitySearchScreen(
-                            session.frame.search.snapshot.context
-                                .toUiState(true),
-                            onIntent = {},
-                        )
-                    }
+            val lifecycle = LifecycleRegistry()
+            val root =
+                runOnUiThread {
+                    DefaultWeatherRootComponent(DefaultComponentContext(lifecycle), SampleWeatherRepository, LocalCitySearchRepository, SampleHourlyRepository)
                 }
+            setContent {
+                DisposableEffect(root) {
+                    lifecycle.resume()
+                    onDispose { lifecycle.destroy() }
+                }
+                WeatherTheme { root.Render() }
             }
             onNodeWithTag("cities-screen").assertExists()
             onNodeWithTag("city-search").assertExists()

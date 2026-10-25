@@ -44,7 +44,7 @@ object WeatherRecording {
     ): ByteArray {
         val entries =
             history.timeline.entries.value.map { entry ->
-                val frame = entry.snapshot
+                val frame = entry.snapshot.application
                 val screen =
                     when (val route = frame.route) {
                         WeatherRoute.Search -> WeatherDisplay.Search(frame.search.snapshot.context)
@@ -53,7 +53,7 @@ object WeatherRecording {
                 val graph = history.graph(entry)
                 val active = if (graph is HistoryGraph.Machine) graph.active.map { it.value } else emptyList()
                 val hits =
-                    frame.coverage.values
+                    entry.snapshot.coverage.values
                         .firstOrNull { it.definition.value == entry.machine.stableId }
                         ?.hits
                         .orEmpty()

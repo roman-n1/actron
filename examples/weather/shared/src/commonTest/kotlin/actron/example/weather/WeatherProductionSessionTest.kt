@@ -3,6 +3,7 @@ package actron.example.weather
 import actron.core.InputAttribution
 import actron.example.weather.app.session.WeatherSavedStateCodec
 import actron.example.weather.app.session.WeatherSession
+import actron.example.weather.app.session.searchRestoration
 import actron.example.weather.feature.cities.presentation.CitySearchAction
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
 import actron.statechart.machine.DecisionTraceObserver
@@ -11,7 +12,6 @@ import actron.statechart.machine.MachineTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class WeatherProductionSessionTest {
     @Test
@@ -19,7 +19,7 @@ class WeatherProductionSessionTest {
         val session = WeatherSession()
         val machine = CitySearchMachine.create()
         val checkpoint = session.searchCheckpoint
-        val observer = session.observe(machine, checkpoint, session::updateSearch)
+        val observer = session.searchRestoration().observers(machine, checkpoint).single()
         assertFalse(observer is DecisionTraceObserver<*, *, *, *>)
         var snapshot = checkpoint.snapshot
 
@@ -31,8 +31,6 @@ class WeatherProductionSessionTest {
         decide(MachineInput.Start(MachineTime.Zero))
         repeat(1000) { decide(MachineInput.Dispatch(CitySearchAction.ChangeQuery("City $it"), MachineTime.Zero)) }
         assertEquals("City 999", session.frame.search.snapshot.context.query)
-        assertTrue(session.frame.coverage.isEmpty())
-        assertTrue(session.frame.profiles.isEmpty())
         val restored = WeatherSavedStateCodec.decodeSession(WeatherSavedStateCodec.encode(session))
         assertEquals(session.frame.search.snapshot, restored.frame.search.snapshot)
     }

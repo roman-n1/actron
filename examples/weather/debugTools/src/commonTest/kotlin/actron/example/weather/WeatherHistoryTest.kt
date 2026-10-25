@@ -9,6 +9,7 @@ import actron.example.weather.app.debug.retainedWeatherHistory
 import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherSavedState
 import actron.example.weather.app.session.WeatherSavedStateCodec
+import actron.example.weather.app.session.searchRestoration
 import actron.example.weather.feature.cities.presentation.*
 import actron.statechart.machine.*
 import actron.timetravel.HistoryConfiguration
@@ -29,13 +30,13 @@ class WeatherHistoryTest {
         val history = retainedWeatherHistory(context, configuration)
         traceEdits(history, listOf("P", "Pa", "Par", "Paris"))
         assertEquals(3, history.timeline.entries.value.size)
-        assertEquals("Paris", history.frame.search.snapshot.context.query)
+        assertEquals("Paris", history.session.frame.search.snapshot.context.query)
         assertSame(history, retainedWeatherHistory(context, configuration))
-        state.register("weather-checkpoint", WeatherSavedState.serializer()) { WeatherSavedStateCodec.encode(history) }
+        state.register("weather-checkpoint", WeatherSavedState.serializer()) { WeatherSavedStateCodec.encode(history.session) }
         val restored = retainedWeatherHistory(DefaultComponentContext(LifecycleRegistry(), stateKeeper = StateKeeperDispatcher(state.save())), configuration)
         assertNotSame(history, restored)
         assertEquals(3, restored.capacity)
-        assertEquals("Paris", restored.frame.search.snapshot.context.query)
+        assertEquals("Paris", restored.session.frame.search.snapshot.context.query)
         assertTrue(
             restored.timeline.entries.value
                 .isEmpty(),
@@ -73,7 +74,7 @@ class WeatherHistoryTest {
         traceEdits(history, listOf("Berlin", "Berlinn"))
         assertEquals(3, history.timeline.entries.value.size)
         assertEquals(selected, history.panel.preview.single())
-        assertEquals("Pa", selected.snapshot.search.snapshot.context.query)
+        assertEquals("Pa", selected.snapshot.application.search.snapshot.context.query)
         assertTrue(selected.details.changes.any { it.path == "query" })
         history.timeline.clear()
         assertTrue(
@@ -89,10 +90,11 @@ class WeatherHistoryTest {
         val machine = CitySearchMachine.create()
         val checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(machine.initialSnapshot(CitySearchState()))
         val observer = history.observer(machine, checkpoint, { historyFields(Json.encodeToJsonElement(CitySearchState.serializer(), it)) })
-        history.beginBranch(WeatherFrame())
+        history.session.beginBranch(WeatherFrame())
         observer.onDecided(InputAttribution.Unattributed, MachineInput.Start(MachineTime.Zero), machine.decideExplained(checkpoint.snapshot, MachineInput.Start(MachineTime.Zero)))
+        observer.onCommitted(InputAttribution.Unattributed, MachineInput.Start(MachineTime.Zero), machine.decide(checkpoint.snapshot, MachineInput.Start(MachineTime.Zero)))
         assertEquals(0, history.timeline.entries.value.size)
-        assertFalse(history.frame.search.snapshot.isStarted)
+        assertFalse(history.session.frame.search.snapshot.isStarted)
     }
 
     @Test
@@ -107,16 +109,20 @@ class WeatherHistoryTest {
         assertEquals(2L, selectedHits.values.sum())
         assertEquals(
             3L,
-            history.frame.coverage.values
+            history
+                .snapshot()
+                .coverage.values
                 .single()
                 .hits.values
                 .sum(),
         )
-        history.beginBranch(selected.snapshot)
+        history.session.beginBranch(history.restoreDiagnostics(selected.snapshot))
         traceEdits(history, listOf("Paris"))
         assertEquals(
             3L,
-            history.frame.coverage.values
+            history
+                .snapshot()
+                .coverage.values
                 .single()
                 .hits.values
                 .sum(),
@@ -132,7 +138,11 @@ class WeatherHistoryTest {
         val machine = CitySearchMachine.create()
         val checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(machine.initialSnapshot(CitySearchState()))
         val observer = history.observer(machine, checkpoint, { historyFields(Json.encodeToJsonElement(CitySearchState.serializer(), it)) })
-        val persistence = history.observe(machine, checkpoint, history::updateSearch)
+        val persistence =
+            history.session
+                .searchRestoration()
+                .observers(machine, checkpoint)
+                .single()
         var snapshot = checkpoint.snapshot
         val inputs = listOf<MachineInput<CitySearchAction>>(MachineInput.Start(MachineTime.Zero)) + queries.map { MachineInput.Dispatch(CitySearchAction.ChangeQuery(it), MachineTime.Zero) }
         inputs.forEach { input ->

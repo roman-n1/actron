@@ -123,13 +123,14 @@ These are different representations with different capabilities:
 | --- | --- | --- |
 | `MachineSnapshot<C>` | Context and runtime configuration/identities | Current state and pure decisions |
 | `ExecutorCheckpoint<C, CMD>` | Snapshot plus work/timing needed by the executor | Restarting pending operations |
-| `WeatherFrame` | Search/weather checkpoints, route and coverage | Live history preview and continuation |
+| `WeatherFrame` | Search/weather checkpoints and route | Current application checkpoint and restoration |
+| `WeatherHistoryFrame` | Application frame, frozen coverage and profiles | Live history preview and continuation |
 | `WeatherRecordingFrame` | Display data, active nodes and coverage | Imported view-only history |
 
 [WeatherHistory.kt](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherHistory.kt)
 attaches `DecisionTraceObserver` before the store starts. `BoundedMachineRecorder` retains the
 machine trace; `HistoryTimeline` combines instances into a session-wide limit of 500 entries.
-The host supplies field projections and a `WeatherFrame`; Actron does not interpret its route.
+The host supplies field projections and a `WeatherHistoryFrame`; Actron does not interpret its route.
 
 Selecting a history entry renders its saved data without running commands. Continuing from a
 resumable live entry calls the root's `continueFrom`: it replaces the Decompose children and
@@ -187,16 +188,19 @@ feature. Its component receives its Store and a bridge endpoint. The search tool
 an explicit composable settings slot; the app shell owns settings visibility. There is no diagnostic
 composition-local to discover from feature code.
 
-App factories deliberately know both feature implementations and the shared recording session:
-that is the composition boundary. Repository calls and their result/error mapping stay in each
+App factories connect feature implementations to `WeatherSession` and an optional recording option:
+that is the composition boundary. The debug root supplies recording and the settings action. Repository calls and their result/error mapping stay in each
 feature's command handler. The former `SearchCitiesUseCase` only delegated to the repository
 and added no policy, so it was removed. Introduce a use case if a distinct business rule or
 cross-repository operation actually appears.
 
-`WeatherHistory` remains an application-wide recording adapter because a complete frame must
-include both feature checkpoints and the current route. These are immutable recorded projections,
-not independently writable live screen states. This refactoring does not redesign its timeline,
-branch and checkpoint algorithms. Recording schema `actron.weather.display/2` uses the new app
+`WeatherSession` alone owns current checkpoints, route, branch and logical time. It has no Compose
+hooks, recording option, coverage or profile fields. The ordinary root renders its feature stack.
+`DebugWeatherRootComponent` wraps that root with settings and the inspector; `WeatherHistory`
+receives the retained session through composition and owns only recording/diagnostic metadata.
+Each immutable `WeatherHistoryFrame` pairs an application frame with frozen coverage and profiles.
+Continuation restores those metadata before the ordinary root replaces its children. The fake
+graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/2` uses the new app
 package names; previous exported files are intentionally unsupported.
 
 The scale trade-off is explicit: Messenger's separate feature graphs are useful with many

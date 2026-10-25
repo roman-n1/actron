@@ -3,9 +3,6 @@ package actron.example.weather.app.session
 import actron.core.Action
 import actron.core.Event
 import actron.core.InputAttribution
-import actron.decompose.MachineDiagnostics
-import actron.decompose.MachineRecording
-import actron.example.weather.app.WeatherSettings
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
 import actron.example.weather.feature.cities.presentation.CitySearchState
@@ -16,18 +13,13 @@ import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.observability.FailureDescriptor
 import actron.statechart.machine.Decision
 import actron.statechart.machine.DecisionObserver
-import actron.statechart.machine.DefinitionId
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.IgnoreReason
-import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineClock
 import actron.statechart.machine.MachineInput
-import actron.statechart.machine.MachineProfileSnapshot
 import actron.statechart.machine.MachineTime
-import actron.statechart.machine.TransitionCoverage
 import actron.timetravel.RecordedStep
 import actron.timetravel.carriedPast
-import androidx.compose.runtime.Composable
 import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 
 sealed interface WeatherRoute {
@@ -41,8 +33,6 @@ sealed interface WeatherRoute {
 data class WeatherFrame(
     val search: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand> = ExecutorCheckpoint.initial(CitySearchMachine.create().initialSnapshot(CitySearchState())),
     val route: WeatherRoute = WeatherRoute.Search,
-    val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
-    val profiles: Map<DefinitionId, MachineProfileSnapshot> = emptyMap(),
 ) {
     fun at(time: MachineTime): WeatherFrame =
         copy(
@@ -63,7 +53,7 @@ data class WeatherFrame(
 }
 
 /** A current checkpoint per active machine. No event history or debugger dependency. */
-open class WeatherSession(
+class WeatherSession(
     initialFrame: WeatherFrame = WeatherFrame(),
     initialBranch: Long = 0,
     private val clockFactory: () -> MachineClock = { MachineClock.monotonic() },
@@ -71,10 +61,10 @@ open class WeatherSession(
     var clock: MachineClock = MachineClock.monotonic()
         private set
     var frame = initialFrame
-        protected set
+        private set
     var branch = initialBranch
         private set
-    protected var resumableFrame = initialFrame
+    private var resumableFrame = initialFrame
 
     init {
         require(initialFrame.canResume())
@@ -100,11 +90,11 @@ open class WeatherSession(
             WeatherRoute.Search -> freshWeather(city)
         }
 
-    fun updateSearch(checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand>) {
+    internal fun updateSearch(checkpoint: ExecutorCheckpoint<CitySearchState, SearchCitiesCommand>) {
         frame = frame.copy(search = checkpoint)
     }
 
-    fun updateWeather(checkpoint: ExecutorCheckpoint<WeatherContext, WeatherCommand>) {
+    internal fun updateWeather(checkpoint: ExecutorCheckpoint<WeatherContext, WeatherCommand>) {
         frame = frame.copy(route = WeatherRoute.Weather(checkpoint))
     }
 
@@ -118,22 +108,7 @@ open class WeatherSession(
         if (frame.canResume()) resumableFrame = frame
     }
 
-    open fun <C : Any, A : Action, CMD : Any, E : Event> recording(): MachineRecording<C, A, CMD, E> = MachineRecording { _, _, handler -> MachineDiagnostics(handler) }
-
-    @Composable
-    open fun Render(
-        settings: WeatherSettings,
-        onContinue: (WeatherFrame) -> Unit,
-        content: @Composable () -> Unit,
-    ) {
-        content()
-    }
-
-    @Composable
-    open fun SettingsAction(onClick: () -> Unit) {}
-
-    open fun <C : Any, A : Action, CMD : Any, E : Event> observe(
-        machine: Machine<C, A, CMD, E>,
+    internal fun <C : Any, A : Action, CMD : Any, E : Event> observe(
         checkpoint: ExecutorCheckpoint<C, CMD>,
         update: (ExecutorCheckpoint<C, CMD>) -> Unit,
     ): DecisionObserver<C, A, CMD, E> {

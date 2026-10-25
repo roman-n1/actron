@@ -56,7 +56,7 @@ class WeatherRecordingIsolationTest {
                 testScheduler.advanceTimeBy(350)
                 testScheduler.runCurrent()
                 assertEquals(1, searchCalls)
-                val frame = history.frame
+                val frame = history.session.frame
                 val viewer = WeatherRecordingViewer()
                 viewer.open(RecordingTestFiles(HistoryFileResult.Opened("another-account.json", WeatherRecording.export(recordingHistory()))))
                 val imported = viewer.imported.single()
@@ -73,7 +73,7 @@ class WeatherRecordingIsolationTest {
                         .getChildStack()
                         .value.active.instance,
                 )
-                assertSame(frame, history.frame)
+                assertSame(frame, history.session.frame)
                 viewer.close()
                 assertSame(
                     component,
