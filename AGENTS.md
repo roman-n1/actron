@@ -36,6 +36,19 @@
 - В этой библиотеке есть намеренные Registry для обработчиков и DSL: не запрещай их по имени.
   Проблема — глобальный изменяемый посредник без владельца, а не слово в названии класса.
 
+## Compose и presentation
+
+- Прочитай [Compose presentation](skills/compose-presentation/SKILL.md) до изменения UI.
+- Compose рисует готовое решение; правила, filter/sort/форматирование — mapper/controls.
+  UiModel — immutable snapshot без методов, mutable-полей и вычисляемых getters.
+- В `@Composable` и пакетах `uimodel` запрещены `&&`, `||`, `!`, `!in`, `!is`,
+  вызовы/ссылки `not/and/or/xor`. Обычная отрисовка через `if`/`when` разрешена.
+  UI-переключатель — `MutableState<Boolean>.toggle()`; не маскируй правило через `== false`.
+- Существующий публичный API сохраняется; новые Boolean в публичных UiModel, пустые
+  двухсостоянийные замены и nullable hidden bits запрещены.
+- `./gradlew checkComposeNoBooleanLogic` входит в `detekt`/CI. Точный исходный долг
+  `config/compose/boolean-logic-baseline.tsv` только сокращается, без новых исключений.
+
 ## Проверки
 
 Для бага/нового поведения: различающий тест → RED по нужной причине → реализация → GREEN.

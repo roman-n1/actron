@@ -9,13 +9,18 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,22 +41,9 @@ internal fun HistoryChoice(
     val focused by interactions.collectIsFocusedAsState()
     val pressed by interactions.collectIsPressedAsState()
     val colors = MaterialTheme.colorScheme
-    val fill by animateColorAsState(
-        when {
-            pressed -> colors.secondaryContainer
-            selected -> colors.secondaryContainer
-            hovered || focused -> colors.surfaceContainerHigh
-            else -> colors.surface
-        },
-    )
-    val outline by animateColorAsState(
-        when {
-            focused -> colors.primary
-            hovered -> colors.outline
-            selected -> colors.secondaryContainer
-            else -> colors.outlineVariant
-        },
-    )
+    val presentation = historyChoiceColors(pressed, selected, hovered, focused, colors)
+    val fill by animateColorAsState(presentation.fill)
+    val outline by animateColorAsState(presentation.outline)
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier
@@ -74,3 +66,30 @@ internal fun HistoryChoice(
 private data object ChoiceIndication : IndicationNodeFactory {
     override fun create(interactionSource: InteractionSource): DelegatableNode = object : Modifier.Node() {}
 }
+
+private data class HistoryChoiceColors(
+    val fill: androidx.compose.ui.graphics.Color,
+    val outline: androidx.compose.ui.graphics.Color,
+)
+
+private fun historyChoiceColors(
+    pressed: Boolean,
+    selected: Boolean,
+    hovered: Boolean,
+    focused: Boolean,
+    colors: androidx.compose.material3.ColorScheme,
+): HistoryChoiceColors =
+    HistoryChoiceColors(
+        when {
+            pressed -> colors.secondaryContainer
+            selected -> colors.secondaryContainer
+            hovered || focused -> colors.surfaceContainerHigh
+            else -> colors.surface
+        },
+        when {
+            focused -> colors.primary
+            hovered -> colors.outline
+            selected -> colors.secondaryContainer
+            else -> colors.outlineVariant
+        },
+    )

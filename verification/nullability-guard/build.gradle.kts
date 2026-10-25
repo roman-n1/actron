@@ -77,3 +77,23 @@ tasks.register<JavaExec>("finishMigration") {
 }
 
 tasks.check { dependsOn(selfTest, compilerTest) }
+
+val composeBooleanSelfTest by tasks.registering(JavaExec::class) {
+    dependsOn(tasks.classes)
+    classpath = checkerClasspath
+    mainClass.set("actron.verification.ComposeBooleanGuard")
+    args("--self-test")
+}
+
+for ((taskName, mode) in mapOf("checkComposeNoBooleanLogic" to "--check", "reportComposeBooleanLogic" to "--report", "pruneComposeBooleanBaseline" to "--prune")) {
+    tasks.register<JavaExec>(taskName) {
+        group = "verification"
+        dependsOn(composeBooleanSelfTest)
+        classpath = checkerClasspath
+        mainClass.set("actron.verification.ComposeBooleanGuard")
+        workingDir(rootProject.layout.projectDirectory)
+        args(mode, providers.gradleProperty("actron.quality.base").getOrElse("HEAD"))
+    }
+}
+
+tasks.check { dependsOn(composeBooleanSelfTest) }

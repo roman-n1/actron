@@ -1,11 +1,23 @@
 package actron.timetravel.compose
 
-import actron.statechart.*
-import androidx.compose.foundation.layout.*
+import actron.statechart.GraphDiagnostic
+import actron.statechart.GraphIssueCode
+import actron.statechart.GraphIssueSeverity
+import actron.statechart.Transition
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -19,42 +31,26 @@ internal fun GraphDiagnosticsPanel(
     onSelect: (GraphDiagnostic) -> Unit,
 ) {
     if (issues.isEmpty()) return
-    var expanded by remember(issues) { mutableStateOf(false) }
-    val russian = Locale.current.language == "ru"
-    val errors = issues.count { it.severity == GraphIssueSeverity.Error }
-    val colors = MaterialTheme.colorScheme
+    val expanded = remember(issues) { mutableStateOf(false) }
+    val model = graphDiagnosticPresentation(issues, Locale.current.language, MaterialTheme.colorScheme, expanded.value)
     Surface(
         modifier = Modifier.fillMaxWidth().padding(8.dp).testTag("graph-diagnostics"),
-        color =
-            if (errors > 0) {
-                colors.errorContainer
-            } else if (colors.surface.luminance() > 0.5f) {
-                Color(0xFFFFF3CD)
-            } else {
-                Color(0xFF514315)
-            },
-        contentColor =
-            if (errors > 0) {
-                colors.onErrorContainer
-            } else if (colors.surface.luminance() > 0.5f) {
-                Color(0xFF594300)
-            } else {
-                Color(0xFFFFE8A3)
-            },
+        color = model.background,
+        contentColor = model.foreground,
         shape = MaterialTheme.shapes.medium,
     ) {
         Column {
-            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().testTag("graph-diagnostics-toggle")) {
-                Text(if (russian) "Ошибки: $errors · Предупреждения: ${issues.size - errors} ${if (expanded) "−" else "+"}" else "Errors: $errors · Warnings: ${issues.size - errors} ${if (expanded) "−" else "+"}")
+            TextButton(onClick = { expanded.toggle() }, modifier = Modifier.fillMaxWidth().testTag("graph-diagnostics-toggle")) {
+                Text(model.heading)
             }
-            if (expanded) {
+            if (expanded.value) {
                 Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp)) {
-                    issues.forEachIndexed { index, issue ->
+                    model.rows.forEachIndexed { index, row ->
                         TextButton(onClick = {
-                            onSelect(issue)
-                            expanded = false
+                            onSelect(row.issue)
+                            expanded.value = false
                         }, modifier = Modifier.fillMaxWidth().testTag("graph-issue-$index")) {
-                            Text(issueText(issue.code, russian) + "\n" + (issue.states.map { it.value } + issue.transitions.map { "#${it.index + 1}" }).joinToString(), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text(row.text, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -66,16 +62,59 @@ internal fun GraphDiagnosticsPanel(
 private fun issueText(
     code: GraphIssueCode,
     ru: Boolean,
-): String =
+): String {
+    val labels = issueLabels(code)
+    return if (ru) labels.first else labels.second
+}
+
+private fun issueLabels(code: GraphIssueCode): Pair<String, String> =
     when (code) {
-        GraphIssueCode.DuplicateState -> if (ru) "Повторяется идентификатор состояния" else "Duplicate state identity"
-        GraphIssueCode.UnknownInitial -> if (ru) "Начальное состояние не объявлено" else "Initial state is not declared"
-        GraphIssueCode.UnknownEndpoint -> if (ru) "Конец перехода ссылается на необъявленное состояние" else "Transition endpoint is not declared"
-        GraphIssueCode.InvalidHierarchy -> if (ru) "Некорректная вложенность или начальное дочернее состояние" else "Invalid hierarchy or initial child"
-        GraphIssueCode.InvalidHistory -> if (ru) "Некорректное состояние истории" else "Invalid history declaration"
-        GraphIssueCode.InvalidTransition -> if (ru) "Недопустимый источник перехода или задержка таймера" else "Invalid transition source or timer delay"
-        GraphIssueCode.Unreachable -> if (ru) "Состояние структурно недостижимо" else "State is structurally unreachable"
-        GraphIssueCode.NoExit -> if (ru) "Не найден выход из состояния. Возможно, это намеренно." else "No exit found. This may be intentional."
-        GraphIssueCode.ShadowedTransition -> if (ru) "Переход перекрыт более ранним безусловным переходом" else "An earlier unconditional transition shadows this transition"
-        GraphIssueCode.AnalysisLimit -> if (ru) "Достигнут лимит анализа. Достижимость проверена не полностью." else "Analysis budget reached. Reachability is incomplete."
+        GraphIssueCode.DuplicateState -> "Повторяется идентификатор состояния" to "Duplicate state identity"
+        GraphIssueCode.UnknownInitial -> "Начальное состояние не объявлено" to "Initial state is not declared"
+        GraphIssueCode.UnknownEndpoint -> "Конец перехода ссылается на необъявленное состояние" to "Transition endpoint is not declared"
+        GraphIssueCode.InvalidHierarchy -> "Некорректная вложенность или начальное дочернее состояние" to "Invalid hierarchy or initial child"
+        GraphIssueCode.InvalidHistory -> "Некорректное состояние истории" to "Invalid history declaration"
+        GraphIssueCode.InvalidTransition -> "Недопустимый источник перехода или задержка таймера" to "Invalid transition source or timer delay"
+        GraphIssueCode.Unreachable -> "Состояние структурно недостижимо" to "State is structurally unreachable"
+        GraphIssueCode.NoExit -> "Не найден выход из состояния. Возможно, это намеренно." to "No exit found. This may be intentional."
+        GraphIssueCode.ShadowedTransition -> "Переход перекрыт более ранним безусловным переходом" to "An earlier unconditional transition shadows this transition"
+        GraphIssueCode.AnalysisLimit -> "Достигнут лимит анализа. Достижимость проверена не полностью." to "Analysis budget reached. Reachability is incomplete."
     }
+
+private data class GraphDiagnosticRow(
+    val issue: GraphDiagnostic,
+    val text: String,
+)
+
+private data class GraphDiagnosticPresentation(
+    val heading: String,
+    val background: Color,
+    val foreground: Color,
+    val rows: List<GraphDiagnosticRow>,
+)
+
+private fun graphDiagnosticPresentation(
+    issues: List<GraphDiagnostic>,
+    language: String,
+    colors: androidx.compose.material3.ColorScheme,
+    expanded: Boolean,
+): GraphDiagnosticPresentation {
+    val russian = language == "ru"
+    val errors = issues.count { it.severity == GraphIssueSeverity.Error }
+    val light = colors.surface.luminance() > 0.5f
+    val sign = if (expanded) "−" else "+"
+    return GraphDiagnosticPresentation(
+        if (russian) "Ошибки: $errors · Предупреждения: ${issues.size - errors} $sign" else "Errors: $errors · Warnings: ${issues.size - errors} $sign",
+        when {
+            errors > 0 -> colors.errorContainer
+            light -> Color(0xFFFFF3CD)
+            else -> Color(0xFF514315)
+        },
+        when {
+            errors > 0 -> colors.onErrorContainer
+            light -> Color(0xFF594300)
+            else -> Color(0xFFFFE8A3)
+        },
+        issues.map { issue -> GraphDiagnosticRow(issue, issueText(issue.code, russian) + "\n" + (issue.states.map { it.value } + issue.transitions.map { "#${it.index + 1}" }).joinToString()) },
+    )
+}

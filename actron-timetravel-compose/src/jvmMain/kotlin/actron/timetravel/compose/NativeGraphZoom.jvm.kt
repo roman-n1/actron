@@ -1,9 +1,14 @@
 package actron.timetravel.compose
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import java.awt.event.MouseEvent
 import java.beans.EventHandler
 import javax.swing.JComponent
@@ -14,7 +19,7 @@ internal actual fun nativeGraphZoom(onZoom: (Offset, Float) -> Unit): Modifier {
     val current by rememberUpdatedState(onZoom)
     val receiver = remember { MacGraphMagnification { anchor, zoom -> current(anchor, zoom) } }
     DisposableEffect(receiver) { onDispose { receiver.close() } }
-    if (!System.getProperty("os.name", "").startsWith("Mac")) return Modifier
+    if (graphZoomUnsupported()) return Modifier
     return Modifier.pointerInput(receiver) {
         awaitPointerEventScope {
             while (true) {
@@ -69,3 +74,5 @@ internal class MacGraphMagnification(
         inside = false
     }
 }
+
+private fun graphZoomUnsupported(): Boolean = !System.getProperty("os.name", "").startsWith("Mac")

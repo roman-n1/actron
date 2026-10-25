@@ -49,7 +49,7 @@ internal fun <S : Any> HistoryFields(
         Text(historyText(HistoryText.ComparisonDiagramHint), style = MaterialTheme.typography.labelSmall)
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        HistoryChoice(!inspection.fullState, { inspection.fullState = false }, { Text(historyText(HistoryText.Changes)) })
+        HistoryChoice(historyChangesSelected(inspection), { inspection.fullState = false }, { Text(historyText(HistoryText.Changes)) })
         HistoryChoice(inspection.fullState, { inspection.fullState = true }, { Text(historyText(HistoryText.FullState)) })
     }
     OutlinedTextField(
@@ -77,7 +77,7 @@ internal fun <S : Any> HistoryFields(
             HistoryField(change, entry, entries, state)
         }
     }
-    if (changes.isEmpty()) Text(historyText(if (inspection.fieldQuery.isNotBlank() || inspection.focus is HistoryFieldFocus.Path) HistoryText.NoFields else HistoryText.Unchanged), style = MaterialTheme.typography.bodySmall)
+    if (changes.isEmpty()) Text(historyText(if (historyFieldsRestricted(inspection)) HistoryText.NoFields else HistoryText.Unchanged), style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable
@@ -87,12 +87,12 @@ private fun <S : Any> HistoryField(
     entries: List<HistoryEntry<S>>,
     state: HistoryPanelState<S>,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val full = state.inspection.fullState || expanded
+    val expanded = remember { mutableStateOf(false) }
+    val full = historyFieldExpanded(state.inspection, expanded.value)
     Column(Modifier.fillMaxWidth().testTag("history-field-${change.path}")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(change.path, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-            HistoryFieldMenu(change, entry, entries, state, expanded) { expanded = !expanded }
+            HistoryFieldMenu(change, entry, entries, state, expanded.value) { expanded.toggle() }
         }
         HistoryFieldValues(change, entry, state.inspection.comparison, full)
         HorizontalDivider(Modifier.padding(top = 8.dp))
@@ -127,8 +127,9 @@ private fun <S : Any> HistoryFieldMenuItems(
     toggleExpanded: () -> Unit,
     dismiss: () -> Unit,
 ) {
-    val previous = entries.filter { it.id < entry.id && it.machine.stableId == entry.machine.stableId && historyFieldChanges(it, change.path) }
-    val next = entries.filter { it.id > entry.id && it.machine.stableId == entry.machine.stableId && historyFieldChanges(it, change.path) }
+    val navigation = historyFieldNavigation(entries, entry, change.path)
+    val previous = navigation.previous
+    val next = navigation.next
     DropdownMenuItem(
         text = { Text(historyText(HistoryText.PinField)) },
         onClick = {
@@ -155,7 +156,7 @@ private fun <S : Any> HistoryFieldMenuItems(
         enabled = next.isNotEmpty(),
         modifier = Modifier.testTag("history-field-next"),
     )
-    if (!state.inspection.fullState) {
+    if (historyChangesSelected(state.inspection)) {
         DropdownMenuItem(
             text = { Text(historyText(if (expanded) HistoryText.CompactValue else HistoryText.FullValue)) },
             onClick = {
@@ -202,9 +203,10 @@ private fun <S : Any> HistoryFieldValue(
     modifier: Modifier,
 ) {
     val value = if (after) change.after else change.before
+    val selectedComparison = historyComparisonFor(comparison, entry)
     val label =
-        if (comparison is HistoryComparison.Against && comparison.machine == entry.machine.stableId) {
-            if (after) "B: #${entry.id}" else "A: #${comparison.id}"
+        if (selectedComparison is HistoryComparison.Against) {
+            if (after) "B: #${entry.id}" else "A: #${selectedComparison.id}"
         } else {
             historyText(if (after) HistoryText.After else HistoryText.Before)
         }
