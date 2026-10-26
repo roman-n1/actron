@@ -1,8 +1,6 @@
 # Actron
 
-![Actron: a tangled network becomes an ordered graph, with an orange path connecting actions and states.](doc/assets/actron-chaos-to-order.png)
-
-**From chaos to deterministic behavior.**
+![Actron — From chaos to deterministic behavior: a tangled network becomes an ordered graph, with an orange path connecting actions and states.](doc/assets/actron-chaos-to-order.png)
 
 **MVI with an explicit model of what can happen next.**
 
@@ -13,6 +11,42 @@ The screen API is **our typed StateChart machine + `MachineStore`**. Send an act
 any thread. The runtime queues inputs, makes one pure decision at a time, commits the next
 state in one place, and executes commands afterward. Command handlers call your use cases
 and return actions; they never write state. Compose observes state on the UI dispatcher.
+
+## See the state behind the screen
+
+The [Weather example](examples/weather/README.md) puts the application and Actron Inspector
+side by side. Enable **Debug panel** in Settings before searching for **Rome, Italy**.
+
+![Weather search results for Rome, Italy beside the event timeline and the Found action, showing State Before: Loading and State After: Success.](doc/assets/weather-inspector-event.png)
+
+The application is on the left, the recorded event timeline in the middle, and the selected
+event's details on the right. Here, **Action: Found** changes **State Before: Loading** into
+**State After: Success**, and the application displays the recorded city results.
+
+- **Inspect a decision:** expand **Show payload** to read the action's data. **Changes**
+  compares field values before and after; **Full state** shows the complete state, and
+  **Find a field** narrows the fields you inspect.
+- **Find an event:** filter by machine, search events or `#ID`, bookmark useful moments,
+  and show only bookmarked events. Each entry includes its recording timestamp.
+- **Move through the session:** the arrow buttons step backward and forward through visible
+  events and update the application preview. **Live** returns to the running application.
+  **Continue here** can start execution from a compatible selected checkpoint.
+- **Share a recording:** **Export** saves the session for inspection; **Import** opens a
+  view-only recording without starting its commands or network requests.
+
+![The search machine graph beside an earlier Ro query, with Success highlighted, a 350 ms debounce transition, and transition coverage of 4 out of 16.](doc/assets/weather-inspector-graph.png)
+
+Switch to **Graph** to inspect the same machine as a statechart. This screenshot shows an
+earlier **Ro** query: **Success** is active, and the graph includes the **350 ms debounce**
+and **8 s timeout** transitions. Solid lines mark executed transitions; dashed lines mark
+transitions not executed in the recorded coverage. Pan, zoom or **Fit** the diagram, and
+select a state or transition for details. The graph comes from the machine definition used
+by the executor.
+
+These are reusable components from
+[`actron-timetravel-compose`](actron-timetravel-compose/README.md). Weather supplies its
+application snapshots and navigation restoration. See [Time Travel below](#4-time-travel-from-a-real-saved-run)
+for the inspector in motion.
 
 ## What does Actron add to MVI?
 
@@ -213,6 +247,21 @@ Explicit-ID definitions remain available for lower-level tools and existing user
 
 The [Weather application](examples/weather/README.md) demonstrates recording, inspection,
 checkpoint continuation and imported view-only recordings in the same two-screen application.
+
+![Time Travel in Weather: search Rome, inspect earlier and later events with the arrow buttons, then press Continue here at the earlier Ro query to resume execution and load its results.](doc/assets/weather-time-travel.gif)
+
+Search **Rome**, open **Rome, Italy**, then use the inspector's arrow buttons to move
+backward and forward through the recorded events. Watch the query, city results, weather
+and loading states change together with **Action**, **State Before** and **State After**.
+Selecting history renders saved application frames without making those network requests
+again; live recording continues in the background. **Live** returns to the running session.
+
+Finally, press **Continue here** at the earlier **Ro** query. The application returns to
+**Live**, restarts the unfinished search and displays results for that restored query. You
+can resume execution from any compatible checkpoint: the host restores navigation and
+executors, completed reads stay completed, unfinished read requests restart, and timers
+retain their remaining delay. Continuing replaces the running session and removes later
+history; new events extend the history from the selected point.
 
 ```sh
 ./gradlew :weather:desktopApp:run
