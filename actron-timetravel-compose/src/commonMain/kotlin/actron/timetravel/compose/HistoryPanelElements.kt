@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -40,7 +39,7 @@ internal fun HistoryModeSwitch(
     onHistory: () -> Unit,
     onLive: () -> Unit,
 ) {
-    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+    Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHighest) {
         Row(Modifier.padding(3.dp).selectableGroup()) {
             HistoryModeOption(true, historyModeSelected(history, true), historyAvailable, onHistory)
             HistoryModeOption(false, historyModeSelected(history, false), true, onLive)
@@ -57,7 +56,7 @@ private fun HistoryModeOption(
 ) {
     val colors = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(7.dp),
+        shape = MaterialTheme.shapes.small,
         color = if (selected) colors.primary else colors.surfaceContainerHighest,
         contentColor = if (selected) colors.onPrimary else colors.onSurfaceVariant,
     ) {
@@ -92,5 +91,23 @@ internal fun HistoryArrow(
         }
         drawLine(color, point(0.5f, 0.2f), point(0.8f, 0.5f), stroke)
         drawLine(color, point(0.5f, 0.8f), point(0.8f, 0.5f), stroke)
+    }
+}
+
+/** The old state feeds the action above it; the action points down to the new state. */
+@Composable
+internal fun HistoryTransitionArrows(modifier: Modifier) {
+    val lineColor = MaterialTheme.colorScheme.outline
+    Canvas(modifier) {
+        val left = size.width * 0.24f
+        val right = size.width * 0.76f
+        val stroke = 1.5.dp.toPx()
+        val tip = 5.dp.toPx()
+        drawLine(lineColor, Offset(left, size.height), Offset(left, 0f), stroke)
+        drawLine(lineColor, Offset(left, 0f), Offset(left - tip, tip), stroke)
+        drawLine(lineColor, Offset(left, 0f), Offset(left + tip, tip), stroke)
+        drawLine(lineColor, Offset(right, 0f), Offset(right, size.height), stroke)
+        drawLine(lineColor, Offset(right, size.height), Offset(right - tip, size.height - tip), stroke)
+        drawLine(lineColor, Offset(right, size.height), Offset(right + tip, size.height - tip), stroke)
     }
 }

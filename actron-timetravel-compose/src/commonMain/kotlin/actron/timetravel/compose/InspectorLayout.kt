@@ -16,11 +16,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -101,18 +101,18 @@ internal fun ModeBarContent(
     mode: InspectorMode,
     modifier: Modifier = Modifier,
 ) {
-    val model = inspectorMode(state, mode)
+    val model = inspectorMode(state, mode, MaterialTheme.colorScheme)
     Row(
         modifier
             .fillMaxWidth()
-            .background(inspectorModeColor(mode))
+            .background(model.background)
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .semantics(mergeDescendants = true) {}
             .testTag("mode-bar"),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(model.title, fontWeight = FontWeight.Bold, color = Color.White)
-        Text(model.run, color = Color.White)
-        Text(model.completeness, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.testTag("completeness"))
+        Text(model.title, fontWeight = FontWeight.Bold, color = model.foreground)
+        Text(model.run, color = model.foreground)
+        Text(model.completeness, fontWeight = FontWeight.Bold, color = model.foreground, modifier = Modifier.testTag("completeness"))
     }
 }

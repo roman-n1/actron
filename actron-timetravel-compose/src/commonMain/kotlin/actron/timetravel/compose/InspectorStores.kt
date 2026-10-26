@@ -29,7 +29,7 @@ internal fun InspectorStores(
         InspectorHeading("Stores")
         for (reason in inspectorGroupReasons(state)) InspectorReason(reason)
         for (store in inspector.stores) {
-            val model = inspectorStore(state, store, MaterialTheme.colorScheme.secondaryContainer)
+            val model = inspectorStore(state, store, MaterialTheme.colorScheme)
             InspectorStoreCard(model) { state.toggleFilter(store.id) }
         }
         if (inspector.stores.isEmpty()) Text("no Stores in this journal", style = MaterialTheme.typography.bodySmall)

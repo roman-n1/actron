@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -20,7 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
@@ -40,7 +40,7 @@ internal fun GraphDiagnosticsPanel(
         shape = MaterialTheme.shapes.medium,
     ) {
         Column {
-            TextButton(onClick = { expanded.toggle() }, modifier = Modifier.fillMaxWidth().testTag("graph-diagnostics-toggle")) {
+            TextButton(onClick = { expanded.toggle() }, colors = ButtonDefaults.textButtonColors(contentColor = model.foreground), modifier = Modifier.fillMaxWidth().testTag("graph-diagnostics-toggle")) {
                 Text(model.heading)
             }
             if (expanded.value) {
@@ -49,7 +49,7 @@ internal fun GraphDiagnosticsPanel(
                         TextButton(onClick = {
                             onSelect(row.issue)
                             expanded.value = false
-                        }, modifier = Modifier.fillMaxWidth().testTag("graph-issue-$index")) {
+                        }, colors = ButtonDefaults.textButtonColors(contentColor = model.foreground), modifier = Modifier.fillMaxWidth().testTag("graph-issue-$index")) {
                             Text(row.text, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
                         }
                     }
@@ -101,19 +101,16 @@ private fun graphDiagnosticPresentation(
 ): GraphDiagnosticPresentation {
     val russian = language == "ru"
     val errors = issues.count { it.severity == GraphIssueSeverity.Error }
-    val light = colors.surface.luminance() > 0.5f
     val sign = if (expanded) "−" else "+"
     return GraphDiagnosticPresentation(
         if (russian) "Ошибки: $errors · Предупреждения: ${issues.size - errors} $sign" else "Errors: $errors · Warnings: ${issues.size - errors} $sign",
         when {
             errors > 0 -> colors.errorContainer
-            light -> Color(0xFFFFF3CD)
-            else -> Color(0xFF514315)
+            else -> colors.tertiaryContainer
         },
         when {
             errors > 0 -> colors.onErrorContainer
-            light -> Color(0xFF594300)
-            else -> Color(0xFFFFE8A3)
+            else -> colors.onTertiaryContainer
         },
         issues.map { issue -> GraphDiagnosticRow(issue, issueText(issue.code, russian) + "\n" + (issue.states.map { it.value } + issue.transitions.map { "#${it.index + 1}" }).joinToString()) },
     )

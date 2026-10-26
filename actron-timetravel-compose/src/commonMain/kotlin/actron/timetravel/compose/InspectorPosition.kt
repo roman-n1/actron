@@ -15,7 +15,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -40,7 +39,7 @@ internal fun InspectorPosition(
                     for (line in content.lines) Text(line.text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, fontWeight = line.weight)
                     for (notice in content.notices) {
                         Spacer(Modifier.height(8.dp))
-                        Text(notice, style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E24AA))
+                        Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     }
                 }
             }

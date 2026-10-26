@@ -9,6 +9,7 @@ import actron.timetravel.inspect.ProcessingAttachment
 import actron.timetravel.inspect.RecordingStatus
 import actron.timetravel.inspect.StoreView
 import actron.timetravel.inspect.TimelineItem
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 
@@ -17,6 +18,8 @@ internal data class InspectorModePresentation(
     val title: String,
     val run: String,
     val completeness: String,
+    val background: Color,
+    val foreground: Color,
 )
 
 internal data class InspectorNotice(
@@ -71,10 +74,18 @@ internal sealed interface InspectorPositionContent {
 internal fun inspectorMode(
     state: InspectorState,
     mode: InspectorMode,
+    colors: ColorScheme,
 ): InspectorModePresentation {
     var run = "session -  group -"
     state.inspector.withRun { session, group, _ -> run = "session $session  group $group" }
-    return InspectorModePresentation(mode.name.uppercase(), "$run  records ${state.inspector.records.size}", InspectorText.completeness(state.inspector.completeness))
+    val (background, foreground) =
+        when (mode) {
+            InspectorMode.Live -> colors.primaryContainer to colors.onPrimaryContainer
+            InspectorMode.Inspect -> colors.secondaryContainer to colors.onSecondaryContainer
+            InspectorMode.Replay -> colors.tertiaryContainer to colors.onTertiaryContainer
+            InspectorMode.Branch -> colors.surfaceContainerHighest to colors.onSurface
+        }
+    return InspectorModePresentation(mode.name.uppercase(), "$run  records ${state.inspector.records.size}", InspectorText.completeness(state.inspector.completeness), background, foreground)
 }
 
 internal fun inspectorGroupReasons(state: InspectorState): List<String> {
@@ -87,7 +98,7 @@ internal fun inspectorGroupReasons(state: InspectorState): List<String> {
 internal fun inspectorStore(
     state: InspectorState,
     store: StoreView,
-    selected: Color,
+    colors: ColorScheme,
 ): InspectorStorePresentation {
     var capability = "unregistered"
     store.withCapability { capability = it.name }
@@ -101,15 +112,15 @@ internal fun inspectorStore(
         }
     val availability =
         when (val replay = state.inspector.replayability(store.id)) {
-            Availability.Available -> listOf(InspectorNotice("replay available", Color(0xFF2E7D32)))
-            is Availability.Unavailable -> replay.reasons.map { InspectorNotice("replay unavailable: $it", Color(0xFF8E24AA)) }
+            Availability.Available -> listOf(InspectorNotice("replay available", colors.primary))
+            is Availability.Unavailable -> replay.reasons.map { InspectorNotice("replay unavailable: $it", colors.tertiary) }
         }
     return InspectorStorePresentation(
         store.id,
         capability,
         InspectorText.completeness(store.completeness),
-        if (store.completeness.isComplete) Color(0xFF2E7D32) else Color(0xFFC62828),
-        if (state.filter == StoreFilter.Single(store.id)) selected else Color.Transparent,
+        if (store.completeness.isComplete) colors.primary else colors.error,
+        if (state.filter == StoreFilter.Single(store.id)) colors.secondaryContainer else Color.Transparent,
         "records ${store.records}  processings ${store.processings}  revision $revision  ${if (store.closed) "closed" else "open"}  recording $recording",
         store.completeness.reasons.map(InspectorText::reason),
         availability,
@@ -118,7 +129,7 @@ internal fun inspectorStore(
 
 internal fun inspectorTimeline(
     state: InspectorState,
-    selected: Color,
+    colors: ColorScheme,
 ): InspectorTimelinePresentation {
     val visible = state.visibleTimeline
     val suffix =
@@ -129,7 +140,8 @@ internal fun inspectorTimeline(
     return InspectorTimelinePresentation(
         "Timeline$suffix (${visible.size})",
         visible.map { (index, item) ->
-            InspectorTimelineRow(index, InspectorText.line(item), itemColor(item), if (state.selection == InspectorSelection.Position(index)) selected else Color.Transparent)
+            val selected = state.selection == InspectorSelection.Position(index)
+            InspectorTimelineRow(index, InspectorText.line(item), if (selected) colors.onPrimaryContainer else itemColor(item, colors), if (selected) colors.primaryContainer else Color.Transparent)
         },
     )
 }
@@ -152,19 +164,14 @@ internal fun inspectorPosition(state: InspectorState): InspectorPositionPresenta
 
 internal fun inspectorForwardAllowed(replay: ReplayControls<*, *, *, *>): Boolean = replay.canStepForward && replay.movement is ReplayMovement.Open
 
-internal fun inspectorModeColor(mode: InspectorMode): Color =
-    when (mode) {
-        InspectorMode.Live -> Color(0xFF2E7D32)
-        InspectorMode.Inspect -> Color(0xFF1565C0)
-        InspectorMode.Replay -> Color(0xFF6A1B9A)
-        InspectorMode.Branch -> Color(0xFFEF6C00)
-    }
-
-private fun itemColor(item: TimelineItem): Color =
+private fun itemColor(
+    item: TimelineItem,
+    colors: ColorScheme,
+): Color =
     when (item) {
-        is TimelineItem.Processing -> Color.Unspecified
-        is TimelineItem.Discarded, is TimelineItem.Rejected, is TimelineItem.Pending, is TimelineItem.Dropped -> Color(0xFFEF6C00)
-        is TimelineItem.Gap, is TimelineItem.Damage, is TimelineItem.Stopped, is TimelineItem.Unattributed -> Color(0xFFC62828)
-        is TimelineItem.Checkpoint -> Color(0xFF1565C0)
-        is TimelineItem.Effect, is TimelineItem.Sent, is TimelineItem.Registered, is TimelineItem.Closed, is TimelineItem.Abandoned -> Color(0xFF616161)
+        is TimelineItem.Processing -> colors.onSurface
+        is TimelineItem.Discarded, is TimelineItem.Rejected, is TimelineItem.Pending, is TimelineItem.Dropped -> colors.tertiary
+        is TimelineItem.Gap, is TimelineItem.Damage, is TimelineItem.Stopped, is TimelineItem.Unattributed -> colors.error
+        is TimelineItem.Checkpoint -> colors.primary
+        is TimelineItem.Effect, is TimelineItem.Sent, is TimelineItem.Registered, is TimelineItem.Closed, is TimelineItem.Abandoned -> colors.onSurfaceVariant
     }

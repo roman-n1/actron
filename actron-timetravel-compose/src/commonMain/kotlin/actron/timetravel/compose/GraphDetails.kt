@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,9 +47,9 @@ private fun GraphTransitionDetails(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(colors.surfaceContainerLow)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp))
+            .border(1.dp, colors.outlineVariant, MaterialTheme.shapes.medium)
             .heightIn(max = 180.dp)
             .verticalScroll(rememberScrollState())
             .padding(12.dp)
@@ -92,9 +91,9 @@ private fun GraphStateDetails(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(colors.surfaceContainerLow)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp))
+            .border(1.dp, colors.outlineVariant, MaterialTheme.shapes.medium)
             .heightIn(max = 140.dp)
             .verticalScroll(rememberScrollState())
             .padding(12.dp)

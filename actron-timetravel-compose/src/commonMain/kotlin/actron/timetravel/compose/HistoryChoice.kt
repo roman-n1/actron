@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -44,7 +43,7 @@ internal fun HistoryChoice(
     val presentation = historyChoiceColors(pressed, selected, hovered, focused, colors)
     val fill by animateColorAsState(presentation.fill)
     val outline by animateColorAsState(presentation.outline)
-    val shape = RoundedCornerShape(10.dp)
+    val shape = MaterialTheme.shapes.small
     Box(
         modifier
             .padding(vertical = 4.dp)

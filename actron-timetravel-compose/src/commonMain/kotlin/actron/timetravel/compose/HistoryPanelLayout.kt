@@ -46,7 +46,7 @@ internal fun <S : Any> HistoryPanelBody(
         val narrow = maxWidth < 640.dp
         val listExpanded = remember { mutableStateOf(true) }
         val listState = rememberLazyListState()
-        LaunchedEffect(state.selection, inspection.filter, inspection.query, inspection.bookmarksOnly, if (inspection.bookmarksOnly) inspection.bookmarks else emptySet<Long>(), listExpanded.value) {
+        LaunchedEffect(state.scrollRequest, inspection.filter, inspection.query, inspection.bookmarksOnly, if (inspection.bookmarksOnly) inspection.bookmarks else emptySet<Long>(), listExpanded.value) {
             state.selection.forEach { selected ->
                 val index = visible.indexOfFirst { it.id == selected.id }
                 if (index >= 0) listState.scrollToItem(index)
@@ -54,7 +54,7 @@ internal fun <S : Any> HistoryPanelBody(
         }
         val list: @Composable (Modifier) -> Unit = { listModifier ->
             HistoryEventList(entries, visible, state, timeline.capacity, listState, listModifier) { entry ->
-                state.select(entry)
+                state.selectInList(entry)
                 if (narrow) listExpanded.value = false
             }
         }

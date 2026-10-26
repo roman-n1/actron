@@ -23,7 +23,7 @@ internal fun InspectorTimeline(
     state: InspectorState,
     modifier: Modifier,
 ) {
-    val model = inspectorTimeline(state, MaterialTheme.colorScheme.primaryContainer)
+    val model = inspectorTimeline(state, MaterialTheme.colorScheme)
     Column(modifier.padding(8.dp)) {
         InspectorHeading(model.heading)
         LazyColumn(Modifier.fillMaxSize().testTag("timeline")) {
