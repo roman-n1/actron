@@ -120,32 +120,35 @@ private fun WeatherAdviceCard(
 ) {
     if (state.advice.isEmpty()) return
     val closeDescription = stringResource(resource = Res.string.advice_dismiss)
-    Card(modifier = Modifier.fillMaxWidth().testTag("weather-advice")) {
-        Column(modifier = Modifier.padding(all = 16.dp), verticalArrangement = Arrangement.spacedBy(space = 8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Card(modifier = Modifier.fillMaxWidth().testTag(tag = "weather-advice"), content = {
+        Column(modifier = Modifier.padding(all = 16.dp), verticalArrangement = Arrangement.spacedBy(space = 8.dp), content = {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, content = {
                 Text(text = stringResource(resource = Res.string.advice_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(weight = 1f))
-                TextButton(
-                    onClick = { onIntent(CityWeatherIntent.DismissAdvice) },
-                    enabled = state.enabled,
-                    modifier = Modifier.testTag(tag = "advice-dismiss").semantics { contentDescription = closeDescription },
-                ) { Text(text = stringResource(resource = Res.string.advice_close_symbol)) }
-            }
-            for (message in state.advice) Text(text = message.resolve())
-            when (state.adviceAction) {
-                WeatherAdviceAction.Dismiss -> {
-                    Unit
-                }
+                for (action in state.adviceActions) {
+                    when (action) {
+                        WeatherAdviceAction.Dismiss -> {
+                            TextButton(
+                                onClick = { onIntent(CityWeatherIntent.DismissAdvice) },
+                                enabled = state.enabled,
+                                modifier = Modifier.testTag(tag = "advice-dismiss").semantics(properties = { contentDescription = closeDescription }),
+                                content = { Text(text = stringResource(resource = Res.string.advice_close_symbol)) },
+                            )
+                        }
 
-                WeatherAdviceAction.Retry -> {
-                    TextButton(
-                        onClick = { onIntent(CityWeatherIntent.RetryAdvice) },
-                        enabled = state.enabled,
-                        modifier = Modifier.testTag(tag = "advice-retry"),
-                    ) { Text(text = stringResource(resource = Res.string.retry)) }
+                        WeatherAdviceAction.Retry -> {
+                            TextButton(
+                                onClick = { onIntent(CityWeatherIntent.RetryAdvice) },
+                                enabled = state.enabled,
+                                modifier = Modifier.testTag(tag = "advice-retry"),
+                                content = { Text(text = stringResource(resource = Res.string.retry)) },
+                            )
+                        }
+                    }
                 }
-            }
-        }
-    }
+            })
+            for (message in state.advice) Text(text = message.resolve())
+        })
+    })
 }
 
 /** Shared screen chrome belongs to the parent; child cards render only their own feature. */
@@ -154,19 +157,21 @@ private fun WeatherHeader(
     state: CityWeatherUiState,
     onIntent: (CityWeatherIntent) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().testTag(tag = "weather-header"), verticalArrangement = Arrangement.spacedBy(space = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = Modifier.fillMaxWidth().testTag(tag = "weather-header"), verticalArrangement = Arrangement.spacedBy(space = 8.dp), content = {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically, content = {
             TextButton(
                 onClick = { onIntent(CityWeatherIntent.Back) },
                 enabled = state.enabled,
-                modifier = Modifier.testTag("weather-back"),
-            ) { Text(stringResource(resource = Res.string.back)) }
+                modifier = Modifier.testTag(tag = "weather-back"),
+                content = { Text(text = stringResource(resource = Res.string.back)) },
+            )
             OutlinedButton(
                 onClick = { onIntent(CityWeatherIntent.Refresh) },
                 enabled = state.enabled,
-                modifier = Modifier.testTag("weather-refresh"),
-            ) { Text(stringResource(resource = Res.string.refresh)) }
-        }
+                modifier = Modifier.testTag(tag = "weather-refresh"),
+                content = { Text(text = stringResource(resource = Res.string.refresh)) },
+            )
+        })
         Text(text = stringResource(resource = Res.string.weather_in_city, state.city), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.testTag(tag = "weather-city"))
-    }
+    })
 }

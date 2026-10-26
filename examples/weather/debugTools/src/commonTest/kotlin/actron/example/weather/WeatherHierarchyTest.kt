@@ -40,8 +40,8 @@ class WeatherHierarchyTest {
         assertTrue(actual = refreshed.snapshot.context.current is RequestState.Loading)
         assertTrue(actual = refreshed.snapshot.context.hourly is RequestState.Loading)
         assertEquals(expected = WeatherAdviceState.Loading, actual = refreshed.snapshot.context.advice)
-        assertTrue(actual = active.commands.keys.none { it in refreshed.snapshot.commands })
-        assertTrue(actual = refreshed.cancelledScopes.containsAll(active.commands.values.map { it.scope }))
+        assertTrue(actual = active.commands.keys.none(predicate = { it in refreshed.snapshot.commands }))
+        assertTrue(actual = refreshed.cancelledScopes.containsAll(elements = active.commands.values.map(transform = { it.scope })))
     }
 
     @Test
@@ -79,10 +79,10 @@ class WeatherHierarchyTest {
         val start = machine.decide(snapshot = machine.initialSnapshot(context = WeatherContext(city = demoCities.first())), input = MachineInput.Start(now = MachineTime.Zero))
         val active = machine.decide(snapshot = start.snapshot, input = MachineInput.Dispatch(action = WeatherAction.Refresh, now = MachineTime.Zero))
         val started = active.snapshot
-        val command = active.commands.single { it.command is WeatherCommand.Advice }
+        val command = active.commands.single(predicate = { it.command is WeatherCommand.Advice })
         val dismissed = machine.decide(snapshot = started, input = MachineInput.Dispatch(action = WeatherAction.DismissAdvice, now = MachineTime.Zero))
         assertEquals(expected = WeatherAdviceState.Dismissed, actual = dismissed.snapshot.context.advice)
-        assertEquals(expected = started.commands.filterKeys { it != command.id }, actual = dismissed.snapshot.commands)
+        assertEquals(expected = started.commands.filterKeys(predicate = { it != command.id }), actual = dismissed.snapshot.commands)
         val late = machine.decide(snapshot = dismissed.snapshot, input = MachineInput.CommandResult(command = command.id, action = WeatherAction.AdviceLoaded(city = started.context.city, items = listOf(WeatherAdvice.StrongWind)), now = MachineTime.Zero))
         assertEquals(expected = dismissed.snapshot, actual = late.snapshot)
     }

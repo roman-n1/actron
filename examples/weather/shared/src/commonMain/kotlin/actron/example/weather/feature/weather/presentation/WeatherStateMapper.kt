@@ -71,7 +71,12 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
         forecastFailed = hourly is RequestState.Error,
         enabled = enabled,
         advice = adviceText(state = advice),
-        adviceAction = if (advice is WeatherAdviceState.Error) WeatherAdviceAction.Retry else WeatherAdviceAction.Dismiss,
+        adviceActions =
+            when (advice) {
+                WeatherAdviceState.Hidden, WeatherAdviceState.Dismissed -> emptyList()
+                is WeatherAdviceState.Error -> listOf(WeatherAdviceAction.Retry, WeatherAdviceAction.Dismiss)
+                WeatherAdviceState.Loading, is WeatherAdviceState.Visible -> listOf(WeatherAdviceAction.Dismiss)
+            },
     )
 }
 
@@ -90,7 +95,7 @@ private fun adviceText(state: WeatherAdviceState): List<WeatherText> =
         }
 
         is WeatherAdviceState.Visible -> {
-            state.items.map { item ->
+            state.items.map(transform = { item ->
                 WeatherText(
                     resource =
                         when (item) {
@@ -102,6 +107,6 @@ private fun adviceText(state: WeatherAdviceState): List<WeatherText> =
                             WeatherAdvice.Thunderstorm -> Res.string.advice_storm
                         },
                 )
-            }
+            })
         }
     }
