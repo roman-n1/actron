@@ -12,6 +12,7 @@ import kotlin.time.Instant
 actual fun formatHistoryTime(instant: Instant): String {
     val context = LocalContext.current
     val date = Date(instant.toEpochMilliseconds())
-    return DateFormat.getDateFormat(context).format(date) + " " + SimpleDateFormat(DateFormat.getBestDateTimePattern(Locale.getDefault(), if (DateFormat.is24HourFormat(context)) "Hms" else "hms"), Locale.getDefault()).format(date) +
-        " · ${instant.nanosecondsOfSecond / 1_000_000} ${historyText(HistoryText.Milliseconds)}"
+    val pattern: String = DateFormat.getBestDateTimePattern(Locale.getDefault(), if (DateFormat.is24HourFormat(context)) "HmsSSS" else "hmsSSS")
+    val time: String = SimpleDateFormat(pattern, Locale.getDefault()).format(date)
+    return "${historyText(HistoryText.RecordedAt)}: ${DateFormat.getDateFormat(context).format(date)} $time"
 }

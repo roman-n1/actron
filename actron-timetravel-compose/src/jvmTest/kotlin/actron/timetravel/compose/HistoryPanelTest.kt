@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -157,16 +158,18 @@ class HistoryPanelTest {
         val originalLocale: Locale = Locale.getDefault()
         val originalZone: TimeZone = TimeZone.getDefault()
         try {
-            Locale.setDefault(Locale.US)
             TimeZone.setDefault(TimeZone.getTimeZone("Asia/Novosibirsk"))
-            val instant = Instant.parse("2026-10-18T13:01:02.345Z")
-            val expected =
-                DateFormat
-                    .getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
-                    .format(Date(instant.toEpochMilliseconds())) + " · 345 ms"
-            runComposeUiTest {
-                setContent { Text(formatHistoryTime(instant)) }
-                onNodeWithText(expected).assertExists()
+            for ((locale, label) in listOf<Pair<Locale, String>>(Locale.US to "Recorded", Locale.forLanguageTag("ru-RU") to "Записано")) {
+                Locale.setDefault(locale)
+                for (fraction in listOf("345", "007", "000")) {
+                    val instant = Instant.parse("2026-10-18T13:01:02.${fraction}Z")
+                    val localTime: String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(Date(instant.toEpochMilliseconds()))
+                    val expected = "$label: ${localTime.replace(":02", ":02.$fraction")}"
+                    runComposeUiTest {
+                        setContent { Text(formatHistoryTime(instant), Modifier.testTag("formatted-time")) }
+                        onNodeWithTag("formatted-time").assertTextEquals(expected)
+                    }
+                }
             }
         } finally {
             Locale.setDefault(originalLocale)

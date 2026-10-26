@@ -20,11 +20,17 @@ Clicking a visible row preserves the list's scroll position. Cursor buttons, key
 field navigation and an explicit reveal still bring the selected event into view.
 Rows use the details diagram: outlined before/after states below the short action name,
 with an upward arrow from the old state and a downward arrow to the new state.
-A neutral selected-row surface stays distinct from the action's accent container.
-Rows then preview at most two
-changed data fields with bounded values and a count of further changes. Unchanged fields and
-trace metadata (`revision`, `type`) stay out of the preview; the original action payload and all
-state fields remain available in the event details and search.
+Both the rows and the selected event omit active states shared by before and after. Changed
+states keep their region-qualified names (for example, `Current.Loading` → `Current.Success`).
+An identical nonempty configuration says “No state change”; missing states use `—`.
+The full recorded configuration remains available among the event's state fields.
+A neutral selected-row surface stays distinct from the action's accent container and themed border.
+Rows then name at most two changed data fields, with bounded names and a count of further
+changes, in at most two lines. When that list is empty, “No other field changes” explains it.
+Unchanged fields and trace metadata (`revision`, `type`) stay out of the preview; the original
+action payload and all state fields and values remain available in the event details and search.
+“Recorded” labels the local recording timestamp; milliseconds appear as the fractional part of
+the seconds, not as a separate duration.
 
 Place the panel inside the application's `MaterialTheme`. Colors, status containers, control/card
 shapes and graph typography follow that theme, including changes while the panel is open.
@@ -36,8 +42,9 @@ the list: the selected snapshot and graph remain pinned. A banner identifies a h
 or a snapshot outside the retained window. **Show in history** clears filters to reveal a retained
 selection. Search covers only retained entries and the structured fields supplied by the host.
 
-Click the small bookmark icon on an event row to add or remove its bookmark without changing
-selection or preview. A filled icon marks a bookmarked event; **Bookmarks only** filters the list.
+The small bookmark icon sits at the top right of the event's metadata line; the diagram below
+uses the full row width. Its unchecked outline is muted; the filled icon uses the theme accent.
+Click it to add or remove a bookmark without changing selection or preview. A filled icon marks a bookmarked event; **Bookmarks only** filters the list.
 **More** can pin an event's state after the event as comparison **A**. Selecting
 another event supplies **B**. A/B compares fields of the same logical machine; the graphical
 transition above always describes the selected event's original before/action/after. A different

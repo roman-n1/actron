@@ -1,6 +1,5 @@
 package actron.timetravel.compose
 
-import actron.timetravel.HistoryDetails
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
@@ -27,10 +26,6 @@ internal fun HistoryMuted(
 ) {
     Text(text, modifier, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
-
-internal fun HistoryDetails.activeBefore(): String = before.filter { it.path == "active" || it.path == "screen" }.joinToString { it.value }.ifEmpty { "—" }
-
-internal fun HistoryDetails.activeAfter(): String = after.filter { it.path == "active" || it.path == "screen" }.joinToString { it.value }.ifEmpty { "—" }
 
 @Composable
 internal fun HistoryModeSwitch(

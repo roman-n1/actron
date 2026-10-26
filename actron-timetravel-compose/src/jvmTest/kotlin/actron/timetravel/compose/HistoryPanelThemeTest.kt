@@ -82,6 +82,9 @@ class HistoryPanelThemeTest {
                 val action = onNodeWithTag("history-entry-action-1", useUnmergedTree = true).captureToImage().toPixelMap()
                 assertEquals(scheme.surfaceContainerHigh.toArgb(), selectedRow[5, 5].toArgb(), "Row selection must use a neutral theme surface")
                 assertEquals(scheme.secondaryContainer.toArgb(), action[1, 1].toArgb(), "The action must keep its own container")
+                val actionCard = onNodeWithTag("history-entry-action-1-card", useUnmergedTree = true).captureToImage().toPixelMap()
+                assertEquals(scheme.secondary.toArgb(), actionCard[actionCard.width / 2, 0].toArgb(), "The action border must follow the host theme")
+                assertEquals(scheme.secondaryContainer.toArgb(), actionCard[actionCard.width / 2, 3].toArgb(), "The border must preserve the fill")
                 onNodeWithTag("history-panel").captureToImage().savePreview("history-$name")
             }
         }

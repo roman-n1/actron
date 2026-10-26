@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -106,12 +107,13 @@ private fun StateCard(
 
 @Composable
 private fun TransitionDiagram(details: HistoryDetails) {
+    val states = historyTransitionStates(details, Locale.current.language)
     Column(Modifier.fillMaxWidth().testTag("history-transition"), horizontalAlignment = Alignment.CenterHorizontally) {
         HistoryActionPayload(details)
         HistoryTransitionArrows(Modifier.fillMaxWidth().height(36.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StateCard(historyText(HistoryText.StateBefore), details.activeBefore(), Modifier.weight(1f))
-            StateCard(historyText(HistoryText.StateAfter), details.activeAfter(), Modifier.weight(1f))
+            StateCard(historyText(HistoryText.StateBefore), states.before, Modifier.weight(1f))
+            StateCard(historyText(HistoryText.StateAfter), states.after, Modifier.weight(1f))
         }
     }
 }
