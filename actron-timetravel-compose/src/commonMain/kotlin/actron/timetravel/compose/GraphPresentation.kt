@@ -86,7 +86,7 @@ internal fun graphAppearance(
     return GraphAppearance(
         layout.nodes.map { nodeAppearance(it, graph, selection, endpoints, initial, colors) },
         layout.edges.mapIndexed { index, edge -> edgeAppearance(edge, index, graph, selection, measurements, colors) },
-        selection.profiling.value && measurements.profiles.isNotEmpty(),
+        measurements.profiles.isNotEmpty(),
     )
 }
 
@@ -131,7 +131,7 @@ private fun edgeAppearance(
     val covered = measurements.counts.getOrElse(edge.id) { 0 } > 0
     val timing = measurements.transitions.getOrElse(edge.id) { TransitionProfile() }
     val heat =
-        if (selection.profiling.value && measurements.maximumProcessing > 0) {
+        if (measurements.maximumProcessing > 0) {
             timing.processing.average.inWholeNanoseconds
                 .toFloat() / measurements.maximumProcessing
         } else {

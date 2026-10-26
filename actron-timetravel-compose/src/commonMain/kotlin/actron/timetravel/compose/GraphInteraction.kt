@@ -13,13 +13,12 @@ import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isMetaPressed
 import kotlin.math.pow
 
-/** Selection and profile expansion live as long as the current definition. */
+/** Selection lives as long as the current definition. */
 internal class GraphInteraction {
     var selected by mutableStateOf(emptyList<StateId>())
         private set
     var selectedEdges by mutableStateOf(emptyList<Int>())
         private set
-    val profiling = mutableStateOf(false)
 
     fun select(
         point: Offset,

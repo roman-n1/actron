@@ -29,8 +29,8 @@ internal fun GraphDetails(
     selection: GraphInteraction,
     measurements: GraphMeasurements,
 ) {
-    selection.selectedEdges.forEach { GraphTransitionDetails(graph, layout.edges[it], selection.profiling.value, measurements) }
-    selection.selected.forEach { GraphStateDetails(graph, it, selection.profiling.value, measurements) }
+    selection.selectedEdges.forEach { GraphTransitionDetails(graph, layout.edges[it], measurements) }
+    selection.selected.forEach { GraphStateDetails(graph, it, measurements) }
     Text(historyText(HistoryText.GraphHint), Modifier.padding(8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
@@ -38,7 +38,6 @@ internal fun GraphDetails(
 private fun GraphTransitionDetails(
     graph: HistoryGraph.Machine,
     edge: GraphEdge,
-    profiling: Boolean,
     measurements: GraphMeasurements,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -60,13 +59,11 @@ private fun GraphTransitionDetails(
         if (graph.coverage is HistoryGraphCoverage.Recorded) {
             Text("${historyText(HistoryText.Executions)}: ${measurements.counts.getOrElse(edge.id) { 0 }}", Modifier.testTag("graph-transition-hits"), style = MaterialTheme.typography.bodySmall)
         }
-        if (profiling) {
-            for (profile in measurements.profiles) {
-                profile.transitions.getOrElse(edge.id) { TransitionProfile() }.let { measured ->
-                    Text("${historyText(HistoryText.ProfileExecutions)}: ${measured.hits}", style = MaterialTheme.typography.bodySmall)
-                    ProfileDuration(HistoryText.InputQueue, measured.queue)
-                    ProfileDuration(HistoryText.InputProcessing, measured.processing)
-                }
+        for (profile in measurements.profiles) {
+            profile.transitions.getOrElse(edge.id) { TransitionProfile() }.let { measured ->
+                Text("${historyText(HistoryText.ProfileExecutions)}: ${measured.hits}", style = MaterialTheme.typography.bodySmall)
+                ProfileDuration(HistoryText.InputQueue, measured.queue)
+                ProfileDuration(HistoryText.InputProcessing, measured.processing)
             }
         }
         Text("${historyText(HistoryText.FromState)}: ${transition.source.value}", style = MaterialTheme.typography.bodySmall)
@@ -83,7 +80,6 @@ private fun GraphTransitionDetails(
 private fun GraphStateDetails(
     graph: HistoryGraph.Machine,
     id: StateId,
-    profiling: Boolean,
     measurements: GraphMeasurements,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -101,15 +97,13 @@ private fun GraphStateDetails(
     ) {
         Text("${historyText(HistoryText.State)}: ${id.value}", style = MaterialTheme.typography.titleSmall, color = colors.primary)
         Spacer(Modifier.height(6.dp))
-        if (profiling) {
-            for (profile in measurements.profiles) {
-                profile.states.getOrElse(id) { StateProfile() }.let { measured ->
-                    Text("${historyText(HistoryText.Visits)}: ${measured.visits}", style = MaterialTheme.typography.bodySmall)
-                    ProfileDuration(HistoryText.Residence, measured.residence)
-                    ProfileDuration(HistoryText.CommandQueue, measured.commandQueue)
-                    ProfileDuration(HistoryText.CommandExecution, measured.commandExecution)
-                    Text("${historyText(HistoryText.CancelledCommands)}: ${measured.cancelledCommands}", style = MaterialTheme.typography.bodySmall)
-                }
+        for (profile in measurements.profiles) {
+            profile.states.getOrElse(id) { StateProfile() }.let { measured ->
+                Text("${historyText(HistoryText.Visits)}: ${measured.visits}", style = MaterialTheme.typography.bodySmall)
+                ProfileDuration(HistoryText.Residence, measured.residence)
+                ProfileDuration(HistoryText.CommandQueue, measured.commandQueue)
+                ProfileDuration(HistoryText.CommandExecution, measured.commandExecution)
+                Text("${historyText(HistoryText.CancelledCommands)}: ${measured.cancelledCommands}", style = MaterialTheme.typography.bodySmall)
             }
         }
         graph.definition.transitionsFrom(id).forEach { transition ->

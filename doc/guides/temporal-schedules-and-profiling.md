@@ -206,15 +206,17 @@ cancellation counts apply to handlers that actually began execution.
 ### Inspector and Weather
 
 Pass `HistoryGraphProfile.Recorded(snapshot)` to `HistoryGraph.Machine(profile = ...)`.
-With **Profile** enabled, edges are colored by relative mean input-processing time.
+The graph automatically shows **Execution time** when recorded measurements are available;
+edges are colored by relative mean input-processing time. There is no mode switch.
 Click an edge or state to see its separate measurements. Unavailable samples show
 an em dash. Graph layout, transition labels, pan and zoom are unchanged.
 
 Weather freezes the profiler snapshot into each history frame before that event.
-The caption explicitly says **completed samples before this event, per executor**.
+The caption explains that these are completed measurements before the selected event,
+for the current machine run.
 Selecting old history therefore does not display measurements from a later live
 execution. Continuing from history starts a new executor/window. Imported display
-recordings currently omit profiling and do not show the Profile toggle.
+recordings currently omit profiling and do not show the execution-time legend or measurements.
 
 See the executable examples in
 [`AdvancedWeatherTestingTest.kt`](../../examples/weather/debugTools/src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt).

@@ -175,10 +175,9 @@ public final class actron/timetravel/compose/ChartInspection$Unrequested : actro
 public final class actron/timetravel/compose/ComposableSingletons$GraphControlsKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$GraphControlsKt;
 	public fun <init> ()V
-	public final fun getLambda$-1131320760$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1632552576$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-996738071$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$605375034$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-1133663274$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-2140585963$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-2141739618$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class actron/timetravel/compose/ComposableSingletons$GroupExperimentPanelKt {

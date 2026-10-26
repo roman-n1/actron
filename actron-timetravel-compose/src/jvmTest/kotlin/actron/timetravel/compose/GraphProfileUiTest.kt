@@ -15,17 +15,21 @@ import actron.statechart.machine.TransitionId
 import actron.statechart.machine.TransitionProfile
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runComposeUiTest
@@ -33,13 +37,15 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
+import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
 class GraphProfileUiTest {
     @Test
-    fun snapshotUpdatesKeepSelectionAndProfileWhileDefinitionChangesResetThemWithoutRefitting() =
+    fun snapshotUpdatesKeepMeasurementsAndDefinitionChangesResetSelectionWithoutRefitting() =
         runComposeUiTest {
             val a = StateId("A")
             val b = StateId("B")
@@ -52,7 +58,7 @@ class GraphProfileUiTest {
                     MachineGraph(HistoryGraph.Machine(definition, active, profile = profile), viewport, Modifier.size(800.dp, 800.dp))
                 }
             }
-            onNodeWithTag("graph-profile-toggle").performClick()
+            onNodeWithTag("graph-profile-toggle").assertDoesNotExist()
             onNodeWithTag("machine-graph").performTouchInput {
                 click(
                     Offset(80f, 60f) * viewport.scale + viewport.offset,
@@ -75,7 +81,7 @@ class GraphProfileUiTest {
             onNodeWithTag("graph-profile-window").assertExists()
             runOnIdle { definition = definition.copy(transitions = emptyList()) }
             onNodeWithTag("graph-state-transitions").assertDoesNotExist()
-            onNodeWithTag("graph-profile-window").assertDoesNotExist()
+            onNodeWithTag("graph-profile-window").assertExists()
             onNodeWithTag("machine-graph").performTouchInput {
                 click(
                     Offset(80f, 60f) * viewport.scale + viewport.offset,
@@ -107,7 +113,7 @@ class GraphProfileUiTest {
                                 ),
                         ),
                 )
-            var recorded by mutableStateOf(old)
+            var recorded by mutableStateOf<HistoryGraphProfile>(HistoryGraphProfile.Recorded(old))
             val viewport = GraphViewport()
             var layouts = emptyList<GraphLayout>()
             setContent {
@@ -122,10 +128,12 @@ class GraphProfileUiTest {
                                 }
                             },
                         )
-                    MachineGraph(HistoryGraph.Machine(chart, setOf(a), profile = HistoryGraphProfile.Recorded(recorded)), viewport, Modifier.size(800.dp, 800.dp))
+                    Surface {
+                        MachineGraph(HistoryGraph.Machine(chart, setOf(a), profile = recorded), viewport, Modifier.size(800.dp, 800.dp))
+                    }
                 }
             }
-            onNodeWithTag("graph-profile-toggle").performClick()
+            onNodeWithTag("graph-profile-toggle").assertDoesNotExist()
             onNodeWithTag("graph-profile-window").assertExists()
             onNodeWithTag("machine-graph").performTouchInput {
                 click(
@@ -138,11 +146,16 @@ class GraphProfileUiTest {
             }
             onNodeWithTag("profile-duration-InputQueue").assertTextContains("5ms", substring = true)
             onNodeWithTag("profile-duration-InputProcessing").assertTextContains("2ms", substring = true)
-            runOnIdle { recorded = old.copy(transitions = mapOf(TransitionId(0) to TransitionProfile(3, processing = DurationProfile(1, 30.milliseconds, 30.milliseconds)))) }
+            runOnIdle { recorded = HistoryGraphProfile.Recorded(old.copy(transitions = mapOf(TransitionId(0) to TransitionProfile(3, processing = DurationProfile(1, 30.milliseconds, 30.milliseconds))))) }
             onNodeWithTag("profile-duration-InputProcessing").assertTextContains("30ms", substring = true)
-            runOnIdle { recorded = old }
+            runOnIdle { recorded = HistoryGraphProfile.Recorded(old) }
             onNodeWithTag("profile-duration-InputProcessing").assertTextContains("2ms", substring = true)
-            onNodeWithTag("graph-profile-toggle").performClick()
+            val previewFile = File("build/reports/history-panel/graph-timings.png")
+            previewFile.parentFile.mkdirs()
+            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", previewFile)
+            runOnIdle { recorded = HistoryGraphProfile.Unavailable }
+            onNodeWithTag("graph-profile-toggle").assertDoesNotExist()
+            onNodeWithTag("graph-profile-window").assertDoesNotExist()
             onNodeWithTag("profile-duration-InputProcessing").assertDoesNotExist()
         }
 }

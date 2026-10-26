@@ -2,7 +2,6 @@ package actron.timetravel.compose
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +22,6 @@ internal fun GraphControls(
     viewport: GraphViewport,
     surface: GraphSurface,
     layout: GraphLayout,
-    selection: GraphInteraction,
     measurements: GraphMeasurements,
     showProfileWindow: Boolean,
 ) {
@@ -35,8 +33,7 @@ internal fun GraphControls(
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
         if (measurements.profiles.isNotEmpty()) {
-            HistoryChoice(selection.profiling.value, { selection.profiling.toggle() }, { Text(historyText(HistoryText.Profile)) }, Modifier.testTag("graph-profile-toggle"))
-            Spacer(Modifier.weight(1f))
+            Text(historyText(HistoryText.Profile), Modifier.weight(1f).padding(top = 12.dp).testTag("graph-timings-title"), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
         }
         TextButton({ viewport.transform(surface.size.center, Offset.Zero, 1f / 1.25f) }, Modifier.testTag("graph-zoom-out").semantics { contentDescription = zoomOut }) { Text("−") }
         Text("${(viewport.scale * 100).toInt()}%", Modifier.padding(top = 12.dp).testTag("graph-scale"))
@@ -44,7 +41,7 @@ internal fun GraphControls(
         TextButton({ viewport.fit(surface.size, layout.size) }, Modifier.testTag("graph-fit")) { Text(historyText(HistoryText.Fit)) }
     }
     if (showProfileWindow) {
-        Text(historyText(HistoryText.ProfileWindow), Modifier.padding(horizontal = 8.dp).testTag("graph-profile-window"), style = MaterialTheme.typography.labelSmall)
+        Text(historyText(HistoryText.ProfileWindow), Modifier.padding(horizontal = 8.dp).testTag("graph-profile-window"), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
         for (profile in measurements.profiles) if (profile.droppedCorrelations > 0) Text("${historyText(HistoryText.ProfileDropped)}: ${profile.droppedCorrelations}", color = colors.error, style = MaterialTheme.typography.labelSmall)
     }
 }

@@ -95,7 +95,7 @@ private fun GraphCanvas(
     val activeLabel = historyText(HistoryText.ActiveStates)
     Column(modifier) {
         GraphDiagnosticsPanel(graph.definition.diagnostics) { selection.focus(it, layout, surface, viewport) }
-        GraphControls(graph, viewport, surface, layout, selection, measurements, appearance.showProfileWindow)
+        GraphControls(graph, viewport, surface, layout, measurements, appearance.showProfileWindow)
         Canvas(
             Modifier
                 .weight(1f)
