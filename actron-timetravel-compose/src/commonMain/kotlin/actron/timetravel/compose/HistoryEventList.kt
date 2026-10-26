@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
@@ -65,8 +66,18 @@ internal fun <S : Any> HistoryEventList(
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             HistoryMuted(counter, Modifier.weight(1f).testTag("history-event-counter"))
-            Checkbox(inspection.bookmarksOnly, { inspection.bookmarksOnly = it }, Modifier.testTag("history-bookmarks-only"))
-            Text(historyText(HistoryText.Bookmarks), style = MaterialTheme.typography.labelMedium)
+            Checkbox(
+                inspection.bookmarksOnly,
+                { inspection.bookmarksOnly = it },
+                Modifier.testTag("history-bookmarks-only"),
+                colors =
+                    CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        checkmarkColor = MaterialTheme.colorScheme.surface,
+                    ),
+            )
+            HistoryMuted(historyText(HistoryText.Bookmarks))
         }
         LazyColumn(Modifier.weight(1f).testTag("history-events"), state = listState) {
             items(visible, key = { it.id }) { entry ->
