@@ -19,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
@@ -61,7 +60,7 @@ internal fun InspectorReplayBar(
         val availability = replay.forwardAvailability
         if (availability is Availability.Unavailable) {
             for (why in availability.reasons) {
-                Text("forward disabled: $why", style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E24AA), modifier = Modifier.testTag("replay-why"))
+                Text("forward disabled: $why", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.testTag("replay-why"))
             }
         }
         val verification = replay.verification

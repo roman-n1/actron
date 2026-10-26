@@ -3,6 +3,7 @@ package actron.timetravel.compose
 import actron.timetravel.HistoryEntry
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
@@ -31,7 +32,17 @@ class HistoryPanelState<S : Any> {
     var preview: List<HistoryEntry<S>> by mutableStateOf(emptyList())
         private set
 
+    // A navigation request is separate from the selected snapshot: clicking an already
+    // visible row must not make the layout align it with the top of the viewport.
+    internal var scrollRequest: Long by mutableLongStateOf(0L)
+        private set
+
     fun select(entry: HistoryEntry<S>) {
+        selectInList(entry)
+        scrollRequest++
+    }
+
+    internal fun selectInList(entry: HistoryEntry<S>) {
         selection.filter { it.id != entry.id }.forEach { inspection.depart(it.id) }
         selection = listOf(entry)
         preview = selection
@@ -41,6 +52,7 @@ class HistoryPanelState<S : Any> {
         selection = emptyList()
         preview = emptyList()
         inspection.clearNavigation()
+        scrollRequest++
     }
 
     internal fun navigate(
@@ -63,6 +75,7 @@ class HistoryPanelState<S : Any> {
         entries.filter { it.id == destination.id }.forEach {
             selection = listOf(it)
             preview = selection
+            scrollRequest++
         }
     }
 

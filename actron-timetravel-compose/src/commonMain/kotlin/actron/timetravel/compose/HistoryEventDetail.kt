@@ -3,7 +3,6 @@ package actron.timetravel.compose
 import actron.timetravel.HistoryDetails
 import actron.timetravel.HistoryEntry
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -26,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -72,7 +69,7 @@ private fun <S : Any> HistoryContinuationAction(
             },
             enabled = historyContinuationEnabled(state, entry, capability),
             modifier = Modifier.fillMaxWidth().testTag("history-continue"),
-            shape = RoundedCornerShape(8.dp),
+            shape = MaterialTheme.shapes.small,
         ) { Text(historyText(HistoryText.Continue)) }
         HistoryMuted(
             when (capability) {
@@ -99,7 +96,7 @@ private fun StateCard(
     value: String,
     modifier: Modifier,
 ) {
-    Surface(modifier, shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+    Surface(modifier, shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerLow, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             HistoryMuted(label)
             Text(value, style = MaterialTheme.typography.bodySmall)
@@ -109,21 +106,9 @@ private fun StateCard(
 
 @Composable
 private fun TransitionDiagram(details: HistoryDetails) {
-    val lineColor = MaterialTheme.colorScheme.outline
     Column(Modifier.fillMaxWidth().testTag("history-transition"), horizontalAlignment = Alignment.CenterHorizontally) {
         HistoryActionPayload(details)
-        Canvas(Modifier.fillMaxWidth().height(36.dp)) {
-            val left = size.width * 0.24f
-            val right = size.width * 0.76f
-            val stroke = 1.5.dp.toPx()
-            val tip = 5.dp.toPx()
-            drawLine(lineColor, Offset(left, size.height), Offset(left, 0f), stroke)
-            drawLine(lineColor, Offset(left, 0f), Offset(left - tip, tip), stroke)
-            drawLine(lineColor, Offset(left, 0f), Offset(left + tip, tip), stroke)
-            drawLine(lineColor, Offset(right, 0f), Offset(right, size.height), stroke)
-            drawLine(lineColor, Offset(right, size.height), Offset(right - tip, size.height - tip), stroke)
-            drawLine(lineColor, Offset(right, size.height), Offset(right + tip, size.height - tip), stroke)
-        }
+        HistoryTransitionArrows(Modifier.fillMaxWidth().height(36.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             StateCard(historyText(HistoryText.StateBefore), details.activeBefore(), Modifier.weight(1f))
             StateCard(historyText(HistoryText.StateAfter), details.activeAfter(), Modifier.weight(1f))
@@ -136,7 +121,7 @@ private fun HistoryActionPayload(details: HistoryDetails) {
     val expanded = remember { mutableStateOf(false) }
     Surface(
         Modifier.fillMaxWidth(0.9f),
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.secondaryContainer,
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

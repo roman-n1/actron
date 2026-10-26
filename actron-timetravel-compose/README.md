@@ -16,6 +16,20 @@ diagram share one event cursor. Previous/next buttons work in either tab; **More
 first/last visible event and navigation back/forward. Alt+Up/Down moves through visible events;
 Alt+Left/Right returns through inspection locations. Text editing keeps its own keyboard behavior.
 
+Clicking a visible row preserves the list's scroll position. Cursor buttons, keyboard shortcuts,
+field navigation and an explicit reveal still bring the selected event into view.
+Rows use the details diagram: outlined before/after states below the short action name,
+with an upward arrow from the old state and a downward arrow to the new state.
+A neutral selected-row surface stays distinct from the action's accent container.
+Rows then preview at most two
+changed data fields with bounded values and a count of further changes. Unchanged fields and
+trace metadata (`revision`, `type`) stay out of the preview; the original action payload and all
+state fields remain available in the event details and search.
+
+Place the panel inside the application's `MaterialTheme`. Colors, status containers, control/card
+shapes and graph typography follow that theme, including changes while the panel is open.
+Technical payloads retain monospace text; no separate panel palette or theme provider is required.
+
 Search matches action, source, outcome, machine name/ID and changed field paths/values. Terms
 are combined; `#12` matches event 12 exactly. Search and machine/bookmark filters change only
 the list: the selected snapshot and graph remain pinned. A banner identifies a hidden selection

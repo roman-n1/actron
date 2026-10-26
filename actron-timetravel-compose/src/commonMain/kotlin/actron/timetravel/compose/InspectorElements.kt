@@ -11,7 +11,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -21,7 +20,7 @@ internal fun InspectorHeading(text: String) {
 
 @Composable
 internal fun InspectorReason(text: String) {
-    Text("! $text", style = MaterialTheme.typography.bodySmall, color = Color(0xFFC62828), modifier = Modifier.padding(start = 4.dp))
+    Text("! $text", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(start = 4.dp))
 }
 
 @Composable
