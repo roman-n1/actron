@@ -58,8 +58,8 @@ class AdvancedWeatherTestingTest {
                 machine.exploreSchedules(
                     WeatherContext(kazan),
                     this,
-                    maxDepth = 2,
-                    maxRuns = 30,
+                    maxDepth = 3,
+                    maxRuns = 300,
                     setup = { send(WeatherAction.Refresh) },
                     choices = {
                         if (runningCommands.isEmpty()) {
@@ -68,6 +68,7 @@ class AdvancedWeatherTestingTest {
                             runningCommands.flatMap { command ->
                                 val answers: List<WeatherAction> =
                                     when (command.command) {
+                                        is WeatherCommand.Advice -> listOf(WeatherAction.AdviceLoaded(city = kazan, items = emptyList()), WeatherAction.AdviceFailed(reason = "offline"))
                                         is WeatherCommand.Current -> listOf(WeatherAction.Loaded(reading(kazan)), WeatherAction.Unavailable("offline"))
                                         is WeatherCommand.Hourly -> listOf(WeatherAction.ForecastLoaded(HourlyForecast(kazan, emptyList())), WeatherAction.ForecastFailed("offline"))
                                     }
@@ -83,7 +84,7 @@ class AdvancedWeatherTestingTest {
                     },
                 )
             report.assertSuccess()
-            val orders = report.completed.map { path -> path.filterIsInstance<ScheduleOperation.Answer<WeatherAction>>().map { it.action::class } }
+            val orders = report.completed.map { path -> path.filterIsInstance<ScheduleOperation.Answer<WeatherAction>>().map { it.action::class }.filter { it in setOf(WeatherAction.Loaded::class, WeatherAction.Unavailable::class, WeatherAction.ForecastLoaded::class, WeatherAction.ForecastFailed::class) } }
             assertTrue(listOf(WeatherAction.Loaded::class, WeatherAction.ForecastLoaded::class) in orders)
             assertTrue(listOf(WeatherAction.ForecastLoaded::class, WeatherAction.Loaded::class) in orders)
             assertTrue(report.completed.any { it.first() is ScheduleOperation.Advance })

@@ -25,4 +25,17 @@
     <string name="timestamp">%1$s · %2$s мс</string>
     <string name="temperature">%1$s°</string>
     <string name="unknown_temperature">—</string>
+    <string name="advice_title">Погодные советы</string>
+    <string name="advice_loading">Проверяем погодные условия…</string>
+    <string name="advice_failed">Не удалось загрузить погодные советы. Попробуйте ещё раз.</string>
+    <string name="advice_dismiss">Закрыть погодные советы</string>
+    <string name="advice_close_symbol">×</string>
+    <string name="advice_umbrella">Идёт дождь — возьмите зонт.</string>
+    <string name="advice_ice">Ледяные осадки — на дорогах может быть скользко.</string>
+    <string name="advice_wind">Сильный ветер — будьте осторожны на улице.</string>
+    <string name="advice_heat">На улице жарко — возьмите с собой воду.</string>
+    <string name="advice_cold">На улице мороз — одевайтесь теплее.</string>
+    <string name="weather_in_city">Погода — %1$s</string>
+    <string name="current_weather">Текущая погода</string>
+    <string name="advice_storm">Гроза — лучше переждать её в помещении.</string>
 </resources>

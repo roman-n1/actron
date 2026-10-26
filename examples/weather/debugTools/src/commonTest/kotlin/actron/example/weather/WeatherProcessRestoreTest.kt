@@ -73,7 +73,7 @@ class WeatherProcessRestoreTest {
                 ).state.value.context
             assertIs<RequestState.Success<WeatherReading>>(oldWeather.current)
             assertEquals(RequestState.Loading, oldWeather.hourly)
-            assertEquals(1, currentCalls)
+            assertEquals(2, currentCalls)
             assertEquals(1, forecastCalls)
             repeat(2) {
                 // A real serialization round trip, then destroy every retained instance.
@@ -102,7 +102,7 @@ class WeatherProcessRestoreTest {
                     )
                 assertEquals(oldWeather, restored.state.value.context)
                 assertEquals("Lis", history.session.frame.search.snapshot.context.query)
-                assertEquals(1, currentCalls, "Completed requests must not repeat")
+                assertEquals(2, currentCalls, "Completed requests must not repeat")
                 assertEquals(it + 2, forecastCalls, "Each new process restarts the pending request once")
             }
             val weather =
@@ -135,7 +135,7 @@ class WeatherProcessRestoreTest {
             val current =
                 WeatherRepository { city ->
                     currentCalls++
-                    WeatherReading(city, 10.0, 9.0, 1.0, 0, "saved")
+                    WeatherReading(city = city, temperature = 10.0, feelsLike = 9.0, wind = 1.0, code = 61, time = "saved")
                 }
             val forecast =
                 HourlyForecastRepository { city ->
@@ -154,12 +154,17 @@ class WeatherProcessRestoreTest {
                     .value.active.instance,
             ).onUiEvent(CitySearchIntent.SelectCity(demoCities[0]))
             testScheduler.runCurrent()
-            val expected =
+            val weather =
                 assertIs<CityWeatherComponent>(
                     root
                         .getChildStack()
                         .value.active.instance,
-                ).state.value.context
+                )
+            assertIs<WeatherAdviceState.Visible>(weather.state.value.context.advice)
+            weather.onUiEvent(event = CityWeatherIntent.DismissAdvice)
+            testScheduler.runCurrent()
+            val expected = weather.state.value.context
+            assertEquals(expected = WeatherAdviceState.Dismissed, actual = expected.advice)
             val bytes = Json.encodeToString(SerializableContainer.serializer(), state.save())
             lifecycle.destroy()
             keeper.destroy()
@@ -177,7 +182,7 @@ class WeatherProcessRestoreTest {
                         .value.active.instance,
                 ).state.value.context,
             )
-            assertEquals(1, currentCalls)
+            assertEquals(2, currentCalls)
             assertEquals(1, forecastCalls)
             newLifecycle.destroy()
             newKeeper.destroy()

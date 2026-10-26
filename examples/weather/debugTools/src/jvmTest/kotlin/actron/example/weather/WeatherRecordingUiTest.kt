@@ -31,7 +31,7 @@ class WeatherRecordingUiTest {
             onNodeWithTag("history-continue").assertDoesNotExist()
             onNodeWithTag("history-live").assertDoesNotExist()
             onNodeWithTag("history-entry-2").performClick()
-            onNodeWithTag("weather-city").assertTextEquals("Москва")
+            onNodeWithTag("weather-city").assertTextContains(value = "Москва", substring = true)
             onNodeWithTag("history-graph-tab").performClick()
             onNodeWithTag("machine-graph").assertExists()
             onNodeWithTag("recording-close").performClick()

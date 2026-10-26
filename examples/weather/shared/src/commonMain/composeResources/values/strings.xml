@@ -25,4 +25,17 @@
     <string name="timestamp">%1$s · %2$s ms</string>
     <string name="temperature">%1$s°</string>
     <string name="unknown_temperature">—</string>
+    <string name="advice_title">Weather advice</string>
+    <string name="advice_loading">Checking the weather for advice…</string>
+    <string name="advice_failed">Could not load weather advice. Try again.</string>
+    <string name="advice_dismiss">Dismiss weather advice</string>
+    <string name="advice_close_symbol">×</string>
+    <string name="advice_umbrella">It is raining — take an umbrella.</string>
+    <string name="advice_ice">Freezing precipitation — roads may be slippery.</string>
+    <string name="advice_wind">Strong wind — take care outdoors.</string>
+    <string name="advice_heat">It is hot — take water with you.</string>
+    <string name="advice_cold">It is freezing — dress warmly.</string>
+    <string name="weather_in_city">Weather — %1$s</string>
+    <string name="current_weather">Current weather</string>
+    <string name="advice_storm">Thunderstorm — consider staying indoors.</string>
 </resources>

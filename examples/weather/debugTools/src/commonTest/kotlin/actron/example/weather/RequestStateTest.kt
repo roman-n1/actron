@@ -24,9 +24,9 @@ class RequestStateTest {
         val forecast = HourlyForecast(city, listOf(ForecastHour("13:00", 21.0, 10.0, 5)))
         val states =
             listOf(
-                WeatherContext(city, RequestState.Success(weather), RequestState.Success(forecast)),
-                WeatherContext(city, RequestState.Success(weather), RequestState.Error(cause = RequestFailure.Unavailable(message = "offline"))),
-                WeatherContext(city, RequestState.Loading, RequestState.Error(cause = RequestFailure.Timeout)),
+                WeatherContext(city = city, current = RequestState.Success(value = weather), hourly = RequestState.Success(value = forecast)),
+                WeatherContext(city = city, current = RequestState.Success(value = weather), hourly = RequestState.Error(cause = RequestFailure.Unavailable(message = "offline"))),
+                WeatherContext(city = city, current = RequestState.Loading, hourly = RequestState.Error(cause = RequestFailure.Timeout)),
                 WeatherContext(city),
             )
         for (state in states) {

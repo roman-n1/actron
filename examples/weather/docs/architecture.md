@@ -3,7 +3,7 @@
 [Back to the example](../README.md) · [Testing guide](../debugTools/src/commonTest/README.md)
 
 Weather has two screens and two machine definitions. Read the search feature first; the weather
-feature applies the same integration to two parallel regions. Navigation is entirely Decompose's
+feature applies the same integration to a screen parent with three parallel child regions. Navigation is entirely Decompose's
 responsibility. No third navigation machine is registered in Actron.
 
 ## Follow one input through the application
@@ -88,15 +88,30 @@ injects an old result does not mean Weather intentionally leaves obsolete reques
 ### Parallel weather
 
 [CityWeatherMachine.kt](../shared/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt)
-uses `parallelStateMachine`. `Current` selects `context.current`; `Hourly` selects `context.hourly`.
-Both regions reuse the private `requestStates` declaration for Idle/Loading/Success/Error
-and the eight-second timeout. Each region still owns its states, command and timeout activation;
-its loading block supplies the domain-specific command, successful result and failure actions.
-The region writers copy only their own field, preserving the other region.
+uses `typedStateMachine` with a `WeatherScreen` compound parent. Its `Idle` leaf starts no child work.
+The one parent `Refresh` handler enters the `Active` parallel node, or externally re-enters it on
+another refresh. The three regions start from their own Loading states in one decision. The parent
+context owns the city and screen phase; its header renders “Weather — city”, navigation and Refresh.
 
-`Refresh` is handled by both regions in one machine decision. `RetryForecast` is declared only
-in `Hourly`. HTTP results can arrive in either order; the machine still decides inputs one at a
-time. Parallel regions represent concurrently active behavior, not concurrent writes to state.
+`Current` selects `context.current`; `Hourly` selects `context.hourly`. They reuse `requestStates`
+for Loading/Success/Error and the eight-second timeout, while keeping independent commands, data
+and activations. `RetryForecast` belongs only to Hourly.
+
+`Advice` selects `context.advice` and runs a separate `WeatherCommand.Advice`. It calls the same
+`WeatherRepository.load(city)` dependency as Current, with its own request, result, cancellation
+scope and timeout. There are two current-weather requests per global refresh in this example.
+The handler interprets its reading as umbrella, freezing-precipitation, wind, heat, cold or thunderstorm advice;
+weather values are not copied from another region. WMO precipitation codes follow
+[Open-Meteo](https://open-meteo.com/en/docs); wind >=40 km/h, heat >=30°C and cold <=-10°C are demo thresholds.
+
+Advice has Loading/Hidden/Visible/Dismissed/Error states. An empty result hides its card; Visible
+contains the interpreted tips. DismissAdvice in Loading, Visible or Error closes only this card
+(and cancels its pending work). Late results cannot reopen it. RetryAdvice in Error restarts only
+its own request. Global Refresh starts a new cycle for all three children. Labels and tips use
+native EN/RU XML resources.
+
+All region writers preserve sibling fields. Parallel regions represent concurrently active
+behavior, not concurrent writes; inputs are still decided sequentially.
 
 ## Components and lifetime
 

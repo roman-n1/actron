@@ -56,14 +56,14 @@ class RetainedMachineTest {
             val store = create()
             testScheduler.runCurrent()
             assertTrue(store.state.value.isStarted)
-            assertEquals(2, started)
+            assertEquals(3, started)
             assertSame(store, create())
             testScheduler.runCurrent()
-            assertEquals(2, started, "Host recreation must not repeat startup actions")
+            assertEquals(3, started, "Host recreation must not repeat startup actions")
             assertEquals(0, cancelled)
             keeper.destroy()
             testScheduler.runCurrent()
-            assertEquals(2, cancelled)
+            assertEquals(3, cancelled)
         }
 
     @Test

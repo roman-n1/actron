@@ -53,6 +53,8 @@ class DefaultCityWeatherComponent(
     override fun onUiEvent(event: CityWeatherIntent) {
         if (!state.value.isStarted) return
         when (event) {
+            CityWeatherIntent.DismissAdvice -> store.dispatch(action = WeatherAction.DismissAdvice)
+            CityWeatherIntent.RetryAdvice -> store.dispatch(action = WeatherAction.RetryAdvice)
             CityWeatherIntent.Refresh -> store.dispatch(WeatherAction.Refresh)
             CityWeatherIntent.RetryForecast -> store.dispatch(WeatherAction.RetryForecast)
             CityWeatherIntent.Back -> scope.launch { endpoint.news.emit(CityWeatherComponent.News.BackClicked) }

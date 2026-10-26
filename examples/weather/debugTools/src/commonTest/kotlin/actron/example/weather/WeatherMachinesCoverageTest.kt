@@ -88,9 +88,29 @@ class WeatherMachinesCoverageTest {
                                 assertEquals(currentBefore, context.current, "Forecast retry must not reset current weather")
                             }
                             advanceTimeBy(8.seconds)
-                            expectState<RequestState.Error> { it.hourly }
+                            if (phase == Phase.Idle && action == WeatherAction.RetryForecast) {
+                                assertEquals(expected = WeatherScreenState.Idle, actual = context.screen)
+                                assertTrue(actual = driver.runningCommands.isEmpty())
+                            } else {
+                                expectState<RequestState.Error> { it.hourly }
+                            }
                         }
                 }
+            }
+            // Exercise every branch of the distinct advice lifecycle as well.
+            for (result in listOf<WeatherAction>(WeatherAction.AdviceLoaded(city = city, items = emptyList()), WeatherAction.AdviceLoaded(city = city, items = listOf(actron.example.weather.feature.weather.domain.WeatherAdvice.Umbrella)), WeatherAction.AdviceFailed(reason = "offline"))) {
+                reports +=
+                    CityWeatherMachine.create().test(scope = this, initial = WeatherContext(city = city), scenario = {
+                        dispatch(action = WeatherAction.Refresh)
+                        completeCommand(matching = { it is WeatherCommand.Advice }, result = { result })
+                        dispatch(action = WeatherAction.DismissAdvice)
+                        dispatch(action = WeatherAction.Refresh)
+                        dispatch(action = WeatherAction.DismissAdvice)
+                        dispatch(action = WeatherAction.Refresh)
+                        advanceTimeBy(duration = 8.seconds)
+                        dispatch(action = WeatherAction.RetryAdvice)
+                        advanceTimeBy(duration = 8.seconds)
+                    })
             }
             val coverage = reports.reduce { a, b -> a.merge(b) }
             coverage.assertTransitionsCovered()
@@ -133,7 +153,7 @@ class WeatherMachinesCoverageTest {
                 expectState<RequestState.Loading> { it.hourly }
                 dispatch(WeatherAction.Refresh)
                 assertTrue(driver.handler.cancelled.containsAll(old))
-                assertEquals(2, driver.runningCommands.size)
+                assertEquals(3, driver.runningCommands.size)
                 assertTrue(driver.runningCommands.none { it.id in old })
                 advanceTimeBy(8.seconds)
                 expectState<RequestState.Error> { it.current }

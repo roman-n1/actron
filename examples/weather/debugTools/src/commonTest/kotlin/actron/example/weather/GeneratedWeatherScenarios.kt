@@ -102,10 +102,18 @@ object GeneratedWeatherScenarios {
 
     fun weather() =
         CityWeatherMachine.create().scenarios(WeatherContext(kazan)) {
-            actions(WeatherAction.Refresh, WeatherAction.RetryForecast)
+            actions(WeatherAction.Refresh, WeatherAction.RetryForecast, WeatherAction.DismissAdvice, WeatherAction.RetryAdvice)
             replies { command ->
                 // Real command registrations let the explorer choose either region's response first.
                 when (command) {
+                    is WeatherCommand.Advice -> {
+                        listOf(
+                            WeatherAction.AdviceLoaded(city = command.city, items = emptyList()),
+                            WeatherAction.AdviceLoaded(city = command.city, items = listOf(WeatherAdvice.Umbrella)),
+                            WeatherAction.AdviceFailed(reason = "offline"),
+                        )
+                    }
+
                     is WeatherCommand.Current -> {
                         listOf(
                             WeatherAction.Loaded(WeatherReading(command.city, 12.0, 10.0, 3.0, 0, "2026-10-20T12:00")),

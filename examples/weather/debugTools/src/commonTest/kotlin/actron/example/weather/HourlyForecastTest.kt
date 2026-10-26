@@ -110,11 +110,11 @@ class HourlyForecastTest {
                 store.state.first { it.context.hourly is RequestState.Error && it.context.current is RequestState.Success }
                 store.dispatch(WeatherAction.RetryForecast)
                 store.state.first { it.context.hourly is RequestState.Success }
-                assertEquals(1, currentCalls)
+                assertEquals(2, currentCalls)
                 assertEquals(2, forecastCalls)
                 store.dispatch(WeatherAction.Refresh)
                 testScheduler.runCurrent()
-                assertEquals(2, currentCalls)
+                assertEquals(4, currentCalls)
                 assertEquals(3, forecastCalls)
             } finally {
                 store.close()

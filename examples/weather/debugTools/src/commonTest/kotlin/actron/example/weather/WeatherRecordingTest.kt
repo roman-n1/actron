@@ -26,7 +26,7 @@ internal fun recordingHistory(): WeatherHistory {
     val details = HistoryDetails("ChangeQuery(Москва)", "Action", "Handled", emptyList(), listOf(StateField("query", "Москва")))
     history.timeline.append(history.timeline.machine("City Search", "city-search"), 0, details, WeatherHistoryFrame(searching))
     val city = City("Москва", 55.75, 37.62)
-    val weather = CityWeatherMachine.create().initialSnapshot(WeatherContext(city, RequestState.Loading, RequestState.Loading))
+    val weather = CityWeatherMachine.create().initialSnapshot(WeatherContext(city = city, current = RequestState.Loading, hourly = RequestState.Loading))
     history.timeline.append(history.timeline.machine("City Weather", "city-weather"), 0, details.copy(input = "Refresh"), WeatherHistoryFrame(searching.copy(route = WeatherRoute.Weather(ExecutorCheckpoint.initial(weather)))))
     return history
 }

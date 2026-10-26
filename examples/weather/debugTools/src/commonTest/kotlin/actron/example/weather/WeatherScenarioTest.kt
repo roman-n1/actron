@@ -20,7 +20,7 @@ class WeatherScenarioTest {
                     dispatch(WeatherAction.Refresh)
                     expectState<RequestState.Loading> { it.current }
                     expectState<RequestState.Loading> { it.hourly }
-                    assertEquals(2, coverage.transitions.covered.size)
+                    assertEquals(1, coverage.transitions.covered.size)
                     completeCommand(matching = { it is WeatherCommand.Hourly }) {
                         WeatherAction.ForecastLoaded(HourlyForecast(city, emptyList()))
                     }

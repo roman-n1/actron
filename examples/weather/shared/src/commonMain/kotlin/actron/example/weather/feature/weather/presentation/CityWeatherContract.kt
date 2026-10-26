@@ -17,9 +17,17 @@ data class CityWeatherUiState(
     val forecastStatus: List<WeatherText> = listOf(WeatherText(resource = Res.string.choose_city)),
     val forecastFailed: Boolean = false,
     val enabled: Boolean = false,
+    val advice: List<WeatherText> = emptyList(),
+    val adviceAction: WeatherAdviceAction = WeatherAdviceAction.Dismiss,
 )
 
+enum class WeatherAdviceAction { Dismiss, Retry }
+
 sealed interface CityWeatherIntent {
+    data object DismissAdvice : CityWeatherIntent
+
+    data object RetryAdvice : CityWeatherIntent
+
     data object Back : CityWeatherIntent
 
     data object Refresh : CityWeatherIntent

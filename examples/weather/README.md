@@ -1,7 +1,7 @@
 # Weather application
 
 A two-screen Compose Multiplatform application for Android, Desktop, iOS and the browser.
-Search for a city, open its current weather and six-hour forecast, refresh or go back.
+Search for a city, open its current weather, six-hour forecast and dismissible weather advice, refresh or go back.
 Settings contains an optional debug history panel, shown only on the right. Recording starts
 with the machines, independently of panel visibility.
 
@@ -78,7 +78,7 @@ Desktop. The old article, replay and CLI-check modes have been removed from this
 - **Decompose** owns the component tree, lifecycle and navigation stack. The root handles only
   `CitySelected(city)` and `BackClicked`. The weather configuration carries the selected city.
 - **Actron** owns each feature's `MachineStore`, state, transitions, timers, command execution
-  and cancellation. Search and weather have independent stores; weather contains two parallel regions.
+  and cancellation. Search and weather have independent stores; weather has a screen parent and three parallel child regions.
 - **Command handlers** call feature repositories and return typed result actions. Network
   access is outside the pure machine definitions.
 - **Compose** reads the machine snapshot and sends screen intents. UI models are pure formatting
@@ -144,10 +144,19 @@ Every edit updates the query and revision; 350 ms of quiet starts the request, e
 Clearing cancels pending work and restores `Idle`. An empty server response is `Success(emptyList())`.
 Responses for outdated revisions are ignored. Requests time out after eight seconds.
 
-`CityWeatherMachine` uses the typed parallel DSL with `Current` and `Hourly` regions, containing
-`RequestState<WeatherReading>` and `RequestState<HourlyForecast>`. Each declares
-`Idle`, `Loading`, `Success` and `Error`. Refresh loads both; retrying the forecast
-only restarts `Hourly`. Responses, errors and timeouts are independent.
+`CityWeatherMachine` has a screen parent: `Idle` starts no child work; one parent `Refresh`
+handler enters or re-enters `Active`. The shared header shows the city, navigation and Refresh.
+Three parallel regions then start independently:
+
+- `Current`: Loading / Success / Error with a current-weather request.
+- `Hourly`: the same request lifecycle for the forecast, plus local `RetryForecast`.
+- `Advice`: its own current-weather request through the same repository, interpreted as umbrella,
+  slippery-road, wind, heat, cold or thunderstorm tips. Loading leads to Hidden / Visible / Error;
+  the user can close it to Dismissed or retry only Advice after an error. Closing during loading
+  cancels only that request; late replies cannot reopen the card. Global Refresh starts a new cycle.
+
+The example makes two independent current-weather calls per global refresh. Each child owns
+its command, timeout and result; region writers preserve siblings.
 
 The state variants define graph identity through the DSL. There are no independent state IDs,
 loading/error flags or string guards/effects. `RequestState` uses generated `@Serializable`
@@ -283,7 +292,7 @@ Validation:
 [GeneratedWeatherScenarios.kt](debugTools/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt)
 shows the developer-facing `machine.scenarios(initial) { ... }` API:
 
-- `actions`: finite search values (empty, Moscow, Kazan), refresh and forecast retry.
+- `actions`: finite search values (empty, Moscow, Kazan), global refresh, forecast/advice retries and advice dismissal.
 - `replies`: success/failure data derived from commands actually emitted by the machine.
 - `rule`: each query edit immediately cancels the old request; old search answers cannot
   change context; forecast replies/retries preserve current weather.
@@ -306,7 +315,7 @@ separate defensive check for an already queued callback or a source that ignores
 it does not mean the obsolete HTTP request is intentionally kept running.
 
 With the checked-in data and bounds, search explores 763 decisions and selects 12 scenarios,
-covering **14/14 transitions**; weather explores 49 decisions and selects 10 scenarios, covering
+covering **14/14 transitions**; weather explores 110 decisions and selects 11 scenarios, covering
 **18/18 transitions**. Both machines cover all declared timer transitions. This is bounded pure
 model coverage, not exhaustive payload/guard coverage or verification of executor scheduling.
 Existing queued-store tests continue to cover actual command execution and cancellation.

@@ -2,7 +2,16 @@ package actron.example.weather.feature.weather.presentation
 
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.core.presentation.WeatherText
+import actron.example.weather.feature.weather.domain.WeatherAdvice
 import actron.example.weather.resources.Res
+import actron.example.weather.resources.advice_cold
+import actron.example.weather.resources.advice_failed
+import actron.example.weather.resources.advice_heat
+import actron.example.weather.resources.advice_ice
+import actron.example.weather.resources.advice_loading
+import actron.example.weather.resources.advice_storm
+import actron.example.weather.resources.advice_umbrella
+import actron.example.weather.resources.advice_wind
 import actron.example.weather.resources.choose_city
 import actron.example.weather.resources.choose_weather_city
 import actron.example.weather.resources.feels_like
@@ -61,5 +70,38 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
         forecastStatus = forecastStatus,
         forecastFailed = hourly is RequestState.Error,
         enabled = enabled,
+        advice = adviceText(state = advice),
+        adviceAction = if (advice is WeatherAdviceState.Error) WeatherAdviceAction.Retry else WeatherAdviceAction.Dismiss,
     )
 }
+
+private fun adviceText(state: WeatherAdviceState): List<WeatherText> =
+    when (state) {
+        WeatherAdviceState.Loading -> {
+            listOf(WeatherText(resource = Res.string.advice_loading))
+        }
+
+        WeatherAdviceState.Hidden, WeatherAdviceState.Dismissed -> {
+            emptyList()
+        }
+
+        is WeatherAdviceState.Error -> {
+            listOf(WeatherText(resource = Res.string.advice_failed))
+        }
+
+        is WeatherAdviceState.Visible -> {
+            state.items.map { item ->
+                WeatherText(
+                    resource =
+                        when (item) {
+                            WeatherAdvice.Umbrella -> Res.string.advice_umbrella
+                            WeatherAdvice.SlipperyRoads -> Res.string.advice_ice
+                            WeatherAdvice.StrongWind -> Res.string.advice_wind
+                            WeatherAdvice.Heat -> Res.string.advice_heat
+                            WeatherAdvice.Cold -> Res.string.advice_cold
+                            WeatherAdvice.Thunderstorm -> Res.string.advice_storm
+                        },
+                )
+            }
+        }
+    }

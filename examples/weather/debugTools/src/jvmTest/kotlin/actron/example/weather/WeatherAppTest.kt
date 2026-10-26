@@ -172,16 +172,16 @@ class WeatherAppTest {
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Springfield").fetchSemanticsNodes().any { !it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) } }
             onNodeWithText("Illinois, United States").assertIsDisplayed()
             onNodeWithTag("city-Springfield").performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Springfield").fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(text = "Springfield", substring = true).fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             kotlin.test.assertEquals(city, requests.last())
             onNodeWithTag("weather-back").performClick()
             onNodeWithTag("city-search").assertTextContains("Springfield")
             val previousCalls = requests.size
             onNodeWithTag("city-Springfield").assertIsEnabled().performClick()
             onNodeWithTag("weather-refresh").assertIsEnabled()
-            waitUntil(timeoutMillis = 10_000) { requests.size == previousCalls + 1 }
+            waitUntil(timeoutMillis = 10_000) { requests.size == previousCalls + 2 }
             kotlin.test.assertEquals(city, requests.last())
-            onNodeWithTag("weather-city").assertTextContains("Springfield")
+            onNodeWithTag("weather-city").assertTextContains(value = "Springfield", substring = true)
         }
 
     @Test
@@ -201,9 +201,9 @@ class WeatherAppTest {
             onNodeWithTag("city-search").performTextReplacement("Lisbon")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("city-Lisbon").performScrollTo().performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Lisbon").fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(text = "Lisbon", substring = true).fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("cities-screen").assertDoesNotExist()
-            onNodeWithTag("weather-city").assertTextContains("Lisbon")
+            onNodeWithTag("weather-city").assertTextContains(value = "Lisbon", substring = true)
             onNodeWithTag("weather-back").performClick()
             onNodeWithTag("weather-screen").assertDoesNotExist()
             onNodeWithTag("city-search").performTextReplacement("")
@@ -212,13 +212,13 @@ class WeatherAppTest {
             onNodeWithTag("city-search").performTextReplacement("Tokyo")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("city-Tokyo").performScrollTo().performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Tokyo").fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
-            onNodeWithTag("weather-city").assertTextContains("Tokyo")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(text = "Tokyo", substring = true).fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("weather-city").assertTextContains(value = "Tokyo", substring = true)
             val calls = requests.size
             onNodeWithTag("weather-refresh").performClick()
-            waitUntil(timeoutMillis = 10_000) { requests.size == calls + 1 }
+            waitUntil(timeoutMillis = 10_000) { requests.size == calls + 2 }
             kotlin.test.assertEquals(demoCities[2], requests.last())
-            onNodeWithTag("weather-city").assertTextContains("Tokyo")
+            onNodeWithTag("weather-city").assertTextContains(value = "Tokyo", substring = true)
             onNodeWithTag("cities-screen").assertDoesNotExist()
         }
 

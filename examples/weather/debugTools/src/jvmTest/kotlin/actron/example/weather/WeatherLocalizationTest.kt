@@ -10,9 +10,12 @@ import actron.example.weather.feature.cities.presentation.CitySearchState
 import actron.example.weather.feature.cities.presentation.toUiState
 import actron.example.weather.feature.weather.domain.ForecastHour
 import actron.example.weather.feature.weather.domain.HourlyForecast
+import actron.example.weather.feature.weather.domain.WeatherAdvice
 import actron.example.weather.feature.weather.domain.WeatherReading
 import actron.example.weather.feature.weather.presentation.CityWeatherScreen
+import actron.example.weather.feature.weather.presentation.WeatherAdviceState
 import actron.example.weather.feature.weather.presentation.WeatherContext
+import actron.example.weather.feature.weather.presentation.WeatherScreenState
 import actron.example.weather.feature.weather.presentation.toUiState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.onNodeWithText
@@ -27,6 +30,8 @@ class WeatherLocalizationTest {
         val weather =
             WeatherContext(
                 city = city,
+                screen = WeatherScreenState.Active,
+                advice = WeatherAdviceState.Visible(items = listOf(WeatherAdvice.Umbrella)),
                 current = RequestState.Success(value = WeatherReading(city = city, temperature = 18.0, feelsLike = 16.0, wind = 12.0, code = 0, time = "12:00")),
                 hourly = RequestState.Success(value = HourlyForecast(city = city, hours = listOf(ForecastHour(time = "12:00", temperature = 18.0, wind = 12.0, rainChance = 25)))),
             ).toUiState(enabled = true)
@@ -34,13 +39,15 @@ class WeatherLocalizationTest {
         val original: Locale = Locale.getDefault()
         try {
             for (expectation in listOf(
-                LocaleExpectation(language = "ru-RU", detail = "Ощущается как 16° · ветер 12 км/ч", rain = "Вероятность осадков 25%", failure = "Не удалось загрузить города. Попробуйте ещё раз."),
-                LocaleExpectation(language = "en-US", detail = "Feels like 16° · wind 12 km/h", rain = "Rain 25%", failure = "Could not load cities. Try again."),
-                LocaleExpectation(language = "ja-JP", detail = "Feels like 16° · wind 12 km/h", rain = "Rain 25%", failure = "Could not load cities. Try again."),
+                LocaleExpectation(language = "ru-RU", header = "Погода — Tokyo", advice = "Идёт дождь — возьмите зонт.", detail = "Ощущается как 16° · ветер 12 км/ч", rain = "Вероятность осадков 25%", failure = "Не удалось загрузить города. Попробуйте ещё раз."),
+                LocaleExpectation(language = "en-US", header = "Weather — Tokyo", advice = "It is raining — take an umbrella.", detail = "Feels like 16° · wind 12 km/h", rain = "Rain 25%", failure = "Could not load cities. Try again."),
+                LocaleExpectation(language = "ja-JP", header = "Weather — Tokyo", advice = "It is raining — take an umbrella.", detail = "Feels like 16° · wind 12 km/h", rain = "Rain 25%", failure = "Could not load cities. Try again."),
             )) {
                 Locale.setDefault(Locale.forLanguageTag(expectation.language))
                 runComposeUiTest {
                     setContent { MaterialTheme { CityWeatherScreen(state = weather, onIntent = {}) } }
+                    onNodeWithText(text = expectation.header).assertExists()
+                    onNodeWithText(text = expectation.advice).assertExists()
                     onNodeWithText(text = expectation.detail).assertExists()
                     onNodeWithText(text = expectation.rain).assertExists()
                 }
@@ -57,6 +64,8 @@ class WeatherLocalizationTest {
 
 private data class LocaleExpectation(
     val language: String,
+    val header: String,
+    val advice: String,
     val detail: String,
     val rain: String,
     val failure: String,
