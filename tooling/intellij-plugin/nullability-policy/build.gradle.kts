@@ -4,7 +4,7 @@ java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
-val compilerVersion = "2.3.20"
+val compilerVersion = "2.4.21"
 repositories { mavenCentral() }
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:$compilerVersion")

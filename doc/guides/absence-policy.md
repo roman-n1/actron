@@ -108,7 +108,7 @@ The plugin runs on Main and Test compilations, including Android, iOS, JVM, JS a
 CI's platform matrix compiles and tests the appropriate targets; unsupported native targets
 are covered on macOS. `checkNullability` also runs checker self-tests and real compiler regression
 fixtures that must reject forbidden types and accept normalized boundary usage. Library/IDE Kotlin is
-pinned to 2.3.20; Gradle build logic uses the wrapper's Kotlin 2.3.0 and runs the same compiler
+pinned to 2.4.21; Gradle build logic uses the wrapper's Kotlin 2.4.10 and runs the same compiler
 regressions before compilation. Changing either requires revalidating compiler integration.
 
 There are no file-wide suppressions or optional-container exceptions. Kotlin requires `Any?`

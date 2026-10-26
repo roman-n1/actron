@@ -30,10 +30,14 @@ kotlin {
     }
     jvm()
     js(IR) {
+        binaries.executable()
         browser()
     }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs { browser() }
+    wasmJs {
+        binaries.executable()
+        browser()
+    }
     sourceSets {
         commonMain.dependencies {
             api(project(":weather:shared"))

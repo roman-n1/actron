@@ -2044,6 +2044,7 @@ public final class actron/statechart/machine/DurableStatus : java/lang/Enum {
 }
 
 public final class actron/statechart/machine/DurationProfile {
+	public fun <init> ()V
 	public synthetic fun <init> (JJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (JJJLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()J

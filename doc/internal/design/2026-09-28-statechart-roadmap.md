@@ -317,6 +317,23 @@ library Main target; old recording readers and frozen format versions are preser
 
 #### (c) Public API of the modules upstream owns
 
+The 2026-10-26 build tooling update uses Gradle 9.8.2, AGP 9.4.1, Kotlin 2.4.21,
+Compose Multiplatform 1.12.2 and Maven Publish 0.37.0. Authored library contracts and
+recording formats remain unchanged; the serialization compiler now emits `Any` rather
+than `Any?` bounds on the generated `HistoryRecord.$serializer` and
+`HistoryRecording.$serializer` types, reflected in the time-travel klib API dump.
+Kotlin also adds the default no-argument JVM constructor of `DurationProfile`.
+The time-travel Compose JVM module name is pinned to preserve its generated accessor names.
+Compose's Android artifacts require compile SDK 37; the weather app keeps target SDK 36
+as a separate catalog value, and the published consumer receives compile SDK from the same catalog.
+The JS Yarn lock records Kotlin's updated build tooling dependencies.
+Compose UI modules declare executable web binaries so browser tests bundle the Skiko runtime
+with webpack, as required by Compose 1.12's test configuration checks.
+Weather's Wasm target constrains Ktor's transitive kotlinx-io to 0.9.1, whose module loader
+fixes the raw `import.meta` incompatibility with the updated webpack.
+The fork's nullability IR audit now uses unified parameters/arguments in Kotlin 2.4;
+its compiler fixtures also run against Gradle's embedded Kotlin 2.4.10.
+
 | # | Change | Where | Since | Regression tests | Upstream status | Removable when |
 |---|---|---|---|---|---|---|
 | c1 | `InputId` (public; `@ExperimentalActronApi` until 5.0-3, 2026-10-01), the id every journal record and decision observer carries | `StoreProbe.kt` | round 9, 90a7e02 | `StoreProbeTest` | proposed with b1 (as `@InternalActronApi`) | merged |

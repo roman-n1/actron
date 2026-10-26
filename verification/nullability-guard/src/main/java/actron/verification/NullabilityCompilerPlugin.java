@@ -31,8 +31,8 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
     @Override public boolean getSupportsK2() { return true; }
 
     @Override public void registerExtensions(ExtensionStorage storage, CompilerConfiguration configuration) {
-        if (!Set.of("2.3.20", "2.3.0").contains(KotlinCompilerVersion.getVersion())) {
-            throw new IllegalStateException("Revalidate Actron's nullability compiler plugin before changing the validated Kotlin 2.3.20 / Gradle Kotlin 2.3.0 compilers");
+        if (!Set.of("2.4.21", "2.4.10").contains(KotlinCompilerVersion.getVersion())) {
+            throw new IllegalStateException("Revalidate Actron's nullability compiler plugin before changing the validated Kotlin 2.4.21 / Gradle Kotlin 2.4.10 compilers");
         }
         String configuredRoot = configuration.get(NullabilityOptions.ROOT);
         if (configuredRoot == null) throw new IllegalStateException("Actron nullability plugin requires its repository root");
@@ -49,7 +49,7 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
             }
         });
         // Inspect authored resolved types before Compose/serialization rewrite signatures or
-        // introduce ABI temporaries. Kotlin 2.3.20 shares this ordered registry across registrars.
+        // introduce ABI temporaries. The validated compilers share this ordered registry across registrars.
         var extensions = storage.getRegisteredExtensions().get(IrGenerationExtension.Companion);
         extensions.add(0, extensions.remove(extensions.size() - 1));
     }
@@ -162,7 +162,8 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
         @Override public Unit visitValueParameter(IrValueParameter parameter, IrFile file) {
             IrDeclarationParent parent = parameter.getParent();
             boolean intrinsicEquals = parent instanceof IrSimpleFunction function
-                && function.getName().asString().equals("equals") && function.getValueParameters().size() == 1
+                && function.getName().asString().equals("equals")
+                && function.getParameters().stream().filter(value -> value.getKind() == IrParameterKind.Regular).count() == 1
                 && overridesAnyEquals(function, Collections.newSetFromMap(new IdentityHashMap<>()));
             // Job's external SPI uses Throwable? for successful completion. The exception is
             // only the parameter of a lambda supplied directly to that SPI; its owned locals,
@@ -174,8 +175,9 @@ public final class NullabilityCompilerPlugin extends CompilerPluginRegistrar {
         @Override public Unit visitCall(IrCall call, IrFile file) {
             FqName name = IrUtilsKt.getFqNameWhenAvailable(call.getSymbol().getOwner());
             if (name != null && name.asString().equals("kotlinx.coroutines.Job.invokeOnCompletion")) {
-                for (int i = 0; i < call.getValueArgumentsCount(); i++) {
-                    IrExpression argument = call.getValueArgument(i);
+                for (IrValueParameter parameter : call.getSymbol().getOwner().getParameters()) {
+                    if (parameter.getKind() != IrParameterKind.Regular) continue;
+                    IrExpression argument = call.getArguments().get(parameter.getIndexInParameters());
                     if (argument instanceof IrFunctionExpression lambda) completionLambdas.add(lambda.getFunction());
                 }
             }
