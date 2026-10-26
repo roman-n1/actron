@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,7 +33,7 @@ import kotlin.test.assertTrue
  * Offline --Reconnect--> Online
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartHierarchyTest {
     sealed interface ChatAction : Action {
         data object Open : ChatAction

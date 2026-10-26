@@ -1,11 +1,15 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package actron.timetravel.compose
 
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.before_first_input
+import actron.timetravel.compose.resources.verified_inputs
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.semantics.selected
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun PanelGroupBody(
@@ -30,7 +34,7 @@ internal fun PanelGroupBody(
         Text("${item.store.value}: ${item.before.configuration.active.names()} → ${item.after.configuration.active.names()}", style = MaterialTheme.typography.bodySmall)
         if (expanded) PanelRecorded(item.recorded, item.before, item.after)
     } else {
-        Text("Before the first input", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(resource = Res.string.before_first_input), style = MaterialTheme.typography.bodySmall)
     }
     if (expanded) {
         for (store in replay.members.filter { filter.includes(it) }) {
@@ -50,7 +54,7 @@ private fun PanelGroupStatus(replay: GroupReplayControls) {
     val verification = replay.verification
     if (verification is GroupVerification.Checked) {
         if (verification.problems.isEmpty()) {
-            PanelVerdict("Verified ${replay.length} inputs · no divergence")
+            PanelVerdict(stringResource(resource = Res.string.verified_inputs, replay.length))
         } else {
             for (problem in verification.problems) PanelProblem(problem.explain())
         }

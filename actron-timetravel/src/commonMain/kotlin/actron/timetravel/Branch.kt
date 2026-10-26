@@ -2,7 +2,6 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.observability.FailureDescriptor
 import actron.statechart.StateId
 import actron.statechart.machine.ActivationId
@@ -39,7 +38,6 @@ import kotlin.time.Duration
  * @param start Where the branch begins
  * @param recordedAnswers Supplies actual ordered command answers; by default all answers come from the caller
  */
-@ExperimentalActronApi
 class Branch<C : Any, A : Action, CMD : Any, E : Event>(
     private val machine: Machine<C, A, CMD, E>,
     start: ExecutorCheckpoint<C, CMD>,

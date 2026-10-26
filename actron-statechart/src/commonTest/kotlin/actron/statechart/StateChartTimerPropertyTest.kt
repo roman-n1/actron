@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,7 +29,7 @@ import kotlin.test.assertTrue
  * }
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartTimerPropertyTest {
     /** A random truth value per guard label and action, and per guard label for timers. */
     private class GuardTable(

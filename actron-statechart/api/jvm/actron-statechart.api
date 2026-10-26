@@ -2529,7 +2529,6 @@ public abstract interface class actron/statechart/machine/InvokedMachineStore : 
 }
 
 public final class actron/statechart/machine/InvokedMachineStore$DefaultImpls {
-	public static fun dispose (Lactron/statechart/machine/InvokedMachineStore;)V
 	public static fun getCurrentState (Lactron/statechart/machine/InvokedMachineStore;)Lactron/statechart/machine/InvocationSnapshot;
 }
 
@@ -2992,10 +2991,6 @@ public abstract interface class actron/statechart/machine/MachineStore : actron/
 	public abstract fun deliver (Lactron/statechart/machine/MessageId;Lactron/core/Action;)V
 	public abstract fun feed-wWF_zDg (Ljava/lang/String;Lactron/core/Action;)Lactron/statechart/machine/Admission;
 	public abstract fun getMailbox ()Lactron/statechart/machine/EffectMailbox;
-}
-
-public final class actron/statechart/machine/MachineStore$DefaultImpls {
-	public static fun dispose (Lactron/statechart/machine/MachineStore;)V
 }
 
 public final class actron/statechart/machine/MachineStoreKt {

@@ -1,12 +1,10 @@
 package actron.timetravel
 
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineSnapshot
 
 /** A live read-only view of one member at its group's cursor. Movement belongs to the group. */
-@ExperimentalActronApi
 class GroupReplayMember internal constructor(
     val machine: Machine<*, *, *, *>,
     val recording: Recording<*, *, *, *>,

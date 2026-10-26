@@ -2,7 +2,6 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.Machine
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.MachineTime
@@ -87,7 +86,6 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.runPlan(
     plan: TargetedTestPlan<C, A>,
 ): TargetedTestPlanResult<C, A> = TargetedTestPlanResult(plan, runPlan(initial, plan.plan))
 
-@ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.explore(
     generator: MachineInputGenerator<C, A>,
     strategy: ExplorationStrategy = ExplorationStrategy.BreadthFirst,
@@ -95,7 +93,6 @@ fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.
     maxDecisions: Int = 10_000,
 ): ExplorationReport<C, A> = machine.explore(initialSnapshot, generator, strategy, maxDepth, maxDecisions)
 
-@ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.generateTestPlan(
     generator: MachineInputGenerator<C, A>,
     target: CoverageTarget,
@@ -103,5 +100,4 @@ fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.
     maxDecisions: Int = 10_000,
 ): TargetedTestPlan<C, A> = machine.generateTestPlan(initialSnapshot, generator, target, maxDepth, maxDecisions)
 
-@ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.verifyPlan(plan: TargetedTestPlan<C, A>): TargetedTestPlanResult<C, A> = machine.runPlan(initialSnapshot, plan)

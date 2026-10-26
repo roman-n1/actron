@@ -214,7 +214,6 @@ public final class actron/timetravel/GroupReplaySession {
 	public final fun checkpointOf-nThWMHI (Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
 	public final fun getLength ()I
 	public final fun getMemberViews ()Ljava/util/Map;
-	public final fun getMembers ()Ljava/util/Map;
 	public final fun getPosition ()I
 	public final fun getRecording ()Lactron/timetravel/GroupRecording;
 	public final fun seek (I)V

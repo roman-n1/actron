@@ -5,6 +5,13 @@ import actron.statechart.StateId
 import actron.statechart.machine.CandidateDisposition
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.TransitionId
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.chart_no_evaluation
+import actron.timetravel.compose.resources.chart_state_detail
+import actron.timetravel.compose.resources.chart_timer_detail
+import actron.timetravel.compose.resources.chart_transition_detail
+import actron.timetravel.compose.resources.recording_none
+import actron.timetravel.compose.resources.verbatim
 
 internal sealed interface ChartSelection {
     data object Overview : ChartSelection
@@ -33,8 +40,8 @@ internal data class ChartEdgePresentation(
 )
 
 internal data class ChartDetailPresentation(
-    val heading: String,
-    val lines: List<String>,
+    val heading: PanelText,
+    val lines: List<PanelText>,
 )
 
 internal fun chartPositions(chart: StateChartDefinition): Map<StateId, Pair<Int, Int>> =
@@ -82,8 +89,8 @@ internal fun chartNodeDetail(
     id: StateId,
 ): ChartDetailPresentation =
     ChartDetailPresentation(
-        "State $id · parent ${chart.node(id).parent} · activation ${snapshot.activations[id] ?: "none"}",
-        snapshot.timers.filter { (_, record) -> chart.transitions.getOrNull(record.transition.index)?.source == id }.map { (timer, record) -> "Timer $timer · ${record.deadline}" },
+        panelText(resource = Res.string.chart_state_detail, id, chart.node(id).parent, snapshot.activations[id] ?: panelText(resource = Res.string.recording_none)),
+        snapshot.timers.filter { (_, record) -> chart.transitions.getOrNull(record.transition.index)?.source == id }.map { (timer, record) -> panelText(resource = Res.string.chart_timer_detail, timer, record.deadline) },
     )
 
 internal fun chartTransitionDetail(
@@ -92,11 +99,11 @@ internal fun chartTransitionDetail(
     inspection: ChartInspection,
 ): ChartDetailPresentation {
     val transition = chart.transitions[id.index]
-    var disposition = "no evaluation recorded"
+    var disposition = panelText(resource = Res.string.chart_no_evaluation)
     inspection.withExplanation { explanation ->
         for (candidate in explanation.candidates) {
             if (candidate.transition == id) {
-                disposition = candidate.disposition.toString()
+                disposition = panelText(resource = Res.string.verbatim, candidate.disposition)
                 break
             }
         }
@@ -105,9 +112,9 @@ internal fun chartTransitionDetail(
         if (inspection is ChartInspection.Decided) {
             inspection.explanation.guards
                 .filter { it.transition == id }
-                .map { "${it.label} = ${it.result}" }
+                .map { panelText(resource = Res.string.verbatim, "${it.label} = ${it.result}") }
         } else {
             emptyList()
         }
-    return ChartDetailPresentation("$id · ${transition.kind} · $disposition", guards)
+    return ChartDetailPresentation(panelText(resource = Res.string.chart_transition_detail, id, transition.kind, disposition), guards)
 }

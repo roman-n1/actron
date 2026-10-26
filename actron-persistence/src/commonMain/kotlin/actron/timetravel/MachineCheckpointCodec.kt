@@ -2,12 +2,10 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
 
 /** The saved checkpoint format, compatibility and resumability checks for one machine. */
-@ExperimentalActronApi
 internal class MachineCheckpointCodec<C : Any, A : Action, CMD : Any, E : Event>(
     private val machine: Machine<C, A, CMD, E>,
     private val codec: RecordingCodec<C, A, CMD, E>,

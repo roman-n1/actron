@@ -65,12 +65,9 @@ Store, in memory.
 - **Codec.** `RecordingCodec` writes a recording as canonical JSON (`RECORDING_FORMAT_VERSION`,
   fields in a fixed order, maps sorted, commands sorted by id, durations in ISO-8601) with the
   application's kotlinx-serialization serializers for its context, actions, commands and events,
-  and reads it back. A newer format or an older one without a `FormatMigration` is
-  `Unsupported`, never guessed; a payload the serializers reject or an inconsistent checkpoint
-  is `Invalid` at its position. Format 5 begins at the start checkpoint with the executor's
-  lanes and the mailbox's pending effects and carries bridge and external-source inputs; the
-  codec migrates every older format itself
-  must not carry class names.
+  and reads it back. Any other format version is `Unsupported`; a payload the serializers
+  reject or an inconsistent checkpoint is `Invalid` at its position. Only the current format
+  is supported; no implicit defaults or old-version migrations are applied.
 
 - **Inspector.** `Inspector` (package `inspect`) is the read model of stage 4: the Stores of a
   group with their capabilities, the timeline of what happened in the group's order, each
@@ -100,16 +97,12 @@ Store, in memory.
   files and an order file with the messages in flight at every segment's start. A cut of the
   group begins a segment in every file, the order segment's header carrying the sources'
   snapshots, so the run since a cut (`since(cut)`) knows them like the in-memory one.
-  `RecordingFiles.prune` bounds what all the files take together. The formats are frozen:
-  `RECORDING_FORMAT_VERSION`, `RECORDING_FILE_FORMAT_VERSION` and the order file's
-  `GroupRecordingFileFormat.VERSION` bump only with a reader of the previous version, its test
-  and a golden, per the [format freeze policy](../doc/internal/adr/2026-10-01-format-freeze-policy.md).
+  `RecordingFiles.prune` bounds what all the files take together. Current writer bytes are
+  pinned by golden tests. Before the first release, only current formats are supported;
+  see the [unreleased API baseline](../doc/internal/adr/2026-10-26-unreleased-api-baseline.md).
 
-Status: the **recording formats are stable in the fork** since 5.0-3 (2026-10-01): `Recording`,
-`RecordingCodec`, `GroupRecording`, `GroupRecorder`, the recording and order files and their sinks
-are not `@ExperimentalActronApi` any more, `apiCheck` holds their API and the formats are frozen (above).
-Replay, branches and the inspector stay **experimental**, `@ExperimentalActronApi`: debug tooling whose
-model still grows. The module lives in the fork [roman-n1/actron](https://github.com/roman-n1/actron).
+Replay, branches, persistence and the inspector are supported APIs without opt-in.
+Only the current recording format is accepted; no old-format migration is performed.
 The [Compose inspector](../actron-timetravel-compose/README.md) supports group-wide positions:
 one cursor restores every member, and forward replay stops on decision or bridge/source
 causality mismatches. Seeking restores recorded checkpoints; verification remains explicit.
@@ -183,7 +176,7 @@ Generated or shrunk model-test inputs can become a recording without running a l
 `machine.recordInputs(initialSnapshot, scenario.inputs)` decides each input once and retains
 ignored and failed steps for `ReplaySession`. For a started workflow, supply an authentic
 `ExecutorCheckpoint` with unfinished command payloads instead of a snapshot. Input time must
-not move backwards. This experimental debug helper executes no commands or events; the
+not move backwards. This debug helper executes no commands or events; the
 application owns serialization and redaction of the supplied data.
 
 ```kotlin
@@ -277,11 +270,8 @@ when (val decoded = codec.decode(text)) {
 }
 ```
 
-When the format changes, `RECORDING_FORMAT_VERSION` is bumped and a `FormatMigration(from, to)`
-turns the older JSON into the newer one; the codec carries the migrations of its own formats
-(1, an `initial` snapshot, to 2, a `start` checkpoint), `migrations` is for formats it does not
-know. `RecordingCodecGoldenTest` holds the golden fixtures of the current format and of the
-previous one, so a change of the text is a deliberate change of the version.
+`RecordingCodecGoldenTest` pins the current writer representation, verifies round trips and
+explicit rejection of unsupported format versions. There are no format migration hooks.
 
 ## Files after interruption
 
@@ -402,7 +392,7 @@ composition. Persistence still rejects unacknowledged effects and undelivered te
 The pure data API remains available: `save(checkpoint)`, `restore(saved)` and
 `composition.decide(checkpoint.snapshot, input)`. `InvocationCheckpoint` and `ChildCheckpoint`
 now live in `actron.statechart.machine`, alongside the executor; update imports from the
-experimental timetravel types. The serialized format is unchanged. Both definitions and their
+previous timetravel types. The serialized format is unchanged. Both definitions and their
 versions are validated, including when the child is dormant.
 
 Use `invocation(persistence, read, write)` inside `checkpointGroup` to register the whole

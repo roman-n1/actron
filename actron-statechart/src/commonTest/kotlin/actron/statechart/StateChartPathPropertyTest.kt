@@ -1,6 +1,5 @@
 package actron.statechart
 
-import actron.core.ExperimentalActronApi
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,7 +23,7 @@ import kotlin.test.assertTrue
  * D --v--> A                   D unreachable: v is never in a coverage path
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartPathPropertyTest {
     private fun referenceDistances(chart: StateChartDefinition): Map<StateId, Int> {
         val distance = mutableMapOf(chart.initial to 0)

@@ -1,15 +1,13 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.timetravel.inspect.InspectorText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-@ExperimentalActronApi
 @Composable
 internal fun JournalTimeTravelPanel(
     state: InspectorState,

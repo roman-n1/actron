@@ -122,7 +122,7 @@ class StoreHandlerRegistryPropertyTest {
             var dispatchedWithHandler = 0
             var recovered = 0
             var transitions = 0
-            repeat(250) { seed ->
+            repeat(400) { seed ->
                 val random = Random(seed)
                 val program = RoutingProgram.random(random)
                 repeat(3) { round ->
@@ -230,8 +230,7 @@ class StoreHandlerRegistryPropertyTest {
                     action<RtAction.P> { }
                     enter { }
                     action<RtAction.Q> { }
-                    @Suppress("DEPRECATION")
-                    error<Exception> { }
+                    recover<Exception> { }
                     exit { }
                 }
             }

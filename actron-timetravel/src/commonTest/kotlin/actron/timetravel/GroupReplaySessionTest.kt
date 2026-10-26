@@ -1,8 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package actron.timetravel
 
-import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.EffectId
 import actron.statechart.machine.MachineInput
@@ -167,15 +166,15 @@ class GroupReplaySessionTest {
             val session = GroupReplaySession(machines, early)
             val mismatch = assertIs<GroupMismatch.ReceivedBeforeSent>(session.verify().first())
             session.seek(mismatch.position)
-            val before = session.members.mapValues { it.value.snapshot }
-            val positions = session.members.mapValues { it.value.position }
+            val before = session.memberViews.mapValues { it.value.snapshot }
+            val positions = session.memberViews.mapValues { it.value.position }
 
             val step = assertIs<GroupReplayStep.Diverged>(session.observedStepForward())
 
             assertEquals(mismatch, step.mismatch)
             assertEquals(mismatch.position, session.position)
-            assertEquals(before, session.members.mapValues { it.value.snapshot })
-            assertEquals(positions, session.members.mapValues { it.value.position })
+            assertEquals(before, session.memberViews.mapValues { it.value.snapshot })
+            assertEquals(positions, session.memberViews.mapValues { it.value.position })
             live.close()
         }
 
@@ -283,21 +282,21 @@ class GroupReplaySessionTest {
                 val replay = GroupReplaySession(machines + (rootId to changed), unrouted)
                 val first = replay.verify().first().position
                 replay.seek(first)
-                val positions = replay.members.mapValues { it.value.position }
-                val snapshots = replay.members.mapValues { it.value.snapshot }
+                val positions = replay.memberViews.mapValues { it.value.position }
+                val snapshots = replay.memberViews.mapValues { it.value.snapshot }
                 val mismatches = replay.verify()
                 val samePosition = mismatches.filter { it.position == first }
                 assertEquals(2, samePosition.size)
                 assertIs<GroupMismatch.Replay>(samePosition[0])
                 assertIs<GroupMismatch.NoRoute>(samePosition[1])
-                assertEquals(positions, replay.members.mapValues { it.value.position })
+                assertEquals(positions, replay.memberViews.mapValues { it.value.position })
                 decisions = 0
                 val result = assertIs<GroupReplayStep.Diverged>(replay.stepForward())
                 assertEquals(samePosition[1], result.mismatch)
                 assertEquals(0, decisions)
                 assertEquals(first, replay.position)
-                assertEquals(positions, replay.members.mapValues { it.value.position })
-                assertEquals(snapshots, replay.members.mapValues { it.value.snapshot })
+                assertEquals(positions, replay.memberViews.mapValues { it.value.position })
+                assertEquals(snapshots, replay.memberViews.mapValues { it.value.snapshot })
                 assertEquals(mismatches, replay.verify())
             } finally {
                 live.close()
@@ -360,14 +359,14 @@ class GroupReplaySessionTest {
                 script(live)
                 val replay = GroupReplaySession(machines, live.recorder.recording())
                 replay.seek(3)
-                val positions = replay.members.mapValues { it.value.position }
-                val checkpoints = replay.members.mapValues { it.value.checkpoint }
+                val positions = replay.memberViews.mapValues { it.value.position }
+                val checkpoints = replay.memberViews.mapValues { it.value.checkpoint }
                 for (invalid in listOf(-1, replay.length + 1)) {
                     val failure = kotlin.test.assertFailsWith<IllegalArgumentException> { replay.seek(invalid) }
                     assertEquals("[Actron] Position $invalid is outside 0..${replay.length}", failure.message)
                     assertEquals(3, replay.position)
-                    assertEquals(positions, replay.members.mapValues { it.value.position })
-                    assertEquals(checkpoints, replay.members.mapValues { it.value.checkpoint })
+                    assertEquals(positions, replay.memberViews.mapValues { it.value.position })
+                    assertEquals(checkpoints, replay.memberViews.mapValues { it.value.checkpoint })
                 }
             } finally {
                 live.close()

@@ -1,7 +1,27 @@
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.timetravel.RecordedStep
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.before_first_input
+import actron.timetravel.compose.resources.checkpoint_clock_timers
+import actron.timetravel.compose.resources.checkpoint_commands
+import actron.timetravel.compose.resources.checkpoint_effects
+import actron.timetravel.compose.resources.commands_timers_effects
+import actron.timetravel.compose.resources.definition_at
+import actron.timetravel.compose.resources.entered_exited
+import actron.timetravel.compose.resources.group_position
+import actron.timetravel.compose.resources.group_recording
+import actron.timetravel.compose.resources.group_state
+import actron.timetravel.compose.resources.input_failed
+import actron.timetravel.compose.resources.input_ignored
+import actron.timetravel.compose.resources.recorded_after
+import actron.timetravel.compose.resources.recorded_before
+import actron.timetravel.compose.resources.replay_back
+import actron.timetravel.compose.resources.replay_forward
+import actron.timetravel.compose.resources.snapshot_active_context
+import actron.timetravel.compose.resources.snapshot_revision
+import actron.timetravel.compose.resources.transitions_value
+import actron.timetravel.compose.resources.verify_group
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,9 +50,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 /** Movement and validation of the whole group, independent of the timeline's Store filter. */
-@ExperimentalActronApi
 @Composable
 fun GroupReplayBar(
     replay: GroupReplayControls,
@@ -40,20 +60,18 @@ fun GroupReplayBar(
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(8.dp).testTag("group-replay-bar")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = replay::stepBackward, enabled = replay.canStepBackward, modifier = Modifier.testTag("group-replay-back")) { Text("◀ back") }
-            OutlinedButton(onClick = replay::stepForward, enabled = replay.canStepForward, modifier = Modifier.testTag("group-replay-forward")) { Text("forward ▶") }
-            OutlinedButton(onClick = replay::verify, modifier = Modifier.testTag("group-replay-verify")) { Text("verify group") }
-            Text("${replay.position} / ${replay.length} of group", modifier = Modifier.padding(top = 12.dp).testTag("group-replay-position"))
+            OutlinedButton(onClick = replay::stepBackward, enabled = replay.canStepBackward, modifier = Modifier.testTag("group-replay-back")) { Text(stringResource(resource = Res.string.replay_back)) }
+            OutlinedButton(onClick = replay::stepForward, enabled = replay.canStepForward, modifier = Modifier.testTag("group-replay-forward")) { Text(stringResource(resource = Res.string.replay_forward)) }
+            OutlinedButton(onClick = replay::verify, modifier = Modifier.testTag("group-replay-verify")) { Text(stringResource(resource = Res.string.verify_group)) }
+            Text(stringResource(resource = Res.string.group_position, replay.position, replay.length), modifier = Modifier.padding(top = 12.dp).testTag("group-replay-position"))
         }
         GroupReplaySeek(replay)
-        val availability = replay.forwardAvailability
-        if (availability is actron.timetravel.inspect.Availability.Unavailable) for (reason in availability.reasons) Text(reason, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("group-replay-why"))
+        ForwardStepMessage(availability = replay.forwardAvailability, modifier = Modifier.testTag("group-replay-why"), color = MaterialTheme.colorScheme.error)
         GroupReplayVerdict(replay)
     }
 }
 
 /** The recording's inputs in their global order; a click seeks after that input. */
-@ExperimentalActronApi
 @Composable
 fun GroupTimelinePanel(
     replay: GroupReplayControls,
@@ -65,7 +83,7 @@ fun GroupTimelinePanel(
             .withIndex()
             .filter { filter.includes(it.value.store) }
     Column(modifier = modifier.padding(8.dp)) {
-        Text("Group recording (${visible.size} inputs)", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(resource = Res.string.group_recording, visible.size), style = MaterialTheme.typography.titleSmall)
         LazyColumn(modifier = Modifier.fillMaxSize().testTag("group-timeline")) {
             items(visible, key = { it.index }) { indexed ->
                 val item = replay.at(indexed.index)
@@ -87,7 +105,6 @@ fun GroupTimelinePanel(
 }
 
 /** Expected transition details and every member's checkpoint at the group's current prefix. */
-@ExperimentalActronApi
 @Composable
 fun GroupPositionPanel(
     replay: GroupReplayControls,
@@ -95,29 +112,39 @@ fun GroupPositionPanel(
 ) {
     Column(modifier = modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
         Column(modifier = Modifier.semantics(mergeDescendants = true) {}.testTag("group-position")) {
-            Text("Group state at ${replay.position}", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(resource = Res.string.group_state, replay.position), style = MaterialTheme.typography.titleSmall)
             if (replay.hasSelection) {
                 val item = replay.selectedPosition()
                 Text("#${item.index} ${item.store.value}: ${item.recorded.input}")
-                Text("recorded before: ${item.before.context}", fontFamily = FontFamily.Monospace)
-                Text("recorded after: ${item.after.context}", fontFamily = FontFamily.Monospace)
-                Text("entered ${item.diff.entered.map { it.value }.sorted()}  exited ${item.diff.exited.map { it.value }.sorted()}")
+                Text(stringResource(resource = Res.string.recorded_before, item.before.context), fontFamily = FontFamily.Monospace)
+                Text(stringResource(resource = Res.string.recorded_after, item.after.context), fontFamily = FontFamily.Monospace)
+                Text(
+                    stringResource(
+                        resource = Res.string.entered_exited,
+                        item.diff.entered
+                            .map { it.value }
+                            .sorted(),
+                        item.diff.exited
+                            .map { it.value }
+                            .sorted(),
+                    ),
+                )
                 when (val step = item.recorded) {
                     is RecordedStep.Committed<*, *, *, *> -> {
-                        Text("transitions ${step.decision.transitions}")
-                        Text("commands ${step.decision.commands}  timers ${step.decision.timersScheduled}  effects ${step.decision.effects}")
+                        Text(stringResource(resource = Res.string.transitions_value, step.decision.transitions))
+                        Text(stringResource(resource = Res.string.commands_timers_effects, step.decision.commands, step.decision.timersScheduled, step.decision.effects))
                     }
 
                     is RecordedStep.Ignored<*, *, *, *> -> {
-                        Text("ignored: ${step.reason}")
+                        Text(stringResource(resource = Res.string.input_ignored, step.reason))
                     }
 
                     is RecordedStep.Failed<*, *, *, *> -> {
-                        Text("failed: ${step.failure}")
+                        Text(stringResource(resource = Res.string.input_failed, step.failure))
                     }
                 }
             } else {
-                Text("before the first input")
+                Text(stringResource(resource = Res.string.before_first_input))
             }
         }
         for (store in replay.members) {
@@ -131,13 +158,22 @@ fun GroupPositionPanel(
                         .semantics(mergeDescendants = true) {}
                         .testTag("group-member-${store.value}"),
             ) {
-                Text("${store.value}  revision ${snapshot.revision}", fontWeight = FontWeight.Bold)
-                Text("active ${snapshot.configuration.active.map { it.value }.sorted()}  context ${snapshot.context}", fontFamily = FontFamily.Monospace)
-                Text("recorded clock ${checkpoint.now.sinceStart}  timers ${snapshot.timers.keys}")
-                Text("running ${checkpoint.lanes.running.keys}  queued ${checkpoint.lanes.queued}  ending ${checkpoint.ending.keys}")
-                Text("pending effects ${checkpoint.effects}")
+                Text(stringResource(resource = Res.string.snapshot_revision, store.value, snapshot.revision), fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(
+                        resource = Res.string.snapshot_active_context,
+                        snapshot.configuration.active
+                            .map { it.value }
+                            .sorted(),
+                        snapshot.context,
+                    ),
+                    fontFamily = FontFamily.Monospace,
+                )
+                Text(stringResource(resource = Res.string.checkpoint_clock_timers, checkpoint.now.sinceStart, snapshot.timers.keys))
+                Text(stringResource(resource = Res.string.checkpoint_commands, checkpoint.lanes.running.keys, checkpoint.lanes.queued, checkpoint.ending.keys))
+                Text(stringResource(resource = Res.string.checkpoint_effects, checkpoint.effects))
             }
-            DefinitionPanel(replay.mermaid(store), "Definition of ${store.value} at ${replay.position}", "group-definition-${store.value}")
+            DefinitionPanel(replay.mermaid(store), stringResource(resource = Res.string.definition_at, store.value, replay.position), "group-definition-${store.value}")
         }
     }
 }
@@ -151,7 +187,6 @@ internal sealed interface SeekGesture {
     ) : SeekGesture
 }
 
-@ExperimentalActronApi
 @Composable
 private fun GroupReplaySeek(replay: GroupReplayControls) {
     var seeking by remember(replay) { mutableStateOf<SeekGesture>(SeekGesture.Idle) }
@@ -170,7 +205,6 @@ private fun GroupReplaySeek(replay: GroupReplayControls) {
     )
 }
 
-@ExperimentalActronApi
 @Composable
 private fun GroupReplayVerdict(replay: GroupReplayControls) {
     val verification = replay.verification

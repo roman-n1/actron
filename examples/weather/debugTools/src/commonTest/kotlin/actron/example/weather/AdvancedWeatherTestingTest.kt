@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.example.weather
 
 import actron.example.weather.core.mvi.*

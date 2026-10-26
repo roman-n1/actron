@@ -77,9 +77,8 @@ so it is built and published together with it and is not meant to run against an
 
 Status: the **pure chart/machine model, snapshots, decisions and checkpoints are stable in the
 fork**, held by `apiCheck`. The Store adapters and their constrained runtime settings are also
-stable. The MachineStore builder cannot install arbitrary handlers or recovery. `ExternalSource`,
-`MachineStore.feed` and `MachineGroup.source` also remain experimental; see the
-[stable core boundary](../doc/internal/adr/2026-10-01-stable-core.md#store-adapter-boundary-2026-10-03-review).
+stable. The MachineStore builder cannot install arbitrary handlers or recovery.
+External sources, feed and source registration are supported without opt-in.
 The module lives in the fork
 [roman-n1/actron](https://github.com/roman-n1/actron), not in upstream Koma.
 
@@ -122,7 +121,6 @@ kotlin {
         }
     }
     compilerOptions {
-        optIn.add("actron.core.ExperimentalActronApi")
     }
 }
 ```
@@ -405,7 +403,7 @@ What holds:
 
 ### External source adapter contract
 
-`ExternalSource`, `MachineStore.feed` and source registration remain experimental. A socket or
+`ExternalSource`, `MachineStore.feed` and source registration are supported API. A socket or
 paging adapter must serialize `feed` and its admission cursor with `pause`:
 
 - Advance the cursor when `feed` returns `Admission.Accepted`. It means the input is queued;
@@ -585,7 +583,7 @@ recovery policy. Weather demonstrates ordinary checkpoint restoration without de
 
 ## Limitations
 
-- External sources and debug tooling remain experimental; no release has been published yet.
+- No release has been published yet; only the current API and recording format are supported.
 - Structural paths ignore guard values; executable scenarios must provide inputs and payloads.
 - Runtime configuration cannot install arbitrary state handlers or replace a snapshot.
 - Context and nested data must be immutable. Pure guards, updates and hooks must not perform I/O.
@@ -977,12 +975,12 @@ for payload-based verification, exported runtime frames, IDE navigation and CI r
 
 Nullable APIs and optional containers have been removed from library implementations.
 See the [null-free API policy](../doc/guides/absence-policy.md) for breaking replacements
-and the strict CI checks, including inferred types. Old persistence readers remain supported.
+and the strict CI checks, including inferred types. Only current persistence formats are supported.
 
 
 ## Continuing a checkpoint
 
-The experimental `resumeMachineStore` factory creates a new executor from a started
+The `resumeMachineStore` factory creates a new executor from a started
 `ExecutorCheckpoint`. It preserves active configuration and context without rerunning entry
 hooks, restarts running commands, retains queued lanes and schedules remaining timer delays.
 Call `start()` on the returned store. Resume validates configuration/history, activations,

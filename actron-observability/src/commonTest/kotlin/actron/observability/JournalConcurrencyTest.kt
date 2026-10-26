@@ -1,8 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class, InternalActronApi::class)
+@file:OptIn(InternalActronApi::class)
 
 package actron.observability
 
-import actron.core.ExperimentalActronApi
 import actron.core.InternalActronApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

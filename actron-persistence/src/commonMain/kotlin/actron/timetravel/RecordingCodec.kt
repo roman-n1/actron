@@ -13,30 +13,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 
-/**
- * Version of the JSON form of a [Recording]. Bumped when a field or a value changes meaning; a
- * reader that meets a newer version refuses, an older one is migrated by an explicit
- * [FormatMigration] or refused, never filled in with defaults.
- *
- * History: 1 began at an `initial` snapshot; 2 begins at a `start` checkpoint of the executor
- * (snapshot, clock, commands running, queued and ending); 3 adds the `bridgeReceived` input
- * with its message; 4 adds the pending `effects` of the mailbox to the checkpoint; 5 adds the
- * `external` input with its source. The codec migrates each version to the next itself.
- */
+/** Current JSON recording format. Other versions are rejected. */
 const val RECORDING_FORMAT_VERSION: Int = 6
-
-/**
- * Turns the JSON of one format version into the next: an explicit, testable step.
- */
-class FormatMigration(
-    val from: Int,
-    val to: Int,
-    val migrate: (JsonObject) -> JsonObject,
-) {
-    init {
-        require(to > from) { "[Actron] A migration goes forward: $from -> $to" }
-    }
-}
 
 /**
  * What [RecordingCodec.decode] found.
@@ -47,7 +25,7 @@ sealed interface DecodedRecording<C : Any, A : Action, CMD : Any, E : Event> {
         val recording: Recording<C, A, CMD, E>,
     ) : DecodedRecording<C, A, CMD, E>
 
-    /** The format version is unknown to this codec and no migration leads to a known one. */
+    /** The format version is not supported by this codec. */
     data class Unsupported<C : Any, A : Action, CMD : Any, E : Event>(
         val formatVersion: Int,
         val reason: String,
@@ -85,24 +63,19 @@ sealed interface RecordingLocation {
  * fixed order, maps sorted by key, commands sorted by id, no defaults, no nulls, durations in
  * ISO-8601, so equal recordings encode to equal text and the text can be a golden fixture.
  *
- * A decoded recording equals the encoded one when the serializers round-trip their values; an
- * older format is migrated by the codec's own migrations and the [migrations] given, applied in
- * sequence until the current version is reached; a newer or an unknown one is
- * [DecodedRecording.Unsupported]; a malformed text, an inconsistent checkpoint or a payload the
- * serializers reject is [DecodedRecording.Invalid] with the position.
+ * A decoded recording equals the encoded one when payload serializers round-trip their values.
+ * Other format versions are unsupported; malformed data is invalid.
  *
  * @param context Serializer of the machine's context
  * @param action Serializer of the actions (dispatched and returned by commands)
  * @param command Serializer of the commands
  * @param event Serializer of the events
- * @param migrations Migrations from format versions the codec does not migrate itself
  */
 class RecordingCodec<C : Any, A : Action, CMD : Any, E : Event>(
     private val context: KSerializer<C>,
     private val action: KSerializer<A>,
     private val command: KSerializer<CMD>,
     private val event: KSerializer<E>,
-    private val migrations: List<FormatMigration> = emptyList(),
 ) {
     private val json =
         Json {
@@ -112,7 +85,6 @@ class RecordingCodec<C : Any, A : Action, CMD : Any, E : Event>(
             ignoreUnknownKeys = false
         }
 
-    private val builtIn = builtInRecordingMigrations()
     private val writer = RecordingWireEncoder(json, context, action, command, event)
     private val reader = RecordingWireReader(json, context, action, command, event)
 
@@ -122,27 +94,20 @@ class RecordingCodec<C : Any, A : Action, CMD : Any, E : Event>(
     fun encode(recording: Recording<C, A, CMD, E>): String = json.encodeToString(RecordingWire.serializer(), with(writer) { recording.toWire() })
 
     /**
-     * The recording in [text], migrated to the current format when older.
+     * The recording in [text], if it uses the current format.
      */
     fun decode(text: String): DecodedRecording<C, A, CMD, E> {
-        var element: JsonObject =
+        val element: JsonObject =
             try {
                 json.parseToJsonElement(text) as? JsonObject ?: return DecodedRecording.Invalid("not a JSON object")
             } catch (e: SerializationException) {
                 return DecodedRecording.Invalid("not JSON: ${e.message}")
             }
-        var formatVersion =
+        val formatVersion =
             (element["formatVersion"] as? JsonPrimitive)?.intOrNull
                 ?: return DecodedRecording.Invalid("no formatVersion")
-        if (formatVersion > RECORDING_FORMAT_VERSION) {
-            return DecodedRecording.Unsupported(formatVersion, "format $formatVersion is newer than this codec's $RECORDING_FORMAT_VERSION")
-        }
-        while (formatVersion < RECORDING_FORMAT_VERSION) {
-            val migration =
-                (builtIn + migrations).firstOrNull { it.from == formatVersion }
-                    ?: return DecodedRecording.Unsupported(formatVersion, "no migration from format $formatVersion")
-            element = migration.migrate(element)
-            formatVersion = migration.to
+        if (formatVersion != RECORDING_FORMAT_VERSION) {
+            return DecodedRecording.Unsupported(formatVersion = formatVersion, reason = "Only recording format $RECORDING_FORMAT_VERSION is supported")
         }
         val wire =
             try {
@@ -152,7 +117,6 @@ class RecordingCodec<C : Any, A : Action, CMD : Any, E : Event>(
             } catch (e: IllegalArgumentException) {
                 return DecodedRecording.Invalid("not a recording of format $RECORDING_FORMAT_VERSION: ${e.message}")
             }
-        if (wire.formatVersion != RECORDING_FORMAT_VERSION) return DecodedRecording.Unsupported(wire.formatVersion, "migrated to ${wire.formatVersion}, not to $RECORDING_FORMAT_VERSION")
         return try {
             DecodedRecording.Decoded(reader.readRecording(wire))
         } catch (e: DecodeFailure) {

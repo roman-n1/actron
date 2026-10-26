@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.core.Plugin
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
@@ -13,7 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartActivityDispatchTest {
     private sealed interface Input : Action {
         data object Move : Input

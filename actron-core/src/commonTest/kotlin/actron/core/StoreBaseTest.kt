@@ -73,7 +73,7 @@ class StoreBaseTest {
             assertIs<AppState.Loading>(store.currentState)
 
             // start Store
-            store.collectState { }
+            store.observeState { }
 
             // Store is started
             assertIs<AppState.Main>(store.currentState)
@@ -108,7 +108,7 @@ class StoreBaseTest {
                 )
             val observedStateObservations = mutableListOf<AppState>()
 
-            store.collectState { state ->
+            store.observeState { state ->
                 observedStateObservations.add(state)
             }
 
@@ -323,7 +323,7 @@ class StoreBaseTest {
             val store = createTestStore(AppState.Loading)
 
             val emittedEventObservations = mutableListOf<AppEvent>()
-            store.collectEvent { event ->
+            store.observeEvent { event ->
                 emittedEventObservations.add(event)
             }
 

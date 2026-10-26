@@ -51,7 +51,7 @@ internal fun <S : Any> HistoryEventList(
     onSelect: (HistoryEntry<S>) -> Unit,
 ) {
     val inspection = state.inspection
-    val counter = historyEventCounter(state, entries, capacity, Locale.current.language)
+    val counter = historyEventCounter(state, entries, capacity)
     Column(modifier) {
         OutlinedTextField(
             inspection.query,
@@ -99,7 +99,7 @@ private fun <S : Any> EventRow(
     onSelect: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val summary = historyEventSummary(entry.details, Locale.current.language)
+    val summary = historyEventSummary(entry.details, historyText(text = HistoryText.NoStateChange))
     Row(
         Modifier
             .fillMaxWidth()
@@ -177,7 +177,7 @@ private fun HistoryEventPreview(
             HistoryPreviewState(historyText(HistoryText.After), summary.after, "history-entry-after-$id", Modifier.weight(1f))
         }
     }
-    Text(summary.changes, Modifier.testTag("history-entry-changes-$id"), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    Text(summary.changes.resolve(), Modifier.testTag("history-entry-changes-$id"), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable

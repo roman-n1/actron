@@ -139,14 +139,14 @@ The helper is part of `actron-decompose`; these changes have not yet been releas
 ## State machines
 
 `CitySearchMachine` uses `RequestState<List<CityOption>>`:
-`Idle → Debouncing → Loading → Success / Error / TimedOut`.
+`Idle → Debouncing → Loading → Success / Error`.
 Every edit updates the query and revision; 350 ms of quiet starts the request, even for one letter.
 Clearing cancels pending work and restores `Idle`. An empty server response is `Success(emptyList())`.
 Responses for outdated revisions are ignored. Requests time out after eight seconds.
 
 `CityWeatherMachine` uses the typed parallel DSL with `Current` and `Hourly` regions, containing
 `RequestState<WeatherReading>` and `RequestState<HourlyForecast>`. Each declares
-`Idle`, `Loading`, `Success`, `Error` and `TimedOut`. Refresh loads both; retrying the forecast
+`Idle`, `Loading`, `Success` and `Error`. Refresh loads both; retrying the forecast
 only restarts `Hourly`. Responses, errors and timeouts are independent.
 
 The state variants define graph identity through the DSL. There are no independent state IDs,
@@ -305,9 +305,9 @@ suspended HTTP operation receives cancellation before Kazan starts. Late-answer 
 separate defensive check for an already queued callback or a source that ignores cancellation;
 it does not mean the obsolete HTTP request is intentionally kept running.
 
-With the checked-in data and bounds, search explores 763 decisions and selects 14 scenarios,
-covering **16/16 transitions**; weather explores 59 decisions and selects 12 scenarios, covering
-**21/21 transitions**. Both machines cover all declared timer transitions. This is bounded pure
+With the checked-in data and bounds, search explores 763 decisions and selects 12 scenarios,
+covering **14/14 transitions**; weather explores 49 decisions and selects 10 scenarios, covering
+**18/18 transitions**. Both machines cover all declared timer transitions. This is bounded pure
 model coverage, not exhaustive payload/guard coverage or verification of executor scheduling.
 Existing queued-store tests continue to cover actual command execution and cancellation.
 
@@ -347,3 +347,5 @@ The Android release graph uses only `shared`; debug adds `debugTools`. Desktop/W
 included SwiftUI host opt into the debugger explicitly. There is one Weather application;
 the module split keeps diagnostics out of normal runtime dependencies. The production tests
 verify that recorder/panel classes are absent and checkpoint restoration still works.
+
+UI translations use native XML resources: [localization guide](../../doc/guides/localization.md).

@@ -231,7 +231,18 @@ class WeatherAppTest {
             onNodeWithTag("city-search").performTextReplacement("Lisbon")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("city-Lisbon").performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Feels like 16° · wind 12 km/h").fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = 10_000) {
+                onAllNodesWithText(
+                    if (java.util.Locale
+                            .getDefault()
+                            .language == "ru"
+                    ) {
+                        "Ощущается как 16° · ветер 12 км/ч"
+                    } else {
+                        "Feels like 16° · wind 12 km/h"
+                    },
+                ).fetchSemanticsNodes().isNotEmpty()
+            }
             onNodeWithTag("weather-current").assertIsDisplayed()
             onNodeWithTag("hourly-forecast").assertIsDisplayed()
             assertNoDebugUi()

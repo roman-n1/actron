@@ -44,12 +44,9 @@ builds the inspector and the replay on; this module is the journal only.
   a record of the session itself through `session.publish(entry)`) and for a store closed with
   commands unfinished (`CommandsAbandoned`).
 
-Status: **stable in the fork** since 5.0-3 (2026-10-01): no declaration of this module is
-`@ExperimentalActronApi` any more, `apiCheck` holds its API, and the formats are frozen (below);
+Status: **stable in the fork** since 5.0-3 (2026-10-01): all public declarations are supported without opt-in; `apiCheck` holds the API;
 the module lives in the fork [roman-n1/actron](https://github.com/roman-n1/actron). The record model has `JOURNAL_FORMAT_VERSION`
-7 (new variants only at the end, under new tags, new fields only at the end of a variant; a
-reader of a version reads every earlier one; the
-[format freeze policy](../doc/internal/adr/2026-10-01-format-freeze-policy.md) says what a bump ships with),
+7; only the current record format is accepted. Current wire bytes are pinned by golden tests;
 the segment layout `JOURNAL_FILE_FORMAT_VERSION` 1; every recording is `Capability.InspectOnly`
 (the replay recording is `actron-timetravel`'s).
 
@@ -65,7 +62,6 @@ kotlin {
         }
     }
     compilerOptions {
-        optIn.add("actron.core.ExperimentalActronApi") // for LoggerJournalSink; the journal itself needs no opt-in
     }
 }
 ```

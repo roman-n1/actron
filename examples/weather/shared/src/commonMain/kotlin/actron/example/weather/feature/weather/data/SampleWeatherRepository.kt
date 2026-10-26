@@ -16,6 +16,6 @@ object SampleWeatherRepository : WeatherRepository {
                 "Reykjavik" -> 6.0
                 else -> 7.0
             }
-        return WeatherReading(city, temperature, temperature - 2, 12.0, 2, "Sample data")
+        return WeatherReading(city, temperature, temperature - 2, 12.0, 2, "12:00")
     }
 }

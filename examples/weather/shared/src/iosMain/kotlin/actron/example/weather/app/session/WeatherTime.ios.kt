@@ -13,12 +13,11 @@ import platform.Foundation.localTimeZone
 import kotlin.time.Instant
 
 @Composable
-actual fun formatWeatherTime(instant: Instant): String {
+internal actual fun formatWeatherDate(instant: Instant): String {
     val formatter = NSDateFormatter()
     formatter.locale = NSLocale.autoupdatingCurrentLocale
     formatter.timeZone = NSTimeZone.localTimeZone
     formatter.dateStyle = NSDateFormatterShortStyle
     formatter.timeStyle = NSDateFormatterMediumStyle
-    return formatter.stringFromDate(NSDate.dateWithTimeIntervalSince1970(instant.toEpochMilliseconds() / 1000.0)) +
-        " · ${instant.nanosecondsOfSecond / 1_000_000} ${if (androidx.compose.ui.text.intl.Locale.current.language == "ru") "мс" else "ms"}"
+    return formatter.stringFromDate(NSDate.dateWithTimeIntervalSince1970(instant.toEpochMilliseconds() / 1000.0))
 }

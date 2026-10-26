@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -25,7 +24,7 @@ import kotlin.test.assertTrue
  * Idle --Reset--> 状態                              (unreachable island)
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartModelPropertyTest {
     // region references
 

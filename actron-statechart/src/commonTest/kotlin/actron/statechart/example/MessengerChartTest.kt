@@ -1,6 +1,5 @@
 package actron.statechart.example
 
-import actron.core.ExperimentalActronApi
 import actron.statechart.ChartState
 import actron.statechart.StateChartConformance
 import actron.statechart.StateChartPath
@@ -66,7 +65,7 @@ import kotlin.time.Duration.Companion.seconds
  * and enter hooks in one step; restoring from a `StateSaver`; stale timer firings; failing hooks
  * and failing work; and why a timer self-loop is never covered by the conformance plugin.
  */
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class MessengerChartTest {
     /**
      * Services that answer in virtual time: sign-in takes 1 s and accepts the password "secret",

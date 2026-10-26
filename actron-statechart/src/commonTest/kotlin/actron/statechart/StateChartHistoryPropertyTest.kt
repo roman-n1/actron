@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.Store
 import actron.core.createRuntimeStore
@@ -50,7 +49,7 @@ import kotlin.test.assertTrue
  * Q --Ping--> d                          enters P, B, B2
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartHistoryPropertyTest {
     /** A random truth value per guard label and action. */
     private class GuardTable(

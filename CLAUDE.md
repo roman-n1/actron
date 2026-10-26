@@ -50,7 +50,7 @@ The shared project canon is in AGENTS.md. The commands and Actron-specific guida
 ### Documentation
 
 - Include state transition diagrams in tests
-- Document experimental APIs with @ExperimentalActronApi
+- Public APIs require no Actron experimental opt-in; keep InternalActronApi boundaries explicit
 - Use KDoc comments for public APIs
 - Put internal design/spec notes under `doc/internal/` so they stay separate from user-facing docs
 

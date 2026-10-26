@@ -233,7 +233,7 @@ class StorePatchTest {
                 autoStartPolicy(AutoStartPolicy.OnDispatch)
             }
 
-        store.collectState { }
+        store.observeState { }
 
         assertEquals(AppState(count = 0), store.currentState)
 
@@ -359,7 +359,7 @@ class StorePatchTest {
                 }
             }
 
-        store.collectEvent { }
+        store.observeEvent { }
 
         assertFailsWith<IllegalStateException> {
             store.patchForTest {
@@ -382,7 +382,7 @@ class StorePatchTest {
                 }
             }
 
-        store.collectEvent { }
+        store.observeEvent { }
 
         store.patchForTest {
             exceptionHandler(ExceptionHandler.Log)

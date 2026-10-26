@@ -1,5 +1,8 @@
 # The five on-disk formats are frozen: a version bumps only with a reader of the old version, its golden and a test
 
+> The pre-release compatibility and experimental boundary is superseded by [the unreleased API baseline](./2026-10-26-unreleased-api-baseline.md).
+
+
 - Updated: 2026-10-01
 
 ## Background

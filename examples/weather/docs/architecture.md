@@ -77,7 +77,7 @@ and timeout are cancelled immediately, before the next debounce expires. Further
 the debounce. Clearing enters `Idle`, with no pending search and no displayed results.
 
 The new `Loading` entry creates a new command. The named lane uses `ConcurrencyPolicy.Latest`;
-state-activation ownership also cancels work when the state exits. Timeout enters `TimedOut`.
+state-activation ownership also cancels work when the state exits. Timeout enters `Error(cause = RequestFailure.Timeout)`. Request failure uses the same Error state with an Unavailable cause; the UI offers the same retry action.
 Cancellation propagates through the command handler to the suspending repository/HTTP call;
 `commandHandler` rethrows cancellation instead of converting it into `Failed`.
 
@@ -89,7 +89,9 @@ injects an old result does not mean Weather intentionally leaves obsolete reques
 
 [CityWeatherMachine.kt](../shared/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt)
 uses `parallelStateMachine`. `Current` selects `context.current`; `Hourly` selects `context.hourly`.
-Each region declares its own Idle/Loading/Success/Error/TimedOut states, command and timeout.
+Both regions reuse the private `requestStates` declaration for Idle/Loading/Success/Error
+and the eight-second timeout. Each region still owns its states, command and timeout activation;
+its loading block supplies the domain-specific command, successful result and failure actions.
 The region writers copy only their own field, preserving the other region.
 
 `Refresh` is handled by both regions in one machine decision. `RetryForecast` is declared only
@@ -200,7 +202,7 @@ hooks, recording option, coverage or profile fields. The ordinary root renders i
 receives the retained session through composition and owns only recording/diagnostic metadata.
 Each immutable `WeatherHistoryFrame` pairs an application frame with frozen transition coverage.
 Continuation restores those metadata before the ordinary root replaces its children. The fake
-graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/2` uses the new app
+graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/3` uses the new app
 package names; previous exported files are intentionally unsupported.
 
 The scale trade-off is explicit: Messenger's separate feature graphs are useful with many

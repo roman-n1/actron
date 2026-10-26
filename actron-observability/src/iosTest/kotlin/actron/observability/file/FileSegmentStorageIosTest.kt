@@ -1,8 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class, kotlinx.cinterop.ExperimentalForeignApi::class)
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 
 package actron.observability.file
 
-import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.observability.ExecutionMode
 import actron.observability.GroupSeq

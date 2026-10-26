@@ -1,8 +1,5 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.observability.file
 
-import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.observability.ExecutionMode
 import actron.observability.GroupSeq

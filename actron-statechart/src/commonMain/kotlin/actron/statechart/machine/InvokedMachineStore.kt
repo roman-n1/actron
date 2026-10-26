@@ -2,10 +2,8 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.Store
-import actron.core.StoreLifecycle
 import actron.observability.FailureDescriptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -32,7 +30,6 @@ import kotlin.coroutines.CoroutineContext
  * their logical time when decided, on the processing dispatcher. Callback collectors run in
  * the execution scope; UI integrations should collect state in their own UI context.
  */
-@ExperimentalActronApi
 interface InvokedMachineStore<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> : Store<InvocationSnapshot<PC, CC>, PA, PE> {
     override val state: StateFlow<InvocationSnapshot<PC, CC>>
     override val currentState: InvocationSnapshot<PC, CC> get() = state.value
@@ -61,7 +58,6 @@ interface InvokedMachineStore<PC : Any, PA : Action, PCMD : Any, PE : Event, CC 
     override fun close()
 }
 
-@ExperimentalActronApi
 fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> InvokedMachineStore(
     machine: InvokedMachine<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
     context: PC,
@@ -93,7 +89,6 @@ fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD 
  * is unstarted. Parent and active-child snapshots are structurally validated before runtime
  * creation. Close the old store before replacing it; never run both against the same IO.
  */
-@ExperimentalActronApi
 fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> resumeInvokedMachineStore(
     machine: InvokedMachine<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
     checkpoint: InvocationCheckpoint<PC, PCMD, CC, CCMD>,
@@ -133,7 +128,6 @@ fun <PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD 
     return InvocationStoreImpl(machine, checkpoint, parentHandler, childHandler, scope, coroutineContext, clock.rebased(checkpoint.parent.now), parentRecovery, childRecovery, mailbox, onError)
 }
 
-@OptIn(ExperimentalActronApi::class)
 private class InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event>(
     private val machine: InvokedMachine<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
     private val initial: InvocationCheckpoint<PC, PCMD, CC, CCMD>,
@@ -146,8 +140,7 @@ private class InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event,
     private val childRecovery: CommandRecoveryStrategy<CCMD, CA>,
     mailboxConfig: MailboxConfig<PE>,
     private val onError: (Throwable) -> Unit,
-) : InvokedMachineStore<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
-    StoreLifecycle<InvocationSnapshot<PC, CC>, PE> {
+) : InvokedMachineStore<PC, PA, PCMD, PE, CC, CA, CCMD, CE> {
     init {
         require(scope.coroutineContext[ContinuationInterceptor] !== Dispatchers.Unconfined) { "Invocation execution requires a real dispatcher" }
     }
@@ -258,14 +251,6 @@ private class InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event,
             InvocationCheckpoint(parent.checkpoint(now).copy(effects = effects.snapshot()), childCheckpoint)
         }
 
-    override fun collectState(state: (InvocationSnapshot<PC, CC>) -> Unit) {
-        observeState(state)
-    }
-
-    override fun collectEvent(event: (PE) -> Unit) {
-        execution.launch { this@InvocationStoreImpl.event.collect { event(it) } }
-    }
-
     override fun observeState(observer: (InvocationSnapshot<PC, CC>) -> Unit): AutoCloseable {
         val job = execution.launch { state.collect { observer(it) } }
         return AutoCloseable { job.cancel() }
@@ -360,7 +345,7 @@ private sealed interface RunningChild<out C : Any, out A : Action, out CMD : Any
 }
 
 /** Mutable bookkeeping is confined to the composition actor; workers only post messages. */
-@OptIn(ExperimentalActronApi::class)
+
 private class InvocationSide<C : Any, A : Action, CMD : Any>(
     private var snapshot: MachineSnapshot<C>,
     private var lanes: Lanes<CMD>,

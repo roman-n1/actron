@@ -1,7 +1,11 @@
 package actron.example.weather.app.debug
 
+import actron.example.weather.debug.resources.Res
+import actron.example.weather.debug.resources.open_recording
+import actron.example.weather.debug.resources.save_recording
 import androidx.compose.runtime.*
 import kotlinx.coroutines.*
+import org.jetbrains.compose.resources.stringResource
 import java.awt.FileDialog
 import java.awt.Frame
 import java.nio.file.Files
@@ -27,7 +31,9 @@ internal fun writeHistoryFile(
 @Composable
 actual fun rememberHistoryFiles(): HistoryFiles {
     val scope = rememberCoroutineScope()
-    return remember(scope) {
+    val openTitle = stringResource(resource = Res.string.open_recording)
+    val saveTitle = stringResource(resource = Res.string.save_recording)
+    return remember(scope, openTitle, saveTitle) {
         object : HistoryFiles {
             private fun choose(
                 mode: Int,
@@ -36,7 +42,7 @@ actual fun rememberHistoryFiles(): HistoryFiles {
                 result: (HistoryFileResult) -> Unit,
             ) {
                 val owner = Frame()
-                val dialog = FileDialog(owner, if (mode == FileDialog.LOAD) "Open Actron recording" else "Save Actron recording", mode)
+                val dialog = FileDialog(owner, if (mode == FileDialog.LOAD) openTitle else saveTitle, mode)
                 try {
                     if (mode == FileDialog.SAVE) dialog.file = name
                     dialog.isVisible = true

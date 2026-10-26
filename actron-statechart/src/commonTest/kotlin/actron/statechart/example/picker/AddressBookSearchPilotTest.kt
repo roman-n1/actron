@@ -1,9 +1,8 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package actron.statechart.example.picker
 
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.observability.JournalEntry
 import actron.observability.JournalFormat
 import actron.observability.MachineGroupId

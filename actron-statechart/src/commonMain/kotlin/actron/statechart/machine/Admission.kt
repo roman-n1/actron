@@ -1,7 +1,5 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
-
 /**
  * How many dispatched actions a [MachineStore] lets wait for processing. Inputs the machine's
  * own work sends (results, completions, timers) are never refused: refusing them would leave

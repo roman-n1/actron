@@ -6,7 +6,6 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
-import actron.core.closeAndJoin
 import actron.core.createRuntimeStore
 import actron.test.awaitIdle
 import kotlinx.coroutines.Dispatchers

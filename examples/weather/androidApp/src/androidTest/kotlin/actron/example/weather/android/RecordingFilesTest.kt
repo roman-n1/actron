@@ -79,7 +79,7 @@ class RecordingFilesTest {
         val uri = checkNotNull(resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
         try {
             checkNotNull(resolver.openOutputStream(uri)).use { stream: java.io.OutputStream ->
-                stream.write("""{"schema":"actron.weather.display/2","entries":[],"format":99,"definitions":[],"metadata":{"projectName":"Weather","exportedAt":"2026-10-20T00:00:00Z"}}""".toByteArray())
+                stream.write("""{"schema":"actron.weather.display/3","entries":[],"format":99,"definitions":[],"metadata":{"projectName":"Weather","exportedAt":"2026-10-20T00:00:00Z"}}""".toByteArray())
             }
             compose.onNodeWithTag("recording-open").performClick()
             awaitDocumentsUi()

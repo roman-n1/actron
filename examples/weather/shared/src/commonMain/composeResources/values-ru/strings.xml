@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cities">Города</string>
+    <string name="search_cities">Поиск города</string>
+    <string name="enter_city">Введите название города</string>
+    <string name="debouncing">Ожидание ввода…</string>
+    <string name="searching">Поиск…</string>
+    <string name="retry">Повторить</string>
+    <string name="no_cities">Города не найдены</string>
+    <string name="search_failed">Не удалось загрузить города. Попробуйте ещё раз.</string>
+    <string name="back">Назад</string>
+    <string name="refresh">Обновить</string>
+    <string name="next_hours">Ближайшие 6 часов</string>
+    <string name="retry_forecast">Повторить прогноз</string>
+    <string name="feels_like">Ощущается как %1$s° · ветер %2$s км/ч</string>
+    <string name="loading_weather">Загрузка погоды…</string>
+    <string name="weather_failed">Не удалось загрузить погоду. Обновите, чтобы попробовать ещё раз.</string>
+    <string name="choose_weather_city">Выберите город, чтобы увидеть погоду</string>
+    <string name="loading_forecast">Загрузка прогноза…</string>
+    <string name="forecast_failed">Не удалось загрузить прогноз. Попробуйте ещё раз.</string>
+    <string name="choose_city">Выберите город</string>
+    <string name="wind">Ветер %1$s км/ч</string>
+    <string name="rain">Вероятность осадков %1$s%</string>
+    <string name="updated">Обновлено %1$s</string>
+    <string name="timestamp">%1$s · %2$s мс</string>
+    <string name="temperature">%1$s°</string>
+    <string name="unknown_temperature">—</string>
+</resources>

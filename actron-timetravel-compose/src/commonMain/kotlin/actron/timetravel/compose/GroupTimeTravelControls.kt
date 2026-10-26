@@ -1,7 +1,10 @@
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.timetravel.GroupBranch
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.branch_here
+import actron.timetravel.compose.resources.group_experiment_origin
+import actron.timetravel.compose.resources.return_replay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -15,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Moves between group replay and an isolated experiment from its current checkpoint.
@@ -24,7 +28,6 @@ import androidx.compose.ui.unit.dp
  * experiment and leaves the replay cursor, recording and verification results unchanged.
  * Drive [replay] through this inspector rather than moving its session externally.
  */
-@ExperimentalActronApi
 @Stable
 class GroupTimeTravelControls(
     val replay: GroupReplayControls,
@@ -49,7 +52,6 @@ class GroupTimeTravelControls(
     }
 }
 
-@ExperimentalActronApi
 sealed interface GroupTravel {
     data object Replaying : GroupTravel
 
@@ -60,7 +62,6 @@ sealed interface GroupTravel {
 }
 
 /** Makes the experiment's origin explicit and gives it a route back to recorded history. */
-@ExperimentalActronApi
 @Composable
 fun GroupTimeTravelBar(
     controls: GroupTimeTravelControls,
@@ -69,10 +70,10 @@ fun GroupTimeTravelBar(
     Row(modifier = modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val travel = controls.travel
         if (travel is GroupTravel.Replaying) {
-            OutlinedButton(onClick = controls::branchHere, modifier = Modifier.testTag("time-travel-branch")) { Text("branch here") }
+            OutlinedButton(onClick = controls::branchHere, modifier = Modifier.testTag("time-travel-branch")) { Text(stringResource(resource = Res.string.branch_here)) }
         } else if (travel is GroupTravel.Experiment) {
-            OutlinedButton(onClick = controls::returnToReplay, modifier = Modifier.testTag("time-travel-return")) { Text("return to replay") }
-            Text("experiment from group position ${travel.position}; replay paused", modifier = Modifier.testTag("time-travel-origin"))
+            OutlinedButton(onClick = controls::returnToReplay, modifier = Modifier.testTag("time-travel-return")) { Text(stringResource(resource = Res.string.return_replay)) }
+            Text(stringResource(resource = Res.string.group_experiment_origin, travel.position), modifier = Modifier.testTag("time-travel-origin"))
         }
     }
 }

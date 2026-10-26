@@ -139,9 +139,9 @@ class StoreSoakJvmTest {
             val perThread = 2000
             val incs = AtomicInteger()
             val events = AtomicInteger()
-            store.collectEvent { events.incrementAndGet() }
+            store.observeEvent { events.incrementAndGet() }
             val stateSeen = AtomicInteger()
-            store.collectState { stateSeen.incrementAndGet() }
+            store.observeState { stateSeen.incrementAndGet() }
             val start = System.nanoTime()
             withContext(Dispatchers.Default) {
                 withTimeout(60_000) {

@@ -4,6 +4,18 @@ import actron.statechart.GraphDiagnostic
 import actron.statechart.GraphIssueCode
 import actron.statechart.GraphIssueSeverity
 import actron.statechart.Transition
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.graph_diagnostic_counts
+import actron.timetravel.compose.resources.graph_issue_analysis_limit
+import actron.timetravel.compose.resources.graph_issue_duplicate_state
+import actron.timetravel.compose.resources.graph_issue_invalid_hierarchy
+import actron.timetravel.compose.resources.graph_issue_invalid_history
+import actron.timetravel.compose.resources.graph_issue_invalid_transition
+import actron.timetravel.compose.resources.graph_issue_no_exit
+import actron.timetravel.compose.resources.graph_issue_shadowed_transition
+import actron.timetravel.compose.resources.graph_issue_unknown_endpoint
+import actron.timetravel.compose.resources.graph_issue_unknown_initial
+import actron.timetravel.compose.resources.graph_issue_unreachable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -24,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun GraphDiagnosticsPanel(
@@ -32,7 +45,10 @@ internal fun GraphDiagnosticsPanel(
 ) {
     if (issues.isEmpty()) return
     val expanded = remember(issues) { mutableStateOf(false) }
-    val model = graphDiagnosticPresentation(issues, Locale.current.language, MaterialTheme.colorScheme, expanded.value)
+    val errors = graphErrorCount(issues = issues)
+    val heading = stringResource(resource = Res.string.graph_diagnostic_counts, errors, issues.size - errors, if (expanded.value) "−" else "+")
+    val labels = GraphIssueCode.entries.associateWith { stringResource(resource = issueResource(code = it)) }
+    val model = graphDiagnosticPresentation(issues = issues, heading = heading, labels = labels, colors = MaterialTheme.colorScheme)
     Surface(
         modifier = Modifier.fillMaxWidth().padding(8.dp).testTag("graph-diagnostics"),
         color = model.background,
@@ -59,26 +75,18 @@ internal fun GraphDiagnosticsPanel(
     }
 }
 
-private fun issueText(
-    code: GraphIssueCode,
-    ru: Boolean,
-): String {
-    val labels = issueLabels(code)
-    return if (ru) labels.first else labels.second
-}
-
-private fun issueLabels(code: GraphIssueCode): Pair<String, String> =
+private fun issueResource(code: GraphIssueCode): org.jetbrains.compose.resources.StringResource =
     when (code) {
-        GraphIssueCode.DuplicateState -> "Повторяется идентификатор состояния" to "Duplicate state identity"
-        GraphIssueCode.UnknownInitial -> "Начальное состояние не объявлено" to "Initial state is not declared"
-        GraphIssueCode.UnknownEndpoint -> "Конец перехода ссылается на необъявленное состояние" to "Transition endpoint is not declared"
-        GraphIssueCode.InvalidHierarchy -> "Некорректная вложенность или начальное дочернее состояние" to "Invalid hierarchy or initial child"
-        GraphIssueCode.InvalidHistory -> "Некорректное состояние истории" to "Invalid history declaration"
-        GraphIssueCode.InvalidTransition -> "Недопустимый источник перехода или задержка таймера" to "Invalid transition source or timer delay"
-        GraphIssueCode.Unreachable -> "Состояние структурно недостижимо" to "State is structurally unreachable"
-        GraphIssueCode.NoExit -> "Не найден выход из состояния. Возможно, это намеренно." to "No exit found. This may be intentional."
-        GraphIssueCode.ShadowedTransition -> "Переход перекрыт более ранним безусловным переходом" to "An earlier unconditional transition shadows this transition"
-        GraphIssueCode.AnalysisLimit -> "Достигнут лимит анализа. Достижимость проверена не полностью." to "Analysis budget reached. Reachability is incomplete."
+        GraphIssueCode.DuplicateState -> Res.string.graph_issue_duplicate_state
+        GraphIssueCode.UnknownInitial -> Res.string.graph_issue_unknown_initial
+        GraphIssueCode.UnknownEndpoint -> Res.string.graph_issue_unknown_endpoint
+        GraphIssueCode.InvalidHierarchy -> Res.string.graph_issue_invalid_hierarchy
+        GraphIssueCode.InvalidHistory -> Res.string.graph_issue_invalid_history
+        GraphIssueCode.InvalidTransition -> Res.string.graph_issue_invalid_transition
+        GraphIssueCode.Unreachable -> Res.string.graph_issue_unreachable
+        GraphIssueCode.NoExit -> Res.string.graph_issue_no_exit
+        GraphIssueCode.ShadowedTransition -> Res.string.graph_issue_shadowed_transition
+        GraphIssueCode.AnalysisLimit -> Res.string.graph_issue_analysis_limit
     }
 
 private data class GraphDiagnosticRow(
@@ -95,15 +103,13 @@ private data class GraphDiagnosticPresentation(
 
 private fun graphDiagnosticPresentation(
     issues: List<GraphDiagnostic>,
-    language: String,
+    heading: String,
+    labels: Map<GraphIssueCode, String>,
     colors: androidx.compose.material3.ColorScheme,
-    expanded: Boolean,
 ): GraphDiagnosticPresentation {
-    val russian = language == "ru"
     val errors = issues.count { it.severity == GraphIssueSeverity.Error }
-    val sign = if (expanded) "−" else "+"
     return GraphDiagnosticPresentation(
-        if (russian) "Ошибки: $errors · Предупреждения: ${issues.size - errors} $sign" else "Errors: $errors · Warnings: ${issues.size - errors} $sign",
+        heading,
         when {
             errors > 0 -> colors.errorContainer
             else -> colors.tertiaryContainer
@@ -112,6 +118,8 @@ private fun graphDiagnosticPresentation(
             errors > 0 -> colors.onErrorContainer
             else -> colors.onTertiaryContainer
         },
-        issues.map { issue -> GraphDiagnosticRow(issue, issueText(issue.code, russian) + "\n" + (issue.states.map { it.value } + issue.transitions.map { "#${it.index + 1}" }).joinToString()) },
+        issues.map { issue -> GraphDiagnosticRow(issue, labels.getValue(key = issue.code) + "\n" + (issue.states.map { it.value } + issue.transitions.map { "#${it.index + 1}" }).joinToString()) },
     )
 }
+
+private fun graphErrorCount(issues: List<GraphDiagnostic>): Int = issues.count { it.severity == GraphIssueSeverity.Error }

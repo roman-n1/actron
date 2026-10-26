@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package consumer
 
 import actron.compose.rememberViewStore

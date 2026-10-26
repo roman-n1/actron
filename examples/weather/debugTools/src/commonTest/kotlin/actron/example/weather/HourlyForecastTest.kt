@@ -3,6 +3,7 @@
 package actron.example.weather
 
 import actron.example.weather.core.fixtures.demoCities
+import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
 import actron.example.weather.feature.weather.domain.ForecastHour
@@ -77,7 +78,7 @@ class HourlyForecastTest {
                 store.dispatch(WeatherAction.Refresh)
                 store.state.first { it.context.hourly is RequestState.Success }
                 assertEquals(RequestState.Loading, store.state.value.context.current)
-                store.state.first { it.context.current == RequestState.TimedOut }
+                store.state.first { it.context.current == RequestState.Error(cause = RequestFailure.Timeout) }
                 testScheduler.runCurrent()
                 assertTrue(cancelled)
                 assertTrue(store.state.value.context.hourly is RequestState.Success)

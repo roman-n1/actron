@@ -78,7 +78,7 @@ class GeneratedWeatherScenariosTest {
         generated.assertSuccess()
         val coverage = generated.scenarios.map { model.record(it).also { trace -> trace.assertSuccess() }.coverage }.reduce { a, b -> a.merge(b) }
         coverage.assertTransitionsCovered()
-        assertEquals(21, coverage.transitions.covered.size)
+        assertEquals(expected = 18, actual = coverage.transitions.covered.size)
         assertEquals(setOf("forecast-before-current", "current-before-forecast"), generated.witnesses.keys)
         println("Generated City Weather: ${generated.exploration.decisions} decisions, ${generated.scenarios.size} scenarios\n${coverage.describe(model.machine.chart)}")
         val trace = model.record(generated.witnesses.getValue("forecast-before-current"))

@@ -7,7 +7,6 @@ import actron.core.ExceptionHandler
 import actron.core.Plugin
 import actron.core.State
 import actron.core.Store
-import actron.core.closeAndJoin
 import actron.core.createRuntimeStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher

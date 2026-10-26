@@ -17,17 +17,13 @@ public abstract interface class actron/core/ActionScope : actron/core/StoreScope
 	public abstract fun getState ()Lactron/core/State;
 	public abstract fun launch (Lkotlin/coroutines/CoroutineContext;Lactron/core/LaunchControl;Lkotlin/jvm/functions/Function2;)V
 	public static synthetic fun launch$default (Lactron/core/ActionScope;Lkotlin/coroutines/CoroutineContext;Lactron/core/LaunchControl;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
-	public fun nextState (Lactron/core/State;)V
 	public abstract fun nextState (Lkotlin/jvm/functions/Function0;)V
-	public fun nextStateBy (Lkotlin/jvm/functions/Function0;)V
 	public abstract fun subscribe (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;)V
 	public static synthetic fun subscribe$default (Lactron/core/ActionScope;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
 }
 
 public final class actron/core/ActionScope$DefaultImpls {
 	public static synthetic fun launch$default (Lactron/core/ActionScope;Lkotlin/coroutines/CoroutineContext;Lactron/core/LaunchControl;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
-	public static fun nextState (Lactron/core/ActionScope;Lactron/core/State;)V
-	public static fun nextStateBy (Lactron/core/ActionScope;Lkotlin/jvm/functions/Function0;)V
 	public static synthetic fun subscribe$default (Lactron/core/ActionScope;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
 }
 
@@ -48,14 +44,7 @@ public abstract interface class actron/core/ActionScope$LaunchScope$TransactionS
 	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun getAction ()Lactron/core/Action;
 	public abstract fun getState ()Lactron/core/State;
-	public fun nextState (Lactron/core/State;)V
 	public abstract fun nextState (Lkotlin/jvm/functions/Function0;)V
-	public fun nextStateBy (Lkotlin/jvm/functions/Function0;)V
-}
-
-public final class actron/core/ActionScope$LaunchScope$TransactionScope$DefaultImpls {
-	public static fun nextState (Lactron/core/ActionScope$LaunchScope$TransactionScope;Lactron/core/State;)V
-	public static fun nextStateBy (Lactron/core/ActionScope$LaunchScope$TransactionScope;Lkotlin/jvm/functions/Function0;)V
 }
 
 public abstract interface annotation class actron/core/ActronStoreDsl : java/lang/annotation/Annotation {
@@ -135,17 +124,13 @@ public abstract interface class actron/core/EnterScope : actron/core/StoreScope 
 	public abstract fun getState ()Lactron/core/State;
 	public abstract fun launch (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;)V
 	public static synthetic fun launch$default (Lactron/core/EnterScope;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
-	public fun nextState (Lactron/core/State;)V
 	public abstract fun nextState (Lkotlin/jvm/functions/Function0;)V
-	public fun nextStateBy (Lkotlin/jvm/functions/Function0;)V
 	public abstract fun subscribe (Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;)V
 	public static synthetic fun subscribe$default (Lactron/core/EnterScope;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
 }
 
 public final class actron/core/EnterScope$DefaultImpls {
 	public static synthetic fun launch$default (Lactron/core/EnterScope;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
-	public static fun nextState (Lactron/core/EnterScope;Lactron/core/State;)V
-	public static fun nextStateBy (Lactron/core/EnterScope;Lkotlin/jvm/functions/Function0;)V
 	public static synthetic fun subscribe$default (Lactron/core/EnterScope;Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)V
 }
 
@@ -164,14 +149,7 @@ public abstract interface class actron/core/EnterScope$LaunchScope$TransactionSc
 	public abstract fun clearPendingActions ()V
 	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun getState ()Lactron/core/State;
-	public fun nextState (Lactron/core/State;)V
 	public abstract fun nextState (Lkotlin/jvm/functions/Function0;)V
-	public fun nextStateBy (Lkotlin/jvm/functions/Function0;)V
-}
-
-public final class actron/core/EnterScope$LaunchScope$TransactionScope$DefaultImpls {
-	public static fun nextState (Lactron/core/EnterScope$LaunchScope$TransactionScope;Lactron/core/State;)V
-	public static fun nextStateBy (Lactron/core/EnterScope$LaunchScope$TransactionScope;Lkotlin/jvm/functions/Function0;)V
 }
 
 public abstract interface class actron/core/Event {
@@ -185,9 +163,7 @@ public abstract interface class actron/core/ExceptionHandler {
 public final class actron/core/ExceptionHandler$Companion {
 	public final fun getIgnore ()Lactron/core/ExceptionHandler;
 	public final fun getLog ()Lactron/core/ExceptionHandler;
-	public final fun getNoop ()Lactron/core/ExceptionHandler;
 	public final fun getRethrow ()Lactron/core/ExceptionHandler;
-	public final fun getUnhandled ()Lactron/core/ExceptionHandler;
 }
 
 public final class actron/core/ExceptionHandlerKt {
@@ -198,9 +174,6 @@ public abstract interface class actron/core/ExitScope : actron/core/StoreScope {
 	public abstract fun clearPendingActions ()V
 	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun getState ()Lactron/core/State;
-}
-
-public abstract interface annotation class actron/core/ExperimentalActronApi : java/lang/annotation/Annotation {
 }
 
 public final class actron/core/HandlerMatcher {
@@ -495,14 +468,7 @@ public abstract interface class actron/core/RecoverScope : actron/core/StoreScop
 	public abstract fun event (Lactron/core/Event;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun getError ()Ljava/lang/Exception;
 	public abstract fun getState ()Lactron/core/State;
-	public fun nextState (Lactron/core/State;)V
 	public abstract fun nextState (Lkotlin/jvm/functions/Function0;)V
-	public fun nextStateBy (Lkotlin/jvm/functions/Function0;)V
-}
-
-public final class actron/core/RecoverScope$DefaultImpls {
-	public static fun nextState (Lactron/core/RecoverScope;Lactron/core/State;)V
-	public static fun nextStateBy (Lactron/core/RecoverScope;Lkotlin/jvm/functions/Function0;)V
 }
 
 public abstract interface class actron/core/State {
@@ -524,18 +490,14 @@ public final class actron/core/StateSaverKt {
 
 public abstract interface class actron/core/Store : java/lang/AutoCloseable {
 	public abstract fun close ()V
-	public abstract fun collectEvent (Lkotlin/jvm/functions/Function1;)V
-	public abstract fun collectState (Lkotlin/jvm/functions/Function1;)V
+	public abstract fun closeAndJoin (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun dispatch (Lactron/core/Action;)V
-	public fun dispose ()V
 	public abstract fun getCurrentState ()Lactron/core/State;
 	public abstract fun getEvent ()Lkotlinx/coroutines/flow/Flow;
 	public abstract fun getState ()Lkotlinx/coroutines/flow/StateFlow;
+	public abstract fun observeEvent (Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
+	public abstract fun observeState (Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
 	public abstract fun start ()V
-}
-
-public final class actron/core/Store$DefaultImpls {
-	public static fun dispose (Lactron/core/Store;)V
 }
 
 public final class actron/core/StoreBuilder {
@@ -604,18 +566,6 @@ public abstract interface class actron/core/StoreInternalApi {
 	public abstract fun matchActionHandlers (Lactron/core/State;Lactron/core/Action;)Ljava/util/List;
 	public abstract fun patch (Lactron/core/StorePatch;)Lactron/core/Store;
 	public abstract fun startAndAwait (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-}
-
-public abstract interface class actron/core/StoreLifecycle {
-	public abstract fun closeAndJoin (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun observeEvent (Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
-	public abstract fun observeState (Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
-}
-
-public final class actron/core/StoreLifecycleKt {
-	public static final fun closeAndJoin (Lactron/core/Store;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static final fun observeEvent (Lactron/core/Store;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
-	public static final fun observeState (Lactron/core/Store;Lkotlin/jvm/functions/Function1;)Ljava/lang/AutoCloseable;
 }
 
 public final class actron/core/StorePatch {

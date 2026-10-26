@@ -2,7 +2,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.Plugin
 import actron.test.dispatchAndAwait
 import actron.test.startAndAwait
@@ -14,7 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartInstanceIsolationTest {
     private data object Refresh : Action
 

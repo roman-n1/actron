@@ -12,8 +12,7 @@ internal class StoreImpl<S : State, A : Action, E : Event>(
     private val processor: StoreProcessor<S, A, E>,
     internalApi: StoreInternalApi<S, A, E>,
 ) : Store<S, A, E>,
-    StoreInternalApi<S, A, E> by internalApi,
-    StoreLifecycle<S, E> {
+    StoreInternalApi<S, A, E> by internalApi {
     internal val handlerRegistry: HandlerRegistry<S, A, E> get() = processor.handlerRegistry
 
     @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
@@ -48,15 +47,6 @@ internal class StoreImpl<S : State, A : Action, E : Event>(
 
     override fun start() {
         processor.launchStartup()
-    }
-
-    override fun collectState(state: (S) -> Unit) {
-        observeState(state)
-    }
-
-    override fun collectEvent(event: (E) -> Unit) {
-        // Preserve the legacy asynchronous registration; the new API registers before returning.
-        processor.execution.scope.launch { this@StoreImpl.event.collect { event(it) } }
     }
 
     override fun observeState(observer: (S) -> Unit): AutoCloseable {

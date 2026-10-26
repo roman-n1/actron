@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.example.weather.app.session
 
 import actron.example.weather.feature.cities.presentation.*

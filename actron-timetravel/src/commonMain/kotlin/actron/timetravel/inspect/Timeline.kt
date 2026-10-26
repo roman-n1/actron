@@ -1,6 +1,5 @@
 package actron.timetravel.inspect
 
-import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.Capability
@@ -26,7 +25,6 @@ import kotlin.time.Duration
  * One position of an inspected history: what happened, in the group's order, as the journal
  * recorded it and, for a Store with a recording attached, as the machine's snapshots show it.
  */
-@ExperimentalActronApi
 sealed interface TimelineItem {
     val subject: RecordSubject
 
@@ -280,7 +278,6 @@ sealed interface TimelineItem {
 }
 
 /** Acceptance metadata establishes the input's cause and whether it represents a machine decision. */
-@ExperimentalActronApi
 sealed interface InputTrace {
     val cause: InputAttribution
     val isDecision: Boolean
@@ -314,7 +311,6 @@ sealed interface InputTrace {
     }
 }
 
-@ExperimentalActronApi
 sealed interface ProcessingProgress {
     fun withEnd(accept: (OutcomeDescriptor, Duration) -> Unit): Boolean
 
@@ -334,7 +330,6 @@ sealed interface ProcessingProgress {
 }
 
 /** The actual sequence of journaled machine decisions; repeated observations retain their order. */
-@ExperimentalActronApi
 sealed interface DecisionEvidence {
     data class Committed(
         val entry: JournalEntry.DecisionCommitted,
@@ -345,7 +340,6 @@ sealed interface DecisionEvidence {
     ) : DecisionEvidence
 }
 
-@ExperimentalActronApi
 sealed interface InputProvenance {
     data class Bridge(
         val message: MessageRef,
@@ -357,7 +351,6 @@ sealed interface InputProvenance {
 }
 
 /** An attached recording supplies both checkpoints and the decided step as one consistent unit. */
-@ExperimentalActronApi
 sealed interface ProcessingAttachment {
     fun withRecording(accept: (Recorded) -> Unit): Boolean
 
@@ -382,7 +375,6 @@ sealed interface ProcessingAttachment {
 /**
  * What changed between two snapshots of a machine, computed from the snapshots themselves.
  */
-@ExperimentalActronApi
 data class SnapshotDiff(
     val revisionAdvanced: Boolean,
     val contextChanged: Boolean,

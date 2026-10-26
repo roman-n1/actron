@@ -1,8 +1,5 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.timetravel.inspect.Completeness
 import actron.timetravel.inspect.InspectorText
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -23,7 +20,6 @@ import androidx.compose.ui.Modifier
  * @param replay The replay of one Store's recording to drive, when the screen is in [InspectorMode.Replay]
  * @param branch The branch to drive, when the screen is in [InspectorMode.Branch]
  */
-@ExperimentalActronApi
 @Composable
 fun InspectorScreen(
     state: InspectorState,
@@ -38,7 +34,6 @@ fun InspectorScreen(
     stackedPosition = { PositionPanel(state, it) },
 )
 
-@ExperimentalActronApi
 @Composable
 fun InspectorScreen(
     state: InspectorState,
@@ -54,7 +49,6 @@ fun InspectorScreen(
     stackedPosition = { PositionPanel(state, replay, it) },
 )
 
-@ExperimentalActronApi
 @Composable
 fun InspectorScreen(
     state: InspectorState,
@@ -72,7 +66,6 @@ fun InspectorScreen(
 )
 
 /** A group's recording on one cursor; all members share one global position. */
-@ExperimentalActronApi
 @Composable
 fun InspectorScreen(
     state: InspectorState,
@@ -88,7 +81,6 @@ fun InspectorScreen(
     stackedPosition = { GroupPositionPanel(groupReplay, it) },
 )
 
-@ExperimentalActronApi
 @Composable
 fun InspectorScreen(
     state: InspectorState,
@@ -107,7 +99,6 @@ fun InspectorScreen(
 )
 
 /** Replay, experiment from the current group checkpoint, then return to recorded history. */
-@ExperimentalActronApi
 @Composable
 fun InspectorScreen(
     state: InspectorState,
@@ -143,35 +134,30 @@ fun InspectorScreen(
     }
 }
 
-@ExperimentalActronApi
 @Composable
 fun ModeBar(
     state: InspectorState,
     modifier: Modifier = Modifier,
 ) = ModeBarContent(state, state.mode, modifier)
 
-@ExperimentalActronApi
 @Composable
 fun StoresPanel(
     state: InspectorState,
     modifier: Modifier = Modifier,
 ) = InspectorStores(state, modifier)
 
-@ExperimentalActronApi
 @Composable
 fun TimelinePanel(
     state: InspectorState,
     modifier: Modifier = Modifier,
 ) = InspectorTimeline(state, modifier)
 
-@ExperimentalActronApi
 @Composable
 fun PositionPanel(
     state: InspectorState,
     modifier: Modifier = Modifier,
 ) = InspectorPosition(state, modifier) {}
 
-@ExperimentalActronApi
 @Composable
 fun PositionPanel(
     state: InspectorState,
@@ -179,7 +165,6 @@ fun PositionPanel(
     modifier: Modifier = Modifier,
 ) = InspectorPosition(state, modifier) { InspectorReplayPosition(replay) }
 
-@ExperimentalActronApi
 @Composable
 fun DefinitionPanel(
     mermaid: String,
@@ -189,14 +174,12 @@ fun DefinitionPanel(
 ) = InspectorDefinition(mermaid, title, tag, modifier)
 
 @OptIn(ExperimentalLayoutApi::class)
-@ExperimentalActronApi
 @Composable
 fun BranchPanel(
     branch: BranchControls,
     modifier: Modifier = Modifier,
 ) = InspectorBranch(branch, modifier)
 
-@ExperimentalActronApi
 @Composable
 fun ReplayBar(
     replay: ReplayControls<*, *, *, *>,
@@ -205,5 +188,4 @@ fun ReplayBar(
 ) = InspectorReplayBar(replay, state, modifier)
 
 /** For a screen that shows a completeness elsewhere. */
-@ExperimentalActronApi
 fun Completeness.label(): String = InspectorText.completeness(this)

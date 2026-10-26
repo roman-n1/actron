@@ -2,7 +2,6 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.observability.FailureDescriptor
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.BridgeMessage
@@ -29,7 +28,6 @@ import kotlin.time.Duration
  * @param routes What the local bridge routes: effects of one member turned into actions of another
  * @param sources The sources' snapshots the branch starts from, by id
  */
-@ExperimentalActronApi
 class GroupBranch(
     val members: Map<StoreInstanceId, Branch<*, *, *, *>>,
     private val routes: List<Route>,

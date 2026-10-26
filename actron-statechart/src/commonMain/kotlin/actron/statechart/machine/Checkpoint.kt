@@ -1,6 +1,5 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
 import kotlin.time.Duration
 
 /**

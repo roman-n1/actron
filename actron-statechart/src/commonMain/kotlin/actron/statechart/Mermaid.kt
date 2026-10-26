@@ -1,7 +1,5 @@
 package actron.statechart
 
-import actron.core.ExperimentalActronApi
-
 private val mermaidIdentifier = Regex("[A-Za-z_][A-Za-z0-9_]*")
 
 /**

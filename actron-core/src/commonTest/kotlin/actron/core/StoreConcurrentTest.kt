@@ -124,7 +124,7 @@ class StoreConcurrentTest {
         runTest(testDispatcher) {
             val store = createTestStore(AppState.Initial(0))
             val events = mutableListOf<AppEvent>()
-            store.collectEvent { events += it }
+            store.observeEvent { events += it }
             try {
                 store.dispatchAndAwaitForTest(AppAction.DelayedIncrement)
                 assertEquals(AppState.Processing(0), store.currentState)

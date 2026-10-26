@@ -34,7 +34,7 @@ object WeatherRecording {
     val definitions = listOf(search.chart.historyDefinition(search.id.value, search.version.value), weather.chart.historyDefinition(weather.id.value, weather.version.value))
 
     // Display schema plus machine versions/graphs reject incompatible files before preview.
-    val codec = HistoryRecordingCodec("actron.weather.display/2", WeatherRecordingFrame.serializer(), definitions = definitions)
+    val codec = HistoryRecordingCodec(schema = "actron.weather.display/3", serializer = WeatherRecordingFrame.serializer(), definitions = definitions)
 
     fun export(
         history: WeatherHistory,

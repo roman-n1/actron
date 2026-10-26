@@ -1,9 +1,7 @@
 package actron.statechart
 
-import actron.core.ExperimentalActronApi
-
 /** One step of [ParallelReference]: the transitions taken, nodes exited and entered, and the configuration after it. */
-@OptIn(ExperimentalActronApi::class)
+
 internal class ParallelDecision(
     val transitions: List<Transition>,
     val exited: List<StateId>,
@@ -24,7 +22,7 @@ internal class ParallelDecision(
  * earlier one's replaces it only when its source lies strictly inside that earlier source, else it
  * is dropped. Only meant for well-formed charts.
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal class ParallelReference(
     val chart: StateChartDefinition,
 ) {

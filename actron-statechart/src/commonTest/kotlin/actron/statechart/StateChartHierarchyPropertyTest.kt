@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,7 +34,7 @@ import kotlin.test.assertTrue
  * B --Ping--> Q                inner B1 has no Ping, so B's transition fires
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartHierarchyPropertyTest {
     // region reference
 

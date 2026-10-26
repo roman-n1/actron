@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.StateSaver
 import actron.core.createRuntimeStore
 import actron.test.dispatchAndAwait
@@ -33,7 +32,7 @@ import kotlin.time.Duration.Companion.seconds
  * A --Go--> B
  * ```
  */
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartRegressionTest {
     sealed interface ChartAction : Action {
         data object Go : ChartAction

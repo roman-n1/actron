@@ -1,10 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.observability.Capability
 import actron.observability.ExecutionMode
@@ -75,7 +72,7 @@ class GroupReplayControlsTest {
         controls.seek(Int.MAX_VALUE)
         assertEquals(6, controls.position)
         assertFalse(controls.canStepForward)
-        assertTrue(checkNotNull(controls.forwardUnavailable).contains("end of the group"))
+        assertEquals(expected = ForwardStepAvailability.EndReached, actual = controls.forwardAvailability)
         controls.seek(-1)
         assertEquals(0, controls.position)
         kotlin.test.assertFalse(controls.hasSelection)

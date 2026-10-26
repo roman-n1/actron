@@ -148,7 +148,7 @@ class StoreQueueConfigurationTest {
                     state<Ready> { enter { enters += state } }
                 }
             try {
-                store.collectEvent { }
+                store.observeEvent { }
                 runCurrent()
                 assertTrue(enters.isEmpty())
                 assertFailsWith<IllegalStateException> {

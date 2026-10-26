@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,7 +16,7 @@ import kotlin.test.assertTrue
  * Error   --Retry [canRetry]--> Loading   (canRetry reads Error.attempts < 3)
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartRuntimeTest {
     sealed interface FormAction : Action {
         data class Submit(

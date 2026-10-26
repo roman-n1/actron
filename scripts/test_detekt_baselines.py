@@ -84,5 +84,26 @@ class AuthorizedLoggingRelocationTest(unittest.TestCase):
         self.assertEqual({("CurrentIssues", target)}, guard.additions(baseline(self.old), baseline(target), self.path))
 
 
+class AuthorizedStoreContractRelocationTest(unittest.TestCase):
+    path = "config/detekt/baselines/actron-statechart.xml"
+    pairs = (
+        ("TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> : InvokedMachineStoreStoreLifecycle",
+         "TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> : InvokedMachineStore"),
+        ("TooManyFunctions:MachineStore.kt:MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event> : MachineStoreStoreInternalApiStoreLifecycle",
+         "TooManyFunctions:MachineStore.kt:MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event> : MachineStoreStoreInternalApi"),
+    )
+
+    def test_exact_authorized_identifiers_are_allowed(self):
+        for old, new in self.pairs:
+            self.assertEqual(set(), guard.additions(baseline(old), baseline(new), self.path))
+
+    def test_other_debt_and_retained_old_identifiers_are_rejected(self):
+        for old, new in self.pairs:
+            self.assertEqual({("CurrentIssues", "new debt")}, guard.additions(baseline(old), baseline(new, "new debt"), self.path))
+            self.assertEqual({("CurrentIssues", new)}, guard.additions(baseline(old), baseline(old, new), self.path))
+            self.assertEqual({("CurrentIssues", new)}, guard.additions(baseline(), baseline(new), self.path))
+            self.assertEqual({("CurrentIssues", new)}, guard.additions(baseline(old), baseline(new), "other.xml"))
+
+
 if __name__ == "__main__":
     unittest.main()

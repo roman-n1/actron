@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.ui.test.ExperimentalTestApi::class)
+@file:OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 
 package actron.timetravel.compose
 

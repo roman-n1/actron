@@ -1,13 +1,12 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 
 /**
  * One transition fired by [HierarchyReference]: nodes exited and entered, and the configuration
  * after it.
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal class HierarchyDecision(
     val transitions: List<Transition>,
     val exited: List<StateId>,
@@ -25,7 +24,7 @@ internal class HierarchyDecision(
  * per node, the LCCA from chains, deepest-first exit and recursive default entry. Only meant for
  * well-formed charts built from [RandomAction]s.
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal class HierarchyReference(
     val chart: StateChartDefinition,
 ) {
@@ -170,14 +169,14 @@ internal class HierarchyReference(
 }
 
 /** A configuration of [HistoryReference]: active nodes and what each history state remembers. */
-@OptIn(ExperimentalActronApi::class)
+
 internal data class HistoryConfiguration(
     val active: Set<StateId>,
     val history: Map<StateId, Set<StateId>> = emptyMap(),
 )
 
 /** One transition fired by [HistoryReference]. */
-@OptIn(ExperimentalActronApi::class)
+
 internal class HistoryDecision(
     val transitions: List<Transition>,
     val exited: List<StateId>,
@@ -197,7 +196,7 @@ internal class HistoryDecision(
  * (or else its default, or else its parent's initial child), the chain from the parent down to it
  * and its initial descendants. Only meant for well-formed charts.
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal class HistoryReference(
     val chart: StateChartDefinition,
 ) {

@@ -1,8 +1,7 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,7 +16,6 @@ import androidx.compose.ui.Modifier
  * [rememberLiveInspector]). Recording must be installed independently of panel visibility.
  * Journal selection is inspection only; use a replay overload to re-decide recorded inputs.
  */
-@ExperimentalActronApi
 @Composable
 fun TimeTravelPanel(
     state: InspectorState,
@@ -27,7 +25,6 @@ fun TimeTravelPanel(
 }
 
 /** Replays one machine offline. [ReplayControls.snapshot] can separately drive an app preview. */
-@ExperimentalActronApi
 @Composable
 fun TimeTravelPanel(
     state: InspectorState,
@@ -38,7 +35,6 @@ fun TimeTravelPanel(
 }
 
 /** One global cursor for the group. Choosing a machine filters rows without moving any member. */
-@ExperimentalActronApi
 @Composable
 fun TimeTravelPanel(
     state: InspectorState,
@@ -49,7 +45,6 @@ fun TimeTravelPanel(
 }
 
 /** The group's replay and isolated experiments, using the application's scripted branch inputs. */
-@ExperimentalActronApi
 @Composable
 fun TimeTravelPanel(
     state: InspectorState,

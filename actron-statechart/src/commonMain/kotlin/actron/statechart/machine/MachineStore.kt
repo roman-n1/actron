@@ -5,7 +5,6 @@ package actron.statechart.machine
 import actron.core.Action
 import actron.core.ActionHandlerMatch
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InternalActronApi
 import actron.core.Plugin
 import actron.core.PluginPatch
@@ -14,16 +13,13 @@ import actron.core.StateSaver
 import actron.core.Store
 import actron.core.StoreHandlerMetadata
 import actron.core.StoreInternalApi
-import actron.core.StoreLifecycle
 import actron.core.StorePatch
 import actron.core.StorePendingWork
 import actron.core.StoreProbe
 import actron.core.StoreSetting
 import actron.core.StoreTrace
-import actron.core.closeAndJoin
 import actron.core.createRuntimeStore
 import actron.core.currentInputId
-import actron.core.observeState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -61,7 +57,7 @@ interface MachineStore<C : Any, A : Action, CMD : Any, E : Event> : Store<Machin
      * [Admission.Closed] is terminal for this store, rather than backpressure to retry. The
      * input is a [MachineInput.External], so a recording knows where it came from.
      */
-    @ExperimentalActronApi
+
     fun feed(
         source: SourceId,
         action: A,
@@ -157,7 +153,7 @@ fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore(
     builder: MachineConfiguration<C, A, E>.() -> Unit = {},
 ): MachineStore<C, A, CMD, E> = MachineStoreImpl(machine, context, handler, scope, clock, coroutineContext, admission, observers, mailbox, builder)
 
-@OptIn(InternalActronApi::class, ExperimentalActronApi::class)
+@OptIn(InternalActronApi::class)
 internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val machine: Machine<C, A, CMD, E>,
     context: C,
@@ -172,8 +168,7 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     private val origin: StoreOrigin<C, CMD> = StoreOrigin.Fresh,
     recovery: CommandRecoveryStrategy<CMD, A> = CommandRecoveryStrategy { CommandRecoveryDecision.Restart },
 ) : MachineStore<C, A, CMD, E>,
-    StoreInternalApi<MachineSnapshot<C>, A, E>,
-    StoreLifecycle<MachineSnapshot<C>, E> {
+    StoreInternalApi<MachineSnapshot<C>, A, E> {
     init {
         require(scope.coroutineContext[ContinuationInterceptor] !== Dispatchers.Unconfined) {
             "[Actron] MachineStore needs an execution scope with a real dispatcher: with Dispatchers.Unconfined, command handlers would run under the store's lock"
@@ -367,7 +362,6 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
 
     override fun admit(action: A): Admission = admitting(action) { MachineInput.Dispatch(action, clock.now()) }
 
-    @ExperimentalActronApi
     override fun feed(
         source: SourceId,
         action: A,
@@ -531,14 +525,6 @@ internal class MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event>(
     internal val pendingAdmissions: Int get() = work.pendingAdmissions
 
     private inline fun <T : Any> gated(block: () -> T): T = gate.locked(block)
-
-    override fun collectState(state: (MachineSnapshot<C>) -> Unit) {
-        observeState(state)
-    }
-
-    override fun collectEvent(event: (E) -> Unit) {
-        executionScope.launch { this@MachineStoreImpl.event.collect { event(it) } }
-    }
 
     override fun observeState(observer: (MachineSnapshot<C>) -> Unit): AutoCloseable = inner.observeState(observer)
 

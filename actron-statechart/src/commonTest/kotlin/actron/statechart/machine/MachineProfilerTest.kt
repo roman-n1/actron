@@ -1,10 +1,9 @@
-@file:OptIn(actron.core.InternalActronApi::class, actron.core.ExperimentalActronApi::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(actron.core.InternalActronApi::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
 package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.core.InputKind
 import actron.core.InternalActronApi

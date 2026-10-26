@@ -1,6 +1,9 @@
 package actron.timetravel.compose
 
 import actron.timetravel.HistoryEntry
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.counter_live
+import actron.timetravel.compose.resources.counter_selected
 import androidx.compose.runtime.MutableState
 
 /** UI state owns its switch; composables send an intent instead of rebuilding boolean rules. */
@@ -41,21 +44,46 @@ internal fun historyPanelPlacement(
     }
 
 /** Event numbers follow the recording sequence, independently of filtering and capacity eviction. */
+@androidx.compose.runtime.Composable
 internal fun <S : Any> historyEventCounter(
     state: HistoryPanelState<S>,
     entries: List<HistoryEntry<S>>,
     capacity: Int,
-    language: String,
 ): String {
-    val latest = entries.fold(0L) { id, entry -> maxOf(id, entry.id) }
-    val description =
-        if (state.preview.isEmpty()) {
-            "${HistoryText.InHistory.forLanguage(language)} $latest ${HistoryText.Events.forLanguage(language)}"
-        } else {
-            val selected = state.preview.first().id
-            // A pinned snapshot may outlive the retained source entries, including a clear.
-            val lastRecorded = maxOf(latest, selected)
-            "${HistoryText.Event.forLanguage(language)} $selected / $lastRecorded"
+    val numbers = historyCounterNumbers(state = state, entries = entries)
+    return when (numbers) {
+        is HistoryCounterNumbers.Live -> {
+            org.jetbrains.compose.resources
+                .stringResource(resource = actron.timetravel.compose.resources.Res.string.counter_live, numbers.latest, capacity)
         }
-    return "$description · ${HistoryText.Capacity.forLanguage(language)} $capacity"
+
+        is HistoryCounterNumbers.Selected -> {
+            org.jetbrains.compose.resources
+                .stringResource(resource = actron.timetravel.compose.resources.Res.string.counter_selected, numbers.selected, numbers.latest, capacity)
+        }
+    }
+}
+
+private sealed interface HistoryCounterNumbers {
+    data class Live(
+        val latest: Long,
+    ) : HistoryCounterNumbers
+
+    data class Selected(
+        val selected: Long,
+        val latest: Long,
+    ) : HistoryCounterNumbers
+}
+
+private fun <S : Any> historyCounterNumbers(
+    state: HistoryPanelState<S>,
+    entries: List<HistoryEntry<S>>,
+): HistoryCounterNumbers {
+    val latest = entries.fold(initial = 0L) { id, entry -> maxOf(a = id, b = entry.id) }
+    return if (state.preview.isEmpty()) {
+        HistoryCounterNumbers.Live(latest = latest)
+    } else {
+        val selected = state.preview.first().id
+        HistoryCounterNumbers.Selected(selected = selected, latest = maxOf(a = latest, b = selected))
+    }
 }

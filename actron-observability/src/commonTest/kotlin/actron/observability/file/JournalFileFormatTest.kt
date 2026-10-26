@@ -1,8 +1,5 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.observability.file
 
-import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.ActivationRef
@@ -143,23 +140,13 @@ class JournalFileFormatTest {
     }
 
     @Test
-    fun earlierVersions_keepTheirOriginalWireBytesAndCauseSemantics() {
-        assertEquals(JournalWireGolden.HEADER_V6, JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = 6).toHex())
-        val expectedEntries =
-            expected.map {
-                val entry = it.entry
-                if (entry is JournalEntry.BridgeSent) entry.copy(cause = actron.observability.MessageCause.Unprompted) else entry
-            }
-        for (version in 1..6) {
-            // The only version-dependent field is BridgeSent.cause, introduced in version 7.
-            assertEquals(JournalWireGolden.framesV6, all.map { JournalFileFormat.frame(it, recordFormatVersion = version).toHex() }, "version $version")
-            val header = JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = version)
-            val pinned = header + JournalWireGolden.framesV6.joinToString("").fromHex() + JournalFileFormat.END
-            val decoded = JournalFileFormat.decodeSegment("golden-v$version", pinned)
-            assertEquals(version, decoded.header.recordFormatVersion)
-            assertEquals(expectedEntries, decoded.records.map { it.entry }, "version $version")
-            assertTrue(decoded.finished)
-            kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
+    fun previousJournalVersionsAreRejected() {
+        for (version in 1 until JOURNAL_FORMAT_VERSION) {
+            val header = JournalFileFormat.header(session = session, group = group, mode = ExecutionMode.Live, index = 0, recordFormatVersion = version)
+            val bytes = header + JournalWireGolden.framesV6.joinToString(separator = "").fromHex() + JournalFileFormat.END
+            val decoded = JournalFileFormat.decodeSegment(name = "previous", bytes = bytes)
+            assertTrue(actual = decoded.records.isEmpty())
+            assertIs<SegmentMark.UnsupportedFormat>(decoded.mark)
         }
     }
 
@@ -180,26 +167,6 @@ class JournalFileFormatTest {
 
         assertEquals(GOLDEN, bytes.toHex(), "the segment layout changed; if intended, bump JOURNAL_FILE_FORMAT_VERSION.\nACTUAL:\n${bytes.toHex()}")
         assertEquals(listOf(expected[0], expected[11]), JournalFileFormat.decodeSegment("golden", GOLDEN.fromHex()).records)
-    }
-
-    @Test
-    fun aSegmentOfAnEarlierRecordFormat_stillReads() {
-        // Written by a writer of version 6: BridgeSent without its cause (added in 7).
-        val older =
-            ByteWriter()
-                .apply {
-                    raw(JournalFileFormat.header(session, group, ExecutionMode.Live, 0, recordFormatVersion = 6))
-                    raw(JournalFileFormat.frame(all[0], recordFormatVersion = 6))
-                    raw(JournalFileFormat.frame(all[18], recordFormatVersion = 6))
-                    raw(JournalFileFormat.END)
-                }.toByteArray()
-
-        val decoded = JournalFileFormat.decodeSegment("older", older)
-
-        assertEquals(6, decoded.header?.recordFormatVersion)
-        val sent = expected[18].entry as JournalEntry.BridgeSent
-        assertEquals(listOf(expected[0].entry, sent.copy(cause = actron.observability.MessageCause.Unprompted)), decoded.records.map { it.entry }, "a reader of a version reads every earlier one: variants only grow at the end, fields at the end of a variant")
-        kotlin.test.assertFalse(decoded.ending.withIssue { error("Unexpected segment issue: $it") })
     }
 
     @Test

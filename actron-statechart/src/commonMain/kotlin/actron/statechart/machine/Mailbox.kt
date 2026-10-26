@@ -1,7 +1,6 @@
 package actron.statechart.machine
 
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.InputId
 import kotlinx.coroutines.CoroutineScope

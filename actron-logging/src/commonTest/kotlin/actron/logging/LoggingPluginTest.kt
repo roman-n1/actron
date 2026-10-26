@@ -63,10 +63,10 @@ private fun createTestStore(
         plugin(plugin)
         state<CounterState> {
             action<CounterAction.Increment> {
-                nextState(state.copy(count = state.count + 1))
+                nextState(block = { state.copy(count = state.count + 1) })
             }
             action<CounterAction.Decrement> {
-                nextState(state.copy(count = state.count - 1))
+                nextState(block = { state.copy(count = state.count - 1) })
             }
         }
     }

@@ -2,7 +2,6 @@
 
 package actron.compose
 
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
@@ -42,7 +41,6 @@ import kotlin.test.assertTrue
 class ViewStoreJvmTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
-    @OptIn(ExperimentalActronApi::class)
     @Test
     fun keyedTabsForTheSameChatKeepIndependentStoresAndSavers() =
         runTest(testDispatcher) {
@@ -549,12 +547,12 @@ class ViewStoreJvmTest {
                     coroutineContext(coroutineContext)
                     state<UiState.Loading> {
                         enter {
-                            nextState(UiState.Ready(0))
+                            nextState(block = { UiState.Ready(0) })
                         }
                     }
                     state<UiState.Ready> {
                         action<UiAction.Increment> {
-                            nextState(state.copy(value = state.value + 1))
+                            nextState(block = { state.copy(value = state.value + 1) })
                         }
                     }
                 }
@@ -582,7 +580,7 @@ class ViewStoreJvmTest {
                     coroutineContext(coroutineContext)
                     state<UiState.Ready> {
                         action<UiAction.Increment> {
-                            nextState(state.copy(value = state.value + 1))
+                            nextState(block = { state.copy(value = state.value + 1) })
                         }
                     }
                 }
@@ -614,7 +612,7 @@ class ViewStoreJvmTest {
                     state<UiState.Loading> {
                         enter(dispatcher = testDispatcher) {
                             enterGate.await()
-                            nextState(UiState.Ready(0))
+                            nextState(block = { UiState.Ready(0) })
                         }
                     }
                 }

@@ -1,7 +1,5 @@
 package actron.statechart
 
-import actron.core.ExperimentalActronApi
-
 /**
  * The active part of a running statechart. Immutable; [StateChartRuntime.step] returns a new one.
  *

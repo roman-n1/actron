@@ -107,9 +107,11 @@ private data class EqualStore(
 
     override fun dispatch(action: UiAction) = backing.dispatch(action)
 
-    override fun collectState(state: (UiState) -> Unit) = backing.collectState(state)
+    override fun observeState(observer: (UiState) -> Unit): AutoCloseable = backing.observeState(observer = observer)
 
-    override fun collectEvent(event: (UiEvent) -> Unit) = backing.collectEvent(event)
+    override fun observeEvent(observer: (UiEvent) -> Unit): AutoCloseable = backing.observeEvent(observer = observer)
+
+    override suspend fun closeAndJoin() = close()
 
     override fun close() = backing.close()
 }

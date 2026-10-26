@@ -1,6 +1,5 @@
 package actron.timetravel
 
-import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.Decision
 import actron.statechart.machine.ExecutorCheckpoint
@@ -14,7 +13,6 @@ import actron.statechart.machine.SourceId
  * delivery the recording cannot have produced (handoff §10: delivered once, to the right
  * instance, after it was sent).
  */
-@ExperimentalActronApi
 sealed interface GroupMismatch {
     /** The position of the group's order the mismatch is at. */
     val position: Int
@@ -77,7 +75,6 @@ sealed interface GroupMismatch {
 }
 
 /** The result of one forward step of a [GroupReplaySession]. */
-@ExperimentalActronApi
 sealed interface GroupReplayStep {
     data class Finished(
         val position: Int,
@@ -104,7 +101,6 @@ sealed interface GroupReplayStep {
  * @param machines The machine of each member; every member of the recording needs one
  * @throws IllegalArgumentException if a member has no machine or its recording is not replayable by it
  */
-@ExperimentalActronApi
 class GroupReplaySession(
     machines: Map<StoreInstanceId, Machine<*, *, *, *>>,
     val recording: GroupRecording,
@@ -124,10 +120,6 @@ class GroupReplaySession(
         accept(recording.order[position])
         return true
     }
-
-    /** Legacy member cursors. Group reads and movement use the group position independently. */
-    @Deprecated("Use memberViews for inspection and the group session for movement")
-    val members: Map<StoreInstanceId, ReplaySession<*, *, *, *>> get() = replayMembers.sessions
 
     /** Read-only member inspection, always derived from the current group position. */
     val memberViews: Map<StoreInstanceId, GroupReplayMember> =
@@ -154,7 +146,7 @@ class GroupReplaySession(
         val step = recording.order[position]
         for (mismatch in bridgeMismatches) if (mismatch.position == position) return GroupReplayStep.Diverged(mismatch)
         val member = replayMembers.session(step.store)
-        // The recorded ordinal is authoritative even if a legacy member cursor was moved.
+        // The recorded ordinal is authoritative for every group member.
         member.seek(step.step)
         return when (val result = member.stepForward()) {
             is ReplayStep.Finished -> {

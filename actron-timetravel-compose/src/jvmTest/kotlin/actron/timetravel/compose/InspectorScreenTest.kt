@@ -1,10 +1,9 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalTestApi::class)
+@file:OptIn(ExperimentalTestApi::class)
 
 package actron.timetravel.compose
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.observability.Capability
 import actron.observability.ExecutionMode
@@ -192,7 +191,17 @@ class InspectorScreenTest {
             onNodeWithTag("group-member-root-2").assertTextContains("Ctx(n=11)", substring = true)
             onNodeWithTag("group-step-4").performClick()
             onNodeWithTag("group-replay-position").assertTextContains("5 / 6", substring = true)
-            onNodeWithTag("group-position").assertTextContains("recorded after: Ctx(n=2)", substring = true)
+            onNodeWithTag("group-position").assertTextContains(
+                if (java.util.Locale
+                        .getDefault()
+                        .language == "ru"
+                ) {
+                    "Записано после: Ctx(n=2)"
+                } else {
+                    "recorded after: Ctx(n=2)"
+                },
+                substring = true,
+            )
             onNodeWithTag("group-replay-verify").performClick()
             onNodeWithTag("group-replay-verdict").assertTextContains("no divergence in 6 group steps", substring = true)
             onNodeWithTag("group-definition-root-2").assertTextContains("stateDiagram-v2", substring = true)
@@ -227,7 +236,17 @@ class InspectorScreenTest {
             onNodeWithTag("mode-bar").assertTextContains("REPLAY", substring = true)
             onNodeWithTag("time-travel-branch").performClick()
             onNodeWithTag("mode-bar").assertTextContains("BRANCH", substring = true)
-            onNodeWithTag("time-travel-origin").assertTextContains("group position 4", substring = true)
+            onNodeWithTag("time-travel-origin").assertTextContains(
+                if (java.util.Locale
+                        .getDefault()
+                        .language == "ru"
+                ) {
+                    "позиции группы 4"
+                } else {
+                    "group position 4"
+                },
+                substring = true,
+            )
             onNodeWithTag("group-replay-bar").assertDoesNotExist()
             onNodeWithTag("group-timeline").assertDoesNotExist()
             onNodeWithTag("branch-input-root-2-Inc").performClick()

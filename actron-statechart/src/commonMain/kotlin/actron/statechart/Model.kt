@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlin.jvm.JvmInline
 import kotlin.reflect.KClass
 import kotlin.time.Duration

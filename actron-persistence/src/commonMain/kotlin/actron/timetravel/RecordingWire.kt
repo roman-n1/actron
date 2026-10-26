@@ -165,7 +165,7 @@ internal class FailureWire(
     val suppressed: List<FailureWire> = emptyList(),
 )
 
-// These serializers preserve nullable legacy JSON FIELD schemas without Kotlin nullable values.
+// These serializers represent the current JSON field schema without Kotlin nullable values.
 // The concrete JsonNull node denotes a protocol token; domain contracts are normalized above.
 private abstract class WireNode<T : Any>(
     private val schema: () -> KSerializer<T>,

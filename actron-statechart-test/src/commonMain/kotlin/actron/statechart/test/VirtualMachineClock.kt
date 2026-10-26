@@ -1,6 +1,5 @@
 package actron.statechart.test
 
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.MachineClock
 import actron.statechart.machine.MachineTime
 import kotlinx.coroutines.delay
@@ -17,7 +16,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * comparable times.
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-@ExperimentalActronApi
 class VirtualMachineClock(
     private val scheduler: TestCoroutineScheduler,
     private val originMillis: Long = 0,
@@ -36,5 +34,4 @@ class VirtualMachineClock(
 }
 
 /** The virtual clock of this test's scheduler. */
-@ExperimentalActronApi
 fun TestScope.machineClock(): VirtualMachineClock = VirtualMachineClock(testScheduler)

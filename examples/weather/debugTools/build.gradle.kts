@@ -40,6 +40,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
+            implementation(compose.components.resources)
             api(project(":weather:shared"))
             implementation(project(":actron-timetravel-compose"))
             implementation(libs.decompose.core)
@@ -78,4 +79,14 @@ kotlin {
             implementation(compose.uiTest)
         }
     }
+}
+
+compose.resources {
+    packageOfResClass = "actron.example.weather.debug.resources"
+}
+
+// Assertions use a reproducible baseline; locale integration tests override and restore it.
+tasks.withType<Test>().configureEach {
+    systemProperty("user.language", "en")
+    systemProperty("user.country", "US")
 }

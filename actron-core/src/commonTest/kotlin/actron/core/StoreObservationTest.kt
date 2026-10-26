@@ -196,33 +196,4 @@ class StoreObservationTest {
                 store.close()
             }
         }
-
-    @Test
-    fun oldCustomImplementationsRemainValidAndUnsupportedCapabilityFailsBeforeClose() =
-        runTest {
-            val store = LegacyStore()
-            assertFailsWith<IllegalStateException> { store.observeState {} }
-            assertFailsWith<IllegalStateException> { store.observeEvent {} }
-            assertFailsWith<IllegalStateException> { store.closeAndJoin() }
-            assertEquals(0, store.closes)
-        }
-
-    private class LegacyStore : Store<Counter, Increment, Changed> {
-        override val state = kotlinx.coroutines.flow.MutableStateFlow(Counter())
-        override val event = kotlinx.coroutines.flow.MutableSharedFlow<Changed>()
-        override val currentState: Counter get() = state.value
-        var closes = 0
-
-        override fun start() = Unit
-
-        override fun dispatch(action: Increment) = Unit
-
-        override fun collectState(state: (Counter) -> Unit) = Unit
-
-        override fun collectEvent(event: (Changed) -> Unit) = Unit
-
-        override fun close() {
-            closes++
-        }
-    }
 }

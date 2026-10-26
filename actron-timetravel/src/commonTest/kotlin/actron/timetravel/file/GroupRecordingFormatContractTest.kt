@@ -36,13 +36,13 @@ class GroupRecordingFormatContractTest {
     }
 
     @Test
-    fun legacyHeadersWithoutCutsAndPairsDecodeWithoutReencoding() {
+    fun previousGroupFormatsAreRejected() {
         for (version in 1..2) {
             val bytes = "KOMAGRPO".encodeToByteArray() + frame(1, headerJson.replace("\"formatVersion\":3", "\"formatVersion\":$version")) + Framing.END
             val decoded = assertIs<DecodedGroupSegment.Readable>(GroupRecordingFileFormat.decodeSegment("legacy", bytes))
             assertEquals(header.copy(fileFormatVersion = version), decoded.header)
-            assertTrue(decoded.finished)
-            assertTrue(decoded.entries.isEmpty())
+            assertTrue(actual = decoded.entries.isEmpty())
+            decoded.ending.withIssue { assertIs<SegmentMark.UnsupportedFormat>(it) }.also { assertTrue(actual = it) }
         }
     }
 

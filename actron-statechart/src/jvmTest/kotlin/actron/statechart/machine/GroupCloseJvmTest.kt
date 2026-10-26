@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.InternalActronApi::class, actron.core.ExperimentalActronApi::class)
+@file:OptIn(actron.core.InternalActronApi::class)
 
 package actron.statechart.machine
 

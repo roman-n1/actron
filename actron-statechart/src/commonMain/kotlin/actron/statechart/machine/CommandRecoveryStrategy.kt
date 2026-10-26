@@ -1,18 +1,15 @@
 package actron.statechart.machine
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 /** Applies only to commands that were running at the saved checkpoint, not queued/new work. */
-@ExperimentalActronApi
 fun interface CommandRecoveryStrategy<CMD : Any, A : Action> {
     fun select(command: CommandEnvelope<CMD>): CommandRecoveryDecision<CMD, A>
 }
 
 /** Recovery is application code, never serialized. Restart remains the default (at least once). */
-@ExperimentalActronApi
 sealed interface CommandRecoveryDecision<out CMD : Any, out A : Action> {
     data object Restart : CommandRecoveryDecision<Nothing, Nothing>
 
@@ -27,7 +24,6 @@ sealed interface CommandRecoveryDecision<out CMD : Any, out A : Action> {
     ) : CommandRecoveryDecision<CMD, A>
 }
 
-@OptIn(ExperimentalActronApi::class)
 internal suspend fun <CMD : Any, A : Action> executeRecovery(
     strategy: CommandRecoveryStrategy<CMD, A>,
     handler: CommandHandler<CMD, A>,

@@ -31,7 +31,7 @@ class MessagePluginTest {
 
             val store = createTestStore(CounterState(10), plugin, sendMessage)
 
-            store.collectState { } // start Store
+            store.observeState { } // start Store
 
             assertEquals(listOf(sendMessage), messages)
             store.close()

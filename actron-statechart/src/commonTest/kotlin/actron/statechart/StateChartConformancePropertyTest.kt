@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.PluginExecutionPolicy
 import actron.core.State
@@ -50,7 +49,7 @@ import kotlin.test.assertTrue
  *
  * States map to chart ids with an explicit `when` ([idOf]).
  */
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartConformancePropertyTest {
     sealed interface Node : State {
         data object N0 : Node

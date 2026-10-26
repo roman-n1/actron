@@ -1,11 +1,10 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class, actron.core.InternalActronApi::class)
 
 package actron.logging
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.Store
 import actron.core.createRuntimeStore

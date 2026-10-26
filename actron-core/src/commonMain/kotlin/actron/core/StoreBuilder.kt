@@ -282,20 +282,6 @@ class StoreBuilder<S : State, A : Action, E : Event> internal constructor() {
                 ),
             )
         }
-
-        /**
-         * Compatibility alias. Use `recover {}`.
-         */
-        @Deprecated(
-            message = "Use recover<T>(dispatcher, block)",
-            replaceWith = ReplaceWith("recover<T>(dispatcher, block)"),
-        )
-        inline fun <reified T : Exception> error(
-            dispatcher: CoroutineContext = EmptyCoroutineContext,
-            noinline block: suspend RecoverScope<S, E, S2, T>.() -> Unit,
-        ) {
-            recover(dispatcher, block)
-        }
     }
 
     /**

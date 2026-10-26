@@ -4,7 +4,7 @@ package actron.example.weather
 
 import actron.core.InputAttribution
 import actron.example.weather.app.debug.WeatherHistory
-import actron.example.weather.app.debug.continuation
+import actron.example.weather.app.debug.continuationWork
 import actron.example.weather.app.debug.retainedWeatherHistory
 import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherSavedState
@@ -48,7 +48,7 @@ class WeatherHistoryTest {
     @Test
     fun continuationExplainsExecutorRestrictionsInsteadOfGuessingFromState() {
         val initial = WeatherFrame()
-        assertIs<HistoryContinuation.Available>(initial.continuation(false))
+        assertEquals(expected = 0, actual = initial.continuationWork().endings + initial.continuationWork().effects)
         val machine = CitySearchMachine.create()
         val started = machine.decide(initial.search.snapshot, MachineInput.Start(MachineTime.Zero))
         val editing = machine.decide(started.snapshot, MachineInput.Dispatch(CitySearchAction.ChangeQuery("Paris"), MachineTime.Zero))
@@ -56,9 +56,9 @@ class WeatherHistoryTest {
         val loading = machine.decide(editing.snapshot, MachineInput.TimerFired(timer.id, timer.deadline))
         val ending = initial.copy(search = ExecutorCheckpoint(loading.snapshot, timer.deadline, ending = loading.commands.associateBy { it.id }))
         assertFalse(ending.canResume())
-        val blocked = assertIs<HistoryContinuation.Unavailable>(ending.continuation(false))
-        assertTrue(blocked.reason.contains("Command completions"))
-        assertFalse(blocked.reason.contains("Effects"))
+        val blocked = ending.continuationWork()
+        assertEquals(expected = 1, actual = blocked.endings)
+        assertEquals(expected = 0, actual = blocked.effects)
     }
 
     @Test

@@ -29,7 +29,7 @@ timer ── timer input ──────────────┘          
 - Activation/command identities reject results from commands no longer registered, including
   responses arriving after exit. Lane policies control replacement, queuing and concurrency.
 - `resumeMachineStore` creates a new runtime from a checkpoint. It is not a state setter on a
-  running store. Close the old store when replacing it; resume is experimental and running
+  running store. Close the old store when replacing it; resume requires explicit checkpoint recovery and running
   requests may execute again. Use restartable handlers.
 
 ## Processing and UI threads
@@ -75,7 +75,7 @@ val snapshot by store.state.collectAsUiState()
 This collects on `Dispatchers.Main.immediate` and updates Compose state there regardless of
 the producer's dispatcher. Collection is cancelled with the composition. It does not move
 a wrongly created background composition to Main. The host must supply Main (for example
-`kotlinx-coroutines-swing` on Desktop). Plain `Store.collectState` callbacks run in the store
+`kotlinx-coroutines-swing` on Desktop). Plain `Store.observeState` callbacks run in the store
 context and must not mutate UI directly from a background processor. For non-Compose UI,
 collect `store.state` in a UI-owned Main scope.
 

@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package actron.timetravel.compose
 
@@ -6,6 +6,12 @@ import actron.observability.StoreInstanceId
 import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineSnapshot
 import actron.timetravel.RecordedStep
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.input_failed
+import actron.timetravel.compose.resources.input_ignored
+import actron.timetravel.compose.resources.no_inputs
+import actron.timetravel.compose.resources.snapshot_commands_timers
+import actron.timetravel.compose.resources.snapshot_revision
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +25,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun PanelRecorded(
@@ -29,8 +36,8 @@ internal fun PanelRecorded(
     PanelLines(listOf("Input: ${step.input}", "Recorded before: ${before.context}", "Recorded after: ${after.context}"))
     when (step) {
         is RecordedStep.Committed<*, *, *, *> -> PanelLines(listOf("Transitions: ${step.decision.transitions}", "Commands: ${step.decision.commands}", "Timers: ${step.decision.timersScheduled}", "Events: ${step.decision.effects}"))
-        is RecordedStep.Ignored<*, *, *, *> -> Text("Ignored: ${step.reason}")
-        is RecordedStep.Failed<*, *, *, *> -> PanelProblem("Failed: ${step.failure}")
+        is RecordedStep.Ignored<*, *, *, *> -> Text(stringResource(resource = Res.string.input_ignored, step.reason))
+        is RecordedStep.Failed<*, *, *, *> -> PanelProblem(stringResource(resource = Res.string.input_failed, step.failure))
     }
 }
 
@@ -40,9 +47,9 @@ internal fun PanelSnapshot(
     snapshot: MachineSnapshot<*>,
 ) {
     Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag("panel-selected-snapshot")) {
-        Text("${store.value} · revision ${snapshot.revision}", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(resource = Res.string.snapshot_revision, store.value, snapshot.revision), style = MaterialTheme.typography.titleSmall)
         Text("${snapshot.configuration.active.names()} · ${snapshot.context}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-        Text("Commands: ${snapshot.commands.keys} · timers: ${snapshot.timers.keys}", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(resource = Res.string.snapshot_commands_timers, snapshot.commands.keys, snapshot.timers.keys), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -55,7 +62,7 @@ internal fun PanelProblem(message: String) {
 internal fun PanelVerdict(message: String) = Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("panel-verdict"))
 
 @Composable
-internal fun PanelEmpty() = Text("No recorded inputs for this machine", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("panel-empty"))
+internal fun PanelEmpty() = Text(stringResource(resource = Res.string.no_inputs), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("panel-empty"))
 
 @Composable
 internal fun PanelLines(lines: List<String>) {

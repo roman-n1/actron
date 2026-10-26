@@ -36,28 +36,6 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
     fun nextState(block: () -> S)
 
     /**
-     * Compatibility alias. Use `nextState { ... }`.
-     */
-    @Deprecated(
-        message = "Use nextState { ... }",
-        replaceWith = ReplaceWith("nextState(block)"),
-    )
-    fun nextStateBy(block: () -> S) {
-        nextState(block)
-    }
-
-    /**
-     * Compatibility alias. Use `nextState { state }`.
-     */
-    @Deprecated(
-        message = "Use nextState { ... }",
-        replaceWith = ReplaceWith("nextState { state }"),
-    )
-    fun nextState(state: S) {
-        nextState { state }
-    }
-
-    /**
      * Cancels queued actions that have not started executing yet.
      *
      * The handler or transaction currently in progress keeps running.
@@ -164,28 +142,6 @@ interface EnterScope<S : State, E : Event, S2 : S> : StoreScope {
             fun nextState(block: () -> S)
 
             /**
-             * Compatibility alias. Use `nextState { ... }`.
-             */
-            @Deprecated(
-                message = "Use nextState { ... }",
-                replaceWith = ReplaceWith("nextState(block)"),
-            )
-            fun nextStateBy(block: () -> S) {
-                nextState(block)
-            }
-
-            /**
-             * Compatibility alias. Use `nextState { state }`.
-             */
-            @Deprecated(
-                message = "Use nextState { ... }",
-                replaceWith = ReplaceWith("nextState { state }"),
-            )
-            fun nextState(state: S) {
-                nextState { state }
-            }
-
-            /**
              * Cancels queued actions that have not started executing yet.
              *
              * The handler or transaction currently in progress keeps running.
@@ -266,28 +222,6 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
      * @param block A function that computes and returns the new state
      */
     fun nextState(block: () -> S)
-
-    /**
-     * Compatibility alias. Use `nextState { ... }`.
-     */
-    @Deprecated(
-        message = "Use nextState { ... }",
-        replaceWith = ReplaceWith("nextState(block)"),
-    )
-    fun nextStateBy(block: () -> S) {
-        nextState(block)
-    }
-
-    /**
-     * Compatibility alias. Use `nextState { state }`.
-     */
-    @Deprecated(
-        message = "Use nextState { ... }",
-        replaceWith = ReplaceWith("nextState { state }"),
-    )
-    fun nextState(state: S) {
-        nextState { state }
-    }
 
     /**
      * Cancels queued actions that have not started executing yet.
@@ -421,28 +355,6 @@ interface ActionScope<S : State, A : Action, E : Event, S2 : S> : StoreScope {
             fun nextState(block: () -> S)
 
             /**
-             * Compatibility alias. Use `nextState { ... }`.
-             */
-            @Deprecated(
-                message = "Use nextState { ... }",
-                replaceWith = ReplaceWith("nextState(block)"),
-            )
-            fun nextStateBy(block: () -> S) {
-                nextState(block)
-            }
-
-            /**
-             * Compatibility alias. Use `nextState { state }`.
-             */
-            @Deprecated(
-                message = "Use nextState { ... }",
-                replaceWith = ReplaceWith("nextState { state }"),
-            )
-            fun nextState(state: S) {
-                nextState { state }
-            }
-
-            /**
              * Cancels queued actions that have not started executing yet.
              *
              * The handler or transaction currently in progress keeps running.
@@ -500,28 +412,6 @@ interface RecoverScope<S : State, E : Event, S2 : S, T : Exception> : StoreScope
      * @param block A function that computes and returns the new state
      */
     fun nextState(block: () -> S)
-
-    /**
-     * Compatibility alias. Use `nextState { ... }`.
-     */
-    @Deprecated(
-        message = "Use nextState { ... }",
-        replaceWith = ReplaceWith("nextState(block)"),
-    )
-    fun nextStateBy(block: () -> S) {
-        nextState(block)
-    }
-
-    /**
-     * Compatibility alias. Use `nextState { state }`.
-     */
-    @Deprecated(
-        message = "Use nextState { ... }",
-        replaceWith = ReplaceWith("nextState { state }"),
-    )
-    fun nextState(state: S) {
-        nextState { state }
-    }
 
     /**
      * Cancels queued actions that have not started executing yet.

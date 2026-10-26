@@ -145,10 +145,10 @@
     <ID>TooGenericExceptionCaught:StateChartStore.kt:ChartStoreHost$error: Throwable</ID>
     <ID>TooManyFunctions:Configuration.kt:actron.statechart.Configuration.kt</ID>
     <ID>TooManyFunctions:Group.kt:MachineGroup</ID>
-    <ID>TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl&lt;PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event&gt; : InvokedMachineStoreStoreLifecycle</ID>
+    <ID>TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl&lt;PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event&gt; : InvokedMachineStore</ID>
     <ID>TooManyFunctions:Machine.kt:Machine&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
     <ID>TooManyFunctions:Machine.kt:MachineBuilder&lt;C : Any, A : Action, CMD : Any, E : Event&gt;</ID>
-    <ID>TooManyFunctions:MachineStore.kt:MachineStoreImpl&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : MachineStoreStoreInternalApiStoreLifecycle</ID>
+    <ID>TooManyFunctions:MachineStore.kt:MachineStoreImpl&lt;C : Any, A : Action, CMD : Any, E : Event&gt; : MachineStoreStoreInternalApi</ID>
     <ID>TooManyFunctions:Runtime.kt:StateChartRuntime&lt;S : State&gt;</ID>
     <ID>TooManyFunctions:TypedStateMachineDsl.kt:TypedMachineStateBuilder&lt;C : Any, S : Any, A : Action, CMD : Any, E : Event&gt;</ID>
     <ID>TooManyFunctions:TypedStateMachineDsl.kt:TypedStateMachineBuilder&lt;C : Any, S : Any, A : Action, CMD : Any, E : Event&gt;</ID>

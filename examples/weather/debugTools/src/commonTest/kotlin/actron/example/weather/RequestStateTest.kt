@@ -1,6 +1,7 @@
 package actron.example.weather
 
 import actron.example.weather.core.fixtures.demoCities
+import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.weather.domain.ForecastHour
 import actron.example.weather.feature.weather.domain.HourlyForecast
@@ -24,8 +25,8 @@ class RequestStateTest {
         val states =
             listOf(
                 WeatherContext(city, RequestState.Success(weather), RequestState.Success(forecast)),
-                WeatherContext(city, RequestState.Success(weather), RequestState.Error("offline")),
-                WeatherContext(city, RequestState.Loading, RequestState.TimedOut),
+                WeatherContext(city, RequestState.Success(weather), RequestState.Error(cause = RequestFailure.Unavailable(message = "offline"))),
+                WeatherContext(city, RequestState.Loading, RequestState.Error(cause = RequestFailure.Timeout)),
                 WeatherContext(city),
             )
         for (state in states) {
@@ -43,14 +44,14 @@ class RequestStateTest {
                 RequestState.Debouncing,
                 RequestState.Loading,
                 RequestState.Success("answer"),
-                RequestState.Error("offline"),
-                RequestState.TimedOut,
+                RequestState.Error(cause = RequestFailure.Unavailable(message = "offline")),
+                RequestState.Error(cause = RequestFailure.Timeout),
             )
         for (state in states) {
             val encoded = Json.encodeToJsonElement(serializer, state).jsonObject
             assertEquals(state, Json.decodeFromJsonElement(serializer, encoded))
             if (state is RequestState.Success || state is RequestState.Error) {
-                val missingPayload = JsonObject(encoded.filterKeys { it != "value" && it != "message" })
+                val missingPayload = JsonObject(encoded.filterKeys { it != "value" && it != "cause" })
                 assertFailsWith<SerializationException> { Json.decodeFromJsonElement(serializer, missingPayload) }
             }
         }

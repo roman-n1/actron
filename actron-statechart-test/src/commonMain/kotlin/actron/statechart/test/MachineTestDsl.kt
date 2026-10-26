@@ -2,14 +2,12 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.StateId
 import actron.statechart.machine.Machine
 import kotlinx.coroutines.test.TestScope
 import kotlin.time.Duration
 
 /** Runs a real queued Store with scripted IO and virtual time; always closes it, including on assertion failure. */
-@ExperimentalActronApi
 suspend fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.test(
     scope: TestScope,
     initial: C,
@@ -29,7 +27,6 @@ suspend fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.te
 }
 
 /** Assertions inspect settled snapshots, never arbitrary sleeps or a second evaluation of guards. */
-@ExperimentalActronApi
 class MachineTestScenario<C : Any, A : Action, CMD : Any, E : Event> internal constructor(
     val driver: MachineTestDriver<C, A, CMD, E>,
 ) {

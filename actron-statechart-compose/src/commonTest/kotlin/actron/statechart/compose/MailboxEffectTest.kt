@@ -1,9 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package actron.statechart.compose
 
-import actron.core.ExperimentalActronApi
-import actron.core.closeAndJoin
 import actron.statechart.compose.MailboxFixture.Act
 import actron.statechart.compose.MailboxFixture.Ev
 import actron.statechart.machine.Delivery

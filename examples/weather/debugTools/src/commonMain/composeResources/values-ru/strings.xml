@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Настройки</string>
+    <string name="debug_panel">Панель отладки</string>
+    <string name="done">Готово</string>
+    <string name="retention">Сохраняются последние %1$s событий текущего запуска. Просмотр истории не запускает запросы. «Продолжить отсюда» удаляет более позднюю историю и перезапускает незавершённые запросы.</string>
+    <string name="restart_requests">Незавершённые запросы будут запущены заново.</string>
+    <string name="pending_completions">Не обработаны завершения команд: %1$s.</string>
+    <string name="pending_effects">Не подтверждена обработка эффектов: %1$s.</string>
+    <string name="select_recording">Выберите событие записи</string>
+    <string name="import">Импорт</string>
+    <string name="export">Экспорт</string>
+    <string name="back_to_session">К сеансу</string>
+    <string name="recording_error">Ошибка записи</string>
+    <string name="o_k">ОК</string>
+    <string name="open_recording">Открыть запись Actron</string>
+    <string name="save_recording">Сохранить запись Actron</string>
+</resources>

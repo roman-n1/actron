@@ -1,7 +1,6 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.example.weather
 
+import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.presentation.*
@@ -46,11 +45,11 @@ class CitySearchScenarioTest {
                     dispatch(CitySearchAction.ChangeQuery("L"))
                     advanceTimeBy(350.milliseconds)
                     completeCommand { CitySearchAction.Failed(it.revision, "offline") }
-                    assertEquals("offline", expectState<RequestState.Error> { it.phase }.message)
+                    assertEquals(RequestFailure.Unavailable(message = "offline"), expectState<RequestState.Error> { it.phase }.cause)
                     dispatch(CitySearchAction.ChangeQuery("Lo"))
                     advanceTimeBy(350.milliseconds)
                     advanceTimeBy(8.seconds)
-                    expectState<RequestState.TimedOut> { it.phase }
+                    expectState<RequestState.Error> { it.phase }
                     dispatch(CitySearchAction.ChangeQuery("Lon"))
                     advanceTimeBy(350.milliseconds)
                     dispatch(CitySearchAction.ChangeQuery(""))

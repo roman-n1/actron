@@ -1,6 +1,5 @@
 package actron.timetravel.inspect
 
-import actron.core.ExperimentalActronApi
 import actron.observability.InputDescriptor
 import actron.observability.JournalFormat
 import actron.observability.RecordSubject
@@ -13,7 +12,6 @@ import actron.timetravel.RecordedStep
  * The inspected history as lines of text: for a terminal, a log, a test, or a debug UI that
  * has no widget for something yet. It prints what the items hold, as [JournalFormat] does.
  */
-@ExperimentalActronApi
 object InspectorText {
     /**
      * The session, its completeness and its Stores, one per line with their capability, counts,

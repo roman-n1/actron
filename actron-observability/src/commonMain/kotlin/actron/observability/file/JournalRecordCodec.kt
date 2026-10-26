@@ -12,7 +12,6 @@ import actron.observability.file.JournalExecutionCodec.duration
 internal object JournalRecordCodec {
     fun encode(
         record: JournalRecord<*, *, *>,
-        recordFormatVersion: Int,
     ): ByteArray {
         val codec = JournalEntryCodecs.forEntry(record.entry)
         return ByteWriter()
@@ -40,7 +39,7 @@ internal object JournalRecordCodec {
                     }
                 }
                 duration(record.elapsed)
-                with(codec) { entry(record.entry, recordFormatVersion) }
+                with(codec) { entry(entry = record.entry) }
             }.toByteArray()
     }
 
@@ -54,7 +53,7 @@ internal object JournalRecordCodec {
         val storeSeq: RecordOrdinal = if (reader.bool()) StoreSeq(reader.i64()) else RecordOrdinal.Session
         if ((store is StoreInstanceId) != (storeSeq is StoreSeq)) throw ByteReader.Malformed("record subject and Store ordinal differ")
         val elapsed = reader.duration()
-        val entry = with(JournalEntryCodecs.forTag(tag)) { reader.entry(tag, header.recordFormatVersion) }
+        val entry = with(JournalEntryCodecs.forTag(tag)) { reader.entry(tag = tag) }
         reader.expectEnd()
         return JournalRecord(header.recordFormatVersion, header.session, header.group, store, header.mode, groupSeq, storeSeq, elapsed, entry)
     }

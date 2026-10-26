@@ -5,7 +5,6 @@ package actron.statechart
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.core.Plugin
 import actron.core.StateSaver
 import actron.core.Store
@@ -70,7 +69,7 @@ import kotlin.time.Duration.Companion.seconds
  * }
  * ```
  */
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartStoreTest {
     sealed interface MessengerAction : Action {
         data object Drop : MessengerAction

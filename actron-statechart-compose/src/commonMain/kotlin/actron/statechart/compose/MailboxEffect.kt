@@ -1,7 +1,6 @@
 package actron.statechart.compose
 
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.Delivery
 import actron.statechart.machine.EffectMailbox
 import androidx.compose.runtime.Composable
@@ -38,7 +37,6 @@ import androidx.compose.runtime.rememberUpdatedState
  * @param mailbox The mailbox to subscribe to; a new instance restarts the subscription
  * @param block Handles one delivery and acknowledges it
  */
-@ExperimentalActronApi
 @Composable
 fun <E : Event> MailboxEffect(
     mailbox: EffectMailbox<E>,

@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.example.weather
 
 import actron.example.weather.core.fixtures.demoCities
@@ -29,7 +27,7 @@ class WeatherScenarioTest {
                     expectState<RequestState.Success<HourlyForecast>> { it.hourly }
                     expectState<RequestState.Loading> { it.current }
                     advanceTimeBy(8.seconds)
-                    expectState<RequestState.TimedOut> { it.current }
+                    expectState<RequestState.Error> { it.current }
                     expectState<RequestState.Success<HourlyForecast>> { it.hourly }
                 }
             assertEquals(4, report.transitions.covered.size)

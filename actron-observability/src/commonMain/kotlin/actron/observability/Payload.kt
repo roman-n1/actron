@@ -68,7 +68,7 @@ sealed interface FailureDetails {
         override val attributes: Map<String, String> get() = mapOf("type" to type, "message" to message)
     }
 
-    /** Legacy/custom policies can disclose a message while withholding its class name. */
+    /** Custom policies can disclose a message while withholding its class name. */
     data class AnonymousMessage(
         val message: String,
     ) : FailureDetails {

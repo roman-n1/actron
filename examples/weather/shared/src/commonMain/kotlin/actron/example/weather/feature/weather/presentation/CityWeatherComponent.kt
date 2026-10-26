@@ -62,6 +62,6 @@ class DefaultCityWeatherComponent(
     @Composable
     override fun Render() {
         val snapshot by state.collectAsUiState()
-        CityWeatherScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent)
+        CityWeatherScreen(snapshot.context.toUiState(enabled = snapshot.isStarted), onIntent = ::onUiEvent)
     }
 }

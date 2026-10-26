@@ -20,8 +20,8 @@ import kotlin.time.Duration
  * [JournalEntry.EffectDiscarded]); 4 added [JournalEntry.ExternalReceived] and
  * [JournalEntry.CheckpointCreated]; 5 added [JournalEntry.CommandsAbandoned]; 6 added
  * [JournalEntry.BridgeDropped]; 7 added [JournalEntry.BridgeSent.cause]. New variants only at
- * the end, under new tags, new fields only at the end of a variant; a reader of a version reads
- * every earlier one.
+ * the end, under new tags, new fields only at the end of a variant. Readers accept only the
+ * current version.
  */
 const val JOURNAL_FORMAT_VERSION: Int = 7
 

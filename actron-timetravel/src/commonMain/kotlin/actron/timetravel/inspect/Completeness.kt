@@ -1,6 +1,5 @@
 package actron.timetravel.inspect
 
-import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.observability.file.SegmentMark
 
@@ -9,7 +8,6 @@ import actron.observability.file.SegmentMark
  * input, every processing, every payload the inspector can show is there. Each reason names
  * what is missing, so the person reading the history knows what they are not seeing (handoff §6).
  */
-@ExperimentalActronApi
 sealed interface Incompleteness {
     /** [count] payloads of [store] were omitted by its policy: states, actions or events are not in the journal. */
     data class PayloadsOmitted(
@@ -82,7 +80,6 @@ sealed interface Incompleteness {
 /**
  * The completeness of a history: complete when nothing is missing, else the reasons.
  */
-@ExperimentalActronApi
 data class Completeness(
     val reasons: List<Incompleteness>,
 ) {
@@ -97,7 +94,6 @@ data class Completeness(
  * Whether something can be done, and if not, why: the inspector's answer to a button that would
  * otherwise be silently disabled (handoff §11).
  */
-@ExperimentalActronApi
 sealed interface Availability {
     data object Available : Availability
 
@@ -109,7 +105,6 @@ sealed interface Availability {
 /**
  * How a Store's recording relates to the journal.
  */
-@ExperimentalActronApi
 sealed interface RecordingStatus {
     /** No recording attached: the history shows what the journal kept. */
     data object Unrecorded : RecordingStatus
@@ -134,7 +129,6 @@ sealed interface RecordingStatus {
  * @property revisions The observed processing revisions; [withRevision] reports the highest
  * @property closed Whether the journal holds its `StoreClosed`
  */
-@ExperimentalActronApi
 data class StoreView(
     val id: StoreInstanceId,
     val registrations: List<TimelineItem.Registered>,

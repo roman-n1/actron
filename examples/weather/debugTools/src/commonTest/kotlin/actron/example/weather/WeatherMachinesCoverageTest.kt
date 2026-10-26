@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.example.weather
 
 import actron.example.weather.core.fixtures.demoCities
@@ -15,7 +13,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class WeatherMachinesCoverageTest {
-    private enum class Phase { Idle, Debouncing, Loading, Success, Error, TimedOut }
+    private enum class Phase { Idle, Debouncing, Loading, Success, Error, TimeoutError }
 
     @Test
     fun searchEveryDeclaredTransitionIsExecuted() =
@@ -30,7 +28,7 @@ class WeatherMachinesCoverageTest {
                             when (phase) {
                                 Phase.Success -> completeCommand { CitySearchAction.Found(it.revision, emptyList()) }
                                 Phase.Error -> completeCommand { CitySearchAction.Failed(it.revision, "offline") }
-                                Phase.TimedOut -> advanceTimeBy(8.seconds)
+                                Phase.TimeoutError -> advanceTimeBy(8.seconds)
                                 else -> Unit
                             }
                             dispatch(CitySearchAction.ChangeQuery(query))
@@ -47,7 +45,7 @@ class WeatherMachinesCoverageTest {
             }
             val coverage = reports.reduce { a, b -> a.merge(b) }
             coverage.assertTransitionsCovered()
-            assertEquals(16, coverage.transitions.covered.size)
+            assertEquals(14, coverage.transitions.covered.size)
             println("City Search\n${coverage.describe()}")
         }
 
@@ -73,7 +71,7 @@ class WeatherMachinesCoverageTest {
                                     completeCommand(matching = { it is WeatherCommand.Hourly }) { WeatherAction.ForecastFailed("offline") }
                                 }
 
-                                Phase.TimedOut -> {
+                                Phase.TimeoutError -> {
                                     advanceTimeBy(8.seconds)
                                 }
 
@@ -90,13 +88,13 @@ class WeatherMachinesCoverageTest {
                                 assertEquals(currentBefore, context.current, "Forecast retry must not reset current weather")
                             }
                             advanceTimeBy(8.seconds)
-                            expectState<RequestState.TimedOut> { it.hourly }
+                            expectState<RequestState.Error> { it.hourly }
                         }
                 }
             }
             val coverage = reports.reduce { a, b -> a.merge(b) }
             coverage.assertTransitionsCovered()
-            assertEquals(21, coverage.transitions.covered.size)
+            assertEquals(18, coverage.transitions.covered.size)
             println("City Weather\n${coverage.describe()}")
         }
 
@@ -138,8 +136,8 @@ class WeatherMachinesCoverageTest {
                 assertEquals(2, driver.runningCommands.size)
                 assertTrue(driver.runningCommands.none { it.id in old })
                 advanceTimeBy(8.seconds)
-                expectState<RequestState.TimedOut> { it.current }
-                expectState<RequestState.TimedOut> { it.hourly }
+                expectState<RequestState.Error> { it.current }
+                expectState<RequestState.Error> { it.hourly }
             }
         }
 }

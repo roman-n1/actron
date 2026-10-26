@@ -38,6 +38,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
+            implementation(compose.components.resources)
             api(project(":actron-decompose"))
             implementation(project(":actron-persistence"))
             implementation(project(":actron-compose"))
@@ -87,4 +88,8 @@ dependencies {
             because("kotlinx-io 0.9.1 fixes Wasm module loading for Kotlin 2.4's webpack")
         }
     }
+}
+
+compose.resources {
+    packageOfResClass = "actron.example.weather.resources"
 }

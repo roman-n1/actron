@@ -1,5 +1,12 @@
 package actron.example.weather.app.debug
 
+import actron.example.weather.debug.resources.Res
+import actron.example.weather.debug.resources.back_to_session
+import actron.example.weather.debug.resources.export
+import actron.example.weather.debug.resources.import
+import actron.example.weather.debug.resources.o_k
+import actron.example.weather.debug.resources.recording_error
+import actron.example.weather.debug.resources.select_recording
 import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.weather.presentation.*
 import actron.timetravel.*
@@ -10,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 class ImportedWeatherRecording(
     val name: String,
@@ -124,11 +132,11 @@ internal fun WeatherRecordingScreen(
 ) {
     val selection = imported.panel.selection
     if (selection.isEmpty()) {
-        Text(if (androidx.compose.ui.text.intl.Locale.current.language == "ru") "Выберите событие записи" else "Select a recorded event", Modifier.padding(24.dp))
+        Text(stringResource(resource = Res.string.select_recording), Modifier.padding(24.dp))
     } else {
         when (val screen = selection.single().snapshot.screen) {
-            is WeatherDisplay.Search -> CitySearchScreen(screen.state.toUiState(false), onIntent = {}, settingsAction = { WeatherSettingsButton(onSettings) })
-            is WeatherDisplay.Weather -> CityWeatherScreen(screen.state.toUiState(false), onIntent = {})
+            is WeatherDisplay.Search -> CitySearchScreen(screen.state.toUiState(enabled = false), onIntent = {}, settingsAction = { WeatherSettingsButton(onSettings) })
+            is WeatherDisplay.Weather -> CityWeatherScreen(screen.state.toUiState(enabled = false), onIntent = {})
         }
     }
 }
@@ -139,26 +147,25 @@ internal fun RowScope.RecordingActions(
     files: HistoryFiles,
     history: WeatherHistory,
 ) {
-    val russian = androidx.compose.ui.text.intl.Locale.current.language == "ru"
     TextButton({ viewer.open(files) }, enabled = viewer.canAccessFiles, modifier = Modifier.testTag("recording-open")) {
         FileDirectionIcon(importing = true)
         Spacer(Modifier.width(4.dp))
-        Text(if (russian) "Импорт" else "Import")
+        Text(stringResource(resource = Res.string.import))
     }
     TextButton({ viewer.save(files, history) }, enabled = viewer.canAccessFiles, modifier = Modifier.testTag("recording-save")) {
         FileDirectionIcon(importing = false)
         Spacer(Modifier.width(4.dp))
-        Text(if (russian) "Экспорт" else "Export")
+        Text(stringResource(resource = Res.string.export))
     }
     if (viewer.imported.isNotEmpty()) {
-        TextButton({ viewer.close() }, modifier = Modifier.testTag("recording-close")) { Text(if (russian) "К сеансу" else "Back to session") }
+        TextButton({ viewer.close() }, modifier = Modifier.testTag("recording-close")) { Text(stringResource(resource = Res.string.back_to_session)) }
     }
     if (viewer.message.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = viewer::dismissMessage,
-            title = { Text(if (russian) "Ошибка записи" else "Recording error") },
+            title = { Text(stringResource(resource = Res.string.recording_error)) },
             text = { Text(viewer.message, Modifier.testTag("recording-error")) },
-            confirmButton = { TextButton(viewer::dismissMessage) { Text("OK") } },
+            confirmButton = { TextButton(viewer::dismissMessage) { Text(stringResource(resource = Res.string.o_k)) } },
         )
     }
 }

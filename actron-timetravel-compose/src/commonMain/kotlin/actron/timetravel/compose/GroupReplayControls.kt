@@ -1,6 +1,5 @@
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.MachineSnapshot
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /** One recorded input in the group's order, with the state change it produced. */
-@ExperimentalActronApi
 data class GroupReplayPosition(
     val index: Int,
     val store: StoreInstanceId,
@@ -35,7 +33,6 @@ data class GroupReplayPosition(
  * The recording is the timeline: its positions remain meaningful when a diagnostic journal
  * is partial or filtered. A filter never changes the order in which the group is replayed.
  */
-@ExperimentalActronApi
 @Stable
 class GroupReplayControls(
     val session: GroupReplaySession,
@@ -53,20 +50,12 @@ class GroupReplayControls(
     val length: Int get() = session.length
     val members: List<StoreInstanceId> = session.memberViews.keys.sortedBy { it.value }
     val canStepBackward: Boolean get() = position > 0
-    val canStepForward: Boolean get() = position < length && movement is GroupReplayMovement.Open
+    val canStepForward: Boolean get() = forwardAvailability is ForwardStepAvailability.Available
 
-    val forwardAvailability: actron.timetravel.inspect.Availability
-        get() {
-            val current = movement
-            if (current is GroupReplayMovement.Diverged) {
-                return actron.timetravel.inspect.Availability
-                    .Unavailable(listOf(current.mismatch.explain()))
-            }
-            if (position == length) {
-                return actron.timetravel.inspect.Availability
-                    .Unavailable(listOf("at the end of the group recording"))
-            }
-            return actron.timetravel.inspect.Availability.Available
+    val forwardAvailability: ForwardStepAvailability get() =
+        when (val current = movement) {
+            is GroupReplayMovement.Diverged -> ForwardStepAvailability.Diverged(description = current.mismatch.explain())
+            GroupReplayMovement.Open -> if (position == length) ForwardStepAvailability.EndReached else ForwardStepAvailability.Available
         }
 
     val hasSelection: Boolean get() = movement is GroupReplayMovement.Diverged || position > 0
@@ -129,7 +118,6 @@ class GroupReplayControls(
     }
 }
 
-@ExperimentalActronApi
 sealed interface GroupReplayMovement {
     data object Open : GroupReplayMovement
 
@@ -138,7 +126,6 @@ sealed interface GroupReplayMovement {
     ) : GroupReplayMovement
 }
 
-@ExperimentalActronApi
 sealed interface GroupVerification {
     data object Unchecked : GroupVerification
 
@@ -147,7 +134,6 @@ sealed interface GroupVerification {
     ) : GroupVerification
 }
 
-@OptIn(ExperimentalActronApi::class)
 internal fun GroupMismatch.explain(): String =
     "group step $position: " +
         when (this) {

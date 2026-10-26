@@ -1,8 +1,5 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalActronApi::class)
 @Composable
 internal fun InspectorScreenContent(
     state: InspectorState,
@@ -111,8 +107,8 @@ internal fun ModeBarContent(
             .testTag("mode-bar"),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(model.title, fontWeight = FontWeight.Bold, color = model.foreground)
-        Text(model.run, color = model.foreground)
-        Text(model.completeness, fontWeight = FontWeight.Bold, color = model.foreground, modifier = Modifier.testTag("completeness"))
+        Text(model.title.resolve(), fontWeight = FontWeight.Bold, color = model.foreground)
+        Text(model.run.resolve(), color = model.foreground)
+        Text(model.completeness.resolve(), fontWeight = FontWeight.Bold, color = model.foreground, modifier = Modifier.testTag("completeness"))
     }
 }

@@ -17,7 +17,6 @@ internal object JournalEffectEntryCodec : JournalEntryCodec {
 
     override fun ByteWriter.entry(
         entry: JournalEntry<*, *, *>,
-        recordFormatVersion: Int,
     ) {
         when (entry) {
             is JournalEntry.EffectQueued -> {
@@ -49,7 +48,6 @@ internal object JournalEffectEntryCodec : JournalEntryCodec {
 
     override fun ByteReader.entry(
         tag: Int,
-        recordFormatVersion: Int,
     ): JournalEntry<Nothing, Nothing, Nothing> =
         when (tag) {
             17 -> {

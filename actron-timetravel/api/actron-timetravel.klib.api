@@ -1954,8 +1954,6 @@ final class actron.timetravel/GroupReplaySession { // actron.timetravel/GroupRep
         final fun <get-length>(): kotlin/Int // actron.timetravel/GroupReplaySession.length.<get-length>|<get-length>(){}[0]
     final val memberViews // actron.timetravel/GroupReplaySession.memberViews|{}memberViews[0]
         final fun <get-memberViews>(): kotlin.collections/Map<actron.observability/StoreInstanceId, actron.timetravel/GroupReplayMember> // actron.timetravel/GroupReplaySession.memberViews.<get-memberViews>|<get-memberViews>(){}[0]
-    final val members // actron.timetravel/GroupReplaySession.members|{}members[0]
-        final fun <get-members>(): kotlin.collections/Map<actron.observability/StoreInstanceId, actron.timetravel/ReplaySession<*, *, *, *>> // actron.timetravel/GroupReplaySession.members.<get-members>|<get-members>(){}[0]
     final val recording // actron.timetravel/GroupReplaySession.recording|{}recording[0]
         final fun <get-recording>(): actron.timetravel/GroupRecording // actron.timetravel/GroupReplaySession.recording.<get-recording>|<get-recording>(){}[0]
 

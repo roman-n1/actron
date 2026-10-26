@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.Store
 import actron.core.createRuntimeStore
@@ -45,7 +44,7 @@ import kotlin.test.assertTrue
  * Locked --Unlock--> MainHistory             restores Main, Chat, Sending
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartHistoryTest {
     sealed interface ChatAction : Action {
         data object Start : ChatAction

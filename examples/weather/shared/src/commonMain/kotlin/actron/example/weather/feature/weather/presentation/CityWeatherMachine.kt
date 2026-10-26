@@ -3,6 +3,7 @@ package actron.example.weather.feature.weather.presentation
 import actron.core.Action
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.NoEvent
+import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.WeatherReading
@@ -55,61 +56,100 @@ sealed interface WeatherCommand {
 object CityWeatherMachine {
     fun create(): Machine<WeatherContext, WeatherAction, WeatherCommand, NoEvent> =
         parallelStateMachine(
-            DefinitionId("city-weather"),
-            DefinitionVersion("5"),
-        ) {
-            region(
-                "Current",
-                initial = RequestState.Idle,
-                readState = { context: WeatherContext -> context.current },
-                // Each writer preserves the other region, including its data and pending state.
-                writeState = { context, state: RequestState<WeatherReading> -> context.copy(current = state) },
-            ) {
-                state<RequestState.Idle> { currentInputs() }
-                state<RequestState.Loading> {
-                    currentInputs()
-                    // This command and timeout belong to Current.Loading's activation.
-                    onEnter { command(WeatherCommand.Current(context.city), LaneId("current"), ConcurrencyPolicy.Latest) }
-                    on<WeatherAction.Loaded, RequestState.Success<WeatherReading>>(
-                        guard = { context, action -> action.reading.city == context.city },
-                    ) { _, action -> RequestState.Success(action.reading) }
-                    on<WeatherAction.Unavailable, RequestState.Error> { _, action -> RequestState.Error(action.reason) }
-                    after<RequestState.TimedOut>(8.seconds) { RequestState.TimedOut }
-                }
-                state<RequestState.Success<WeatherReading>> { currentInputs() }
-                state<RequestState.Error> { currentInputs() }
-                state<RequestState.TimedOut> { currentInputs() }
-            }
-            region(
-                "Hourly",
-                initial = RequestState.Idle,
-                readState = { context: WeatherContext -> context.hourly },
-                writeState = { context, state: RequestState<HourlyForecast> -> context.copy(hourly = state) },
-            ) {
-                state<RequestState.Idle> { hourlyInputs() }
-                state<RequestState.Loading> {
-                    hourlyInputs()
-                    onEnter { command(WeatherCommand.Hourly(context.city), LaneId("hourly"), ConcurrencyPolicy.Latest) }
-                    on<WeatherAction.ForecastLoaded, RequestState.Success<HourlyForecast>>(
-                        guard = { context, action -> action.forecast.city == context.city },
-                    ) { _, action -> RequestState.Success(action.forecast) }
-                    on<WeatherAction.ForecastFailed, RequestState.Error> { _, action -> RequestState.Error(action.message) }
-                    after<RequestState.TimedOut>(8.seconds) { RequestState.TimedOut }
-                }
-                state<RequestState.Success<HourlyForecast>> { hourlyInputs() }
-                state<RequestState.Error> { hourlyInputs() }
-                state<RequestState.TimedOut> { hourlyInputs() }
-            }
-        }
+            id = DefinitionId(value = "city-weather"),
+            version = DefinitionVersion(value = "6"),
+            build = {
+                currentRegion()
+                hourlyRegion()
+            },
+        )
+
+    private fun ParallelStateMachineBuilder<WeatherContext, WeatherAction, WeatherCommand, NoEvent>.currentRegion() {
+        region(
+            name = "Current",
+            initial = RequestState.Idle,
+            readState = { context: WeatherContext -> context.current },
+            // Each writer preserves the other region, including its data and pending state.
+            writeState = { context, state: RequestState<WeatherReading> -> context.copy(current = state) },
+            build = {
+                requestStates(
+                    inputs = { currentInputs() },
+                    loading = {
+                        // This command and timeout belong to Current.Loading's activation.
+                        onEnter(block = {
+                            command(
+                                command = WeatherCommand.Current(city = context.city),
+                                lane = LaneId(value = "current"),
+                                policy = ConcurrencyPolicy.Latest,
+                            )
+                        })
+                        on<WeatherAction.Loaded, RequestState.Success<WeatherReading>>(
+                            guard = { context, action -> action.reading.city == context.city },
+                            to = { _, action -> RequestState.Success(value = action.reading) },
+                        )
+                        on<WeatherAction.Unavailable, RequestState.Error>(
+                            to = { _, action -> RequestState.Error(cause = RequestFailure.Unavailable(message = action.reason)) },
+                        )
+                    },
+                )
+            },
+        )
+    }
+
+    private fun ParallelStateMachineBuilder<WeatherContext, WeatherAction, WeatherCommand, NoEvent>.hourlyRegion() {
+        region(
+            name = "Hourly",
+            initial = RequestState.Idle,
+            readState = { context: WeatherContext -> context.hourly },
+            writeState = { context, state: RequestState<HourlyForecast> -> context.copy(hourly = state) },
+            build = {
+                requestStates(
+                    inputs = { hourlyInputs() },
+                    loading = {
+                        onEnter(block = {
+                            command(
+                                command = WeatherCommand.Hourly(city = context.city),
+                                lane = LaneId(value = "hourly"),
+                                policy = ConcurrencyPolicy.Latest,
+                            )
+                        })
+                        on<WeatherAction.ForecastLoaded, RequestState.Success<HourlyForecast>>(
+                            guard = { context, action -> action.forecast.city == context.city },
+                            to = { _, action -> RequestState.Success(value = action.forecast) },
+                        )
+                        on<WeatherAction.ForecastFailed, RequestState.Error>(
+                            to = { _, action -> RequestState.Error(cause = RequestFailure.Unavailable(message = action.message)) },
+                        )
+                    },
+                )
+            },
+        )
+    }
+
+    // Both regions share one lifecycle. Register inputs in every state, including Loading:
+    // an external self-transition must cancel and restart that region's command and timeout.
+    private fun <T : Any> TypedStateMachineBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.requestStates(
+        inputs: TypedMachineStateBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.() -> Unit,
+        loading: TypedMachineStateBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.() -> Unit,
+    ) {
+        state<RequestState.Idle>(build = inputs)
+        state<RequestState.Loading>(build = {
+            inputs()
+            loading()
+            after<RequestState.Error>(delay = 8.seconds, to = { RequestState.Error(cause = RequestFailure.Timeout) })
+        })
+        state<RequestState.Success<T>>(build = inputs)
+        state<RequestState.Error>(build = inputs)
+    }
 
     private fun TypedMachineStateBuilder<WeatherContext, RequestState<WeatherReading>, WeatherAction, WeatherCommand, NoEvent>.currentInputs() {
         // Refresh is declared in both regions, so one action reloads both.
-        on<WeatherAction.Refresh, RequestState.Loading> { _, _ -> RequestState.Loading }
+        on<WeatherAction.Refresh, RequestState.Loading>(to = { _, _ -> RequestState.Loading })
     }
 
     private fun TypedMachineStateBuilder<WeatherContext, RequestState<HourlyForecast>, WeatherAction, WeatherCommand, NoEvent>.hourlyInputs() {
-        on<WeatherAction.Refresh, RequestState.Loading> { _, _ -> RequestState.Loading }
+        on<WeatherAction.Refresh, RequestState.Loading>(to = { _, _ -> RequestState.Loading })
         // No matching declaration in Current: retry only replaces the forecast request.
-        on<WeatherAction.RetryForecast, RequestState.Loading> { _, _ -> RequestState.Loading }
+        on<WeatherAction.RetryForecast, RequestState.Loading>(to = { _, _ -> RequestState.Loading })
     }
 }

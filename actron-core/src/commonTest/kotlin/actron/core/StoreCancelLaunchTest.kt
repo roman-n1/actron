@@ -282,7 +282,7 @@ class StoreCancelLaunchTest {
             store.dispatch(AppAction.StartDropIfRunningShared(marker = 1))
             runCurrent()
 
-            store.dispose()
+            store.close()
             runCurrent()
 
             assertEquals(setOf(-1, 1), cancelled.toSet())

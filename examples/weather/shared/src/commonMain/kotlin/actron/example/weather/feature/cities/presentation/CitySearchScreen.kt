@@ -1,6 +1,15 @@
 package actron.example.weather.feature.cities.presentation
 
 import actron.example.weather.core.mvi.RequestState
+import actron.example.weather.core.presentation.resolve
+import actron.example.weather.resources.Res
+import actron.example.weather.resources.cities
+import actron.example.weather.resources.debouncing
+import actron.example.weather.resources.enter_city
+import actron.example.weather.resources.no_cities
+import actron.example.weather.resources.retry
+import actron.example.weather.resources.search_cities
+import actron.example.weather.resources.searching
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -49,38 +59,37 @@ fun CitySearchScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Cities", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(resource = Res.string.cities), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 settingsAction()
             }
             OutlinedTextField(
                 value = state.query,
                 onValueChange = { onIntent(CitySearchIntent.QueryChanged(it)) },
-                label = { Text("Search cities") },
+                label = { Text(stringResource(resource = Res.string.search_cities)) },
                 singleLine = true,
                 readOnly = state.queryReadOnly,
                 modifier = Modifier.fillMaxWidth().testTag("city-search"),
             )
             when (val phase = state.phase) {
                 RequestState.Idle -> {
-                    Text("Enter a city name", modifier = Modifier.testTag("city-search-hint"))
+                    Text(stringResource(resource = Res.string.enter_city), modifier = Modifier.testTag("city-search-hint"))
                 }
 
                 RequestState.Debouncing -> {
-                    Text("Waiting for typing…", modifier = Modifier.testTag("city-search-debounce"))
+                    Text(stringResource(resource = Res.string.debouncing), modifier = Modifier.testTag("city-search-debounce"))
                 }
 
                 RequestState.Loading -> {
-                    Text("Searching…", modifier = Modifier.testTag("city-search-loading"))
+                    Text(stringResource(resource = Res.string.searching), modifier = Modifier.testTag("city-search-loading"))
                 }
 
-                is RequestState.Error, RequestState.TimedOut -> {
-                    val message = if (phase is RequestState.Error) phase.message else "City search timed out. Try again."
-                    Text(message, color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { onIntent(CitySearchIntent.Retry) }, enabled = state.enabled) { Text("Retry") }
+                is RequestState.Error -> {
+                    Text(state.errorMessage.resolve(), color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = { onIntent(CitySearchIntent.Retry) }, enabled = state.enabled) { Text(stringResource(resource = Res.string.retry)) }
                 }
 
                 is RequestState.Success -> {
-                    if (phase.value.isEmpty()) Text("No cities found")
+                    if (phase.value.isEmpty()) Text(stringResource(resource = Res.string.no_cities))
                     for (option in phase.value) {
                         val city = option.city
                         OutlinedButton(

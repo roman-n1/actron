@@ -8,7 +8,7 @@ relocations are provided. The upstream Koma project retains its name and coordin
 |---|---|
 | `io.github.roman-n1:koma-<module>` | `io.github.roman-n1:actron-<module>` |
 | `koma.*` imports and Android namespaces | `actron.*` |
-| `ExperimentalKomaApi`, `InternalKomaApi`, `KomaStoreDsl` | `ExperimentalActronApi`, `InternalActronApi`, `ActronStoreDsl` |
+| `ExperimentalKomaApi`, `InternalKomaApi`, `KomaStoreDsl` | No experimental marker; `InternalActronApi`, `ActronStoreDsl` |
 | `:koma-core` and other Gradle module paths | `:actron-core` and equivalent `:actron-*` paths |
 | `koma.publish` convention plugin | `actron.publish` |
 | `koma.*` Gradle properties / `KOMA_*` environment variables | `actron.*` / `ACTRON_*` |

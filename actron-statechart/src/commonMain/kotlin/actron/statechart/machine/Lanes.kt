@@ -1,7 +1,5 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
-
 /**
  * The executor's bookkeeping of commands as data: which commands run and which wait in which
  * lane, and what admitting a command, finishing one or exiting an activation does to them under

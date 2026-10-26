@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
 import androidx.compose.foundation.background
@@ -25,7 +23,7 @@ internal fun InspectorTimeline(
 ) {
     val model = inspectorTimeline(state, MaterialTheme.colorScheme)
     Column(modifier.padding(8.dp)) {
-        InspectorHeading(model.heading)
+        InspectorHeading(model.heading.resolve())
         LazyColumn(Modifier.fillMaxSize().testTag("timeline")) {
             itemsIndexed(model.rows, key = { _, row -> row.index }) { _, row ->
                 Text(
