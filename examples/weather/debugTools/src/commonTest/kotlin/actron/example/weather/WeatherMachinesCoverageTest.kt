@@ -88,12 +88,7 @@ class WeatherMachinesCoverageTest {
                                 assertEquals(currentBefore, context.current, "Forecast retry must not reset current weather")
                             }
                             advanceTimeBy(8.seconds)
-                            if (phase == Phase.Idle && action == WeatherAction.RetryForecast) {
-                                assertEquals(expected = WeatherScreenState.Idle, actual = context.screen)
-                                assertTrue(actual = driver.runningCommands.isEmpty())
-                            } else {
-                                expectState<RequestState.Error> { it.hourly }
-                            }
+                            expectState<RequestState.Error> { it.hourly }
                         }
                 }
             }
@@ -101,6 +96,8 @@ class WeatherMachinesCoverageTest {
             for (result in listOf<WeatherAction>(WeatherAction.AdviceLoaded(city = city, items = emptyList()), WeatherAction.AdviceLoaded(city = city, items = listOf(actron.example.weather.feature.weather.domain.WeatherAdvice.Umbrella)), WeatherAction.AdviceFailed(reason = "offline"))) {
                 reports +=
                     CityWeatherMachine.create().test(scope = this, initial = WeatherContext(city = city), scenario = {
+                        dispatch(action = WeatherAction.Refresh)
+                        completeCommand(matching = { it is WeatherCommand.Advice }, result = { result })
                         dispatch(action = WeatherAction.Refresh)
                         completeCommand(matching = { it is WeatherCommand.Advice }, result = { result })
                         dispatch(action = WeatherAction.DismissAdvice)
@@ -114,7 +111,7 @@ class WeatherMachinesCoverageTest {
             }
             val coverage = reports.reduce { a, b -> a.merge(b) }
             coverage.assertTransitionsCovered()
-            assertEquals(18, coverage.transitions.covered.size)
+            assertEquals(32, coverage.transitions.covered.size)
             println("City Weather\n${coverage.describe()}")
         }
 

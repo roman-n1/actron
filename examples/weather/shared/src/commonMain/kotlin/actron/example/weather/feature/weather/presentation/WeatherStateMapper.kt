@@ -2,6 +2,7 @@ package actron.example.weather.feature.weather.presentation
 
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.core.presentation.WeatherText
+import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.WeatherAdvice
 import actron.example.weather.resources.Res
 import actron.example.weather.resources.advice_cold
@@ -9,6 +10,7 @@ import actron.example.weather.resources.advice_failed
 import actron.example.weather.resources.advice_heat
 import actron.example.weather.resources.advice_ice
 import actron.example.weather.resources.advice_loading
+import actron.example.weather.resources.advice_ready
 import actron.example.weather.resources.advice_storm
 import actron.example.weather.resources.advice_umbrella
 import actron.example.weather.resources.advice_wind
@@ -16,11 +18,13 @@ import actron.example.weather.resources.choose_city
 import actron.example.weather.resources.choose_weather_city
 import actron.example.weather.resources.feels_like
 import actron.example.weather.resources.forecast_failed
+import actron.example.weather.resources.forecast_ready
 import actron.example.weather.resources.loading_forecast
 import actron.example.weather.resources.loading_weather
 import actron.example.weather.resources.temperature
 import actron.example.weather.resources.unknown_temperature
 import actron.example.weather.resources.weather_failed
+import actron.example.weather.resources.weather_ready
 
 fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
     val data = this
@@ -48,16 +52,13 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
                 WeatherText(resource = Res.string.weather_failed)
             }
 
+            RequestState.Ready -> {
+                WeatherText(resource = Res.string.weather_ready)
+            }
+
             RequestState.Idle -> {
                 WeatherText(resource = Res.string.choose_weather_city)
             }
-        }
-    val forecastStatus =
-        when (val hourly = data.hourly) {
-            is RequestState.Success -> emptyList()
-            RequestState.Debouncing, RequestState.Loading -> listOf(WeatherText(resource = Res.string.loading_forecast))
-            is RequestState.Error -> listOf(WeatherText(resource = Res.string.forecast_failed))
-            RequestState.Idle -> listOf(WeatherText(resource = Res.string.choose_city))
         }
     val hourly = data.hourly
     val forecast = if (hourly is RequestState.Success) hourly.value.hours else emptyList()
@@ -67,13 +68,13 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
         detail = detail,
         updatedAt = updatedAt,
         forecast = forecast,
-        forecastStatus = forecastStatus,
+        forecastStatus = forecastStatus(state = hourly),
         forecastFailed = hourly is RequestState.Error,
         enabled = enabled,
         advice = adviceText(state = advice),
         adviceActions =
             when (advice) {
-                WeatherAdviceState.Hidden, WeatherAdviceState.Dismissed -> emptyList()
+                WeatherAdviceState.Ready, WeatherAdviceState.Hidden, WeatherAdviceState.Dismissed -> emptyList()
                 is WeatherAdviceState.Error -> listOf(WeatherAdviceAction.Retry, WeatherAdviceAction.Dismiss)
                 WeatherAdviceState.Loading, is WeatherAdviceState.Visible -> listOf(WeatherAdviceAction.Dismiss)
             },
@@ -82,6 +83,10 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
 
 private fun adviceText(state: WeatherAdviceState): List<WeatherText> =
     when (state) {
+        WeatherAdviceState.Ready -> {
+            listOf(WeatherText(resource = Res.string.advice_ready))
+        }
+
         WeatherAdviceState.Loading -> {
             listOf(WeatherText(resource = Res.string.advice_loading))
         }
@@ -109,4 +114,14 @@ private fun adviceText(state: WeatherAdviceState): List<WeatherText> =
                 )
             })
         }
+    }
+
+/** The forecast region owns its status copy, separately from current-weather formatting. */
+private fun forecastStatus(state: RequestState<HourlyForecast>): List<WeatherText> =
+    when (state) {
+        is RequestState.Success -> emptyList()
+        RequestState.Debouncing, RequestState.Loading -> listOf(WeatherText(resource = Res.string.loading_forecast))
+        is RequestState.Error -> listOf(WeatherText(resource = Res.string.forecast_failed))
+        RequestState.Ready -> listOf(WeatherText(resource = Res.string.forecast_ready))
+        RequestState.Idle -> listOf(WeatherText(resource = Res.string.choose_city))
     }

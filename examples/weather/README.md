@@ -131,7 +131,7 @@ val store = componentContext.retainedMachine(
 
 Add `restoration = session.searchRestoration()` to restore/track search checkpoints.
 Independently add `recording = history.recording()` to enable recording and profiling. The option binds once, before
-startup. `initialActions = listOf(WeatherAction.Refresh)` runs only on fresh creation.
+startup. Weather leaves the optional `initialActions` list empty, so fresh screens wait in Ready.
 The adapter owns retention/start/close and the command scope; UI subscriptions still belong
 to their component. See [the installation contract](docs/architecture.md#one-call-machine-installation).
 The helper is part of `actron-decompose`; these changes have not yet been released to Maven Central.
@@ -144,19 +144,21 @@ Every edit updates the query and revision; 350 ms of quiet starts the request, e
 Clearing cancels pending work and restores `Idle`. An empty server response is `Success(emptyList())`.
 Responses for outdated revisions are ignored. Requests time out after eight seconds.
 
-`CityWeatherMachine` has a screen parent: `Idle` starts no child work; one parent `Refresh`
-handler enters or re-enters `Active`. The shared header shows the city, navigation and Refresh.
-Three parallel regions then start independently:
+`CityWeatherMachine` starts its three parallel child regions in `Ready`, without commands or timers.
+The shared screen owns the header, city, navigation and the Refresh button. Opening a city does not
+load data until the user presses Refresh. One `WeatherAction.Refresh` is dispatched to the screen
+Store; the chart delivers the same input to the active regions in one decision:
 
-- `Current`: Loading / Success / Error with a current-weather request.
+- `Current`: Ready / Loading / Success / Error with a current-weather request.
 - `Hourly`: the same request lifecycle for the forecast, plus local `RetryForecast`.
 - `Advice`: its own current-weather request through the same repository, interpreted as umbrella,
-  slippery-road, wind, heat, cold or thunderstorm tips. Loading leads to Hidden / Visible / Error;
-  the user can close it to Dismissed or retry only Advice after an error. Closing during loading
-  cancels only that request; late replies cannot reopen the card. Global Refresh starts a new cycle.
+  slippery-road, wind, heat, cold or thunderstorm tips. Ready waits for Refresh; Loading leads to
+  Hidden / Visible / Error. The user can close it to Dismissed or retry only Advice after an error.
 
-The example makes two independent current-weather calls per global refresh. Each child owns
-its command, timeout and result; region writers preserve siblings.
+Refresh enters each child's Loading from any of its states, including Ready, Loading and Dismissed.
+Only entering Loading starts work. Refresh cancels and replaces child requests while preserving the
+parent activation. The example makes two independent current-weather calls per global refresh;
+there are no per-feature refresh actions or forwarding commands.
 
 The state variants define graph identity through the DSL. There are no independent state IDs,
 loading/error flags or string guards/effects. `RequestState` uses generated `@Serializable`
@@ -315,8 +317,8 @@ separate defensive check for an already queued callback or a source that ignores
 it does not mean the obsolete HTTP request is intentionally kept running.
 
 With the checked-in data and bounds, search explores 763 decisions and selects 12 scenarios,
-covering **14/14 transitions**; weather explores 110 decisions and selects 11 scenarios, covering
-**18/18 transitions**. Both machines cover all declared timer transitions. This is bounded pure
+covering **14/14 transitions**; weather explores 116 decisions and selects 18 scenarios, covering
+**32/32 transitions**. Both machines cover all declared timer transitions. This is bounded pure
 model coverage, not exhaustive payload/guard coverage or verification of executor scheduling.
 Existing queued-store tests continue to cover actual command execution and cancellation.
 

@@ -38,4 +38,7 @@
     <string name="weather_in_city">Weather — %1$s</string>
     <string name="current_weather">Current weather</string>
     <string name="advice_storm">Thunderstorm — consider staying indoors.</string>
+    <string name="weather_ready">Press Refresh to load the weather.</string>
+    <string name="forecast_ready">Press Refresh to load the forecast.</string>
+    <string name="advice_ready">Press Refresh to check weather conditions.</string>
 </resources>

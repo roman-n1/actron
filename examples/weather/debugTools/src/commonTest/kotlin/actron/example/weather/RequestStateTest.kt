@@ -41,6 +41,7 @@ class RequestStateTest {
         val states =
             listOf(
                 RequestState.Idle,
+                RequestState.Ready,
                 RequestState.Debouncing,
                 RequestState.Loading,
                 RequestState.Success("answer"),

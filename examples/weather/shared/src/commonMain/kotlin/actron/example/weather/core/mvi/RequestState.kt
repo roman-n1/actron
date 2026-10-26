@@ -9,6 +9,9 @@ sealed interface RequestState<out T : Any> {
     data object Idle : RequestState<Nothing>
 
     @Serializable
+    data object Ready : RequestState<Nothing>
+
+    @Serializable
     data object Debouncing : RequestState<Nothing>
 
     @Serializable

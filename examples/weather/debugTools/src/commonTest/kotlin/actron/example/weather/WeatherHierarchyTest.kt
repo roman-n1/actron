@@ -10,7 +10,7 @@ import actron.example.weather.feature.weather.presentation.WeatherAction
 import actron.example.weather.feature.weather.presentation.WeatherAdviceState
 import actron.example.weather.feature.weather.presentation.WeatherCommand
 import actron.example.weather.feature.weather.presentation.WeatherContext
-import actron.example.weather.feature.weather.presentation.WeatherScreenState
+import actron.statechart.StateId
 import actron.statechart.machine.MachineInput
 import actron.statechart.machine.MachineTime
 import actron.statechart.test.test
@@ -22,7 +22,22 @@ import kotlin.time.Duration.Companion.seconds
 
 class WeatherHierarchyTest {
     @Test
-    fun refreshSelectsOneParentTransitionAndRestartsAllThreeChildRequests() {
+    fun startActivatesReadyChildrenWithoutStartingAnyRequest() {
+        val machine = CityWeatherMachine.create()
+        val decision =
+            machine.decide(
+                snapshot = machine.initialSnapshot(context = WeatherContext(city = demoCities.first())),
+                input = MachineInput.Start(now = MachineTime.Zero),
+            )
+        assertTrue(actual = decision.commands.isEmpty())
+        assertTrue(actual = decision.snapshot.timers.isEmpty())
+        for (region in listOf("Current", "Hourly", "Advice")) {
+            assertTrue(actual = decision.snapshot.isActive(id = StateId(value = "WeatherScreen.$region.Ready")))
+        }
+    }
+
+    @Test
+    fun oneRefreshInputRestartsAllThreeChildRequestsWithoutReenteringTheParent() {
         val machine = CityWeatherMachine.create()
         val started =
             machine
@@ -31,10 +46,14 @@ class WeatherHierarchyTest {
                     input = MachineInput.Start(now = MachineTime.Zero),
                 ).snapshot
         assertTrue(actual = started.commands.isEmpty())
-        assertEquals(expected = WeatherScreenState.Idle, actual = started.context.screen)
+        assertTrue(actual = started.context.current is RequestState.Ready)
+        assertTrue(actual = started.context.hourly is RequestState.Ready)
+        assertEquals(expected = WeatherAdviceState.Ready, actual = started.context.advice)
         val active = machine.decide(snapshot = started, input = MachineInput.Dispatch(action = WeatherAction.Refresh, now = MachineTime.Zero)).snapshot
         val refreshed = machine.decide(snapshot = active, input = MachineInput.Dispatch(action = WeatherAction.Refresh, now = MachineTime.Zero))
-        assertEquals(expected = 1, actual = refreshed.transitions.size)
+        val parent = StateId(value = "WeatherScreen")
+        assertEquals(expected = started.activations.getValue(key = parent), actual = refreshed.snapshot.activations.getValue(key = parent))
+        assertEquals(expected = 3, actual = refreshed.transitions.size)
         assertEquals(expected = 3, actual = refreshed.commands.size)
         assertEquals(expected = 3, actual = refreshed.timersScheduled.size)
         assertTrue(actual = refreshed.snapshot.context.current is RequestState.Loading)

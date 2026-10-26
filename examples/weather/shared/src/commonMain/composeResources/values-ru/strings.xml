@@ -38,4 +38,7 @@
     <string name="weather_in_city">Погода — %1$s</string>
     <string name="current_weather">Текущая погода</string>
     <string name="advice_storm">Гроза — лучше переждать её в помещении.</string>
+    <string name="weather_ready">Нажмите «Обновить», чтобы загрузить погоду.</string>
+    <string name="forecast_ready">Нажмите «Обновить», чтобы загрузить прогноз.</string>
+    <string name="advice_ready">Нажмите «Обновить», чтобы проверить погодные условия.</string>
 </resources>

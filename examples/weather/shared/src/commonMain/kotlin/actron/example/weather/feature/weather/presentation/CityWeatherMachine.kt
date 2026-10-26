@@ -15,10 +15,9 @@ import kotlin.time.Duration.Companion.seconds
 @Serializable
 data class WeatherContext(
     val city: City,
-    val screen: WeatherScreenState = WeatherScreenState.Idle,
-    val current: RequestState<WeatherReading> = RequestState.Loading,
-    val hourly: RequestState<HourlyForecast> = RequestState.Loading,
-    val advice: WeatherAdviceState = WeatherAdviceState.Loading,
+    val current: RequestState<WeatherReading> = RequestState.Ready,
+    val hourly: RequestState<HourlyForecast> = RequestState.Ready,
+    val advice: WeatherAdviceState = WeatherAdviceState.Ready,
 )
 
 @Serializable
@@ -72,8 +71,10 @@ sealed interface WeatherCommand {
     ) : WeatherCommand
 }
 
-/** A screen parent coordinates three independent child lifecycles with one Refresh transition. */
+/** The screen accepts one Refresh input; all three ready regions decide it in the same step. */
 object CityWeatherMachine {
+    private data object WeatherScreen
+
     private data object Current
 
     private data object Advice
@@ -83,26 +84,22 @@ object CityWeatherMachine {
     fun create(): Machine<WeatherContext, WeatherAction, WeatherCommand, NoEvent> =
         typedStateMachine(
             id = DefinitionId(value = "city-weather"),
-            version = DefinitionVersion(value = "7"),
-            initial = WeatherScreenState.Idle,
-            readState = { context: WeatherContext -> context.screen },
-            writeState = { context, state -> context.copy(screen = state) },
+            version = DefinitionVersion(value = "8"),
+            initial = WeatherScreen,
+            readState = { _: WeatherContext -> WeatherScreen },
+            writeState = { context, _ -> context },
             build = {
-                compound<WeatherScreen>(initial = WeatherScreenState.Idle, build = {
-                    on<WeatherAction.Refresh, WeatherScreenState.Active>()
-                    state(value = WeatherScreenState.Idle, build = {})
-                    parallel(value = WeatherScreenState.Active, build = {
-                        currentRegion()
-                        hourlyRegion()
-                        adviceRegion()
-                    })
+                parallel(value = WeatherScreen, build = {
+                    currentRegion()
+                    hourlyRegion()
+                    adviceRegion()
                 })
             },
         )
 
-    private fun TypedParallelMachineBuilder<WeatherContext, WeatherScreenState, WeatherAction, WeatherCommand, NoEvent>.currentRegion() {
+    private fun TypedParallelMachineBuilder<WeatherContext, WeatherScreen, WeatherAction, WeatherCommand, NoEvent>.currentRegion() {
         region<Current, RequestState<WeatherReading>>(
-            initial = RequestState.Loading,
+            initial = RequestState.Ready,
             readState = { context: WeatherContext -> context.current },
             // Each writer preserves the other region, including its data and pending state.
             writeState = { context, state: RequestState<WeatherReading> -> context.copy(current = state) },
@@ -130,9 +127,9 @@ object CityWeatherMachine {
         )
     }
 
-    private fun TypedParallelMachineBuilder<WeatherContext, WeatherScreenState, WeatherAction, WeatherCommand, NoEvent>.hourlyRegion() {
+    private fun TypedParallelMachineBuilder<WeatherContext, WeatherScreen, WeatherAction, WeatherCommand, NoEvent>.hourlyRegion() {
         region<Hourly, RequestState<HourlyForecast>>(
-            initial = RequestState.Loading,
+            initial = RequestState.Ready,
             readState = { context: WeatherContext -> context.hourly },
             writeState = { context, state: RequestState<HourlyForecast> -> context.copy(hourly = state) },
             build = {
@@ -159,13 +156,15 @@ object CityWeatherMachine {
         )
     }
 
-    private fun TypedParallelMachineBuilder<WeatherContext, WeatherScreenState, WeatherAction, WeatherCommand, NoEvent>.adviceRegion() {
+    private fun TypedParallelMachineBuilder<WeatherContext, WeatherScreen, WeatherAction, WeatherCommand, NoEvent>.adviceRegion() {
         region<Advice, WeatherAdviceState>(
-            initial = WeatherAdviceState.Loading,
+            initial = WeatherAdviceState.Ready,
             readState = { context -> context.advice },
             writeState = { context, state -> context.copy(advice = state) },
             build = {
+                state(value = WeatherAdviceState.Ready, build = { refreshAdvice() })
                 state(value = WeatherAdviceState.Loading, build = {
+                    refreshAdvice()
                     onEnter(block = {
                         command(command = WeatherCommand.Advice(city = context.city), lane = LaneId(value = "advice"), policy = ConcurrencyPolicy.Latest)
                     })
@@ -183,10 +182,14 @@ object CityWeatherMachine {
                     after<WeatherAdviceState.Error>(delay = 8.seconds, to = { WeatherAdviceState.Error(cause = RequestFailure.Timeout) })
                     dismissAdvice()
                 })
-                state<WeatherAdviceState.Hidden>(build = {})
-                state<WeatherAdviceState.Visible>(build = { dismissAdvice() })
-                state<WeatherAdviceState.Dismissed>(build = {})
+                state<WeatherAdviceState.Hidden>(build = { refreshAdvice() })
+                state<WeatherAdviceState.Visible>(build = {
+                    refreshAdvice()
+                    dismissAdvice()
+                })
+                state<WeatherAdviceState.Dismissed>(build = { refreshAdvice() })
                 state<WeatherAdviceState.Error>(build = {
+                    refreshAdvice()
                     dismissAdvice()
                     on<WeatherAction.RetryAdvice, WeatherAdviceState.Loading>()
                 })
@@ -194,22 +197,31 @@ object CityWeatherMachine {
         )
     }
 
+    private fun TypedMachineStateBuilder<WeatherContext, WeatherAdviceState, WeatherAction, WeatherCommand, NoEvent>.refreshAdvice() {
+        on<WeatherAction.Refresh, WeatherAdviceState.Loading>()
+    }
+
     private fun TypedMachineStateBuilder<WeatherContext, WeatherAdviceState, WeatherAction, WeatherCommand, NoEvent>.dismissAdvice() {
         on<WeatherAction.DismissAdvice, WeatherAdviceState.Dismissed>(to = { _, _ -> WeatherAdviceState.Dismissed })
     }
 
-    // Only request children share this lifecycle. Refresh belongs exclusively to the screen parent.
+    // Ready has no effects. One input is broadcast to the active regions; each owns its transition.
     private fun <T : Any> TypedStateMachineBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.requestStates(
         inputs: TypedMachineStateBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.() -> Unit = {},
         loading: TypedMachineStateBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.() -> Unit,
     ) {
-        state(value = RequestState.Loading, build = {
+        val requestInputs: TypedMachineStateBuilder<WeatherContext, RequestState<T>, WeatherAction, WeatherCommand, NoEvent>.() -> Unit = {
+            on<WeatherAction.Refresh, RequestState.Loading>()
             inputs()
+        }
+        state(value = RequestState.Ready, build = requestInputs)
+        state(value = RequestState.Loading, build = {
+            requestInputs()
             loading()
             after<RequestState.Error>(delay = 8.seconds, to = { RequestState.Error(cause = RequestFailure.Timeout) })
         })
-        state<RequestState.Success<T>>(build = inputs)
-        state<RequestState.Error>(build = inputs)
+        state<RequestState.Success<T>>(build = requestInputs)
+        state<RequestState.Error>(build = requestInputs)
     }
 
     private fun TypedMachineStateBuilder<WeatherContext, RequestState<HourlyForecast>, WeatherAction, WeatherCommand, NoEvent>.hourlyInputs() {

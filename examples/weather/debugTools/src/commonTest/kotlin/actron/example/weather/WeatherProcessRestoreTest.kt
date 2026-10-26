@@ -64,6 +64,8 @@ class WeatherProcessRestoreTest {
             testScheduler.runCurrent()
             search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
             testScheduler.runCurrent()
+            root.refreshWeather()
+            testScheduler.runCurrent()
             val oldHistory = keeper.getOrCreate<WeatherHistory>("weather-debug-history") { error("missing history") }
             val oldWeather =
                 assertIs<CityWeatherComponent>(
@@ -153,6 +155,8 @@ class WeatherProcessRestoreTest {
                     .getChildStack()
                     .value.active.instance,
             ).onUiEvent(CitySearchIntent.SelectCity(demoCities[0]))
+            testScheduler.runCurrent()
+            root.refreshWeather()
             testScheduler.runCurrent()
             val weather =
                 assertIs<CityWeatherComponent>(

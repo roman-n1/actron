@@ -88,27 +88,30 @@ injects an old result does not mean Weather intentionally leaves obsolete reques
 ### Parallel weather
 
 [CityWeatherMachine.kt](../shared/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt)
-uses `typedStateMachine` with a `WeatherScreen` compound parent. Its `Idle` leaf starts no child work.
-The one parent `Refresh` handler enters the `Active` parallel node, or externally re-enters it on
-another refresh. The three regions start from their own Loading states in one decision. The parent
-context owns the city and screen phase; its header renders “Weather — city”, navigation and Refresh.
+uses `typedStateMachine` with a structural `WeatherScreen` parallel parent. On Start all three
+regions enter Ready and schedule no commands or timers. The header uses `context.city` and renders
+“Weather — city”, navigation and one shared Refresh button. There is no duplicate screen phase.
+
+The screen dispatches one `WeatherAction.Refresh` input. The parallel chart delivers it to its
+active regions; each region owns the transition into Loading. All selected transitions commit in
+one decision. The parent activation stays alive while old child commands and timers are cancelled.
+Opening a city waits for this explicit input; the production factory no longer sends initial Refresh.
 
 `Current` selects `context.current`; `Hourly` selects `context.hourly`. They reuse `requestStates`
-for Loading/Success/Error and the eight-second timeout, while keeping independent commands, data
-and activations. `RetryForecast` belongs only to Hourly.
+for Ready/Loading/Success/Error and the eight-second timeout. Refresh works from all four states;
+RetryForecast belongs to Hourly alone and also works from Ready.
 
 `Advice` selects `context.advice` and runs a separate `WeatherCommand.Advice`. It calls the same
 `WeatherRepository.load(city)` dependency as Current, with its own request, result, cancellation
 scope and timeout. There are two current-weather requests per global refresh in this example.
-The handler interprets its reading as umbrella, freezing-precipitation, wind, heat, cold or thunderstorm advice;
-weather values are not copied from another region. WMO precipitation codes follow
-[Open-Meteo](https://open-meteo.com/en/docs); wind >=40 km/h, heat >=30°C and cold <=-10°C are demo thresholds.
+The handler interprets its reading as umbrella, freezing-precipitation, wind, heat, cold or storm advice.
+WMO precipitation codes follow [Open-Meteo](https://open-meteo.com/en/docs); wind >=40 km/h,
+heat >=30°C and cold <=-10°C are demo thresholds.
 
-Advice has Loading/Hidden/Visible/Dismissed/Error states. An empty result hides its card; Visible
-contains the interpreted tips. DismissAdvice in Loading, Visible or Error closes only this card
-(and cancels its pending work). Late results cannot reopen it. RetryAdvice in Error restarts only
-its own request. Global Refresh starts a new cycle for all three children. Labels and tips use
-native EN/RU XML resources.
+Advice has Ready/Loading/Hidden/Visible/Dismissed/Error states. Refresh works from all six states.
+An empty result hides its card; Visible contains the interpreted tips. DismissAdvice in Loading,
+Visible or Error closes only this card (and cancels its pending work). Late results cannot reopen
+it. RetryAdvice in Error restarts only its own request. Labels and tips use native EN/RU XML resources.
 
 All region writers preserve sibling fields. Parallel regions represent concurrently active
 behavior, not concurrent writes; inputs are still decided sequentially.
@@ -257,7 +260,7 @@ clock and tracking; recording supplies history observers. The adapter attaches t
 startup, so the first decision is recorded. Recreating a host does not bind another recorder.
 Handlers/options must not retain a component, bridge endpoint or UI-lifecycle scope.
 
-`initialActions = listOf(WeatherAction.Refresh)` starts a fresh weather screen. These actions
+The Weather factory keeps `initialActions` empty; a fresh screen waits in Ready. Optional initial actions
 are dispatched after configuration/start exactly once for that retained instance, and skipped
 when resuming an already-started checkpoint. Existing completed regions are not refreshed by
 host recreation or continuation. Destroying the keeper closes the Store and cancels its commands.
