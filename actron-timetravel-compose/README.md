@@ -356,16 +356,13 @@ Import and Export with directional icons there, plus Back to session while inspe
 File dialogs remain in the host, outside the library. Weather uses Android's Storage Access
 Framework, Desktop's native file dialog and the browser's file input/download mechanism.
 
-## Execution time on the graph
+## Transition coverage on the graph
 
-Supply a frozen `HistoryGraphProfile.Recorded(MachineProfileSnapshot)` on each
-`HistoryGraph.Machine` to show **Execution time** automatically. There is no mode switch.
-Edges use relative average input-processing cost; selecting an edge or state displays separate queue, processing, residence and command
-measurements. Missing samples display an em dash. Keep these snapshots with their history
-frames so navigating the past cannot display future measurements. Imported recordings that
-omit profiles use `HistoryGraphProfile.Unavailable`.
-
-See [profiling semantics and the Weather integration](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).
+The graph shows active states, transition coverage and selection. Coverage and zoom controls
+share the header; the coverage text uses at most three lines. Selecting a state or transition
+shows its definition and execution count, without execution-time measurements or heat coloring.
+`HistoryGraphProfile` remains accepted for API compatibility, but its timing payload is not rendered.
+Weather no longer collects or retains profiler snapshots.
 
 ## History panel internals
 
@@ -427,7 +424,7 @@ order, malformed hierarchy handling and geometry remain unchanged.
 `GraphSurface` owns the canvas size and `GraphViewport` retains scale/offset for the logical
 machine. Snapshot changes keep selection and zoom; definition changes reset selection.
 Measurement and size updates do not silently refit an initialized viewport.
-`GraphPresentation` derives highlight, coverage, heat and stroke choices; `GraphDrawing`
+`GraphPresentation` derives highlight, coverage and stroke choices; `GraphDrawing`
 renders those immutable decisions. Controls, gestures and detail cards use the same owners.
 The graph components contain no remaining Compose boolean-operator debt.
 

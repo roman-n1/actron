@@ -203,20 +203,13 @@ durations together. Handler lifetime includes suspension and IO, not remote CPU.
 Parallel state intervals overlap. Completed samples omit currently running work;
 cancellation counts apply to handlers that actually began execution.
 
-### Inspector and Weather
+### Weather inspector
 
-Pass `HistoryGraphProfile.Recorded(snapshot)` to `HistoryGraph.Machine(profile = ...)`.
-The graph automatically shows **Execution time** when recorded measurements are available;
-edges are colored by relative mean input-processing time. There is no mode switch.
-Click an edge or state to see its separate measurements. Unavailable samples show
-an em dash. Graph layout, transition labels, pan and zoom are unchanged.
-
-Weather freezes the profiler snapshot into each history frame before that event.
-The caption explains that these are completed measurements before the selected event,
-for the current machine run.
-Selecting old history therefore does not display measurements from a later live
-execution. Continuing from history starts a new executor/window. Imported display
-recordings currently omit profiling and do not show the execution-time legend or measurements.
+Weather records application snapshots and transition coverage. It does not create profilers,
+wrap command handlers for timing, or retain execution-time measurements in history frames.
+The inspector shows coverage and zoom controls in one header, with coverage text limited to
+three lines. Graph transitions and detail cards do not display timing heat or measurements.
+The library profiling APIs described above are independent of the Weather application.
 
 See the executable examples in
 [`AdvancedWeatherTestingTest.kt`](../../examples/weather/debugTools/src/commonTest/kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt).

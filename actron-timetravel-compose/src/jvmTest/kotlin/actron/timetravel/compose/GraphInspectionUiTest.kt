@@ -23,16 +23,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionContains
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -41,11 +43,12 @@ import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
-class GraphProfileUiTest {
+class GraphInspectionUiTest {
     @Test
-    fun snapshotUpdatesKeepMeasurementsAndDefinitionChangesResetSelectionWithoutRefitting() =
+    fun snapshotUpdatesKeepSelectionAndDefinitionChangesResetItWithoutRefitting() =
         runComposeUiTest {
             val a = StateId("A")
             val b = StateId("B")
@@ -59,6 +62,7 @@ class GraphProfileUiTest {
                 }
             }
             onNodeWithTag("graph-profile-toggle").assertDoesNotExist()
+            onNodeWithTag("graph-timings-title").assertDoesNotExist()
             onNodeWithTag("machine-graph").performTouchInput {
                 click(
                     Offset(80f, 60f) * viewport.scale + viewport.offset,
@@ -66,7 +70,7 @@ class GraphProfileUiTest {
             }
             onNodeWithTag("graph-state-transitions").assertExists()
             onNodeWithText("Load: B").assertExists()
-            onNodeWithTag("graph-profile-window").assertExists()
+            onNodeWithTag("graph-profile-window").assertDoesNotExist()
             onNodeWithTag("graph-zoom-in").performClick()
             var scale = 0f
             var offset = Offset.Zero
@@ -78,10 +82,10 @@ class GraphProfileUiTest {
             onNodeWithTag("machine-graph").assertContentDescriptionContains("B", substring = true)
             onNodeWithTag("graph-state-transitions").assertExists()
             onNodeWithText("Load: B").assertExists()
-            onNodeWithTag("graph-profile-window").assertExists()
+            onNodeWithTag("graph-profile-window").assertDoesNotExist()
             runOnIdle { definition = definition.copy(transitions = emptyList()) }
             onNodeWithTag("graph-state-transitions").assertDoesNotExist()
-            onNodeWithTag("graph-profile-window").assertExists()
+            onNodeWithTag("graph-profile-window").assertDoesNotExist()
             onNodeWithTag("machine-graph").performTouchInput {
                 click(
                     Offset(80f, 60f) * viewport.scale + viewport.offset,
@@ -94,7 +98,7 @@ class GraphProfileUiTest {
             }
         }
 
-    @Test fun selectedGraphUsesFrozenMeasurementsAndKeepsTimingsSeparate() =
+    @Test fun graphDoesNotShowExecutionTimingsEvenWhenPayloadsAreProvided() =
         runComposeUiTest {
             val a = StateId("A")
             val b = StateId("B")
@@ -134,7 +138,8 @@ class GraphProfileUiTest {
                 }
             }
             onNodeWithTag("graph-profile-toggle").assertDoesNotExist()
-            onNodeWithTag("graph-profile-window").assertExists()
+            onNodeWithTag("graph-timings-title").assertDoesNotExist()
+            onNodeWithTag("graph-profile-window").assertDoesNotExist()
             onNodeWithTag("machine-graph").performTouchInput {
                 click(
                     layouts
@@ -144,18 +149,48 @@ class GraphProfileUiTest {
                         .label.center * viewport.scale + viewport.offset,
                 )
             }
-            onNodeWithTag("profile-duration-InputQueue").assertTextContains("5ms", substring = true)
-            onNodeWithTag("profile-duration-InputProcessing").assertTextContains("2ms", substring = true)
+            onNodeWithTag("profile-duration-InputQueue").assertDoesNotExist()
+            onNodeWithTag("profile-duration-InputProcessing").assertDoesNotExist()
             runOnIdle { recorded = HistoryGraphProfile.Recorded(old.copy(transitions = mapOf(TransitionId(0) to TransitionProfile(3, processing = DurationProfile(1, 30.milliseconds, 30.milliseconds))))) }
-            onNodeWithTag("profile-duration-InputProcessing").assertTextContains("30ms", substring = true)
+            onNodeWithTag("profile-duration-InputProcessing").assertDoesNotExist()
             runOnIdle { recorded = HistoryGraphProfile.Recorded(old) }
-            onNodeWithTag("profile-duration-InputProcessing").assertTextContains("2ms", substring = true)
-            val previewFile = File("build/reports/history-panel/graph-timings.png")
+            onNodeWithTag("profile-duration-InputProcessing").assertDoesNotExist()
+            val previewFile = File("build/reports/history-panel/graph-inspection.png")
             previewFile.parentFile.mkdirs()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", previewFile)
             runOnIdle { recorded = HistoryGraphProfile.Unavailable }
             onNodeWithTag("graph-profile-toggle").assertDoesNotExist()
+            onNodeWithTag("graph-timings-title").assertDoesNotExist()
             onNodeWithTag("graph-profile-window").assertDoesNotExist()
             onNodeWithTag("profile-duration-InputProcessing").assertDoesNotExist()
         }
+
+    @Test
+    fun coverageAndZoomShareTheHeaderOnWideAndNarrowHosts() {
+        for (width in listOf(320, 800)) {
+            runComposeUiTest {
+                val a = StateId("A")
+                val chart = StateChartDefinition(a, listOf(AtomicState(a)), listOf(Transition(a, a, ActionMatcher("Again"))))
+                setContent {
+                    MaterialTheme {
+                        Surface {
+                            MachineGraph(HistoryGraph.Machine(chart, setOf(a), coverage = HistoryGraphCoverage.Recorded(mapOf(TransitionId(0) to 3))), GraphViewport(), Modifier.size(width.dp, 700.dp))
+                        }
+                    }
+                }
+                val coverage = onNodeWithTag("graph-coverage").fetchSemanticsNode().boundsInRoot
+                val minus = onNodeWithTag("graph-zoom-out").fetchSemanticsNode().boundsInRoot
+                val fit = onNodeWithTag("graph-fit").fetchSemanticsNode().boundsInRoot
+                assertTrue(coverage.top < minus.bottom && minus.top < coverage.bottom, "Coverage and zoom must share one row")
+                assertTrue(coverage.right <= minus.left, "Zoom belongs to the right of coverage")
+                assertTrue(fit.right <= width, "Zoom must fit the host width")
+                val layouts = mutableListOf<TextLayoutResult>()
+                onNodeWithTag("graph-coverage").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                assertTrue(layouts.single().lineCount <= 3)
+                val previewFile = File("build/reports/history-panel/graph-controls-$width.png")
+                previewFile.parentFile.mkdirs()
+                ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", previewFile)
+            }
+        }
+    }
 }

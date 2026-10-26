@@ -21,7 +21,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class GraphPresentationTest {
     @Test
-    fun selectionOverridesHeatAndCoverageWhileOtherEdgesDimAndEndpointsStandOut() {
+    fun selectionAndCoverageStyleEdgesIndependentlyOfTimingPayloads() {
         val a = StateId("A")
         val b = StateId("B")
         val chart = StateChartDefinition(a, listOf(AtomicState(a), AtomicState(b)), listOf(Transition(a, b, ActionMatcher("Go")), Transition(b, a, ActionMatcher("Back"))))
@@ -52,15 +52,14 @@ class GraphPresentationTest {
         assertTrue(covered.edges[1].stroke.dashed)
         assertEquals(listOf(true, false), covered.nodes.map { it.initial })
         val hot = graphAppearance(graph, layout, selection, measurements, colors)
-        assertTrue(hot.showProfileWindow)
-        assertEquals(colors.error, hot.edges[0].color)
+        assertEquals(colors.tertiary, hot.edges[0].color)
         selection.select(layout.edges[1].label.center, layout, GraphViewport())
         val focused = graphAppearance(graph, layout, selection, measurements, colors)
         assertEquals(colors.primary, focused.edges[1].color)
         assertEquals(3f, focused.edges[1].stroke.width)
         assertFalse(focused.edges[1].stroke.dashed)
         assertEquals(colors.secondaryContainer, focused.edges[1].labelFill)
-        assertEquals(colors.error.copy(alpha = 0.25f), focused.edges[0].color)
+        assertEquals(colors.tertiary.copy(alpha = 0.25f), focused.edges[0].color)
         focused.nodes.forEach {
             assertEquals(colors.primary, it.outline)
             assertEquals(3f, it.stroke)
@@ -79,7 +78,6 @@ class GraphPresentationTest {
         val graph = HistoryGraph.Machine(chart, setOf(a))
         val selection = GraphInteraction()
         val appearance = graphAppearance(graph, layoutGraph(chart), selection, graphMeasurements(graph), lightColorScheme())
-        assertFalse(appearance.showProfileWindow)
         assertFalse(
             appearance.edges
                 .single()

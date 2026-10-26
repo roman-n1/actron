@@ -124,7 +124,7 @@ These are different representations with different capabilities:
 | `MachineSnapshot<C>` | Context and runtime configuration/identities | Current state and pure decisions |
 | `ExecutorCheckpoint<C, CMD>` | Snapshot plus work/timing needed by the executor | Restarting pending operations |
 | `WeatherFrame` | Search/weather checkpoints and route | Current application checkpoint and restoration |
-| `WeatherHistoryFrame` | Application frame, frozen coverage and profiles | Live history preview and continuation |
+| `WeatherHistoryFrame` | Application frame, frozen transition coverage | Live history preview and continuation |
 | `WeatherRecordingFrame` | Display data, active nodes and coverage | Imported view-only history |
 
 [WeatherHistory.kt](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherHistory.kt)
@@ -198,7 +198,7 @@ cross-repository operation actually appears.
 hooks, recording option, coverage or profile fields. The ordinary root renders its feature stack.
 `DebugWeatherRootComponent` wraps that root with settings and the inspector; `WeatherHistory`
 receives the retained session through composition and owns only recording/diagnostic metadata.
-Each immutable `WeatherHistoryFrame` pairs an application frame with frozen coverage and profiles.
+Each immutable `WeatherHistoryFrame` pairs an application frame with frozen transition coverage.
 Continuation restores those metadata before the ordinary root replaces its children. The fake
 graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/2` uses the new app
 package names; previous exported files are intentionally unsupported.
@@ -236,7 +236,7 @@ recording = history.recording()
 ```
 
 Each option is bound only when a new retained Store is created. Restoration supplies checkpoints,
-clock and tracking; recording supplies diagnostic observers and profiler instrumentation. The adapter attaches them before
+clock and tracking; recording supplies history observers. The adapter attaches them before
 startup, so the first decision is recorded. Recreating a host does not bind another recorder.
 Handlers/options must not retain a component, bridge endpoint or UI-lifecycle scope.
 
