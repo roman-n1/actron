@@ -8,6 +8,8 @@ plugins {
 
 kotlin {
     android {
+        // Compose Resources must be packaged as Android assets for this KMP target.
+        androidResources.enable = true
         namespace = "actron.example.weather.debug"
         compileSdk =
             libs.versions.android.compileSdk

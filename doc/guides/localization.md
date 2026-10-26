@@ -24,3 +24,19 @@ RTL/platform details: https://kotlinlang.org/docs/multiplatform/compose-rtl.html
 
 JVM integration tests render the same Weather snapshot in Russian, English and an unsupported
 locale, and verify the Inspector in Russian, English and fallback. Core model tests remain pure.
+
+Android KMP library targets must enable resource packaging in every module that owns
+`composeResources`:
+
+```kotlin
+kotlin {
+    android {
+        androidResources.enable = true
+    }
+}
+```
+
+Generating `Res.string` accessors alone does not put their `.cvr` files into the Android APK.
+The Android device workflow exercises the packaged Weather app and Inspector through the real
+recording document picker. When diagnosing resource failures, inspect the APK assets for default
+and translated `strings.commonMain.cvr` in all three resource packages above.

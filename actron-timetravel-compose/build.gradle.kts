@@ -13,6 +13,8 @@ version = libs.versions.actron.get()
 
 kotlin {
     android {
+        // Compose Resources must be packaged as Android assets for this KMP target.
+        androidResources.enable = true
         namespace = "actron.timetravel.compose"
         compileSdk =
             libs.versions.android.compileSdk
