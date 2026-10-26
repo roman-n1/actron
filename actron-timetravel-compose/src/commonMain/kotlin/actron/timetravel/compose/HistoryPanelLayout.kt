@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 
 /** Keeps list scroll/collapse state alive while the selected event or layout changes. */
@@ -42,6 +43,7 @@ internal fun <S : Any> HistoryPanelBody(
     modifier: Modifier,
 ) {
     val inspection = state.inspection
+    val counter = historyEventCounter(state, entries, timeline.capacity, Locale.current.language)
     BoxWithConstraints(modifier) {
         val narrow = maxWidth < 640.dp
         val listExpanded = remember { mutableStateOf(true) }
@@ -64,7 +66,7 @@ internal fun <S : Any> HistoryPanelBody(
                 listExpanded.value = true
             }
         }
-        HistoryResponsiveLayout(narrow, state.selection.isNotEmpty(), listExpanded.value, visible.size, entries.size, { listExpanded.toggle() }, list, detail)
+        HistoryResponsiveLayout(narrow, state.selection.isNotEmpty(), listExpanded.value, counter, { listExpanded.toggle() }, list, detail)
     }
 }
 
@@ -74,8 +76,7 @@ private fun HistoryResponsiveLayout(
     narrow: Boolean,
     hasSelection: Boolean,
     listExpanded: Boolean,
-    visibleCount: Int,
-    totalCount: Int,
+    counter: String,
     onToggleList: () -> Unit,
     list: @Composable (Modifier) -> Unit,
     detail: @Composable (Modifier) -> Unit,
@@ -101,7 +102,7 @@ private fun HistoryResponsiveLayout(
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            HistoryMuted("$visibleCount / $totalCount ${historyText(HistoryText.Events)}", Modifier.weight(1f))
+            HistoryMuted(counter, Modifier.weight(1f).testTag("history-collapsed-event-counter"))
             TextButton(onToggleList, Modifier.testTag("history-toggle-list")) {
                 Text(historyText(if (listExpanded) HistoryText.HideEventList else HistoryText.ShowEventList))
             }

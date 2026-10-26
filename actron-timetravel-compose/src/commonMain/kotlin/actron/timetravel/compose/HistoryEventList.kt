@@ -50,6 +50,7 @@ internal fun <S : Any> HistoryEventList(
     onSelect: (HistoryEntry<S>) -> Unit,
 ) {
     val inspection = state.inspection
+    val counter = historyEventCounter(state, entries, capacity, Locale.current.language)
     Column(modifier) {
         OutlinedTextField(
             inspection.query,
@@ -63,7 +64,7 @@ internal fun <S : Any> HistoryEventList(
             singleLine = true,
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            HistoryMuted("${visible.size} / ${entries.size} ${historyText(HistoryText.Events)} · ${historyText(HistoryText.Capacity)} $capacity", Modifier.weight(1f))
+            HistoryMuted(counter, Modifier.weight(1f).testTag("history-event-counter"))
             Checkbox(inspection.bookmarksOnly, { inspection.bookmarksOnly = it }, Modifier.testTag("history-bookmarks-only"))
             Text(historyText(HistoryText.Bookmarks), style = MaterialTheme.typography.labelMedium)
         }

@@ -47,6 +47,7 @@ internal enum class HistoryText(
     PreviousInstance("Previous instance", "Предыдущий экземпляр"),
     Timeline("TIMELINE", "ИСТОРИЯ"),
     Events("events", "событий"),
+    InHistory("In history:", "В истории:"),
     Empty("Events appear here as you use the app.", "События появятся здесь во время работы приложения."),
     Explore("Explore a transition", "Посмотрите переход"),
     SelectHint("Select an event to see its action, compare states and show that moment in the app.", "Выберите событие, чтобы увидеть действие, сравнить состояния и перейти к этому моменту в приложении."),

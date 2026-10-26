@@ -16,6 +16,12 @@ diagram share one event cursor. Previous/next buttons work in either tab; **More
 first/last visible event and navigation back/forward. Alt+Up/Down moves through visible events;
 Alt+Left/Right returns through inspection locations. Text editing keeps its own keyboard behavior.
 
+While previewing history, the counter shows the selected event's persistent ID and the latest
+recorded event ID, followed by the capacity limit (for example, “Event 999 / 1000 · limit 500”).
+Live mode instead says “In history: 1000 events · limit 500”. IDs keep increasing after capacity
+eviction; neither counter is renumbered by filters or reduced to the retained buffer size.
+The collapsed narrow layout uses the same counter.
+
 Clicking a visible row preserves the list's scroll position. Cursor buttons, keyboard shortcuts,
 field navigation and an explicit reveal still bring the selected event into view.
 Rows use the details diagram: outlined before/after states below the short action name,
