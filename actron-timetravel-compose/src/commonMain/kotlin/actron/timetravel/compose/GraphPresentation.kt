@@ -5,37 +5,22 @@ import actron.statechart.FinalState
 import actron.statechart.HistoryState
 import actron.statechart.ParallelState
 import actron.statechart.StateId
-import actron.statechart.machine.MachineProfileSnapshot
 import actron.statechart.machine.TransitionId
-import actron.statechart.machine.TransitionProfile
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 
 internal data class GraphMeasurements(
-    val profiles: List<MachineProfileSnapshot>,
-    val transitions: Map<TransitionId, TransitionProfile>,
-    val maximumProcessing: Long,
     val counts: Map<TransitionId, Long>,
     val covered: Int,
 )
 
 internal fun graphMeasurements(graph: HistoryGraph.Machine): GraphMeasurements {
-    val profiles =
-        when (val profile = graph.profile) {
-            HistoryGraphProfile.Unavailable -> emptyList()
-            is HistoryGraphProfile.Recorded -> listOf(profile.snapshot)
-        }
-    val transitions = profiles.flatMap { it.transitions.entries }.associate { it.toPair() }
     val counts =
         when (val coverage = graph.coverage) {
             HistoryGraphCoverage.Unavailable -> emptyMap()
             is HistoryGraphCoverage.Recorded -> coverage.hits
         }
     return GraphMeasurements(
-        profiles,
-        transitions,
-        transitions.values.fold(0L) { maximum, value -> maxOf(maximum, value.processing.average.inWholeNanoseconds) },
         counts,
         graph.definition.transitions.indices
             .count { counts.getOrElse(TransitionId(it)) { 0 } > 0 },
@@ -68,7 +53,6 @@ internal data class GraphEdgeAppearance(
 internal data class GraphAppearance(
     val nodes: List<GraphNodeAppearance>,
     val edges: List<GraphEdgeAppearance>,
-    val showProfileWindow: Boolean,
 )
 
 internal fun graphAppearance(
@@ -86,7 +70,6 @@ internal fun graphAppearance(
     return GraphAppearance(
         layout.nodes.map { nodeAppearance(it, graph, selection, endpoints, initial, colors) },
         layout.edges.mapIndexed { index, edge -> edgeAppearance(edge, index, graph, selection, measurements, colors) },
-        selection.profiling.value && measurements.profiles.isNotEmpty(),
     )
 }
 
@@ -129,17 +112,9 @@ private fun edgeAppearance(
     val focused = index in selection.selectedEdges
     val highlighted = focused || edge.transition.source in selection.selected
     val covered = measurements.counts.getOrElse(edge.id) { 0 } > 0
-    val timing = measurements.transitions.getOrElse(edge.id) { TransitionProfile() }
-    val heat =
-        if (selection.profiling.value && measurements.maximumProcessing > 0) {
-            timing.processing.average.inWholeNanoseconds
-                .toFloat() / measurements.maximumProcessing
-        } else {
-            0f
-        }
     return GraphEdgeAppearance(
         edge,
-        edgeColor(highlighted, heat, covered, selection.selectedEdges.isNotEmpty(), colors),
+        edgeColor(highlighted, covered, selection.selectedEdges.isNotEmpty(), colors),
         edgeStroke(graph, covered, highlighted),
         if (focused) colors.secondaryContainer else colors.surface,
         if (focused) colors.primary else colors.outlineVariant,
@@ -167,7 +142,6 @@ private fun edgeStroke(
 
 private fun edgeColor(
     highlighted: Boolean,
-    heat: Float,
     covered: Boolean,
     dimmed: Boolean,
     colors: ColorScheme,
@@ -177,7 +151,6 @@ private fun edgeColor(
     } else {
         val base =
             when {
-                heat > 0f -> lerp(colors.outline, colors.error, heat)
                 covered -> colors.tertiary
                 else -> colors.outline
             }

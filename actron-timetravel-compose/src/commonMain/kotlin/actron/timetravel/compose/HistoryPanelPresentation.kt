@@ -39,3 +39,23 @@ internal fun historyPanelPlacement(
         hasSelection -> HistoryPanelPlacement.Selected
         else -> HistoryPanelPlacement.ListOnly
     }
+
+/** Event numbers follow the recording sequence, independently of filtering and capacity eviction. */
+internal fun <S : Any> historyEventCounter(
+    state: HistoryPanelState<S>,
+    entries: List<HistoryEntry<S>>,
+    capacity: Int,
+    language: String,
+): String {
+    val latest = entries.fold(0L) { id, entry -> maxOf(id, entry.id) }
+    val description =
+        if (state.preview.isEmpty()) {
+            "${HistoryText.InHistory.forLanguage(language)} $latest ${HistoryText.Events.forLanguage(language)}"
+        } else {
+            val selected = state.preview.first().id
+            // A pinned snapshot may outlive the retained source entries, including a clear.
+            val lastRecorded = maxOf(latest, selected)
+            "${HistoryText.Event.forLanguage(language)} $selected / $lastRecorded"
+        }
+    return "$description · ${HistoryText.Capacity.forLanguage(language)} $capacity"
+}

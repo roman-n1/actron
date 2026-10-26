@@ -16,15 +16,27 @@ diagram share one event cursor. Previous/next buttons work in either tab; **More
 first/last visible event and navigation back/forward. Alt+Up/Down moves through visible events;
 Alt+Left/Right returns through inspection locations. Text editing keeps its own keyboard behavior.
 
+While previewing history, the counter shows the selected event's persistent ID and the latest
+recorded event ID, followed by the capacity limit (for example, “Event 999 / 1000 · limit 500”).
+Live mode instead says “In history: 1000 events · limit 500”. IDs keep increasing after capacity
+eviction; neither counter is renumbered by filters or reduced to the retained buffer size.
+The collapsed narrow layout uses the same counter.
+
 Clicking a visible row preserves the list's scroll position. Cursor buttons, keyboard shortcuts,
 field navigation and an explicit reveal still bring the selected event into view.
 Rows use the details diagram: outlined before/after states below the short action name,
 with an upward arrow from the old state and a downward arrow to the new state.
-A neutral selected-row surface stays distinct from the action's accent container.
-Rows then preview at most two
-changed data fields with bounded values and a count of further changes. Unchanged fields and
-trace metadata (`revision`, `type`) stay out of the preview; the original action payload and all
-state fields remain available in the event details and search.
+Both the rows and the selected event omit active states shared by before and after. Changed
+states keep their region-qualified names (for example, `Current.Loading` → `Current.Success`).
+An identical nonempty configuration says “No state change”; missing states use `—`.
+The full recorded configuration remains available among the event's state fields.
+A neutral selected-row surface stays distinct from the action's accent container and themed border.
+Rows then name at most two changed data fields, with bounded names and a count of further
+changes, in at most two lines. When that list is empty, “No other field changes” explains it.
+Unchanged fields and trace metadata (`revision`, `type`) stay out of the preview; the original
+action payload and all state fields and values remain available in the event details and search.
+“Recorded” labels the local recording timestamp; milliseconds appear as the fractional part of
+the seconds, not as a separate duration.
 
 Place the panel inside the application's `MaterialTheme`. Colors, status containers, control/card
 shapes and graph typography follow that theme, including changes while the panel is open.
@@ -36,8 +48,9 @@ the list: the selected snapshot and graph remain pinned. A banner identifies a h
 or a snapshot outside the retained window. **Show in history** clears filters to reveal a retained
 selection. Search covers only retained entries and the structured fields supplied by the host.
 
-Click the small bookmark icon on an event row to add or remove its bookmark without changing
-selection or preview. A filled icon marks a bookmarked event; **Bookmarks only** filters the list.
+The small bookmark icon sits at the top right of the event's metadata line; the diagram below
+uses the full row width. Its unchecked outline is muted; the filled icon uses the theme accent.
+Click it to add or remove a bookmark without changing selection or preview. A filled icon marks a bookmarked event; **Bookmarks only** filters the list.
 **More** can pin an event's state after the event as comparison **A**. Selecting
 another event supplies **B**. A/B compares fields of the same logical machine; the graphical
 transition above always describes the selected event's original before/action/after. A different
@@ -343,16 +356,13 @@ Import and Export with directional icons there, plus Back to session while inspe
 File dialogs remain in the host, outside the library. Weather uses Android's Storage Access
 Framework, Desktop's native file dialog and the browser's file input/download mechanism.
 
-## Profiling on the graph
+## Transition coverage on the graph
 
-Supply a frozen `HistoryGraphProfile.Recorded(MachineProfileSnapshot)` on each
-`HistoryGraph.Machine` to enable **Profile**. Edges use relative average input-processing
-cost; selecting an edge or state displays separate queue, processing, residence and command
-measurements. Missing samples display an em dash. Keep these snapshots with their history
-frames so navigating the past cannot display future measurements. Imported recordings that
-omit profiles use `HistoryGraphProfile.Unavailable`.
-
-See [profiling semantics and the Weather integration](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).
+The graph shows active states, transition coverage and selection. Coverage and zoom controls
+share the header; the coverage text uses at most three lines. Selecting a state or transition
+shows its definition and execution count, without execution-time measurements or heat coloring.
+`HistoryGraphProfile` remains accepted for API compatibility, but its timing payload is not rendered.
+Weather no longer collects or retains profiler snapshots.
 
 ## History panel internals
 
@@ -410,11 +420,11 @@ label columns and routing space, `GraphNodePlacement` places the hierarchy, and
 `GraphEdgeRouting` allocates ports and orthogonal lanes. Original transition IDs, declaration
 order, malformed hierarchy handling and geometry remain unchanged.
 
-`GraphInteraction` owns selection and profile expansion for the current definition;
+`GraphInteraction` owns selection for the current definition;
 `GraphSurface` owns the canvas size and `GraphViewport` retains scale/offset for the logical
-machine. Snapshot changes keep selection and zoom, definition changes reset selection and
-profile expansion, and size changes do not silently refit an initialized viewport.
-`GraphPresentation` derives highlight, coverage, heat and stroke choices; `GraphDrawing`
+machine. Snapshot changes keep selection and zoom; definition changes reset selection.
+Measurement and size updates do not silently refit an initialized viewport.
+`GraphPresentation` derives highlight, coverage and stroke choices; `GraphDrawing`
 renders those immutable decisions. Controls, gestures and detail cards use the same owners.
 The graph components contain no remaining Compose boolean-operator debt.
 

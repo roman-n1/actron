@@ -48,7 +48,7 @@ sealed interface HistoryGraph {
     ) : HistoryGraph
 }
 
-/** Frozen measurements supplied by the host, independent of live profiler state. */
+/** Compatibility payload; the inspector no longer displays execution timings. */
 sealed interface HistoryGraphProfile {
     data object Unavailable : HistoryGraphProfile
 
@@ -95,7 +95,7 @@ private fun GraphCanvas(
     val activeLabel = historyText(HistoryText.ActiveStates)
     Column(modifier) {
         GraphDiagnosticsPanel(graph.definition.diagnostics) { selection.focus(it, layout, surface, viewport) }
-        GraphControls(graph, viewport, surface, layout, selection, measurements, appearance.showProfileWindow)
+        GraphControls(graph, viewport, surface, layout, measurements)
         Canvas(
             Modifier
                 .weight(1f)

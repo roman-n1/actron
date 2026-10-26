@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -49,6 +51,7 @@ internal fun <S : Any> HistoryEventList(
     onSelect: (HistoryEntry<S>) -> Unit,
 ) {
     val inspection = state.inspection
+    val counter = historyEventCounter(state, entries, capacity, Locale.current.language)
     Column(modifier) {
         OutlinedTextField(
             inspection.query,
@@ -62,9 +65,19 @@ internal fun <S : Any> HistoryEventList(
             singleLine = true,
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            HistoryMuted("${visible.size} / ${entries.size} ${historyText(HistoryText.Events)} · ${historyText(HistoryText.Capacity)} $capacity", Modifier.weight(1f))
-            Checkbox(inspection.bookmarksOnly, { inspection.bookmarksOnly = it }, Modifier.testTag("history-bookmarks-only"))
-            Text(historyText(HistoryText.Bookmarks), style = MaterialTheme.typography.labelMedium)
+            HistoryMuted(counter, Modifier.weight(1f).testTag("history-event-counter"))
+            Checkbox(
+                inspection.bookmarksOnly,
+                { inspection.bookmarksOnly = it },
+                Modifier.testTag("history-bookmarks-only"),
+                colors =
+                    CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        checkmarkColor = MaterialTheme.colorScheme.surface,
+                    ),
+            )
+            HistoryMuted(historyText(HistoryText.Bookmarks))
         }
         LazyColumn(Modifier.weight(1f).testTag("history-events"), state = listState) {
             items(visible, key = { it.id }) { entry ->
@@ -86,7 +99,7 @@ private fun <S : Any> EventRow(
     onSelect: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val summary = historyEventSummary(entry.details)
+    val summary = historyEventSummary(entry.details, Locale.current.language)
     Row(
         Modifier
             .fillMaxWidth()
@@ -97,37 +110,54 @@ private fun <S : Any> EventRow(
     ) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(if (selected) colors.primary else colors.surface))
         Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            HistoryMuted("#${entry.id} · ${entry.machine.name}")
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "#${entry.id} · ${entry.machine.name}",
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                HistoryBookmarkButton(entry.id, bookmarked, onBookmark)
+            }
             HistoryEventPreview(summary, entry.id)
             HistoryMuted(formatHistoryTime(entry.at))
         }
-        val bookmarkLabel = historyText(if (bookmarked) HistoryText.RemoveBookmark else HistoryText.AddBookmark)
-        IconToggleButton(
-            checked = bookmarked,
-            onCheckedChange = { onBookmark() },
-            modifier =
-                Modifier
-                    .padding(top = 4.dp, end = 4.dp)
-                    .size(40.dp)
-                    .testTag("history-entry-bookmark-${entry.id}")
-                    .semantics { contentDescription = bookmarkLabel },
-        ) {
-            val color = colors.onSurfaceVariant
-            Canvas(Modifier.size(18.dp)) {
-                val outline =
-                    Path().apply {
-                        moveTo(size.width * 0.2f, size.height * 0.1f)
-                        lineTo(size.width * 0.8f, size.height * 0.1f)
-                        lineTo(size.width * 0.8f, size.height * 0.9f)
-                        lineTo(size.width * 0.5f, size.height * 0.68f)
-                        lineTo(size.width * 0.2f, size.height * 0.9f)
-                        close()
-                    }
-                drawPath(outline, color, style = if (bookmarked) Fill else Stroke(1.5.dp.toPx()))
-            }
-        }
     }
     HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.5f))
+}
+
+@Composable
+private fun HistoryBookmarkButton(
+    id: Long,
+    bookmarked: Boolean,
+    onBookmark: () -> Unit,
+) {
+    val bookmarkLabel = historyText(if (bookmarked) HistoryText.RemoveBookmark else HistoryText.AddBookmark)
+    IconToggleButton(
+        checked = bookmarked,
+        onCheckedChange = { onBookmark() },
+        modifier =
+            Modifier
+                .size(40.dp)
+                .testTag("history-entry-bookmark-$id")
+                .semantics { contentDescription = bookmarkLabel },
+    ) {
+        val color = if (bookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+        Canvas(Modifier.size(14.dp)) {
+            val outline =
+                Path().apply {
+                    moveTo(size.width * 0.2f, size.height * 0.1f)
+                    lineTo(size.width * 0.8f, size.height * 0.1f)
+                    lineTo(size.width * 0.8f, size.height * 0.9f)
+                    lineTo(size.width * 0.5f, size.height * 0.68f)
+                    lineTo(size.width * 0.2f, size.height * 0.9f)
+                    close()
+                }
+            drawPath(outline, color, style = if (bookmarked) Fill else Stroke(1.5.dp.toPx()))
+        }
+    }
 }
 
 /** Renders the prepared, bounded transition preview independently of row interactions. */
@@ -138,7 +168,7 @@ private fun HistoryEventPreview(
 ) {
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(Modifier.fillMaxWidth(0.9f), shape = MaterialTheme.shapes.small, color = colors.secondaryContainer, contentColor = colors.onSecondaryContainer) {
+        Surface(Modifier.fillMaxWidth(0.9f).testTag("history-entry-action-$id-card"), shape = MaterialTheme.shapes.small, color = colors.secondaryContainer, contentColor = colors.onSecondaryContainer, border = BorderStroke(1.dp, colors.secondary)) {
             Text(summary.action, Modifier.padding(horizontal = 10.dp, vertical = 6.dp).testTag("history-entry-action-$id"), style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         HistoryTransitionArrows(Modifier.fillMaxWidth().height(20.dp))
@@ -147,8 +177,7 @@ private fun HistoryEventPreview(
             HistoryPreviewState(historyText(HistoryText.After), summary.after, "history-entry-after-$id", Modifier.weight(1f))
         }
     }
-    if (summary.changes.isNotEmpty()) Text(summary.changes, Modifier.testTag("history-entry-changes-$id"), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-    if (summary.moreChanges > 0) HistoryMuted("+${summary.moreChanges}")
+    Text(summary.changes, Modifier.testTag("history-entry-changes-$id"), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable

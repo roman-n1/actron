@@ -17,6 +17,7 @@ import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class HistorySelectionScrollTest {
@@ -26,7 +27,11 @@ class HistorySelectionScrollTest {
             val timeline = timeline()
             val state = HistoryPanelState<String>()
             setContent { MaterialTheme { HistoryPanel(timeline, state, {}, Modifier.size(1000.dp, 900.dp)) } }
-            onNodeWithTag("history-events").performScrollToIndex(15)
+            // Keep both click targets fully visible regardless of localized row height.
+            onNodeWithTag("history-events").performScrollToIndex(16)
+            val viewport = onNodeWithTag("history-events").fetchSemanticsNode().boundsInRoot
+            val nextRow = onNodeWithTag("history-entry-18").fetchSemanticsNode().boundsInRoot
+            assertTrue(nextRow.bottom <= viewport.bottom)
             val initialTop = onNodeWithTag("history-entry-17").fetchSemanticsNode().boundsInRoot.top
             onNodeWithTag("history-entry-17").performMouseInput { click() }
             assertEquals(initialTop, onNodeWithTag("history-entry-17").fetchSemanticsNode().boundsInRoot.top, "A mouse selection must not move the row")

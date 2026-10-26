@@ -105,6 +105,7 @@ class WeatherHistoryTest {
             history.timeline.entries.value
                 .first()
         val selectedGraph = history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine
+        assertEquals(actron.timetravel.compose.HistoryGraphProfile.Unavailable, selectedGraph.profile)
         val selectedHits = (selectedGraph.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits
         assertEquals(2L, selectedHits.values.sum())
         assertEquals(

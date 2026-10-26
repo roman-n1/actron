@@ -1042,4 +1042,4 @@ existing execution validation remains responsible for rejecting invalid runtime 
 handler lifetime separately. Attach its observer, `profileWith(profiler)` Store configuration,
 and wrapped command handler. Both `MachineStore` and `resumeMachineStore` support this setup.
 It retains bounded correlations and immutable aggregates, without action/command payloads.
-See [measurement semantics and inspector integration](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).
+See [measurement semantics](../doc/guides/temporal-schedules-and-profiling.md#4-profile-the-running-machine).

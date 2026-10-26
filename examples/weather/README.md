@@ -46,7 +46,7 @@ The modules follow the same separation as `MyApplication`:
 ```text
 examples/weather/
   shared/       Production Compose UI, machines, repositories and current checkpoints
-  debugTools/   Optional recorder, profiler, history UI and platform file dialogs
+  debugTools/   Optional recorder, history UI and platform file dialogs
   androidApp/   Android Activity, manifest and device tests
   desktopApp/   JVM entry point and desktop runtime
   webApp/       Shared browser entry point, HTML, JavaScript and Wasm executables
@@ -188,7 +188,7 @@ released when their last timeline entry disappears; indices remain stable.
 Open the gear next to **Cities**, then enable **Debug panel** for the reusable library `HistoryPanel`. The global
 chronology contains only machine events and groups lifetimes by stable machine ID.
 Navigation stays in the example: `WeatherFrame` carries the route. The debug-only
-`WeatherHistoryFrame` adds frozen coverage and profiles. The debug shell unwraps the application
+`WeatherHistoryFrame` adds frozen transition coverage. The debug shell unwraps the application
 frame and asks the ordinary root to restore its Decompose stack. The library treats the combined
 frame as an opaque snapshot. Each selection shows
 the input action with its payload between the before/after active states, structured field

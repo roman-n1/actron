@@ -1,20 +1,24 @@
 package actron.timetravel.compose
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -23,28 +27,30 @@ internal fun GraphControls(
     viewport: GraphViewport,
     surface: GraphSurface,
     layout: GraphLayout,
-    selection: GraphInteraction,
     measurements: GraphMeasurements,
-    showProfileWindow: Boolean,
 ) {
-    val colors = MaterialTheme.colorScheme
     val zoomIn = historyText(HistoryText.ZoomIn)
     val zoomOut = historyText(HistoryText.ZoomOut)
-    if (graph.coverage is HistoryGraphCoverage.Recorded) {
-        Text("${historyText(HistoryText.Coverage)}: ${measurements.covered} / ${graph.definition.transitions.size} · ${historyText(HistoryText.CoverageLegend)}", Modifier.padding(horizontal = 8.dp).testTag("graph-coverage"), style = MaterialTheme.typography.labelSmall)
-    }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-        if (measurements.profiles.isNotEmpty()) {
-            HistoryChoice(selection.profiling.value, { selection.profiling.toggle() }, { Text(historyText(HistoryText.Profile)) }, Modifier.testTag("graph-profile-toggle"))
-            Spacer(Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        when (graph.coverage) {
+            is HistoryGraphCoverage.Recorded -> {
+                Text(
+                    "${historyText(HistoryText.Coverage)}: ${measurements.covered} / ${graph.definition.transitions.size} · ${historyText(HistoryText.CoverageLegend)}",
+                    Modifier.weight(1f).testTag("graph-coverage"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            HistoryGraphCoverage.Unavailable -> {
+                Spacer(Modifier.weight(1f))
+            }
         }
-        TextButton({ viewport.transform(surface.size.center, Offset.Zero, 1f / 1.25f) }, Modifier.testTag("graph-zoom-out").semantics { contentDescription = zoomOut }) { Text("−") }
-        Text("${(viewport.scale * 100).toInt()}%", Modifier.padding(top = 12.dp).testTag("graph-scale"))
-        TextButton({ viewport.transform(surface.size.center, Offset.Zero, 1.25f) }, Modifier.testTag("graph-zoom-in").semantics { contentDescription = zoomIn }) { Text("+") }
-        TextButton({ viewport.fit(surface.size, layout.size) }, Modifier.testTag("graph-fit")) { Text(historyText(HistoryText.Fit)) }
-    }
-    if (showProfileWindow) {
-        Text(historyText(HistoryText.ProfileWindow), Modifier.padding(horizontal = 8.dp).testTag("graph-profile-window"), style = MaterialTheme.typography.labelSmall)
-        for (profile in measurements.profiles) if (profile.droppedCorrelations > 0) Text("${historyText(HistoryText.ProfileDropped)}: ${profile.droppedCorrelations}", color = colors.error, style = MaterialTheme.typography.labelSmall)
+        TextButton({ viewport.transform(surface.size.center, Offset.Zero, 1f / 1.25f) }, Modifier.width(40.dp).testTag("graph-zoom-out").semantics { contentDescription = zoomOut }, contentPadding = PaddingValues(0.dp)) { Text("−") }
+        Text("${(viewport.scale * 100).toInt()}%", Modifier.testTag("graph-scale"), style = MaterialTheme.typography.labelMedium)
+        TextButton({ viewport.transform(surface.size.center, Offset.Zero, 1.25f) }, Modifier.width(40.dp).testTag("graph-zoom-in").semantics { contentDescription = zoomIn }, contentPadding = PaddingValues(0.dp)) { Text("+") }
+        TextButton({ viewport.fit(surface.size, layout.size) }, Modifier.testTag("graph-fit"), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(historyText(HistoryText.Fit)) }
     }
 }

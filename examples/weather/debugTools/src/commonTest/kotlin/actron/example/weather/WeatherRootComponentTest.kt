@@ -59,8 +59,8 @@ class WeatherRootComponentTest {
                 val searchEntry =
                     history.timeline.entries.value
                         .last()
-                val frozenProfiles = searchEntry.snapshot.profiles.toMap()
-                assertTrue(frozenProfiles.isNotEmpty())
+                val frozenCoverage = searchEntry.snapshot.coverage.toMap()
+                assertTrue(frozenCoverage.isNotEmpty())
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
                 testScheduler.runCurrent()
                 val entry =
@@ -78,7 +78,7 @@ class WeatherRootComponentTest {
                 assertEquals(1, currentCalls, "Completed region must not reload")
                 assertEquals(2, hourlyCalls, "Pending read request must restart")
                 assertEquals(1L, history.session.branch)
-                assertEquals(frozenProfiles, searchEntry.snapshot.profiles, "Continuing and live profiling cannot mutate a historical diagnostic frame")
+                assertEquals(frozenCoverage, searchEntry.snapshot.coverage, "Continuing cannot mutate historical transition coverage")
                 assertTrue(
                     history.timeline.entries.value
                         .contains(entry),
