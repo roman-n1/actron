@@ -53,11 +53,14 @@ kotlin {
     // compiled out, so running on Node aborts with
     // "both async and sync fetching of the wasm failed". The pure-logic modules
     // (actron-core etc.) have no Skiko dependency and therefore also add nodejs().
+    // Compose 1.12 validates executable binaries so browser UI tests bundle Skiko with webpack.
     js(IR) {
+        binaries.executable()
         browser()
     }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
+        binaries.executable()
         // Karma's browser timeouts are raised in karma.config.d/timeout.js so the
         // large Skiko/Compose Wasm test bundle has time to load on slower (CI)
         // machines before the no-activity watchdog fires.

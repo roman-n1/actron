@@ -28,10 +28,14 @@ kotlin {
     }
     jvm()
     js(IR) {
+        binaries.executable()
         browser()
     }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs { browser() }
+    wasmJs {
+        binaries.executable()
+        browser()
+    }
     sourceSets {
         commonMain.dependencies {
             api(project(":actron-decompose"))
@@ -72,6 +76,15 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.coroutines.get()}")
             @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
             implementation(compose.uiTest)
+        }
+    }
+}
+
+dependencies {
+    constraints {
+        add("wasmJsMainImplementation", libs.kotlinx.io.core) {
+            // Ktor pulls 0.9.0, whose Node loader leaves raw import.meta in browser test bundles.
+            because("kotlinx-io 0.9.1 fixes Wasm module loading for Kotlin 2.4's webpack")
         }
     }
 }

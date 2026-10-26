@@ -327,6 +327,10 @@ The time-travel Compose JVM module name is pinned to preserve its generated acce
 Compose's Android artifacts require compile SDK 37; the weather app keeps target SDK 36
 as a separate catalog value, and the published consumer receives compile SDK from the same catalog.
 The JS Yarn lock records Kotlin's updated build tooling dependencies.
+Compose UI modules declare executable web binaries so browser tests bundle the Skiko runtime
+with webpack, as required by Compose 1.12's test configuration checks.
+Weather's Wasm target constrains Ktor's transitive kotlinx-io to 0.9.1, whose module loader
+fixes the raw `import.meta` incompatibility with the updated webpack.
 The fork's nullability IR audit now uses unified parameters/arguments in Kotlin 2.4;
 its compiler fixtures also run against Gradle's embedded Kotlin 2.4.10.
 

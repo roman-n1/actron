@@ -43,10 +43,12 @@ kotlin {
     }
     // Web targets are browser-only, as in actron-compose: Skiko's web runtime has no Node loader.
     js(IR) {
+        binaries.executable()
         browser()
     }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
+        binaries.executable()
         browser()
     }
 

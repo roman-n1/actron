@@ -6,6 +6,7 @@ actron = "5.0.0-alpha.1"
 agp = "9.4.1"
 kotlin = "2.4.21"
 coroutines = "1.11.0"
+kotlinx-io = "0.9.1"
 kermit = "2.1.0"
 android-minSdk = "24"
 android-compileSdk = "37"
@@ -22,6 +23,7 @@ lifecycle = "2.8.0"
 [libraries]
 decompose-core = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 logger-kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 rin = { group = "io.github.takahirom.rin", name = "rin", version.ref = "rin" }
 lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
