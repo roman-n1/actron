@@ -89,9 +89,9 @@ kotlin {
 }
 
 // rin 0.4.0 pulls org.jetbrains.compose.ui:* transitively at 1.6.10, which never
-// gets upgraded to the plugin version (1.11.1) because the ui artifacts are only
+// gets upgraded to the current plugin version because the ui artifacts are only
 // runtime/transitive here. The 1.6.10 ui klibs ship an older androidx.collection
-// representation that collides with the 1.11.x one, so the JS/Wasm IR linker fails
+// representation that collides with the current one, so the JS/Wasm IR linker fails
 // with "androidx.collection/EmptyFloatArray is already bound". Force the whole
 // compose.ui group to the plugin version so a single collection klib is on the
 // classpath.

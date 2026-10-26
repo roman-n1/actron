@@ -18,7 +18,7 @@ kotlin {
         "android" -> {
             targets.named<KotlinMultiplatformAndroidLibraryTarget>("android") {
                 namespace = "consumer.app"
-                compileSdk = 36
+                compileSdk = providers.gradleProperty("consumer.compileSdk").get().toInt()
                 minSdk = 24
             }
         }

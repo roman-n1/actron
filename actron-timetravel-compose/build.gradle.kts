@@ -36,6 +36,9 @@ kotlin {
         attributes.attribute(org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 11)
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
+            // Kotlin 2.4 includes the group in its default module name. Preserve the
+            // existing JVM names of Compose-generated singleton lambda accessors.
+            moduleName.set(project.name)
         }
     }
     // Web targets are browser-only, as in actron-compose: Skiko's web runtime has no Node loader.

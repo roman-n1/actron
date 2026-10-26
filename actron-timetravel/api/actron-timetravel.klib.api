@@ -1452,7 +1452,7 @@ final class <#A: kotlin/Any> actron.timetravel/HistoryRecord { // actron.timetra
     final fun hashCode(): kotlin/Int // actron.timetravel/HistoryRecord.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // actron.timetravel/HistoryRecord.toString|toString(){}[0]
 
-    final class <#A1: kotlin/Any?> $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecord<#A1>> { // actron.timetravel/HistoryRecord.$serializer|null[0]
+    final class <#A1: kotlin/Any> $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecord<#A1>> { // actron.timetravel/HistoryRecord.$serializer|null[0]
         constructor <init>(kotlinx.serialization/KSerializer<#A1>) // actron.timetravel/HistoryRecord.$serializer.<init>|<init>(kotlinx.serialization.KSerializer<1:0>){}[0]
 
         final val descriptor // actron.timetravel/HistoryRecord.$serializer.descriptor|{}descriptor[0]
@@ -1499,7 +1499,7 @@ final class <#A: kotlin/Any> actron.timetravel/HistoryRecording { // actron.time
     final fun toString(): kotlin/String // actron.timetravel/HistoryRecording.toString|toString(){}[0]
     final fun validate() // actron.timetravel/HistoryRecording.validate|validate(){}[0]
 
-    final class <#A1: kotlin/Any?> $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecording<#A1>> { // actron.timetravel/HistoryRecording.$serializer|null[0]
+    final class <#A1: kotlin/Any> $serializer : kotlinx.serialization.internal/GeneratedSerializer<actron.timetravel/HistoryRecording<#A1>> { // actron.timetravel/HistoryRecording.$serializer|null[0]
         constructor <init>(kotlinx.serialization/KSerializer<#A1>) // actron.timetravel/HistoryRecording.$serializer.<init>|<init>(kotlinx.serialization.KSerializer<1:0>){}[0]
 
         final val descriptor // actron.timetravel/HistoryRecording.$serializer.descriptor|{}descriptor[0]
