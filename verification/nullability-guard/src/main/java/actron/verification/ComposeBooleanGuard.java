@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jetbrains.kotlin.cli.CompilerConfigurationCreationKt;
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles;
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
 import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer;
@@ -39,7 +40,7 @@ public final class ComposeBooleanGuard {
         var disposable = Disposer.newDisposable();
         try {
             var environment = KotlinCoreEnvironment.createForProduction(
-                disposable, new CompilerConfiguration(), EnvironmentConfigFiles.JVM_CONFIG_FILES);
+                disposable, CompilerConfigurationCreationKt.create(CompilerConfiguration.Companion), EnvironmentConfigFiles.JVM_CONFIG_FILES);
             var parser = new KtPsiFactory(environment.getProject(), false);
             if (mode.equals("--self-test")) {
                 ComposeBooleanGuardTest.run(parser);

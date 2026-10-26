@@ -26,7 +26,8 @@ done
 "$ROOT/gradlew" -p "$ROOT" "${PUBLISH_TASKS[@]}" -Pactron.consumer.repository="$WORK/maven" --no-configuration-cache --max-workers=2 --no-daemon
 python3 "$ROOT/verification/published-consumer/verify_metadata.py" "$WORK/maven" "$GROUP" "$VERSION" "$TARGET"
 PROPERTIES=(-Pconsumer.repository="$WORK/maven" -Pconsumer.group="$GROUP" -Pconsumer.version="$VERSION" -Pconsumer.target="$TARGET"
-  -Pconsumer.kotlin="$(value kotlin)" -Pconsumer.agp="$(value agp)" -Pconsumer.compose="$(value compose-multiplatform)" -Pconsumer.coroutines="$(value coroutines)")
+  -Pconsumer.kotlin="$(value kotlin)" -Pconsumer.agp="$(value agp)" -Pconsumer.compose="$(value compose-multiplatform)" -Pconsumer.coroutines="$(value coroutines)"
+  -Pconsumer.compileSdk="$(value android-compileSdk)")
 if [[ "$TARGET" == jvm ]]; then
   if [[ -n "${ACTRON_CONSUMER_JAVA11_HOME:-}" ]]; then
     PROPERTIES+=(-Pconsumer.java11.home="$ACTRON_CONSUMER_JAVA11_HOME")

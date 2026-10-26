@@ -53,11 +53,14 @@ kotlin {
     // compiled out, so running on Node aborts with
     // "both async and sync fetching of the wasm failed". The pure-logic modules
     // (actron-core etc.) have no Skiko dependency and therefore also add nodejs().
+    // Compose 1.12 validates executable binaries so browser UI tests bundle Skiko with webpack.
     js(IR) {
+        binaries.executable()
         browser()
     }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
+        binaries.executable()
         // Karma's browser timeouts are raised in karma.config.d/timeout.js so the
         // large Skiko/Compose Wasm test bundle has time to load on slower (CI)
         // machines before the no-activity watchdog fires.
@@ -89,9 +92,9 @@ kotlin {
 }
 
 // rin 0.4.0 pulls org.jetbrains.compose.ui:* transitively at 1.6.10, which never
-// gets upgraded to the plugin version (1.11.1) because the ui artifacts are only
+// gets upgraded to the current plugin version because the ui artifacts are only
 // runtime/transitive here. The 1.6.10 ui klibs ship an older androidx.collection
-// representation that collides with the 1.11.x one, so the JS/Wasm IR linker fails
+// representation that collides with the current one, so the JS/Wasm IR linker fails
 // with "androidx.collection/EmptyFloatArray is already bound". Force the whole
 // compose.ui group to the plugin version so a single collection klib is on the
 // classpath.

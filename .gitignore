@@ -13,3 +13,7 @@ xcuserdata
 *.gpg
 # Generated SDK coordinates and IDE caches; plugin sources/distribution tasks remain tracked.
 .intellijPlatform
+# CocoIndex Code (ccc)
+/.cocoindex_code/
+# CodeGraph local index
+/.codegraph/
