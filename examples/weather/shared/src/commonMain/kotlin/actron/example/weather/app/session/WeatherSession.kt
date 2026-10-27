@@ -7,9 +7,6 @@ import actron.example.weather.core.domain.City
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
 import actron.example.weather.feature.cities.presentation.CitySearchState
 import actron.example.weather.feature.cities.presentation.SearchCitiesCommand
-import actron.example.weather.feature.weather.presentation.CityWeatherMachine
-import actron.example.weather.feature.weather.presentation.WeatherCommand
-import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.observability.FailureDescriptor
 import actron.statechart.machine.Decision
 import actron.statechart.machine.DecisionObserver
@@ -26,7 +23,7 @@ sealed interface WeatherRoute {
     data object Search : WeatherRoute
 
     data class Weather(
-        val checkpoint: ExecutorCheckpoint<WeatherContext, WeatherCommand>,
+        val checkpoint: WeatherCheckpoints,
     ) : WeatherRoute
 }
 
@@ -40,7 +37,7 @@ data class WeatherFrame(
             route =
                 when (val screen = route) {
                     WeatherRoute.Search -> WeatherRoute.Search
-                    is WeatherRoute.Weather -> WeatherRoute.Weather(screen.checkpoint.copy(now = maxOf(time, screen.checkpoint.now)))
+                    is WeatherRoute.Weather -> WeatherRoute.Weather(screen.checkpoint.at(time = time))
                 },
         )
 
@@ -48,7 +45,7 @@ data class WeatherFrame(
         search.ending.isEmpty() && search.effects.isEmpty() &&
             when (val screen = route) {
                 WeatherRoute.Search -> true
-                is WeatherRoute.Weather -> screen.checkpoint.ending.isEmpty() && screen.checkpoint.effects.isEmpty()
+                is WeatherRoute.Weather -> screen.checkpoint.canResume()
             }
 }
 
@@ -84,9 +81,9 @@ class WeatherSession(
 
     val searchCheckpoint get() = frame.search
 
-    fun weatherCheckpoint(city: City): ExecutorCheckpoint<WeatherContext, WeatherCommand> =
+    fun weatherCheckpoint(city: City): WeatherCheckpoints =
         when (val route = frame.route) {
-            is WeatherRoute.Weather -> if (route.checkpoint.snapshot.context.city == city) route.checkpoint else freshWeather(city)
+            is WeatherRoute.Weather -> if (route.checkpoint.screen.snapshot.context.city == city) route.checkpoint else freshWeather(city)
             WeatherRoute.Search -> freshWeather(city)
         }
 
@@ -94,8 +91,13 @@ class WeatherSession(
         frame = frame.copy(search = checkpoint)
     }
 
-    internal fun updateWeather(checkpoint: ExecutorCheckpoint<WeatherContext, WeatherCommand>) {
+    internal fun updateWeather(checkpoint: WeatherCheckpoints) {
         frame = frame.copy(route = WeatherRoute.Weather(checkpoint))
+    }
+
+    internal fun updateWeatherPending(messages: List<actron.statechart.machine.BridgeMessage>) {
+        val route = frame.route
+        if (route is WeatherRoute.Weather) frame = frame.copy(route = route.copy(checkpoint = route.checkpoint.copy(inFlight = messages)))
     }
 
     fun openCity(city: City) {
@@ -111,6 +113,7 @@ class WeatherSession(
     internal fun <C : Any, A : Action, CMD : Any, E : Event> observe(
         checkpoint: ExecutorCheckpoint<C, CMD>,
         update: (ExecutorCheckpoint<C, CMD>) -> Unit,
+        afterUpdate: (RecordedStep<C, A, CMD, E>) -> Unit = {},
     ): DecisionObserver<C, A, CMD, E> {
         val generation = branch
         var current = checkpoint
@@ -119,6 +122,7 @@ class WeatherSession(
                 if (generation != branch) return
                 current = current.carriedPast(step)
                 update(current)
+                afterUpdate(step)
                 frame = frame.at(current.now)
                 if (frame.canResume()) resumableFrame = frame
             }
@@ -143,8 +147,6 @@ class WeatherSession(
         }
     }
 }
-
-private fun freshWeather(city: City): ExecutorCheckpoint<WeatherContext, WeatherCommand> = ExecutorCheckpoint.initial(CityWeatherMachine.create().initialSnapshot(WeatherContext(city)))
 
 private fun weatherClock(
     snapshot: WeatherFrame,

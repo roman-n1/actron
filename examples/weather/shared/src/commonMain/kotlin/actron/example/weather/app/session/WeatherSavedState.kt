@@ -1,7 +1,10 @@
 package actron.example.weather.app.session
 
 import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastMachine
 import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceMachine
 import actron.statechart.machine.MachineClock
 import actron.timetravel.checkpointGroup
 import actron.timetravel.machinePersistence
@@ -22,15 +25,32 @@ object WeatherSavedStateCodec {
         // Generic codecs validate all machines; these read/write adapters alone know Weather's frame.
         checkpointGroup(::WeatherFrame) {
             machine(machinePersistence(CitySearchMachine.create()), read = { it.search }, write = { frame, search -> frame.copy(search = search) })
-            // A collection models an optional weather child without introducing a nullable checkpoint.
-            machines(machinePersistence(CityWeatherMachine.create()), read = { frame ->
+            machines(persistence = machinePersistence(machine = CityWeatherMachine.create()), read = { frame ->
                 when (val route = frame.route) {
                     WeatherRoute.Search -> emptyList()
-                    is WeatherRoute.Weather -> listOf(route.checkpoint)
+                    is WeatherRoute.Weather -> listOf(route.checkpoint.screen)
                 }
-            }, write = { frame, weather ->
-                frame.copy(route = if (weather.isEmpty()) WeatherRoute.Search else WeatherRoute.Weather(weather.single()))
+            }, write = { frame, parents ->
+                frame.copy(
+                    route =
+                        if (parents.isEmpty()) {
+                            WeatherRoute.Search
+                        } else {
+                            WeatherRoute.Weather(
+                                checkpoint =
+                                    freshWeather(
+                                        city =
+                                            parents
+                                                .single()
+                                                .snapshot.context.city,
+                                    ).copy(screen = parents.single()),
+                            )
+                        },
+                )
             })
+            weatherPart(machine = CurrentWeatherMachine.create(), read = { it.current }, write = { cut, part -> cut.copy(current = part) })
+            weatherPart(machine = HourlyForecastMachine.create(), read = { it.hourly }, write = { cut, part -> cut.copy(hourly = part) })
+            weatherPart(machine = WeatherAdviceMachine.create(), read = { it.advice }, write = { cut, part -> cut.copy(advice = part) })
         }
 
     fun encode(history: WeatherSession): WeatherSavedState = WeatherSavedState(checkpoints = group.save(history.persistenceFrame()), branch = history.branch)
@@ -55,3 +75,27 @@ fun retainedWeatherSession(context: ComponentContext): WeatherSession =
         }
         WeatherSession()
     }
+
+private inline fun <reified C : Any, reified A : actron.core.Action, reified CMD : Any, reified E : actron.core.Event> actron.timetravel.CheckpointGroupBuilder<WeatherFrame>.weatherPart(
+    machine: actron.statechart.machine.Machine<C, A, CMD, E>,
+    noinline read: (WeatherCheckpoints) -> actron.statechart.machine.ExecutorCheckpoint<C, CMD>,
+    noinline write: (WeatherCheckpoints, actron.statechart.machine.ExecutorCheckpoint<C, CMD>) -> WeatherCheckpoints,
+) {
+    machines(persistence = machinePersistence(machine = machine), read = { frame ->
+        when (val route = frame.route) {
+            WeatherRoute.Search -> emptyList()
+            is WeatherRoute.Weather -> listOf(read(route.checkpoint))
+        }
+    }, write = { frame, parts ->
+        when (val route = frame.route) {
+            WeatherRoute.Search -> {
+                require(parts.isEmpty()) { "A child checkpoint needs its screen" }
+                frame
+            }
+
+            is WeatherRoute.Weather -> {
+                frame.copy(route = WeatherRoute.Weather(checkpoint = write(route.checkpoint, parts.single())))
+            }
+        }
+    })
+}

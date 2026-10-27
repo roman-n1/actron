@@ -5,7 +5,6 @@ import actron.decompose.MachineRecording
 import actron.decompose.retainedMachine
 import actron.example.weather.app.session.WeatherSession
 import actron.example.weather.app.session.searchRestoration
-import actron.example.weather.app.session.weatherRestoration
 import actron.example.weather.core.component.BridgeEndpoint
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.NoEvent
@@ -20,13 +19,9 @@ import actron.example.weather.feature.cities.presentation.citySearchHandler
 import actron.example.weather.feature.weather.domain.HourlyForecastRepository
 import actron.example.weather.feature.weather.domain.WeatherRepository
 import actron.example.weather.feature.weather.presentation.CityWeatherComponent
-import actron.example.weather.feature.weather.presentation.CityWeatherMachine
 import actron.example.weather.feature.weather.presentation.DefaultCityWeatherComponent
-import actron.example.weather.feature.weather.presentation.WeatherAction
-import actron.example.weather.feature.weather.presentation.WeatherCommand
-import actron.example.weather.feature.weather.presentation.WeatherContext
-import actron.example.weather.feature.weather.presentation.cityWeatherHandler
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.essenty.instancekeeper.getOrCreate
 import kotlin.coroutines.CoroutineContext
 
 /** Application composition connects feature stores to current checkpoints and optional recording. */
@@ -60,24 +55,24 @@ class DefaultCityWeatherComponentFactory(
     private val hourlyRepository: HourlyForecastRepository,
     private val coroutineContext: CoroutineContext,
     private val session: WeatherSession,
-    private val recording: MachineRecording<WeatherContext, WeatherAction, WeatherCommand, NoEvent> = MachineRecording { _, _, handler -> MachineDiagnostics(handler) },
+    private val recordings: WeatherMachineRecordings = WeatherMachineRecordings(),
 ) : CityWeatherComponent.Factory {
     override fun create(
         componentContext: ComponentContext,
         city: City,
         endpoint: BridgeEndpoint<Nothing, CityWeatherComponent.News>,
     ): CityWeatherComponent {
-        val store =
-            componentContext.retainedMachine(
-                key = "city-weather",
-                machine = CityWeatherMachine.create(),
-                initial = WeatherContext(city),
-                handler = cityWeatherHandler(repository, hourlyRepository),
-                restoration = session.weatherRestoration(city),
-                recording = recording,
-                coroutineContext = coroutineContext,
-                initialActions = listOf(WeatherAction.Refresh),
-            )
-        return DefaultCityWeatherComponent(componentContext, endpoint, coroutineContext, store)
+        val machines =
+            componentContext.instanceKeeper.getOrCreate(key = "city-weather") {
+                WeatherMachines(
+                    session = session,
+                    initial = session.weatherCheckpoint(city = city),
+                    currentRepository = repository,
+                    hourlyRepository = hourlyRepository,
+                    coroutineContext = coroutineContext,
+                    recordings = recordings,
+                ).also { it.start() }
+            }
+        return DefaultCityWeatherComponent(componentContext = componentContext, endpoint = endpoint, coroutineContext = coroutineContext, machines = machines)
     }
 }

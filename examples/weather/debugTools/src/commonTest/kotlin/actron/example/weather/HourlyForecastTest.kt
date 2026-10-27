@@ -5,6 +5,7 @@ package actron.example.weather
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
 import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
 import actron.example.weather.feature.weather.domain.ForecastHour
 import actron.example.weather.feature.weather.domain.HourlyForecast
@@ -75,15 +76,14 @@ class HourlyForecastTest {
                 )
             try {
                 store.start()
-                store.dispatch(WeatherAction.Refresh)
-                store.state.first { it.context.hourly is RequestState.Success }
-                assertEquals(RequestState.Loading, store.state.value.context.current)
-                store.state.first { it.context.current == RequestState.Error(cause = RequestFailure.Timeout) }
+                store.state.first { it.hourly is RequestState.Success }
+                assertEquals(RequestState.Loading, store.state.value.current)
+                store.state.first { it.current == RequestState.Error(cause = RequestFailure.Timeout) }
                 testScheduler.runCurrent()
                 assertTrue(cancelled)
-                assertTrue(store.state.value.context.hourly is RequestState.Success)
+                assertTrue(store.state.value.hourly is RequestState.Success)
             } finally {
-                store.close()
+                store.onDestroy()
             }
         }
 
@@ -106,18 +106,17 @@ class HourlyForecastTest {
                 )
             try {
                 store.start()
-                store.dispatch(WeatherAction.Refresh)
-                store.state.first { it.context.hourly is RequestState.Error && it.context.current is RequestState.Success }
-                store.dispatch(WeatherAction.RetryForecast)
-                store.state.first { it.context.hourly is RequestState.Success }
+                store.state.first { it.hourly is RequestState.Error && it.current is RequestState.Success }
+                store.hourly.dispatch(action = HourlyForecastAction.Retry)
+                store.state.first { it.hourly is RequestState.Success }
                 assertEquals(2, currentCalls)
                 assertEquals(2, forecastCalls)
-                store.dispatch(WeatherAction.Refresh)
+                store.screen.dispatch(action = WeatherScreenAction.Refresh)
                 testScheduler.runCurrent()
                 assertEquals(4, currentCalls)
                 assertEquals(3, forecastCalls)
             } finally {
-                store.close()
+                store.onDestroy()
             }
         }
 }
@@ -125,13 +124,17 @@ class HourlyForecastTest {
 private fun kotlinx.coroutines.test.TestScope.weatherStore(
     current: WeatherRepository,
     hourly: HourlyForecastRepository,
-) = actron.statechart.machine.MachineStore(
-    CityWeatherMachine.create(),
-    WeatherContext(demoCities.first()),
-    cityWeatherHandler(current, hourly),
-    backgroundScope,
-    clock =
-        actron.statechart.machine.MachineClock
-            .monotonic(testScheduler.timeSource),
+) = actron.example.weather.app.WeatherMachines(
+    session =
+        actron.example.weather.app.session
+            .WeatherSession(clockFactory = {
+                actron.statechart.machine.MachineClock
+                    .monotonic(timeSource = testScheduler.timeSource)
+            }),
+    initial =
+        actron.example.weather.app.session
+            .freshWeather(city = demoCities.first()),
+    currentRepository = current,
+    hourlyRepository = hourly,
     coroutineContext = coroutineContext,
 )

@@ -1,4 +1,4 @@
-package actron.example.weather.feature.weather.presentation
+package actron.example.weather.feature.weatheradvice.presentation
 
 import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.feature.weather.domain.WeatherAdvice

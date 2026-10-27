@@ -2,7 +2,10 @@ package actron.example.weather.app.debug
 
 import actron.example.weather.app.session.WeatherRoute
 import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastMachine
 import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceMachine
 import actron.statechart.StateId
 import actron.statechart.machine.TransitionId
 import actron.timetravel.*
@@ -31,7 +34,9 @@ data class WeatherRecordingFrame(
 object WeatherRecording {
     private val search = CitySearchMachine.create()
     private val weather = CityWeatherMachine.create()
-    val definitions = listOf(search.chart.historyDefinition(search.id.value, search.version.value), weather.chart.historyDefinition(weather.id.value, weather.version.value))
+    private val charts = listOf(search.chart.historyDefinition(search.id.value, search.version.value), weather.chart.historyDefinition(weather.id.value, weather.version.value), CurrentWeatherMachine.create().let { it.chart.historyDefinition(it.id.value, it.version.value) }, HourlyForecastMachine.create().let { it.chart.historyDefinition(it.id.value, it.version.value) }, WeatherAdviceMachine.create().let { it.chart.historyDefinition(it.id.value, it.version.value) })
+    private val machineCharts = mapOf("city-search" to search.chart, "city-weather" to weather.chart, "current-weather" to CurrentWeatherMachine.create().chart, "hourly-forecast" to HourlyForecastMachine.create().chart, "weather-advice" to WeatherAdviceMachine.create().chart)
+    val definitions = charts
 
     // Display schema plus machine versions/graphs reject incompatible files before preview.
     val codec = HistoryRecordingCodec(schema = "actron.weather.display/3", serializer = WeatherRecordingFrame.serializer(), definitions = definitions)
@@ -48,7 +53,7 @@ object WeatherRecording {
                 val screen =
                     when (val route = frame.route) {
                         WeatherRoute.Search -> WeatherDisplay.Search(frame.search.snapshot.context)
-                        is WeatherRoute.Weather -> WeatherDisplay.Weather(route.checkpoint.snapshot.context)
+                        is WeatherRoute.Weather -> WeatherDisplay.Weather(route.checkpoint.context())
                     }
                 val graph = history.graph(entry)
                 val active = if (graph is HistoryGraph.Machine) graph.active.map { it.value } else emptyList()
@@ -67,11 +72,7 @@ object WeatherRecording {
         codec.decode(bytes).also { recording ->
             recording.entries.forEach { entry ->
                 val chart =
-                    when (entry.machine.stableId) {
-                        search.id.value -> search.chart
-                        weather.id.value -> weather.chart
-                        else -> throw IllegalArgumentException("Unknown Weather machine")
-                    }
+                    machineCharts[entry.machine.stableId] ?: throw IllegalArgumentException("Unknown Weather machine")
                 require(entry.snapshot.active.all { chart.hasNode(StateId(it)) }) { "Unknown active state" }
                 require(entry.snapshot.hits.all { (index, count) -> index in chart.transitions.indices && count > 0 }) { "Invalid transition coverage" }
             }
@@ -79,7 +80,7 @@ object WeatherRecording {
 
     fun graph(entry: HistoryEntry<WeatherRecordingFrame>): HistoryGraph =
         HistoryGraph.Machine(
-            if (entry.machine.stableId == search.id.value) search.chart else weather.chart,
+            machineCharts.getValue(entry.machine.stableId),
             entry.snapshot.active
                 .map(::StateId)
                 .toSet(),

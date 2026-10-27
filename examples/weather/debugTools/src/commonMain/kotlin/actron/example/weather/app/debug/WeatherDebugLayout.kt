@@ -56,7 +56,8 @@ fun WeatherDebugLayout(
 
                     is WeatherRoute.Weather -> {
                         CityWeatherScreen(
-                            route.checkpoint.snapshot.context
+                            route.checkpoint
+                                .context()
                                 .toUiState(enabled = false),
                             onIntent = {},
                         )
@@ -117,13 +118,13 @@ internal fun WeatherFrame.continuationWork(): ContinuationWork {
         search.ending.size +
             when (val screen = route) {
                 WeatherRoute.Search -> 0
-                is WeatherRoute.Weather -> screen.checkpoint.ending.size
+                is WeatherRoute.Weather -> listOf(screen.checkpoint.screen, screen.checkpoint.current, screen.checkpoint.hourly, screen.checkpoint.advice).sumOf { it.ending.size }
             }
     val effects =
         search.effects.size +
             when (val screen = route) {
                 WeatherRoute.Search -> 0
-                is WeatherRoute.Weather -> screen.checkpoint.effects.size
+                is WeatherRoute.Weather -> listOf(screen.checkpoint.screen, screen.checkpoint.current, screen.checkpoint.hourly, screen.checkpoint.advice).sumOf { it.effects.size } + screen.checkpoint.inFlight.size
             }
     return ContinuationWork(endings = ending, effects = effects)
 }

@@ -6,7 +6,7 @@ import kotlin.test.Test
 
 /** Import these output files in Weather's inspector to inspect automatically discovered paths. */
 class GeneratedRecordingFilesTest {
-    @Test fun writesImportableSearchAndParallelWeatherScenarios() {
+    @Test fun writesImportableSearchAndIndependentWeatherScenarios() {
         val directory = File("build/generated-scenarios").apply { mkdirs() }
         val search = GeneratedWeatherScenarios.search()
         val searches = search.generate(maxDepth = 6, maxDecisions = 100_000)
@@ -18,7 +18,7 @@ class GeneratedRecordingFilesTest {
             mapOf(
                 "late-moscow-command" to searchRecording(search.record(searches.witnesses.getValue("kazan-success-after-late-moscow"))),
                 "late-moscow-action" to searchRecording(search.record(searches.witnesses.getValue("late-moscow-action"))),
-                "parallel-forecast-first" to weatherRecording(weather.record(forecasts.witnesses.getValue("forecast-before-current"))),
+                "current-weather-success" to weatherRecording(weather.record(forecasts.witnesses.getValue("current-success"))),
             )
         for ((name, recording) in recordings) {
             val file = File(directory, "$name.actron.json")

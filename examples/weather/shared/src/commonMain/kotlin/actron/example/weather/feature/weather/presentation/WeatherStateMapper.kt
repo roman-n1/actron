@@ -4,6 +4,7 @@ import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.core.presentation.WeatherText
 import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.WeatherAdvice
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceState
 import actron.example.weather.resources.Res
 import actron.example.weather.resources.advice_cold
 import actron.example.weather.resources.advice_failed
@@ -75,8 +76,8 @@ fun WeatherContext.toUiState(enabled: Boolean): CityWeatherUiState {
         adviceActions =
             when (advice) {
                 WeatherAdviceState.Ready, WeatherAdviceState.Hidden, WeatherAdviceState.Dismissed -> emptyList()
-                is WeatherAdviceState.Error -> listOf(WeatherAdviceAction.Retry, WeatherAdviceAction.Dismiss)
-                WeatherAdviceState.Loading, is WeatherAdviceState.Visible -> listOf(WeatherAdviceAction.Dismiss)
+                is WeatherAdviceState.Error -> listOf(WeatherAdviceControl.Retry, WeatherAdviceControl.Dismiss)
+                WeatherAdviceState.Loading, is WeatherAdviceState.Visible -> listOf(WeatherAdviceControl.Dismiss)
             },
     )
 }

@@ -13,9 +13,9 @@ import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.WeatherAdvice
 import actron.example.weather.feature.weather.domain.WeatherReading
 import actron.example.weather.feature.weather.presentation.CityWeatherScreen
-import actron.example.weather.feature.weather.presentation.WeatherAdviceState
 import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.example.weather.feature.weather.presentation.toUiState
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest

@@ -7,6 +7,7 @@ import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.presentation.CitySearchAction
 import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherContext
 import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.example.weather.feature.weather.presentation.toUiState
 import actron.statechart.machine.*
@@ -72,31 +73,10 @@ class GeneratedWeatherScenariosTest {
         assertTrue(imported.entries.any { it.details.outcome.contains("StaleCommand") && it.details.before == it.details.after })
     }
 
-    @Test fun exploresParallelResponseOrdersErrorsRetriesAndTimeouts() {
-        val model = GeneratedWeatherScenarios.weather()
-        val generated = model.generate(maxDepth = 5, maxDecisions = 50_000)
-        generated.assertSuccess()
-        val coverage = generated.scenarios.map { model.record(it).also { trace -> trace.assertSuccess() }.coverage }.reduce { a, b -> a.merge(b) }
-        coverage.assertTransitionsCovered()
-        assertEquals(expected = 32, actual = coverage.transitions.covered.size)
-        assertEquals(setOf("forecast-before-current", "current-before-forecast"), generated.witnesses.keys)
-        println("Generated City Weather: ${generated.exploration.decisions} decisions, ${generated.scenarios.size} scenarios\n${coverage.describe(model.machine.chart)}")
-        val trace = model.record(generated.witnesses.getValue("forecast-before-current"))
-        val imported = WeatherRecording.import(WeatherRecording.codec.encode(weatherRecording(trace)))
-        val screen =
-            assertIs<WeatherDisplay.Weather>(
-                imported.entries
-                    .last()
-                    .snapshot.screen,
-            )
-        assertIs<RequestState.Success<*>>(screen.state.hourly)
-        assertIs<RequestState.Loading>(screen.state.current)
-        assertEquals(
-            2,
-            screen.state
-                .toUiState(enabled = false)
-                .forecast.size,
-        )
+    @Test fun exploresEachIndependentChildErrorsRetriesAndTimeouts() {
+        assertGeneratedCoverage(model = GeneratedWeatherScenarios.weather(), expected = 7)
+        assertGeneratedCoverage(model = GeneratedWeatherScenarios.hourly(), expected = 11)
+        assertGeneratedCoverage(model = GeneratedWeatherScenarios.advice(), expected = 14)
     }
 }
 
@@ -118,19 +98,31 @@ fun <CMD : Any, E : actron.core.Event> searchRecording(trace: ScenarioTrace<City
         machineName = "City Search",
     )
 
-fun <A : actron.core.Action, CMD : Any, E : actron.core.Event> weatherRecording(trace: ScenarioTrace<WeatherContext, A, CMD, E>) =
+fun <A : actron.core.Action, CMD : Any, E : actron.core.Event> weatherRecording(trace: ScenarioTrace<CurrentWeatherContext, A, CMD, E>) =
     trace.recording(
         WeatherRecording.codec.schema,
         WeatherRecording.definitions,
-        describe = { Json.encodeToJsonElement(WeatherContext.serializer(), it) },
+        describe = { Json.encodeToJsonElement(CurrentWeatherContext.serializer(), it) },
         snapshot = { step, coverage ->
             WeatherRecordingFrame(
-                WeatherDisplay.Weather(step.after.context),
+                WeatherDisplay.Weather(WeatherContext(city = step.after.context.city, current = step.after.context.state)),
                 step.after.configuration.active
                     .map { it.value },
                 coverage.hits.mapKeys { it.key.index },
             )
         },
         settings = HistoryExportSettings("Weather generated tests"),
-        machineName = "City Weather",
+        machineName = "Current Weather",
     )
+
+private fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> assertGeneratedCoverage(
+    model: ScenarioModel<C, A, CMD, E>,
+    expected: Int,
+) {
+    val generated = model.generate(maxDepth = 5, maxDecisions = 50_000)
+    generated.assertSuccess()
+    val coverage = generated.scenarios.map { model.record(scenario = it).also { trace -> trace.assertSuccess() }.coverage }.reduce { a, b -> a.merge(other = b) }
+    coverage.assertTransitionsCovered()
+    assertEquals(expected = expected, actual = coverage.transitions.covered.size)
+    println("${model.machine.id}: ${generated.exploration.decisions} decisions, ${generated.scenarios.size} scenarios\n${coverage.describe(chart = model.machine.chart)}")
+}

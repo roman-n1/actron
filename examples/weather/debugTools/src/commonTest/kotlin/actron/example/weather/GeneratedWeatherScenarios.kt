@@ -4,8 +4,17 @@ import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherAction
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherContext
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastContext
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastMachine
 import actron.example.weather.feature.weather.domain.*
 import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceAction
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceContext
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceMachine
 import actron.statechart.machine.MachineInput
 import actron.statechart.test.*
 
@@ -101,61 +110,41 @@ object GeneratedWeatherScenarios {
         }
 
     fun weather() =
-        CityWeatherMachine.create().scenarios(WeatherContext(kazan)) {
-            actions(WeatherAction.Refresh, WeatherAction.RetryForecast, WeatherAction.DismissAdvice, WeatherAction.RetryAdvice)
-            replies { command ->
-                // Real command registrations let the explorer choose either region's response first.
-                when (command) {
-                    is WeatherCommand.Advice -> {
-                        listOf(
-                            WeatherAction.AdviceLoaded(city = command.city, items = emptyList()),
-                            WeatherAction.AdviceLoaded(city = command.city, items = listOf(WeatherAdvice.Umbrella)),
-                            WeatherAction.AdviceFailed(reason = "offline"),
-                        )
-                    }
+        CurrentWeatherMachine.create().scenarios(initial = CurrentWeatherContext(city = kazan), configure = {
+            actions(CurrentWeatherAction.Refresh)
+            goal(name = "current-success", reached = { steps ->
+                steps
+                    .last()
+                    .after.context.state is RequestState.Success
+            })
+            replies(values = { command ->
+                listOf(
+                    CurrentWeatherAction.Loaded(reading = WeatherReading(city = command.city, temperature = 12.0, feelsLike = 10.0, wind = 3.0, code = 0, time = "12:00")),
+                    CurrentWeatherAction.Failed(message = "offline"),
+                )
+            })
+        })
 
-                    is WeatherCommand.Current -> {
-                        listOf(
-                            WeatherAction.Loaded(WeatherReading(command.city, 12.0, 10.0, 3.0, 0, "2026-10-20T12:00")),
-                            WeatherAction.Unavailable("offline"),
-                        )
-                    }
+    fun hourly() =
+        HourlyForecastMachine.create().scenarios(initial = HourlyForecastContext(city = kazan), configure = {
+            actions(HourlyForecastAction.Refresh, HourlyForecastAction.Retry)
+            replies(values = { command ->
+                listOf(
+                    HourlyForecastAction.Loaded(forecast = HourlyForecast(city = command.city, hours = listOf(ForecastHour(time = "13:00", temperature = 13.0, wind = 3.0, rainChance = 10)))),
+                    HourlyForecastAction.Failed(message = "offline"),
+                )
+            })
+        })
 
-                    is WeatherCommand.Hourly -> {
-                        listOf(
-                            WeatherAction.ForecastLoaded(
-                                HourlyForecast(
-                                    command.city,
-                                    listOf(
-                                        ForecastHour("2026-10-20T13:00", 13.0, 3.0, 10),
-                                        ForecastHour("2026-10-20T14:00", 14.0, 4.0, 20),
-                                    ),
-                                ),
-                            ),
-                            WeatherAction.ForecastFailed("offline"),
-                        )
-                    }
-                }
-            }
-            rule("forecast-result-preserves-current-weather") { step ->
-                val input = step.input
-                val forecast =
-                    input is MachineInput.CommandResult &&
-                        (input.action is WeatherAction.ForecastLoaded || input.action is WeatherAction.ForecastFailed)
-                !forecast || step.before.context.current == step.after.context.current
-            }
-            rule("forecast-retry-preserves-current-weather") { step ->
-                val input = step.input
-                input !is MachineInput.Dispatch || input.action != WeatherAction.RetryForecast ||
-                    step.before.context.current == step.after.context.current
-            }
-            goal("forecast-before-current") { steps ->
-                val state = steps.last().after.context
-                state.hourly is RequestState.Success && state.current is RequestState.Loading
-            }
-            goal("current-before-forecast") { steps ->
-                val state = steps.last().after.context
-                state.current is RequestState.Success && state.hourly is RequestState.Loading
-            }
-        }
+    fun advice() =
+        WeatherAdviceMachine.create().scenarios(initial = WeatherAdviceContext(city = kazan), configure = {
+            actions(WeatherAdviceAction.Refresh, WeatherAdviceAction.Retry, WeatherAdviceAction.Dismiss)
+            replies(values = { command ->
+                listOf(
+                    WeatherAdviceAction.Loaded(city = command.city, items = emptyList()),
+                    WeatherAdviceAction.Loaded(city = command.city, items = listOf(WeatherAdvice.Umbrella)),
+                    WeatherAdviceAction.Failed(message = "offline"),
+                )
+            })
+        })
 }

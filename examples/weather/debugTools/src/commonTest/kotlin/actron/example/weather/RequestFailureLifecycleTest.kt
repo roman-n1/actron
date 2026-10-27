@@ -6,9 +6,10 @@ import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.presentation.CitySearchAction
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
 import actron.example.weather.feature.cities.presentation.CitySearchState
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastContext
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastMachine
 import actron.example.weather.feature.weather.presentation.CityWeatherMachine
-import actron.example.weather.feature.weather.presentation.WeatherAction
-import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.statechart.test.test
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -39,26 +40,18 @@ class RequestFailureLifecycleTest {
         })
 
     @Test
-    fun bothWeatherTimeoutsUseErrorAndForecastRetryPreservesCurrentFailure() =
+    fun forecastTimeoutAndRequestFailureUseTheSameRetryableErrorState() =
         runTest(testBody = {
-            CityWeatherMachine.create().test(
-                scope = this,
-                initial = WeatherContext(city = demoCities.first()),
-                scenario = {
-                    dispatch(action = WeatherAction.Refresh)
-                    advanceTimeBy(duration = 8.seconds)
-                    assertEquals(expected = RequestFailure.Timeout, actual = expectState<RequestState.Error>(select = { it.current }).cause)
-                    assertEquals(expected = RequestFailure.Timeout, actual = expectState<RequestState.Error>(select = { it.hourly }).cause)
-                    dispatch(action = WeatherAction.RetryForecast)
-                    assertEquals(expected = RequestFailure.Timeout, actual = expectState<RequestState.Error>(select = { it.current }).cause)
-                    expectState<RequestState.Loading>(select = { it.hourly })
-                    completeCommand(result = { WeatherAction.ForecastFailed(message = "offline") })
-                    assertEquals(expected = RequestFailure.Unavailable(message = "offline"), actual = expectState<RequestState.Error>(select = { it.hourly }).cause)
-                    dispatch(action = WeatherAction.Refresh)
-                    expectState<RequestState.Loading>(select = { it.current })
-                    expectState<RequestState.Loading>(select = { it.hourly })
-                    advanceTimeBy(duration = 8.seconds)
-                },
-            )
+            HourlyForecastMachine.create().test(scope = this, initial = HourlyForecastContext(city = demoCities.first()), scenario = {
+                dispatch(action = HourlyForecastAction.Refresh)
+                advanceTimeBy(duration = 8.seconds)
+                assertEquals(expected = RequestFailure.Timeout, actual = expectState<RequestState.Error>(select = { it.state }).cause)
+                dispatch(action = HourlyForecastAction.Retry)
+                completeCommand(result = { HourlyForecastAction.Failed(message = "offline") })
+                assertEquals(expected = RequestFailure.Unavailable(message = "offline"), actual = expectState<RequestState.Error>(select = { it.state }).cause)
+                dispatch(action = HourlyForecastAction.Refresh)
+                expectState<RequestState.Loading>(select = { it.state })
+                advanceTimeBy(duration = 8.seconds)
+            })
         })
 }

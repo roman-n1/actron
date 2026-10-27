@@ -5,9 +5,9 @@ import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.feature.weather.domain.WeatherAdvice
 import actron.example.weather.feature.weather.presentation.CityWeatherIntent
 import actron.example.weather.feature.weather.presentation.CityWeatherScreen
-import actron.example.weather.feature.weather.presentation.WeatherAdviceState
 import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.example.weather.feature.weather.presentation.toUiState
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceState
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag

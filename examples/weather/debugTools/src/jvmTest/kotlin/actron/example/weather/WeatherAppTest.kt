@@ -44,7 +44,7 @@ import kotlin.test.Test
 
 class WeatherAppTest {
     @Test
-    fun graphFollowsSearchAndParallelWeatherHistory() =
+    fun graphFollowsSearchAndIndependentWeatherHistory() =
         runComposeUiTest {
             setRootContent(SampleWeatherRepository)
             onNodeWithTag("debug-settings").performClick()
@@ -62,13 +62,12 @@ class WeatherAppTest {
             onNodeWithTag("city-Lisbon").performClick()
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("history-machine-filter").performClick()
-            onNodeWithText("City Weather").performClick()
+            onNodeWithText("Current Weather").performClick()
             // The current panel deliberately keeps a pinned selection when its filter changes.
             onNodeWithTag("machine-graph").assertContentDescriptionContains("Debouncing", substring = true)
             onNodeWithTag("history-navigation-menu").performClick()
             onNodeWithTag("history-last").performClick()
-            onNodeWithTag("machine-graph").assertContentDescriptionContains("Current.Success", substring = true)
-            onNodeWithTag("machine-graph").assertContentDescriptionContains("Hourly.Success", substring = true)
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Success", substring = true)
             onNodeWithTag("graph-zoom-in").performClick()
             onNodeWithTag("graph-fit").performClick()
             onNodeWithTag("history-event-tab").performClick()

@@ -9,12 +9,11 @@ import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
 import actron.example.weather.feature.cities.presentation.CitySearchState
 import actron.example.weather.feature.cities.presentation.citySearchHandler
-import actron.example.weather.feature.weather.domain.HourlyForecastRepository
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherAction
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherContext
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
+import actron.example.weather.feature.currentweather.presentation.currentWeatherHandler
 import actron.example.weather.feature.weather.domain.WeatherRepository
-import actron.example.weather.feature.weather.presentation.CityWeatherMachine
-import actron.example.weather.feature.weather.presentation.WeatherAction
-import actron.example.weather.feature.weather.presentation.WeatherContext
-import actron.example.weather.feature.weather.presentation.cityWeatherHandler
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.instancekeeper.InstanceKeeperDispatcher
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
@@ -42,28 +41,28 @@ class RetainedMachineTest {
                     cancelled++
                 }
             }
-            val handler = cityWeatherHandler(WeatherRepository { request() }, HourlyForecastRepository { request() })
+            val handler = currentWeatherHandler(repository = WeatherRepository { request() })
 
             fun create() =
                 DefaultComponentContext(LifecycleRegistry(), instanceKeeper = keeper).retainedMachine(
                     key = "weather",
-                    machine = CityWeatherMachine.create(),
-                    initial = WeatherContext(demoCities.first()),
+                    machine = CurrentWeatherMachine.create(),
+                    initial = CurrentWeatherContext(demoCities.first()),
                     handler = handler,
                     coroutineContext = coroutineContext,
-                    initialActions = listOf(WeatherAction.Refresh),
+                    initialActions = listOf(CurrentWeatherAction.Refresh),
                 )
             val store = create()
             testScheduler.runCurrent()
             assertTrue(store.state.value.isStarted)
-            assertEquals(3, started)
+            assertEquals(1, started)
             assertSame(store, create())
             testScheduler.runCurrent()
-            assertEquals(3, started, "Host recreation must not repeat startup actions")
+            assertEquals(1, started, "Host recreation must not repeat startup actions")
             assertEquals(0, cancelled)
             keeper.destroy()
             testScheduler.runCurrent()
-            assertEquals(3, cancelled)
+            assertEquals(1, cancelled)
         }
 
     @Test
@@ -71,9 +70,9 @@ class RetainedMachineTest {
         runTest {
             val keeper = InstanceKeeperDispatcher()
             val context = DefaultComponentContext(LifecycleRegistry(), instanceKeeper = keeper)
-            val handler = cityWeatherHandler(WeatherRepository { awaitCancellation() }, HourlyForecastRepository { awaitCancellation() })
-            val first = context.retainedMachine("first", CityWeatherMachine.create(), WeatherContext(demoCities[0]), handler, coroutineContext = coroutineContext)
-            val second = context.retainedMachine("second", CityWeatherMachine.create(), WeatherContext(demoCities[1]), handler, coroutineContext = coroutineContext)
+            val handler = currentWeatherHandler(repository = WeatherRepository { awaitCancellation() })
+            val first = context.retainedMachine("first", CurrentWeatherMachine.create(), CurrentWeatherContext(demoCities[0]), handler, coroutineContext = coroutineContext)
+            val second = context.retainedMachine("second", CurrentWeatherMachine.create(), CurrentWeatherContext(demoCities[1]), handler, coroutineContext = coroutineContext)
             testScheduler.runCurrent()
             assertNotSame(first, second)
             assertEquals(demoCities[0], first.state.value.context.city)

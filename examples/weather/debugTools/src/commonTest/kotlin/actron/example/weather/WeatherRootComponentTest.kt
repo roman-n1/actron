@@ -20,6 +20,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -87,7 +88,7 @@ class WeatherRootComponentTest {
                     root
                         .getChildStack()
                         .value.active.instance as actron.example.weather.feature.weather.presentation.CityWeatherComponent
-                assertEquals(demoCities[1], weather.state.value.context.city)
+                assertEquals(demoCities[1], weather.state.value.city)
                 weather.onUiEvent(actron.example.weather.feature.weather.presentation.CityWeatherIntent.Back)
                 testScheduler.runCurrent()
                 val restored =
@@ -100,7 +101,7 @@ class WeatherRootComponentTest {
                 assertEquals("Paris", restored.state.value.context.query)
                 assertTrue(
                     history.timeline.entries.value
-                        .all { it.machine.stableId in setOf("city-search", "city-weather") },
+                        .all { it.machine.stableId in setOf("city-search", "city-weather", "current-weather", "hourly-forecast", "weather-advice") },
                 )
                 root.continueFrom(searchEntry.snapshot)
                 testScheduler.runCurrent()
@@ -115,7 +116,7 @@ class WeatherRootComponentTest {
                     root
                         .getChildStack()
                         .value.active.instance as actron.example.weather.feature.weather.presentation.CityWeatherComponent
-                assertEquals(demoCities[1], pastWeather.state.value.context.city)
+                assertEquals(demoCities[1], pastWeather.state.value.city)
                 assertEquals(2, currentCalls, "Restoring the weather screen retains completed current weather")
                 assertEquals(3, hourlyCalls, "Restoring the weather screen restarts only the pending forecast")
             } finally {
@@ -161,8 +162,15 @@ class WeatherRootComponentTest {
             testScheduler.runCurrent()
             assertEquals(initialCalls + 2, requests.size)
             val retainedEntries = history.timeline.entries.value
+            assertTrue(
+                actual = retainedEntries.map { it.machine.stableId }.containsAll(listOf("city-weather", "current-weather", "hourly-forecast", "weather-advice")),
+                message = "The screen must run four independently recorded machines",
+            )
             assertTrue(retainedEntries.any { it.machine.name.startsWith("City Search") })
             assertTrue(retainedEntries.any { it.machine.name.startsWith("City Weather") })
+            val parentEntry = retainedEntries.last { it.machine.stableId == "city-weather" }
+            assertFalse(actual = parentEntry.snapshot.application.canResume(), message = "A parent event still crossing routes is not a resumable cut")
+            assertTrue(actual = retainedEntries.any { it.machine.stableId == "weather-advice" && it.snapshot.application.canResume() })
             val saved = stateKeeper.save()
             firstLifecycle.destroy()
 
@@ -195,7 +203,7 @@ class WeatherRootComponentTest {
                             .getChildStack()
                             .value.active.instance,
                     )
-                assertEquals("Lisbon", weather.state.value.context.city.name)
+                assertEquals("Lisbon", weather.state.value.city.name)
                 assertEquals(initialCalls + 2, requests.size)
                 weather.onUiEvent(actron.example.weather.feature.weather.presentation.CityWeatherIntent.Back)
                 testScheduler.runCurrent()

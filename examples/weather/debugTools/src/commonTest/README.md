@@ -13,7 +13,7 @@ MockEngine; none of these tests needs the public weather server.
 | --- | --- |
 | [AdvancedWeatherTestingTest](kotlin/actron/example/weather/AdvancedWeatherTestingTest.kt) | Temporal obligations, executor ordering/errors/timeout/restart, mutation testing |
 | [CitySearchScenarioTest](kotlin/actron/example/weather/CitySearchScenarioTest.kt) | Handwritten `machine.test` scenario, virtual debounce, command answers and assertions |
-| [WeatherScenarioTest](kotlin/actron/example/weather/WeatherScenarioTest.kt) | Select which parallel command completes; preserve the other region |
+| [WeatherScenarioTest](kotlin/actron/example/weather/WeatherScenarioTest.kt) | Execute the standalone forecast machine without a screen or siblings |
 | [GeneratedWeatherScenarios](kotlin/actron/example/weather/GeneratedWeatherScenarios.kt) | Finite input data, command answers, rules and required goals |
 | [GeneratedWeatherScenariosTest](kotlin/actron/example/weather/GeneratedWeatherScenariosTest.kt) | Generate, replay, measure coverage and project traces into display recordings |
 | [CitySearchTest](kotlin/actron/example/weather/CitySearchTest.kt) | Real Store/handler/repository chain, HTTP decoding, cancellation and late callbacks |
@@ -40,8 +40,8 @@ CitySearchMachine.create().test(this, CitySearchState()) {
 
 `dispatch` waits for the action to be processed. `advanceTimeBy` moves virtual time rather than
 sleeping. `completeCommand` supplies a typed result for the matching actual command; it does
-not call HTTP. In a parallel scenario use `matching = { it is WeatherCommand.Hourly }` so the
-test does not accidentally answer the current-weather request. The DSL checks unexpected
+not call HTTP. Each standalone feature driver exposes only that machine's own command type.
+Composition tests use the production WeatherMachines owner and typed group routes. The DSL checks unexpected
 failures/pending work and closes the driver. Use `allowPendingWork` only when ending with work
 in progress is intentional.
 
@@ -75,7 +75,7 @@ println(trace.coverage.describe(model.machine.chart))
 `generate` is bounded pure-model exploration using the real decision function. It does not
 test coroutine scheduling, HTTP behavior or executor lane arbitration. Its `assertSuccess`
 rejects rule failures, budget exhaustion, uncovered target transitions and missing goals.
-With the current data, the selected scenarios cover 14/14 search and 32/32 weather transitions (including the independent Advice lifecycle).
+With the current data, the selected scenarios cover 14/14 search, 7/7 current-weather, 11/11 forecast and 14/14 advice transitions; the parent Refresh is tested separately.
 This does not imply every guard outcome, payload or longer sequence was tested.
 
 `record` reruns the discovered inputs from the same initial context and retains each actual
@@ -116,7 +116,7 @@ Open Settings → Debug panel → Import beside the machine filter. Choose a fil
 
 - `late-moscow-command.actron.json`: cancelled Moscow request, stale result, Kazan success.
 - `late-moscow-action.actron.json`: independent revision-guard verification.
-- `parallel-forecast-first.actron.json`: forecast displayed while current weather is loading.
+- `current-weather-success.actron.json`: a standalone current-weather machine reaches Success.
 
 Scrub the timeline and switch between Event and Graph. Imported files contain display data,
 not executable commands; they cannot be continued. The typed in-memory scenario is the

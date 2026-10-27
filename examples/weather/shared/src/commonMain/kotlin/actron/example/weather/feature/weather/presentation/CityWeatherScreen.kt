@@ -126,7 +126,7 @@ private fun WeatherAdviceCard(
                 Text(text = stringResource(resource = Res.string.advice_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(weight = 1f))
                 for (action in state.adviceActions) {
                     when (action) {
-                        WeatherAdviceAction.Dismiss -> {
+                        WeatherAdviceControl.Dismiss -> {
                             TextButton(
                                 onClick = { onIntent(CityWeatherIntent.DismissAdvice) },
                                 enabled = state.enabled,
@@ -135,7 +135,7 @@ private fun WeatherAdviceCard(
                             )
                         }
 
-                        WeatherAdviceAction.Retry -> {
+                        WeatherAdviceControl.Retry -> {
                             TextButton(
                                 onClick = { onIntent(CityWeatherIntent.RetryAdvice) },
                                 enabled = state.enabled,

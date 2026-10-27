@@ -18,11 +18,11 @@ data class CityWeatherUiState(
     val forecastFailed: Boolean = false,
     val enabled: Boolean = false,
     val advice: List<WeatherText> = emptyList(),
-    val adviceActions: List<WeatherAdviceAction> = emptyList(),
+    val adviceActions: List<WeatherAdviceControl> = emptyList(),
 )
 
 /** An error card offers both actions; these are rendered controls, not an availability flag. */
-enum class WeatherAdviceAction { Dismiss, Retry }
+enum class WeatherAdviceControl { Dismiss, Retry }
 
 sealed interface CityWeatherIntent {
     data object DismissAdvice : CityWeatherIntent
