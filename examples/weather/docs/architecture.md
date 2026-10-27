@@ -95,7 +95,8 @@ regions enter Ready and schedule no commands or timers. The header uses `context
 The screen dispatches one `WeatherAction.Refresh` input. The parallel chart delivers it to its
 active regions; each region owns the transition into Loading. All selected transitions commit in
 one decision. The parent activation stays alive while old child commands and timers are cancelled.
-Opening a city waits for this explicit input; the production factory no longer sends initial Refresh.
+After Ready is activated, the screen factory sends the first shared Refresh automatically through
+`initialActions`. The button sends the same input for subsequent reloads.
 
 `Current` selects `context.current`; `Hourly` selects `context.hourly`. They reuse `requestStates`
 for Ready/Loading/Success/Error and the eight-second timeout. Refresh works from all four states;
@@ -260,8 +261,8 @@ clock and tracking; recording supplies history observers. The adapter attaches t
 startup, so the first decision is recorded. Recreating a host does not bind another recorder.
 Handlers/options must not retain a component, bridge endpoint or UI-lifecycle scope.
 
-The Weather factory keeps `initialActions` empty; a fresh screen waits in Ready. Optional initial actions
-are dispatched after configuration/start exactly once for that retained instance, and skipped
+The Weather factory sets `initialActions = listOf(WeatherAction.Refresh)`. The initial action
+is dispatched after configuration/start exactly once for a fresh retained instance, and skipped
 when resuming an already-started checkpoint. Existing completed regions are not refreshed by
 host recreation or continuation. Destroying the keeper closes the Store and cancels its commands.
 

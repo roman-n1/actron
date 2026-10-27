@@ -76,6 +76,7 @@ class DefaultCityWeatherComponentFactory(
                 restoration = session.weatherRestoration(city),
                 recording = recording,
                 coroutineContext = coroutineContext,
+                initialActions = listOf(WeatherAction.Refresh),
             )
         return DefaultCityWeatherComponent(componentContext, endpoint, coroutineContext, store)
     }

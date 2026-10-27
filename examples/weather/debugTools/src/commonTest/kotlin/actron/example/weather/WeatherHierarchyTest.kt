@@ -64,6 +64,29 @@ class WeatherHierarchyTest {
     }
 
     @Test
+    fun sharedRefreshReloadsSuccessErrorAndDismissedRegionsTogether() =
+        runTest(testBody = {
+            val city = demoCities.first()
+            CityWeatherMachine.create().test(scope = this, initial = WeatherContext(city = city), scenario = {
+                dispatch(action = WeatherAction.Refresh)
+                completeCommand(matching = { it is WeatherCommand.Current }, result = {
+                    WeatherAction.Loaded(reading = WeatherReading(city = city, temperature = 15.0, feelsLike = 15.0, wind = 2.0, code = 0, time = "12:00"))
+                })
+                completeCommand(matching = { it is WeatherCommand.Hourly }, result = { WeatherAction.ForecastFailed(message = "offline") })
+                dispatch(action = WeatherAction.DismissAdvice)
+                expectState<RequestState.Success<WeatherReading>>(select = { it.current })
+                expectState<RequestState.Error>(select = { it.hourly })
+                assertEquals(expected = WeatherAdviceState.Dismissed, actual = context.advice)
+                dispatch(action = WeatherAction.Refresh)
+                expectState<RequestState.Loading>(select = { it.current })
+                expectState<RequestState.Loading>(select = { it.hourly })
+                assertEquals(expected = WeatherAdviceState.Loading, actual = context.advice)
+                assertEquals(expected = 3, actual = driver.runningCommands.size)
+                advanceTimeBy(duration = 8.seconds)
+            })
+        })
+
+    @Test
     fun adviceHasItsOwnResultAndStaysDismissedUntilParentRefresh() =
         runTest(testBody = {
             val city = demoCities.first()

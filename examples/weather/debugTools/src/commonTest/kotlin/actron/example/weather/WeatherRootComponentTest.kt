@@ -63,8 +63,6 @@ class WeatherRootComponentTest {
                 assertTrue(frozenCoverage.isNotEmpty())
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
                 testScheduler.runCurrent()
-                root.refreshWeather()
-                testScheduler.runCurrent()
                 val entry =
                     history.timeline.entries.value
                         .last()
@@ -161,9 +159,6 @@ class WeatherRootComponentTest {
             search.onUiEvent(CitySearchIntent.QueryChanged("Lis"))
             search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
             testScheduler.runCurrent()
-            assertEquals(expected = initialCalls, actual = requests.size, message = "Opening the weather screen must leave children Ready without HTTP calls")
-            first.refreshWeather()
-            testScheduler.runCurrent()
             assertEquals(initialCalls + 2, requests.size)
             val retainedEntries = history.timeline.entries.value
             assertTrue(retainedEntries.any { it.machine.name.startsWith("City Search") })
@@ -212,8 +207,6 @@ class WeatherRootComponentTest {
                 restoredSearch.onUiEvent(CitySearchIntent.SelectCity(demoCities[2]))
                 restoredSearch.onUiEvent(CitySearchIntent.SelectCity(demoCities[2]))
                 testScheduler.runCurrent()
-                root.refreshWeather()
-                testScheduler.runCurrent()
                 assertEquals(initialCalls + 4, requests.size)
                 assertEquals(demoCities[2], requests.last())
                 assertEquals(
@@ -256,8 +249,6 @@ class WeatherRootComponentTest {
                 testScheduler.runCurrent()
                 assertEquals("Lis", search.state.value.context.query)
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
-                testScheduler.runCurrent()
-                root.refreshWeather()
                 testScheduler.runCurrent()
                 kotlin.test.assertIs<actron.example.weather.feature.weather.presentation.CityWeatherComponent>(
                     root
@@ -345,8 +336,6 @@ class WeatherRootComponentTest {
                         .value.active.instance as CitySearchComponent
                 ).onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
                 testScheduler.runCurrent()
-                root.refreshWeather()
-                testScheduler.runCurrent()
                 assertTrue(started)
             } finally {
                 lifecycle.destroy()
@@ -393,8 +382,6 @@ class WeatherRootComponentTest {
                         .value.active.instance as CitySearchComponent
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[1]))
                 testScheduler.runCurrent()
-                root.refreshWeather()
-                testScheduler.runCurrent()
                 val weather =
                     root
                         .getChildStack()
@@ -409,8 +396,6 @@ class WeatherRootComponentTest {
                         .value.active.instance,
                 )
                 search.onUiEvent(CitySearchIntent.SelectCity(demoCities[2]))
-                testScheduler.runCurrent()
-                root.refreshWeather()
                 testScheduler.runCurrent()
                 assertEquals(listOf(demoCities[1], demoCities[1], demoCities[2], demoCities[2]), current)
                 assertEquals(listOf(demoCities[1], demoCities[2]), hourly)
