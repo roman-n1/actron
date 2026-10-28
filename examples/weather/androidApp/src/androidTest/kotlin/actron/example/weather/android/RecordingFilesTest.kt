@@ -34,10 +34,10 @@ class RecordingFilesTest {
     }
 
     private fun awaitAppNode(tag: String) {
-        // DocumentsUI can still own the foreground window while its result is returning.
+        // DocumentsUI can still own the window; saving also keeps controls disabled until IO ends.
         compose.waitUntil(timeoutMillis = timeout, condition = {
             compose
-                .onAllNodesWithTag(testTag = tag)
+                .onAllNodes(matcher = hasTestTag(testTag = tag) and isEnabled())
                 .fetchSemanticsNodes(atLeastOneRootRequired = false)
                 .isNotEmpty()
         })
