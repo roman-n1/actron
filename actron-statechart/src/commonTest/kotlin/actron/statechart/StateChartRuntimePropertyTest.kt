@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,7 +27,7 @@ import kotlin.test.assertTrue
  * C --"Reset" (by name)--> A
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartRuntimePropertyTest {
     private val simpleNames =
         mapOf(

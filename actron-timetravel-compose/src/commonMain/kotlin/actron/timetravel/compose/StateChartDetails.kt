@@ -23,6 +23,6 @@ internal fun StateChartDetails(
 
 @Composable
 private fun ChartDetail(model: ChartDetailPresentation) {
-    Text(model.heading, modifier = Modifier.testTag("chart-detail"))
-    for (line in model.lines) Text(line)
+    Text(model.heading.resolve(), modifier = Modifier.testTag("chart-detail"))
+    for (line in model.lines) Text(line.resolve())
 }

@@ -53,7 +53,7 @@ class HistoryEventSummaryTest {
             assertTrue(after.top > action.bottom)
             assertTrue(before.center.x < action.center.x)
             assertTrue(after.center.x > action.center.x)
-            val changedFields = HistoryText.ChangedFields.forLanguage(Locale.getDefault().language)
+            val changedFields = expectedHistoryText(text = HistoryText.ChangedFields, language = Locale.getDefault().language)
             onNodeWithTag("history-entry-changes-1", useUnmergedTree = true).assertTextEquals("$changedFields: query")
             onNodeWithText("do-not-repeat", substring = true).assertDoesNotExist()
             onNodeWithText("revision:", substring = true).assertDoesNotExist()
@@ -77,7 +77,7 @@ class HistoryEventSummaryTest {
             val summary = onNodeWithTag("history-entry-changes-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val row = onNodeWithTag("history-entry-1").fetchSemanticsNode().boundsInRoot
             assertTrue(summary.right <= row.right)
-            val noChanges = HistoryText.NoOtherFieldChanges.forLanguage(Locale.getDefault().language)
+            val noChanges = expectedHistoryText(text = HistoryText.NoOtherFieldChanges, language = Locale.getDefault().language)
             onNodeWithTag("history-entry-changes-2", useUnmergedTree = true).assertTextEquals(noChanges)
         }
 

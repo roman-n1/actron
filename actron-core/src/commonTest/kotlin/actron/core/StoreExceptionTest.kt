@@ -45,7 +45,7 @@ class StoreExceptionTest {
                         },
                 )
 
-            store.collectState { } // start Store
+            store.observeState { } // start Store
 
             assertNotNull(handledExceptionObservations.single())
         }
@@ -61,13 +61,13 @@ class StoreExceptionTest {
                         enter {
                             throw RuntimeException("error")
                         }
-                        error<RuntimeException> {
+                        recover<RuntimeException> {
                             nextState { AppState(1) }
                         }
                     }
                 }
 
-            store.collectState { } // start Store
+            store.observeState { } // start Store
 
             assertEquals(AppState(1), store.currentState)
         }

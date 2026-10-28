@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.statechart.machine
 
 import actron.core.Action

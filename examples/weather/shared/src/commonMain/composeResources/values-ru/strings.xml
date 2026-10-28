@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cities">Города</string>
+    <string name="search_cities">Поиск города</string>
+    <string name="enter_city">Введите название города</string>
+    <string name="debouncing">Ожидание ввода…</string>
+    <string name="searching">Поиск…</string>
+    <string name="retry">Повторить</string>
+    <string name="no_cities">Города не найдены</string>
+    <string name="search_failed">Не удалось загрузить города. Попробуйте ещё раз.</string>
+    <string name="back">Назад</string>
+    <string name="refresh">Обновить</string>
+    <string name="next_hours">Ближайшие 6 часов</string>
+    <string name="retry_forecast">Повторить прогноз</string>
+    <string name="feels_like">Ощущается как %1$s° · ветер %2$s км/ч</string>
+    <string name="loading_weather">Загрузка погоды…</string>
+    <string name="weather_failed">Не удалось загрузить погоду. Обновите, чтобы попробовать ещё раз.</string>
+    <string name="choose_weather_city">Выберите город, чтобы увидеть погоду</string>
+    <string name="loading_forecast">Загрузка прогноза…</string>
+    <string name="forecast_failed">Не удалось загрузить прогноз. Попробуйте ещё раз.</string>
+    <string name="choose_city">Выберите город</string>
+    <string name="wind">Ветер %1$s км/ч</string>
+    <string name="rain">Вероятность осадков %1$s%</string>
+    <string name="updated">Обновлено %1$s</string>
+    <string name="timestamp">%1$s · %2$s мс</string>
+    <string name="temperature">%1$s°</string>
+    <string name="unknown_temperature">—</string>
+    <string name="advice_title">Погодные советы</string>
+    <string name="advice_loading">Проверяем погодные условия…</string>
+    <string name="advice_failed">Не удалось загрузить погодные советы. Попробуйте ещё раз.</string>
+    <string name="advice_dismiss">Закрыть погодные советы</string>
+    <string name="advice_close_symbol">×</string>
+    <string name="advice_umbrella">Идёт дождь — возьмите зонт.</string>
+    <string name="advice_ice">Ледяные осадки — на дорогах может быть скользко.</string>
+    <string name="advice_wind">Сильный ветер — будьте осторожны на улице.</string>
+    <string name="advice_heat">На улице жарко — возьмите с собой воду.</string>
+    <string name="advice_cold">На улице мороз — одевайтесь теплее.</string>
+    <string name="weather_in_city">Погода — %1$s</string>
+    <string name="current_weather">Текущая погода</string>
+    <string name="advice_storm">Гроза — лучше переждать её в помещении.</string>
+    <string name="weather_ready">Нажмите «Обновить», чтобы загрузить погоду.</string>
+    <string name="forecast_ready">Нажмите «Обновить», чтобы загрузить прогноз.</string>
+    <string name="advice_ready">Нажмите «Обновить», чтобы проверить погодные условия.</string>
+</resources>

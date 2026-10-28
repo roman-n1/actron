@@ -1,11 +1,10 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+@file:OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 
 package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.core.Plugin
 import actron.core.PluginScope
 import actron.observability.JournalEntry

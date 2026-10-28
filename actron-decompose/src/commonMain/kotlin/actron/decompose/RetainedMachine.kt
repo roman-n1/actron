@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.decompose
 
 import actron.core.Action

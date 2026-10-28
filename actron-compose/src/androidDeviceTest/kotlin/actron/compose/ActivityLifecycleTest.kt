@@ -3,7 +3,6 @@
 package actron.compose
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
@@ -33,7 +32,6 @@ import kotlin.test.assertSame
 
 /** Real Android lifecycle: active -> recreate/stop/remove/key replacement -> active. */
 @RunWith(AndroidJUnit4::class)
-@OptIn(ExperimentalActronApi::class)
 class ActivityLifecycleTest {
     @get:Rule val compose = createEmptyComposeRule()
 
@@ -325,7 +323,6 @@ private class TrackedStore(
     }
 }
 
-@OptIn(ExperimentalActronApi::class)
 private class Fixture {
     val tabs = mutableStateOf(listOf("left"))
     val storeKey = mutableStateOf("same-chat")

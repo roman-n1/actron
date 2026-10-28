@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import kotlin.random.Random
 import kotlin.time.Duration
@@ -28,7 +27,7 @@ sealed interface RandomAction : Action {
 /**
  * A Actron state for runtime tests: a chart node plus data that guards can read.
  */
-@OptIn(ExperimentalActronApi::class)
+
 data class RandomState(
     val id: StateId,
     val attempts: Int = 0,
@@ -45,7 +44,7 @@ data class RandomState(
  * self-loops, duplicate transitions, guards and unreachable islands. With `valid = false` they may
  * also contain duplicate states and undeclared endpoints.
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal object RandomCharts {
     /** Seeds used by every property; fixed so failures reproduce. */
     val seeds: List<Int> = List(300) { it * 7919 + 17 }

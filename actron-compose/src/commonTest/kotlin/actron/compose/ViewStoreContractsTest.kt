@@ -292,7 +292,7 @@ class ViewStoreContractsTest {
             withComposition(
                 content = {
                     ViewStore<UiState, Nothing, Nothing>(state = UiState.Ready(7))
-                        .render<UiState.Ready> {
+                        .stateContent<UiState.Ready> {
                             renderedValues += state.value
                         }
                 },
@@ -313,7 +313,7 @@ class ViewStoreContractsTest {
                     ViewStore<UiState, UiAction, UiEvent>(
                         state = UiState.Ready(0),
                         eventFlow = events,
-                    ).handle<UiEvent.ValueChanged> { event ->
+                    ).eventEffect<UiEvent.ValueChanged> { event ->
                         handled += event
                     }
                 },

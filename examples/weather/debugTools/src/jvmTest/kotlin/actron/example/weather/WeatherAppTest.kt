@@ -44,7 +44,7 @@ import kotlin.test.Test
 
 class WeatherAppTest {
     @Test
-    fun graphFollowsSearchAndParallelWeatherHistory() =
+    fun graphFollowsSearchAndIndependentWeatherHistory() =
         runComposeUiTest {
             setRootContent(SampleWeatherRepository)
             onNodeWithTag("debug-settings").performClick()
@@ -62,13 +62,12 @@ class WeatherAppTest {
             onNodeWithTag("city-Lisbon").performClick()
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("history-machine-filter").performClick()
-            onNodeWithText("City Weather").performClick()
+            onNodeWithText("Current Weather").performClick()
             // The current panel deliberately keeps a pinned selection when its filter changes.
             onNodeWithTag("machine-graph").assertContentDescriptionContains("Debouncing", substring = true)
             onNodeWithTag("history-navigation-menu").performClick()
             onNodeWithTag("history-last").performClick()
-            onNodeWithTag("machine-graph").assertContentDescriptionContains("Current.Success", substring = true)
-            onNodeWithTag("machine-graph").assertContentDescriptionContains("Hourly.Success", substring = true)
+            onNodeWithTag("machine-graph").assertContentDescriptionContains("Success", substring = true)
             onNodeWithTag("graph-zoom-in").performClick()
             onNodeWithTag("graph-fit").performClick()
             onNodeWithTag("history-event-tab").performClick()
@@ -172,16 +171,16 @@ class WeatherAppTest {
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Springfield").fetchSemanticsNodes().any { !it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) } }
             onNodeWithText("Illinois, United States").assertIsDisplayed()
             onNodeWithTag("city-Springfield").performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Springfield").fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(text = "Springfield", substring = true).fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             kotlin.test.assertEquals(city, requests.last())
             onNodeWithTag("weather-back").performClick()
             onNodeWithTag("city-search").assertTextContains("Springfield")
             val previousCalls = requests.size
             onNodeWithTag("city-Springfield").assertIsEnabled().performClick()
             onNodeWithTag("weather-refresh").assertIsEnabled()
-            waitUntil(timeoutMillis = 10_000) { requests.size == previousCalls + 1 }
+            waitUntil(timeoutMillis = 10_000) { requests.size == previousCalls + 2 }
             kotlin.test.assertEquals(city, requests.last())
-            onNodeWithTag("weather-city").assertTextContains("Springfield")
+            onNodeWithTag("weather-city").assertTextContains(value = "Springfield", substring = true)
         }
 
     @Test
@@ -201,9 +200,9 @@ class WeatherAppTest {
             onNodeWithTag("city-search").performTextReplacement("Lisbon")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("city-Lisbon").performScrollTo().performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Lisbon").fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(text = "Lisbon", substring = true).fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("cities-screen").assertDoesNotExist()
-            onNodeWithTag("weather-city").assertTextContains("Lisbon")
+            onNodeWithTag("weather-city").assertTextContains(value = "Lisbon", substring = true)
             onNodeWithTag("weather-back").performClick()
             onNodeWithTag("weather-screen").assertDoesNotExist()
             onNodeWithTag("city-search").performTextReplacement("")
@@ -212,13 +211,13 @@ class WeatherAppTest {
             onNodeWithTag("city-search").performTextReplacement("Tokyo")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("city-Tokyo").performScrollTo().performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Tokyo").fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
-            onNodeWithTag("weather-city").assertTextContains("Tokyo")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText(text = "Tokyo", substring = true).fetchSemanticsNodes().isNotEmpty() && onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("weather-city").assertTextContains(value = "Tokyo", substring = true)
             val calls = requests.size
             onNodeWithTag("weather-refresh").performClick()
-            waitUntil(timeoutMillis = 10_000) { requests.size == calls + 1 }
+            waitUntil(timeoutMillis = 10_000) { requests.size == calls + 2 }
             kotlin.test.assertEquals(demoCities[2], requests.last())
-            onNodeWithTag("weather-city").assertTextContains("Tokyo")
+            onNodeWithTag("weather-city").assertTextContains(value = "Tokyo", substring = true)
             onNodeWithTag("cities-screen").assertDoesNotExist()
         }
 
@@ -231,7 +230,18 @@ class WeatherAppTest {
             onNodeWithTag("city-search").performTextReplacement("Lisbon")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
             onNodeWithTag("city-Lisbon").performClick()
-            waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Feels like 16° · wind 12 km/h").fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = 10_000) {
+                onAllNodesWithText(
+                    if (java.util.Locale
+                            .getDefault()
+                            .language == "ru"
+                    ) {
+                        "Ощущается как 16° · ветер 12 км/ч"
+                    } else {
+                        "Feels like 16° · wind 12 km/h"
+                    },
+                ).fetchSemanticsNodes().isNotEmpty()
+            }
             onNodeWithTag("weather-current").assertIsDisplayed()
             onNodeWithTag("hourly-forecast").assertIsDisplayed()
             assertNoDebugUi()

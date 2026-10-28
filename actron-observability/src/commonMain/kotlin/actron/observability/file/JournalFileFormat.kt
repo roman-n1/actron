@@ -102,13 +102,7 @@ object JournalFileFormat {
         )
 
     /** The frame of [record]: its store, sequence numbers, elapsed time and entry, framed. */
-    fun frame(record: JournalRecord<*, *, *>): ByteArray = Framing.frame(JournalRecordCodec.encode(record, JOURNAL_FORMAT_VERSION))
-
-    // What a writer of [recordFormatVersion] wrote, so tests can write what an earlier one did.
-    internal fun frame(
-        record: JournalRecord<*, *, *>,
-        recordFormatVersion: Int,
-    ): ByteArray = Framing.frame(JournalRecordCodec.encode(record, recordFormatVersion))
+    fun frame(record: JournalRecord<*, *, *>): ByteArray = Framing.frame(JournalRecordCodec.encode(record = record))
 
     /**
      * Reads [bytes] as the segment [name]: the header, the records that can be read, and what
@@ -135,7 +129,7 @@ object JournalFileFormat {
             } catch (e: IllegalArgumentException) {
                 return DecodedSegment(JournalPrefix.Unreadable, emptyList(), SegmentEnding.Stopped(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}")))
             }
-        if (header.fileFormatVersion > JOURNAL_FILE_FORMAT_VERSION || header.recordFormatVersion > JOURNAL_FORMAT_VERSION) {
+        if (header.fileFormatVersion != JOURNAL_FILE_FORMAT_VERSION || header.recordFormatVersion != JOURNAL_FORMAT_VERSION) {
             return DecodedSegment(header, emptyList(), SegmentEnding.Stopped(SegmentMark.UnsupportedFormat(name, header.fileFormatVersion, header.recordFormatVersion)))
         }
         val records = mutableListOf<JournalRecord<Nothing, Nothing, Nothing>>()

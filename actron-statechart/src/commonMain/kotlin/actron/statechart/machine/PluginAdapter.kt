@@ -2,7 +2,6 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.Plugin
 import actron.core.PluginScope
 import kotlin.coroutines.CoroutineContext

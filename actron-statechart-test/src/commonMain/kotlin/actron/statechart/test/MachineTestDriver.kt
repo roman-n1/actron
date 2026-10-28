@@ -3,7 +3,6 @@ package actron.statechart.test
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.statechart.StateId
 import actron.statechart.machine.Admission
 import actron.statechart.machine.AdmissionPolicy
@@ -50,7 +49,6 @@ import kotlin.time.Duration.Companion.seconds
  * @param mailbox The mailbox configuration; effects are recorded whatever their policy
  * @param builder Store configuration on top of the driver's (exception handler, saver, plugins)
  */
-@ExperimentalActronApi
 class MachineTestDriver<C : Any, A : Action, CMD : Any, E : Event>(
     val machine: Machine<C, A, CMD, E>,
     context: C,

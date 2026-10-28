@@ -1,8 +1,5 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.core.InputId
 import actron.observability.Capability
 import actron.observability.ExecutionMode

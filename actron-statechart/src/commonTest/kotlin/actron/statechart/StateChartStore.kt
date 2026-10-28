@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalActronApi::class, actron.core.InternalActronApi::class)
+@file:OptIn(actron.core.InternalActronApi::class)
 
 package actron.statechart
 
@@ -8,7 +8,6 @@ import actron.core.EnterLaunchScope
 import actron.core.EnterScope
 import actron.core.EnterTransactionScope
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InternalActronApi
 import actron.core.State
 import actron.core.Store

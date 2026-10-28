@@ -219,7 +219,7 @@ Store and reaches no network.
   replay navigation. Return to Replay discards the experiment and restores the replay UI at
   the original cursor, including any divergence and verification result.
 
-Status: **experimental**, `@ExperimentalActronApi`, in the fork [roman-n1/actron](https://github.com/roman-n1/actron).
+Status: **supported API**, in the fork [roman-n1/actron](https://github.com/roman-n1/actron).
 
 ## Dependency
 
@@ -458,3 +458,5 @@ The remaining three Detekt entries are deliberate API obligations:
 
 All other module baseline entries were removed after fixing their causes. Rule thresholds,
 exclusions and policy enforcement remain unchanged.
+
+UI translations use native XML resources: [localization guide](../doc/guides/localization.md).

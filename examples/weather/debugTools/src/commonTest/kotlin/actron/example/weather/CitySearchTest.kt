@@ -1,9 +1,10 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
 package actron.example.weather
 
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.fixtures.demoCities
+import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
 import actron.example.weather.feature.cities.domain.CityOption
@@ -115,8 +116,8 @@ class CitySearchTest {
                 RequestState.Loading,
                 RequestState.Success(listOf(CityOption(demoCities.first()))),
                 RequestState.Success(emptyList<CityOption>()),
-                RequestState.Error("offline"),
-                RequestState.TimedOut,
+                RequestState.Error(cause = RequestFailure.Unavailable(message = "offline")),
+                RequestState.Error(cause = RequestFailure.Timeout),
             )
         for (phase in phases) {
             val state = CitySearchState(query = "P", phase = phase, revision = 1)
@@ -256,12 +257,12 @@ class CitySearchTest {
             try {
                 store.start()
                 store.dispatch(CitySearchAction.ChangeQuery("P"))
-                store.state.first { it.context.phase == RequestState.TimedOut }
+                store.state.first { it.context.phase == RequestState.Error(cause = RequestFailure.Timeout) }
                 testScheduler.runCurrent()
                 assertTrue(cancelled)
                 store.dispatch(CitySearchAction.Found(1, listOf(CityOption(demoCities.first()))))
                 testScheduler.runCurrent()
-                assertEquals(RequestState.TimedOut, store.state.value.context.phase)
+                assertEquals(RequestState.Error(cause = RequestFailure.Timeout), store.state.value.context.phase)
             } finally {
                 store.close()
             }

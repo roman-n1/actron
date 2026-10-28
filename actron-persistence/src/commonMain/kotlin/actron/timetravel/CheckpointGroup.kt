@@ -2,14 +2,12 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.InvocationCheckpoint
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** Serializes an immutable host snapshot. It does not capture or start live executors. */
-@ExperimentalActronApi
 class CheckpointGroup<F : Any> internal constructor(
     private val initial: () -> F,
     private val bindings: List<CheckpointBinding<F>>,
@@ -26,7 +24,6 @@ class CheckpointGroup<F : Any> internal constructor(
     }
 }
 
-@ExperimentalActronApi
 class CheckpointGroupBuilder<F : Any> internal constructor() {
     private val bindings = mutableListOf<CheckpointBinding<F>>()
 
@@ -94,7 +91,6 @@ class CheckpointGroupBuilder<F : Any> internal constructor() {
 }
 
 /** Definition IDs supply stable keys; callers need neither string keys nor action casts. */
-@ExperimentalActronApi
 fun <F : Any> checkpointGroup(
     initial: () -> F,
     configure: CheckpointGroupBuilder<F>.() -> Unit,

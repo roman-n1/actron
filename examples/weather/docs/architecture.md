@@ -2,8 +2,8 @@
 
 [Back to the example](../README.md) · [Testing guide](../debugTools/src/commonTest/README.md)
 
-Weather has two screens and two machine definitions. Read the search feature first; the weather
-feature applies the same integration to two parallel regions. Navigation is entirely Decompose's
+Weather has two screens and five machine definitions. Read the search feature first; the weather
+feature composes a screen parent with three independently executing child machines. Navigation is entirely Decompose's
 responsibility. No third navigation machine is registered in Actron.
 
 ## Follow one input through the application
@@ -50,6 +50,7 @@ Start with [CitySearchMachine.kt](../shared/src/commonMain/kotlin/actron/example
 | `readState` / `writeState` | Select `context.phase` and copy its new value into the context |
 | `state<T>` | Declares the transitions/handlers available in that state |
 | `on<Action, Target>` | Optional guard/reducer plus construction of the target state |
+| `always<Target>` | Automatic guarded choice from the updated context, without a new action |
 | `after<Target>` | A timer owned by this state's current activation |
 | `onEnter { command(...) }` | Request work when entering the state; execute it outside the decision |
 
@@ -68,16 +69,20 @@ lane names are structural identifiers, not string keys for guards or effects.
 ### Search, cancellation and late answers
 
 ```text
-Idle → ChangeQuery("Москва") → Debouncing → after 350 ms → Loading
-Loading → ChangeQuery("Казань") → Debouncing → after 350 ms → Loading
+Idle → ChangeQuery("Москва") → QueryChanged → always → Debouncing → after 350 ms → Loading
+Loading → ChangeQuery("Казань") → QueryChanged → always → Debouncing → after 350 ms → Loading
+Any search state → ChangeQuery(" ") → QueryChanged → always → Idle
 ```
+
+`QueryChanged` owns both guards. The edit updates query/revision once before that choice;
+the same decision settles in `Idle` or `Debouncing`, so the UI does not render an intermediate frame.
 
 The second edit updates the query/revision and exits the old `Loading` activation. Its command
 and timeout are cancelled immediately, before the next debounce expires. Further edits restart
 the debounce. Clearing enters `Idle`, with no pending search and no displayed results.
 
 The new `Loading` entry creates a new command. The named lane uses `ConcurrencyPolicy.Latest`;
-state-activation ownership also cancels work when the state exits. Timeout enters `TimedOut`.
+state-activation ownership also cancels work when the state exits. Timeout enters `Error(cause = RequestFailure.Timeout)`. Request failure uses the same Error state with an Unavailable cause; the UI offers the same retry action.
 Cancellation propagates through the command handler to the suspending repository/HTTP call;
 `commandHandler` rethrows cancellation instead of converting it into `Failed`.
 
@@ -85,16 +90,45 @@ Stale-command identity checks and the `Found`/`Failed` revision guards are an ad
 for already queued results or callbacks outside normal command delivery. A test that deliberately
 injects an old result does not mean Weather intentionally leaves obsolete requests running.
 
-### Parallel weather
+### Four independent weather machines
 
 [CityWeatherMachine.kt](../shared/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt)
-uses `parallelStateMachine`. `Current` selects `context.current`; `Hourly` selects `context.hourly`.
-Each region declares its own Idle/Loading/Success/Error/TimedOut states, command and timeout.
-The region writers copy only their own field, preserving the other region.
+owns the city header and accepts only `WeatherScreenAction.Refresh`. Its Active entry emits one
+`WeatherScreenEvent.RefreshChildren`, both on fresh Start and on the Refresh self-loop.
+It has no child action imports, repository calls or loading state.
 
-`Refresh` is handled by both regions in one machine decision. `RetryForecast` is declared only
-in `Hourly`. HTTP results can arrive in either order; the machine still decides inputs one at a
-time. Parallel regions represent concurrently active behavior, not concurrent writes to state.
+[WeatherMachines.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/WeatherMachines.kt)
+is the retained composition owner. It creates four MachineStores, attaches them to a MachineGroup,
+registers three typed routes, starts the children and then starts the parent. Children enter Ready
+without commands or timers before their own routed Refresh starts loading:
+
+| Definition | Own public inputs | Work |
+| --- | --- | --- |
+| `city-weather` | WeatherScreenAction.Refresh | Emits RefreshChildren |
+| `current-weather` | CurrentWeatherAction.Refresh / Loaded / Failed | LoadCurrentWeather |
+| `hourly-forecast` | HourlyForecastAction.Refresh / Retry / Loaded / Failed | LoadHourlyForecast |
+| `weather-advice` | WeatherAdviceAction.Refresh / Retry / Dismiss / Loaded / Failed | LoadWeatherAdvice |
+
+The three routes map the same parent event to three different action types. The children know
+neither the screen nor one another. Current and Hourly each have Ready/Loading/Success/Error;
+Refresh works from all four states. Hourly also accepts its own Retry from each state.
+Advice has Ready/Loading/Hidden/Visible/Dismissed/Error; Refresh works from all six. Dismiss
+from Loading, Visible or Error cancels only its own work. Retry from Error reloads only Advice.
+Cancelled command identities reject late answers; each machine also guards its selected city.
+
+Advice calls the same WeatherRepository dependency as Current, but owns a separate request and
+interprets the reading. Each global refresh makes two current-weather calls and one hourly call.
+WMO precipitation codes follow [Open-Meteo](https://open-meteo.com/en/docs); wind >=40 km/h,
+heat >=30°C and cold <=-10°C are demo thresholds. Labels and tips use native EN/RU XML resources.
+
+A group route delivers `MachineInput.BridgeReceived` with the sender/effect MessageId. Each Store
+has its own serialized queue, commands and timers: three deliveries are not one atomic decision.
+UI combines immutable snapshots; `WeatherContext` is a derived view, not another mutable owner.
+WeatherCheckpoints projects all four checkpoints plus in-flight delivery identities. Parent
+observers mark committed routing intents before the group delivers them; child observers then
+project the group's actual remaining messages. Frames with deliveries in flight cannot be
+continued or saved as resumable checkpoints. This preserves per-member failure isolation without
+pretending that group delivery is a distributed transaction.
 
 ## Components and lifetime
 
@@ -108,10 +142,10 @@ owns the Store and its coroutine scope, starts it after construction and closes/
 destruction. It has no knowledge of Weather, recording, profiling or restoration.
 [WeatherComponentFactories.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/WeatherComponentFactories.kt)
 uses [retainedMachine](../../../actron-decompose/src/commonMain/kotlin/actron/decompose/RetainedMachine.kt)
-to retain these owners through each child's `InstanceKeeper` and injects only the Store into the
-feature component. Recording is an optional, lazy configuration supplied by
+for search. Weather retains a WeatherMachines owner through its child InstanceKeeper; that owner
+closes all four stores and its scope together when the weather child is popped. Recording is an optional, lazy configuration supplied by
 [WeatherMachineRecording](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherMachineRecording.kt).
-The adapter binds it before startup and chooses fresh creation or checkpoint resumption. The search child
+The adapters bind it before startup and choose fresh creation or checkpoint resumption per machine. The search child
 stays on the back stack while weather is open; popping weather destroys that weather executor.
 A restored weather component does not dispatch a fresh `Refresh` over the restored state.
 
@@ -123,7 +157,7 @@ These are different representations with different capabilities:
 | --- | --- | --- |
 | `MachineSnapshot<C>` | Context and runtime configuration/identities | Current state and pure decisions |
 | `ExecutorCheckpoint<C, CMD>` | Snapshot plus work/timing needed by the executor | Restarting pending operations |
-| `WeatherFrame` | Search/weather checkpoints and route | Current application checkpoint and restoration |
+| `WeatherFrame` | Search plus four weather checkpoints, route and in-flight delivery projection | Current application checkpoint and restoration |
 | `WeatherHistoryFrame` | Application frame, frozen transition coverage | Live history preview and continuation |
 | `WeatherRecordingFrame` | Display data, active nodes and coverage | Imported view-only history |
 
@@ -200,7 +234,7 @@ hooks, recording option, coverage or profile fields. The ordinary root renders i
 receives the retained session through composition and owns only recording/diagnostic metadata.
 Each immutable `WeatherHistoryFrame` pairs an application frame with frozen transition coverage.
 Continuation restores those metadata before the ordinary root replaces its children. The fake
-graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/2` uses the new app
+graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/3` uses the new app
 package names; previous exported files are intentionally unsupported.
 
 The scale trade-off is explicit: Messenger's separate feature graphs are useful with many
@@ -240,9 +274,9 @@ clock and tracking; recording supplies history observers. The adapter attaches t
 startup, so the first decision is recorded. Recreating a host does not bind another recorder.
 Handlers/options must not retain a component, bridge endpoint or UI-lifecycle scope.
 
-`initialActions = listOf(WeatherAction.Refresh)` starts a fresh weather screen. These actions
-are dispatched after configuration/start exactly once for that retained instance, and skipped
-when resuming an already-started checkpoint. Existing completed regions are not refreshed by
+Weather starts its children before its screen parent. A fresh parent emits RefreshChildren on
+entry; resuming its already-started checkpoint skips entry hooks. No startup Refresh is dispatched
+over restored children. Existing completed regions are not refreshed by
 host recreation or continuation. Destroying the keeper closes the Store and cancels its commands.
 
 A single `actron-decompose` module exposes the standard machine/Store integration. It depends

@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.observability.file
 
 import actron.core.InputId

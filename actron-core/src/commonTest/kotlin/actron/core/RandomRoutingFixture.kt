@@ -187,7 +187,6 @@ internal interface RecoverKind {
 
     fun <S2 : RtState> add(
         cfg: RtConfig<S2>,
-        deprecatedAlias: Boolean,
         id: Int,
         log: MutableList<Int>,
     )
@@ -199,16 +198,10 @@ internal inline fun <reified T : Exception> recoverKind(): RecoverKind =
 
         override fun <S2 : RtState> add(
             cfg: RtConfig<S2>,
-            deprecatedAlias: Boolean,
             id: Int,
             log: MutableList<Int>,
         ) {
-            if (deprecatedAlias) {
-                @Suppress("DEPRECATION")
-                cfg.error<T> { log += id }
-            } else {
-                cfg.recover<T> { log += id }
-            }
+            cfg.recover<T>(block = { log += id })
         }
     }
 
@@ -337,7 +330,6 @@ internal sealed interface HandlerDeclaration {
 internal class Inner(
     val id: Int,
     val declaration: HandlerDeclaration,
-    val deprecatedAlias: Boolean = false,
     val dispatcher: CoroutineContext = EmptyCoroutineContext,
 ) {
     val kind get() = declaration.kind
@@ -424,7 +416,7 @@ internal class RoutingProgram(
                 }
 
                 is HandlerDeclaration.Recovery -> {
-                    declaration.recovery.add(cfg, inner.deprecatedAlias, id, log)
+                    declaration.recovery.add(cfg, id, log)
                 }
 
                 is HandlerDeclaration.Predicate -> {
@@ -534,7 +526,6 @@ private class RoutingGenerator(
         return Inner(
             nextId++,
             declaration,
-            deprecatedAlias = kind == HandlerKind.RECOVER && random.nextBoolean(),
             dispatcher = if (kind == HandlerKind.RECOVER) EmptyCoroutineContext else dispatcher,
         )
     }

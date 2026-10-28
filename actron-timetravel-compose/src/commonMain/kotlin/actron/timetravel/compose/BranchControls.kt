@@ -1,7 +1,6 @@
 package actron.timetravel.compose
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.observability.FailureDescriptor
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.CommandId
@@ -27,7 +26,6 @@ import kotlin.time.Duration
  * place of the world). The screen has no way to build a Store's actions; the application
  * lists what a viewer may send, with a label for the button.
  */
-@ExperimentalActronApi
 sealed interface BranchInput {
     val store: StoreInstanceId
     val label: String
@@ -63,7 +61,6 @@ sealed interface BranchInput {
  * @property cause The input's label, `timer` for a firing, `bridge` for a delivery the local bridge made
  * @property diff What the decision changed in the member's snapshot
  */
-@ExperimentalActronApi
 data class BranchDecision(
     val index: Int,
     val store: StoreInstanceId,
@@ -83,7 +80,6 @@ data class BranchDecision(
  * @param machines The members' machines, for the definitions the panel draws
  * @param inputs What a viewer may send, by member
  */
-@ExperimentalActronApi
 @Stable
 class BranchControls(
     val branch: GroupBranch,
@@ -208,7 +204,6 @@ sealed interface BranchRequest {
 }
 
 /** Text of a branch's decision for the panel. */
-@ExperimentalActronApi
 object BranchText {
     fun line(decision: BranchDecision): String =
         buildString {

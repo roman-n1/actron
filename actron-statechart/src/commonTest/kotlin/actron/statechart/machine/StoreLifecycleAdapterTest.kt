@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
 package actron.statechart.machine
 
@@ -7,9 +7,6 @@ import actron.core.Event
 import actron.core.Plugin
 import actron.core.State
 import actron.core.Store
-import actron.core.closeAndJoin
-import actron.core.observeEvent
-import actron.core.observeState
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.StateChartDefinition

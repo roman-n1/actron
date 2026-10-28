@@ -11,13 +11,12 @@ internal data class HistoryTransitionStates(
 /** Compare before truncating so unchanged parallel regions cannot hide the transition. */
 internal fun historyTransitionStates(
     details: HistoryDetails,
-    language: String,
+    unchanged: String,
 ): HistoryTransitionStates {
     val before = details.before.activeStates()
     val after = details.after.activeStates()
     val common = before.toSet().intersect(after.toSet())
     if (before.isNotEmpty() && common.size == before.size && common.size == after.size) {
-        val unchanged = HistoryText.NoStateChange.forLanguage(language)
         return HistoryTransitionStates(unchanged, unchanged)
     }
     return HistoryTransitionStates(

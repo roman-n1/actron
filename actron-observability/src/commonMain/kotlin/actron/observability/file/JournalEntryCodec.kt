@@ -6,16 +6,13 @@ import actron.observability.JournalEntry
 internal sealed interface JournalEntryCodec {
     fun tagOf(entry: JournalEntry<*, *, *>): Int
 
-    // The record version decides which fields a variant has: fields appended later are
-    // written only from that version on, and read only from a segment of that version on.
+    // Only the current field vocabulary is supported.
     fun ByteWriter.entry(
         entry: JournalEntry<*, *, *>,
-        recordFormatVersion: Int,
     )
 
     fun ByteReader.entry(
         tag: Int,
-        recordFormatVersion: Int,
     ): JournalEntry<Nothing, Nothing, Nothing>
 }
 

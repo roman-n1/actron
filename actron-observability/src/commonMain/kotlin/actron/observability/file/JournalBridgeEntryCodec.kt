@@ -19,7 +19,6 @@ internal object JournalBridgeEntryCodec : JournalEntryCodec {
 
     override fun ByteWriter.entry(
         entry: JournalEntry<*, *, *>,
-        recordFormatVersion: Int,
     ) {
         when (entry) {
             is JournalEntry.BridgeSent -> {
@@ -27,10 +26,8 @@ internal object JournalBridgeEntryCodec : JournalEntryCodec {
                 message(entry.message)
                 string(entry.to.value)
                 bool(entry.delivered)
-                if (recordFormatVersion >= 7) {
-                    bool(entry.cause.prompted)
-                    entry.cause.withMessage { message(it) }
-                }
+                bool(entry.cause.prompted)
+                entry.cause.withMessage { message(it) }
             }
 
             is JournalEntry.BridgeReceived -> {
@@ -57,11 +54,10 @@ internal object JournalBridgeEntryCodec : JournalEntryCodec {
 
     override fun ByteReader.entry(
         tag: Int,
-        recordFormatVersion: Int,
     ): JournalEntry<Nothing, Nothing, Nothing> =
         when (tag) {
             15 -> {
-                JournalEntry.BridgeSent(attribution(), message(), StoreInstanceId(string()), bool(), if (recordFormatVersion >= 7 && bool()) message() else MessageCause.Unprompted)
+                JournalEntry.BridgeSent(attribution(), message(), StoreInstanceId(string()), bool(), if (bool()) message() else MessageCause.Unprompted)
             }
 
             16 -> {

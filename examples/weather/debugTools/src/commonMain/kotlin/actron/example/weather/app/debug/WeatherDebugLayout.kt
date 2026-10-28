@@ -2,6 +2,14 @@ package actron.example.weather.app.debug
 
 import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherRoute
+import actron.example.weather.debug.resources.Res
+import actron.example.weather.debug.resources.debug_panel
+import actron.example.weather.debug.resources.done
+import actron.example.weather.debug.resources.pending_completions
+import actron.example.weather.debug.resources.pending_effects
+import actron.example.weather.debug.resources.restart_requests
+import actron.example.weather.debug.resources.retention
+import actron.example.weather.debug.resources.settings
 import actron.example.weather.feature.cities.presentation.CitySearchScreen
 import actron.example.weather.feature.cities.presentation.toUiState
 import actron.example.weather.feature.weather.presentation.CityWeatherScreen
@@ -15,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun WeatherDebugLayout(
@@ -25,7 +34,6 @@ fun WeatherDebugLayout(
     viewer: WeatherRecordingViewer = remember { WeatherRecordingViewer() },
     content: @Composable () -> Unit,
 ) {
-    val russian = androidx.compose.ui.text.intl.Locale.current.language == "ru"
     val visible by history.panelVisible.collectAsState()
     Box(Modifier.fillMaxSize()) {
         val preview: @Composable () -> Unit = {
@@ -40,7 +48,7 @@ fun WeatherDebugLayout(
                     WeatherRoute.Search -> {
                         CitySearchScreen(
                             frame.search.snapshot.context
-                                .toUiState(false),
+                                .toUiState(enabled = false),
                             onIntent = {},
                             settingsAction = { WeatherSettingsButton(settings::open) },
                         )
@@ -48,8 +56,9 @@ fun WeatherDebugLayout(
 
                     is WeatherRoute.Weather -> {
                         CityWeatherScreen(
-                            route.checkpoint.snapshot.context
-                                .toUiState(false),
+                            route.checkpoint
+                                .context()
+                                .toUiState(enabled = false),
                             onIntent = {},
                         )
                     }
@@ -65,7 +74,7 @@ fun WeatherDebugLayout(
                     Column(Modifier.fillMaxSize()) {
                         if (viewer.imported.isEmpty()) {
                             // The reusable panel delegates continuation/navigation to the host.
-                            HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), continuation = { it.application.continuation(russian) }, graph = { history.graph(it) }, actions = { RecordingActions(viewer, files, history) })
+                            HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), continuation = { it.application.continuation() }, graph = { history.graph(it) }, actions = { RecordingActions(viewer, files, history) })
                         } else {
                             val imported = viewer.imported.single()
                             // Display-only records have no executor checkpoint or continuation callback.
@@ -81,46 +90,55 @@ fun WeatherDebugLayout(
     if (settings.isOpen) {
         AlertDialog(
             onDismissRequest = { settings.close() },
-            title = { Text(if (russian) "Настройки" else "Settings") },
+            title = { Text(stringResource(resource = Res.string.settings)) },
             text = {
                 Column {
                     Row {
-                        Text(if (russian) "Панель отладки" else "Debug panel", Modifier.weight(1f))
+                        Text(stringResource(resource = Res.string.debug_panel), Modifier.weight(1f))
                         Switch(visible, {
                             history.setPanelVisible(it, viewer)
                         }, Modifier.testTag("debug-panel-switch"))
                     }
-                    Text(if (russian) "Сохраняются последние ${history.capacity} событий текущего запуска. Просмотр истории не запускает запросы. «Продолжить отсюда» удаляет более позднюю историю и перезапускает незавершённые запросы." else "The last ${history.capacity} events are recorded throughout this session. Preview does not run requests. Continue here removes later history and restarts unfinished requests.")
+                    Text(stringResource(resource = Res.string.retention, history.capacity))
                 }
             },
-            confirmButton = { TextButton(onClick = { settings.close() }, modifier = Modifier.testTag("debug-settings-done")) { Text(if (russian) "Готово" else "Done") } },
+            confirmButton = { TextButton(onClick = { settings.close() }, modifier = Modifier.testTag("debug-settings-done")) { Text(stringResource(resource = Res.string.done)) } },
         )
     }
 }
 
-/** Explain the same executor restrictions used by WeatherFrame.canResume. */
-internal fun WeatherFrame.continuation(russian: Boolean): HistoryContinuation {
+internal data class ContinuationWork(
+    val endings: Int,
+    val effects: Int,
+)
+
+/** The executor owns continuation eligibility; UI only supplies localized explanations. */
+internal fun WeatherFrame.continuationWork(): ContinuationWork {
     val ending =
         search.ending.size +
             when (val screen = route) {
                 WeatherRoute.Search -> 0
-                is WeatherRoute.Weather -> screen.checkpoint.ending.size
+                is WeatherRoute.Weather -> listOf(screen.checkpoint.screen, screen.checkpoint.current, screen.checkpoint.hourly, screen.checkpoint.advice).sumOf { it.ending.size }
             }
     val effects =
         search.effects.size +
             when (val screen = route) {
                 WeatherRoute.Search -> 0
-                is WeatherRoute.Weather -> screen.checkpoint.effects.size
+                is WeatherRoute.Weather -> listOf(screen.checkpoint.screen, screen.checkpoint.current, screen.checkpoint.hourly, screen.checkpoint.advice).sumOf { it.effects.size } + screen.checkpoint.inFlight.size
             }
-    if (ending == 0 && effects == 0) {
-        return HistoryContinuation.Available(
-            if (russian) "Незавершённые запросы будут запущены заново." else "Unfinished requests will be restarted.",
-        )
+    return ContinuationWork(endings = ending, effects = effects)
+}
+
+@Composable
+internal fun WeatherFrame.continuation(): HistoryContinuation {
+    val work = continuationWork()
+    if (work.endings + work.effects == 0) {
+        return HistoryContinuation.Available(consequences = stringResource(resource = Res.string.restart_requests))
     }
     val reasons = mutableListOf<String>()
-    if (ending > 0) reasons.add(if (russian) "Не обработаны завершения команд: $ending." else "Command completions awaiting a decision: $ending.")
-    if (effects > 0) reasons.add(if (russian) "Не подтверждена обработка эффектов: $effects." else "Effects awaiting acknowledgement: $effects.")
-    return HistoryContinuation.Unavailable(reasons.joinToString(" "))
+    if (work.endings > 0) reasons.add(stringResource(resource = Res.string.pending_completions, work.endings))
+    if (work.effects > 0) reasons.add(stringResource(resource = Res.string.pending_effects, work.effects))
+    return HistoryContinuation.Unavailable(reason = reasons.joinToString(separator = " "))
 }
 
 internal fun WeatherHistory.setPanelVisible(

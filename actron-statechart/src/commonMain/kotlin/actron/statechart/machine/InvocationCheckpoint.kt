@@ -1,9 +1,6 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
-
 /** Executor data for one invocation. The host captures both sides at the same decision boundary. */
-@ExperimentalActronApi
 data class InvocationCheckpoint<PC : Any, PCMD : Any, CC : Any, CCMD : Any>(
     val parent: ExecutorCheckpoint<PC, PCMD>,
     val child: ChildCheckpoint<CC, CCMD> = ChildCheckpoint.Dormant,
@@ -19,7 +16,6 @@ data class InvocationCheckpoint<PC : Any, PCMD : Any, CC : Any, CCMD : Any>(
             )
 }
 
-@ExperimentalActronApi
 sealed interface ChildCheckpoint<out C : Any, out CMD : Any> {
     data object Dormant : ChildCheckpoint<Nothing, Nothing>
 

@@ -1,6 +1,5 @@
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import actron.observability.RecordSubject
 import actron.observability.RecordingSession
 import actron.observability.StoreInstanceId
@@ -22,7 +21,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * What the inspector is doing (handoff §11): the modes look different, so no one mistakes a
  * replayed or branched history for the live one.
  */
-@ExperimentalActronApi
 enum class InspectorMode {
     /** The journal of a running session, refreshed as it grows. */
     Live,
@@ -42,7 +40,6 @@ enum class InspectorMode {
  * the timeline is narrowed to, and the mode. Plain Compose state; [refresh] replaces the
  * inspector when the journal grew, following the same journal event while it is retained.
  */
-@ExperimentalActronApi
 @Stable
 class InspectorState(
     initial: Inspector,
@@ -112,7 +109,6 @@ sealed interface StoreFilter {
 }
 
 /** Remembers an [InspectorState] for [inspector]; a new inspector replaces the shown one. */
-@ExperimentalActronApi
 @Composable
 fun rememberInspectorState(
     inspector: Inspector,
@@ -128,7 +124,6 @@ fun rememberInspectorState(
  * [every] from the session's retained records and [recordings]; a debug screen's view of the
  * app as it runs. The rebuild copies the retained records; keep [every] coarse.
  */
-@ExperimentalActronApi
 @Composable
 fun rememberLiveInspector(
     session: RecordingSession,

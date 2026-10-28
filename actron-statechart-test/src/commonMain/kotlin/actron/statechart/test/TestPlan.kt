@@ -171,7 +171,6 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.runPlan(
 }
 
 /** IO-free model discovery alongside this driver's live tests. It does not mutate the live Store. */
-@actron.core.ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.generateTestPlan(
     generator: MachineInputGenerator<C, A>,
     maxDepth: Int = 10,
@@ -179,5 +178,4 @@ fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.
 ): MachineTestPlan<C, A> = machine.generateTestPlan(initialSnapshot, generator, maxDepth = maxDepth, maxDecisions = maxDecisions)
 
 /** Verifies a plan against independent pure snapshots; live command handlers and Store state are untouched. */
-@actron.core.ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> MachineTestDriver<C, A, CMD, E>.verifyPlan(plan: MachineTestPlan<C, A>): TestPlanResult<C, A> = machine.runPlan(initialSnapshot, plan)

@@ -1,10 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.statechart.example.picker
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.CompoundState

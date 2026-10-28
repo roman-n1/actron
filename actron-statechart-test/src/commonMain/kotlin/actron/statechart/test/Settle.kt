@@ -2,7 +2,6 @@ package actron.statechart.test
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.CommandId
 import actron.statechart.machine.CommandRegistration
 import actron.statechart.machine.ExecutorCheckpoint
@@ -24,7 +23,6 @@ import kotlin.time.Duration.Companion.seconds
  *
  * @throws IllegalStateException if the store is not idle after [timeout]
  */
-@ExperimentalActronApi
 suspend fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore<C, A, CMD, E>.settle(timeout: Duration = 10.seconds): ExecutorCheckpoint<C, CMD> {
     awaitIdle(timeout)
     return checkpoint()
@@ -40,7 +38,6 @@ suspend fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore<C, A, CMD, 
  * @property timers The timers scheduled, with what is left of each at the checkpoint's clock
  * @property effects The effects waiting in the mailbox or being handled unacknowledged
  */
-@ExperimentalActronApi
 data class MachinePendingWork<CMD : Any>(
     val running: List<CommandRegistration<CMD>>,
     val queued: List<CommandRegistration<CMD>>,
@@ -61,7 +58,6 @@ data class MachinePendingWork<CMD : Any>(
 }
 
 /** The work this checkpoint holds; see [MachinePendingWork]. */
-@ExperimentalActronApi
 fun <C : Any, CMD : Any> ExecutorCheckpoint<C, CMD>.pendingWork(): MachinePendingWork<CMD> =
     MachinePendingWork(
         running = lanes.running.values.toList(),
@@ -80,13 +76,10 @@ fun <C : Any, CMD : Any> ExecutorCheckpoint<C, CMD>.pendingWork(): MachinePendin
  *
  * @throws AssertionError with everything pending
  */
-@ExperimentalActronApi
 suspend fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore<C, A, CMD, E>.assertNoPendingWork() = assertPending(emptyList())
 
-@ExperimentalActronApi
 suspend fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore<C, A, CMD, E>.assertNoPendingWork(recorder: StoreRecorder<MachineSnapshot<C>, A, E>) = assertPending(recorder.unconsumedEvents)
 
-@OptIn(ExperimentalActronApi::class)
 private suspend fun <C : Any, A : Action, CMD : Any, E : Event> MachineStore<C, A, CMD, E>.assertPending(unreceived: List<E>) {
     val store = pendingWork()
     val machine = checkpoint().pendingWork()

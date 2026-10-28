@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 import actron.observability.StoreInstanceId
 import actron.timetravel.GroupMismatch
@@ -16,4 +14,4 @@ internal val GroupTimeTravelControls.branchPosition: Int get() = (travel as Grou
 internal val GroupReplayControls.divergence: GroupMismatch get() = (movement as GroupReplayMovement.Diverged).mismatch
 internal val GroupReplayControls.selected: GroupReplayPosition get() = selectedPosition()
 internal val GroupReplayControls.observedVerification: List<GroupMismatch> get() = (verification as GroupVerification.Checked).problems
-internal val GroupReplayControls.forwardUnavailable: String get() = (forwardAvailability as Availability.Unavailable).reasons.first()
+internal val GroupReplayControls.forwardUnavailable: String get() = (forwardAvailability as ForwardStepAvailability.Diverged).description

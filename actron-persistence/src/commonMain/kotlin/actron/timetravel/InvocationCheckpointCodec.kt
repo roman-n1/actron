@@ -2,7 +2,6 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.ActivationId
 import actron.statechart.machine.ChildCheckpoint
 import actron.statechart.machine.InvocationCheckpoint
@@ -12,7 +11,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** The composition document, child/parent payloads and their shared checkpoint invariants. */
-@ExperimentalActronApi
 internal class InvocationCheckpointCodec<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event>(
     private val machine: InvokedMachine<PC, PA, PCMD, PE, CC, CA, CCMD, CE>,
     parentCodec: RecordingCodec<PC, PA, PCMD, PE>,

@@ -4,7 +4,6 @@ package actron.test
 
 import actron.core.ExceptionHandler
 import actron.core.Store
-import actron.core.closeAndJoin
 import actron.core.createRuntimeStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher

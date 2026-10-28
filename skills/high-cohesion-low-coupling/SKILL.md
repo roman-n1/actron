@@ -17,10 +17,10 @@ API, состояния, зависимости или lifecycle. Механич
 
 - `StoreImpl` — фасад Store: публичные вызовы и caller-owned коллекция StateFlow с lazy startup.
   `StoreCompanionApi` адаптирует отдельный контракт companion-модулей к тому же процессору;
-  patch возвращает исходный фасад. StoreLifecycle — отдельный публичный контракт отменяемых
-  callback-наблюдателей и closeAndJoin: Store остаётся бинарно неизменным. Handle отменяет
-  только Job наблюдателя. State регистрируется асинхронно; новый observeEvent регистрирует
-  collector до возврата handle. Старый collectEvent сохраняет асинхронный запуск для совместимости.
+  patch возвращает исходный фасад. Store задаёт обязательный контракт отменяемых callback-наблюдателей
+  и closeAndJoin. Handle отменяет только Job наблюдателя. State регистрируется асинхронно;
+  observeEvent регистрирует collector до возврата handle. Отдельной capability ради старых Store
+  и старых callback-обёрток нет: до первого релиза поддерживается только актуальный API.
 - `StoreProcessor` владеет mutex, сборкой runtime и допуском startup/dispatch.
   `StoreTransitions` и commit публикации выполняются только под этим mutex.
 - `StoreLaunchedWork` связывает state-owned launch с root-owned transaction/recovery входами.

@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel
 
 import actron.statechart.machine.EffectId
@@ -59,7 +57,7 @@ class GroupReplayOwnershipTest {
         assertEquals(listOf(GroupMismatch.ReplyWithoutRequest(4, pickerId, MessageId(rootId, EffectId(1)), "reply-B")), GroupReplaySession(GroupFixture.machines, recorded).verify())
         val replay = GroupReplaySession(GroupFixture.machines, recorded)
         replay.seek(4)
-        replay.members.getValue(pickerId).seek(0)
+
         val diverged = assertIs<GroupReplayStep.Diverged>(replay.stepForward())
         assertEquals(recorded.members.getValue(pickerId).snapshotAt(2), replay.snapshotOf(pickerId))
         assertEquals(4, replay.position)
@@ -72,21 +70,6 @@ class GroupReplayOwnershipTest {
                 ),
             )
         assertEquals(emptyList(), GroupReplaySession(GroupFixture.machines, matched).verify())
-    }
-
-    @Test
-    fun movingALegacyMemberCannotChangeGroupSnapshotsBranchesOrForwardSteps() {
-        val recorded = recording(routes())
-        val replay = GroupReplaySession(GroupFixture.machines, recorded)
-        val member = replay.members.getValue(pickerId)
-        member.seek(member.length)
-        assertEquals(recorded.members.getValue(pickerId).initial, replay.snapshotOf(pickerId))
-        assertEquals(recorded.members.getValue(pickerId).start, replay.checkpointOf(pickerId))
-        assertEquals(recorded.members.getValue(pickerId).initial, replay.branch(emptyList()).snapshot(pickerId))
-        member.seek(member.length)
-        assertIs<GroupReplayStep.Matched>(replay.stepForward())
-        assertEquals(1, replay.position)
-        assertEquals(recorded.members.getValue(pickerId).snapshotAt(1), replay.snapshotOf(pickerId))
     }
 
     @Test
@@ -103,7 +86,7 @@ class GroupReplayOwnershipTest {
         assertEquals(2, picker.position)
         assertEquals(1, root.position)
         assertEquals(recorded.members.getValue(pickerId).snapshotAt(2), picker.snapshot)
-        replay.members.getValue(pickerId).seek(0)
+
         assertEquals(2, picker.position)
         assertEquals(recorded.members.getValue(pickerId).checkpointAt(2), picker.checkpoint)
         assertIs<GroupReplayStep.Matched>(replay.stepForward())

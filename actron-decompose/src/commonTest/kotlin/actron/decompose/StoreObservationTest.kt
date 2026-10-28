@@ -7,7 +7,6 @@ import actron.core.AutoStartPolicy
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
-import actron.core.closeAndJoin
 import actron.core.createRuntimeStore
 import actron.test.patch
 import com.arkivanov.decompose.ComponentContext

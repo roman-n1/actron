@@ -2,7 +2,6 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.StateSaver
 import kotlinx.coroutines.CoroutineScope
 import kotlin.coroutines.CoroutineContext
@@ -38,7 +37,6 @@ internal fun <C : Any, CMD : Any> StoreOrigin<C, CMD>.adaptStateSaver(saver: Sta
  * commits, but its restore callback is not invoked. Close the original store when replacing it;
  * this factory never mutates another store.
  */
-@ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> resumeMachineStore(
     machine: Machine<C, A, CMD, E>,
     checkpoint: ExecutorCheckpoint<C, CMD>,

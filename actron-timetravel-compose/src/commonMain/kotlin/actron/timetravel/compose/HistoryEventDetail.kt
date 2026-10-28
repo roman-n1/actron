@@ -35,7 +35,7 @@ internal fun <S : Any> HistoryEventDetail(
     entries: List<HistoryEntry<S>>,
     state: HistoryPanelState<S>,
     onContinue: (HistoryEntry<S>) -> Unit,
-    continuation: (S) -> HistoryContinuation,
+    continuation: @Composable (S) -> HistoryContinuation,
     modifier: Modifier,
     readOnly: Boolean,
 ) {
@@ -58,7 +58,7 @@ private fun <S : Any> HistoryContinuationAction(
     entries: List<HistoryEntry<S>>,
     state: HistoryPanelState<S>,
     onContinue: (HistoryEntry<S>) -> Unit,
-    continuation: (S) -> HistoryContinuation,
+    continuation: @Composable (S) -> HistoryContinuation,
 ) {
     val capability = continuation(entry.snapshot)
     HorizontalDivider()
@@ -107,7 +107,7 @@ private fun StateCard(
 
 @Composable
 private fun TransitionDiagram(details: HistoryDetails) {
-    val states = historyTransitionStates(details, Locale.current.language)
+    val states = historyTransitionStates(details, historyText(text = HistoryText.NoStateChange))
     Column(Modifier.fillMaxWidth().testTag("history-transition"), horizontalAlignment = Alignment.CenterHorizontally) {
         HistoryActionPayload(details)
         HistoryTransitionArrows(Modifier.fillMaxWidth().height(36.dp))

@@ -1,6 +1,5 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
 import actron.observability.MessageRef
 import actron.observability.StoreInstanceId
 import kotlin.jvm.JvmInline

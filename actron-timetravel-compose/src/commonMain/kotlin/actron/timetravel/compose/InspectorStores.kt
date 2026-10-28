@@ -1,7 +1,8 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.no_stores
+import actron.timetravel.compose.resources.stores_heading
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun InspectorStores(
@@ -26,13 +28,13 @@ internal fun InspectorStores(
 ) {
     val inspector = state.inspector
     Column(modifier.padding(8.dp)) {
-        InspectorHeading("Stores")
+        InspectorHeading(stringResource(resource = Res.string.stores_heading))
         for (reason in inspectorGroupReasons(state)) InspectorReason(reason)
         for (store in inspector.stores) {
             val model = inspectorStore(state, store, MaterialTheme.colorScheme)
             InspectorStoreCard(model) { state.toggleFilter(store.id) }
         }
-        if (inspector.stores.isEmpty()) Text("no Stores in this journal", style = MaterialTheme.typography.bodySmall)
+        if (inspector.stores.isEmpty()) Text(stringResource(resource = Res.string.no_stores), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -53,11 +55,11 @@ private fun InspectorStoreCard(
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(model.id.value, fontWeight = FontWeight.Bold)
-            Text(model.capability, style = MaterialTheme.typography.bodySmall)
-            Text(model.completeness, style = MaterialTheme.typography.bodySmall, color = model.completenessColor)
+            Text(model.capability.resolve(), style = MaterialTheme.typography.bodySmall)
+            Text(model.completeness.resolve(), style = MaterialTheme.typography.bodySmall, color = model.completenessColor)
         }
-        Text(model.counts, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+        Text(model.counts.resolve(), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
         for (reason in model.reasons) InspectorReason(reason)
-        for (notice in model.replay) Text(notice.text, style = MaterialTheme.typography.bodySmall, color = notice.color)
+        for (notice in model.replay) Text(notice.text.resolve(), style = MaterialTheme.typography.bodySmall, color = notice.color)
     }
 }

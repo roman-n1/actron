@@ -141,7 +141,7 @@ object RecordingFileFormat {
             } catch (e: IllegalArgumentException) {
                 return DecodedRecordingSegment.Unreadable(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}"))
             }
-        if (header.fileFormatVersion > RECORDING_FILE_FORMAT_VERSION || header.recordingFormatVersion > RECORDING_FORMAT_VERSION) {
+        if (header.fileFormatVersion != RECORDING_FILE_FORMAT_VERSION || header.recordingFormatVersion != RECORDING_FORMAT_VERSION) {
             return DecodedRecordingSegment.HeaderOnly(header, SegmentMark.UnsupportedFormat(name, header.fileFormatVersion, header.recordingFormatVersion))
         }
         if (frames.size < 2) {

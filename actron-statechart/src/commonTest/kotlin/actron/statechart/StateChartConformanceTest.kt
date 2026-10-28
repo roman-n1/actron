@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.core.Store
@@ -30,7 +29,7 @@ import kotlin.test.assertTrue
  * The Store below follows it, except that `Reset` jumps from Ready to Idle, which the chart does
  * not declare, and `Bump` changes data inside Loading.
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartConformanceTest {
     sealed interface FormState : State {
         data object Idle : FormState

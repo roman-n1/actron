@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
 internal fun groupReplayRowSelected(

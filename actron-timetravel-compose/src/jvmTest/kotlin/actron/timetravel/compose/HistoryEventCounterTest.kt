@@ -103,7 +103,7 @@ class HistoryEventCounterTest {
         capacity: Int = 3,
     ): String {
         val language: String = Locale.getDefault().language
-        return "${HistoryText.Event.forLanguage(language)} $position · ${HistoryText.Capacity.forLanguage(language)} $capacity"
+        return "${expectedHistoryText(text = HistoryText.Event, language = language)} $position · ${expectedHistoryText(text = HistoryText.Capacity, language = language)} $capacity"
     }
 
     private fun liveCounter(
@@ -112,7 +112,7 @@ class HistoryEventCounterTest {
     ): String {
         val language: String = Locale.getDefault().language
         val label = if (language == "ru") "В истории:" else "In history:"
-        return "$label $latest ${HistoryText.Events.forLanguage(language)} · ${HistoryText.Capacity.forLanguage(language)} $capacity"
+        return "$label $latest ${expectedHistoryText(text = HistoryText.Events, language = language)} · ${expectedHistoryText(text = HistoryText.Capacity, language = language)} $capacity"
     }
 
     private fun timeline(): HistoryTimeline<String> = HistoryTimeline<String>(3).also { timeline -> repeat(3) { append(timeline) } }

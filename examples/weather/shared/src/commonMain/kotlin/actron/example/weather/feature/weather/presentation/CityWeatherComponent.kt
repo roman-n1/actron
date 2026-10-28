@@ -1,12 +1,12 @@
 package actron.example.weather.feature.weather.presentation
 
 import actron.compose.collectAsUiState
+import actron.example.weather.app.WeatherMachines
 import actron.example.weather.core.component.BaseComponent
 import actron.example.weather.core.component.BridgeEndpoint
 import actron.example.weather.core.domain.City
-import actron.example.weather.core.mvi.NoEvent
-import actron.statechart.machine.MachineSnapshot
-import actron.statechart.machine.MachineStore
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceAction
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import com.arkivanov.decompose.ComponentContext
@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
 interface CityWeatherComponent : BaseComponent {
-    val state: StateFlow<MachineSnapshot<WeatherContext>>
+    val state: StateFlow<WeatherContext>
 
     fun onUiEvent(event: CityWeatherIntent)
 
@@ -40,21 +40,23 @@ class DefaultCityWeatherComponent(
     componentContext: ComponentContext,
     private val endpoint: BridgeEndpoint<Nothing, CityWeatherComponent.News>,
     coroutineContext: CoroutineContext,
-    private val store: MachineStore<WeatherContext, WeatherAction, WeatherCommand, NoEvent>,
+    private val machines: WeatherMachines,
 ) : CityWeatherComponent,
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
-    override val state = store.state
+    override val state = machines.state
 
     init {
         lifecycle.doOnDestroy { scope.cancel() }
     }
 
     override fun onUiEvent(event: CityWeatherIntent) {
-        if (!state.value.isStarted) return
+        if (!machines.screen.state.value.isStarted) return
         when (event) {
-            CityWeatherIntent.Refresh -> store.dispatch(WeatherAction.Refresh)
-            CityWeatherIntent.RetryForecast -> store.dispatch(WeatherAction.RetryForecast)
+            CityWeatherIntent.DismissAdvice -> machines.advice.dispatch(action = WeatherAdviceAction.Dismiss)
+            CityWeatherIntent.RetryAdvice -> machines.advice.dispatch(action = WeatherAdviceAction.Retry)
+            CityWeatherIntent.Refresh -> machines.screen.dispatch(action = WeatherScreenAction.Refresh)
+            CityWeatherIntent.RetryForecast -> machines.hourly.dispatch(action = HourlyForecastAction.Retry)
             CityWeatherIntent.Back -> scope.launch { endpoint.news.emit(CityWeatherComponent.News.BackClicked) }
         }
     }
@@ -62,6 +64,7 @@ class DefaultCityWeatherComponent(
     @Composable
     override fun Render() {
         val snapshot by state.collectAsUiState()
-        CityWeatherScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent)
+        val parent by machines.screen.state.collectAsUiState()
+        CityWeatherScreen(state = snapshot.toUiState(enabled = parent.isStarted), onIntent = ::onUiEvent)
     }
 }

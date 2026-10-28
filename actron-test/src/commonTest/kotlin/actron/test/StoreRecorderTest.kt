@@ -198,9 +198,11 @@ class StoreRecorderTest {
 
         override fun dispatch(action: AppAction) = Unit
 
-        override fun collectState(state: (AppState) -> Unit) = Unit
+        override fun observeState(observer: (AppState) -> Unit): AutoCloseable = AutoCloseable {}
 
-        override fun collectEvent(event: (AppEvent) -> Unit) = Unit
+        override fun observeEvent(observer: (AppEvent) -> Unit): AutoCloseable = AutoCloseable {}
+
+        override suspend fun closeAndJoin() = close()
 
         override fun close() = Unit
     }

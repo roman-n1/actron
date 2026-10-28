@@ -2,7 +2,6 @@ package actron.timetravel.compose
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.observability.StoreInstanceId
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.toMermaid
@@ -22,7 +21,6 @@ import actron.timetravel.ReplayVerification as SessionVerification
  * @param store The Store the recording is of, for the timeline
  * @param session The replay
  */
-@ExperimentalActronApi
 @Stable
 class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(
     val store: StoreInstanceId,
@@ -61,24 +59,14 @@ class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(
 
     val canStepBackward: Boolean get() = position > 0
 
-    val canStepForward: Boolean get() = position < length
+    val canStepForward: Boolean get() = forwardAvailability is ForwardStepAvailability.Available
 
     /** Availability of a forward step, with explicit reasons when disabled. */
-    val forwardAvailability: actron.timetravel.inspect.Availability get() =
+    val forwardAvailability: ForwardStepAvailability get() =
         when {
-            position >= length -> {
-                actron.timetravel.inspect.Availability
-                    .Unavailable(listOf("at the end of the recording"))
-            }
-
-            movement is ReplayMovement.Diverged -> {
-                actron.timetravel.inspect.Availability
-                    .Unavailable(listOf("the replay diverged here: ${(movement as ReplayMovement.Diverged).description}"))
-            }
-
-            else -> {
-                actron.timetravel.inspect.Availability.Available
-            }
+            position >= length -> ForwardStepAvailability.EndReached
+            movement is ReplayMovement.Diverged -> ForwardStepAvailability.Diverged(description = (movement as ReplayMovement.Diverged).description)
+            else -> ForwardStepAvailability.Available
         }
 
     fun stepForward() {
@@ -108,8 +96,8 @@ class ReplayControls<C : Any, A : Action, CMD : Any, E : Event>(
     fun verify() {
         verification =
             when (val result = session.verification()) {
-                SessionVerification.Passed -> ReplayVerification.Checked("no divergence in ${session.length} steps")
-                is SessionVerification.Diverged -> ReplayVerification.Checked(result.mismatch.describe())
+                SessionVerification.Passed -> ReplayVerification.Passed(steps = session.length)
+                is SessionVerification.Diverged -> ReplayVerification.Diverged(description = result.mismatch.describe())
             }
     }
 }
@@ -126,8 +114,12 @@ sealed interface ReplayMovement {
 sealed interface ReplayVerification {
     data object Unchecked : ReplayVerification
 
-    data class Checked(
-        val verdict: String,
+    data class Passed(
+        val steps: Int,
+    ) : ReplayVerification
+
+    data class Diverged(
+        val description: String,
     ) : ReplayVerification
 }
 

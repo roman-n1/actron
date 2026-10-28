@@ -1,6 +1,5 @@
 package actron.timetravel.inspect
 
-import actron.core.ExperimentalActronApi
 import actron.observability.ExecutionMode
 import actron.observability.JournalRecord
 import actron.observability.JournalStats
@@ -30,7 +29,6 @@ import actron.timetravel.Recording
  * @param recordings Recordings to attach, by Store
  * @param stats The session's counters, when inspecting a live session
  */
-@ExperimentalActronApi
 class Inspector(
     val events: List<JournalFileEvent>,
     recordings: Map<StoreInstanceId, Recording<*, *, *, *>> = emptyMap(),
@@ -110,7 +108,6 @@ class Inspector(
     }
 }
 
-@ExperimentalActronApi
 sealed interface InspectorStatistics {
     fun withLive(accept: (JournalStats) -> Unit)
 
@@ -127,21 +124,18 @@ sealed interface InspectorStatistics {
     }
 }
 
-@OptIn(ExperimentalActronApi::class)
 internal fun TimelineItem.Processing.hasRevision(revision: Long): Boolean {
     var matches = false
     withRevision { matches = it == revision }
     return matches
 }
 
-@OptIn(ExperimentalActronApi::class)
 internal fun TimelineItem.Processing.revisionLabel(fallback: String): String {
     var text = fallback
     withRevision { text = it.toString() }
     return text
 }
 
-@OptIn(ExperimentalActronApi::class)
 internal fun StoreView.capabilityLabel(fallback: String): String {
     var text = fallback
     withCapability { text = it.toString() }

@@ -2,7 +2,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import actron.test.dispatchAndAwait
@@ -16,7 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartRecoveryRegressionTest {
     private data object Go : Action
 

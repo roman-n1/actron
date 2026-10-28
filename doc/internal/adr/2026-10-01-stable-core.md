@@ -1,5 +1,8 @@
 # The core of the journal and of the machine is stable API: the experimental marker comes off, module by module
 
+> The pre-release compatibility and experimental boundary is superseded by [the unreleased API baseline](./2026-10-26-unreleased-api-baseline.md).
+
+
 - Updated: 2026-10-03
 
 ## Background

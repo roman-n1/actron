@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.State
 import actron.core.Store
@@ -45,7 +44,7 @@ import kotlin.test.assertTrue
  * The Store below follows it, except that `Jump` moves Offline to Typing and `Discard` moves
  * Typing to Idle, which the chart does not declare.
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartHierarchyConformanceTest {
     sealed interface ChatState : State {
         data object Idle : ChatState

@@ -151,7 +151,7 @@ class HistoryPanelTest {
             onNodeWithText(rawType).assertExists()
         }
 
-    private fun historyLabelFullState(): String = HistoryText.FullState.forLanguage(Locale.getDefault().language)
+    private fun historyLabelFullState(): String = expectedHistoryText(text = HistoryText.FullState, language = Locale.getDefault().language)
 
     @Test
     fun timeUsesDeviceLocaleAndTimeZone() {

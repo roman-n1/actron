@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, actron.core.InternalActronApi::class)
+@file:OptIn(actron.core.InternalActronApi::class)
 
 package actron.timetravel.inspect
 

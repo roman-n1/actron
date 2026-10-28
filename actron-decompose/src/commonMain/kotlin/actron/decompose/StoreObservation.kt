@@ -4,8 +4,6 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.State
 import actron.core.Store
-import actron.core.observeEvent
-import actron.core.observeState
 import com.arkivanov.essenty.lifecycle.Lifecycle
 
 /**

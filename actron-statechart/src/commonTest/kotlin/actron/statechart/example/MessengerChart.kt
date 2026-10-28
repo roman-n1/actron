@@ -2,7 +2,6 @@ package actron.statechart.example
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.Store
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
@@ -239,7 +238,7 @@ interface MessengerServices {
  *     }
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 object MessengerChart {
     val QUICK_BACKOFF = 2.seconds
     val SLOW_BACKOFF = 30.seconds
@@ -349,7 +348,7 @@ object MessengerChart {
 }
 
 /** The Store type the UI collects: a plain Actron Store. */
-@OptIn(ExperimentalActronApi::class)
+
 internal typealias MessengerStore = Store<ChartState<MessengerContext>, MessengerAction, MessengerEvent>
 
 /**
@@ -360,7 +359,7 @@ internal typealias MessengerStore = Store<ChartState<MessengerContext>, Messenge
  * in `activity` (when it must also run after a restore); both are cancelled when their state is
  * exited, and both report back by dispatching an action.
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal fun MessengerStore(
     services: MessengerServices,
     initial: MessengerContext = MessengerContext(),

@@ -1,8 +1,5 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.observability
 
-import actron.core.ExperimentalActronApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

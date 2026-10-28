@@ -1,12 +1,10 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-@ExperimentalActronApi
 @Composable
 internal fun GroupTimeTravelPanel(
     state: InspectorState,

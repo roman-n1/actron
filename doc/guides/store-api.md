@@ -31,7 +31,7 @@ before returning, so it can be attached before startup or dispatch; past events 
 State observation follows the Store's existing startup policy; event observation alone does not
 start it. Closing a handle requests cancellation without waiting: a callback already executing
 may finish. Callback failures use the existing exception handling policy and end that observer.
-The existing `collectState` and `collectEvent` methods remain available with their original lifetime.
+Observation and closeAndJoin are members of Store; returned handles cancel individual observers.
 
 `closeAndJoin` is cancellable while waiting; the Store remains closed if the caller is cancelled.
 It waits for all owned work, including subscriptions, plugin work and non-cancellable cleanup.
@@ -39,11 +39,9 @@ Calling it from the Store's own coroutine throws before closing, including from 
 or plugin work; use `close()` there. Waiting for another Store is supported. Closing a passive
 Store does not restore state or start handlers.
 
-These extensions use the public `StoreLifecycle<S, E>` capability. Core Store, StateChartStore,
-MachineStore and InvokedMachineStore factories provide it. The original `Store` interface and its
-binary signatures are unchanged. Existing custom implementations continue working; to support
-these new operations, implement `StoreLifecycle` too. A wrapper using `Store by delegate` must
-also forward the capability explicitly. Calls on unsupported implementations throw `IllegalStateException` before observation or closing.
+These operations are mandatory members of Store. Core Store, StateChartStore, MachineStore and
+InvokedMachineStore factories implement the same contract. Custom stores and wrappers implement
+or delegate observation and closeAndJoin along with the rest of Store.
 
 ## Quick Look
 
@@ -741,11 +739,11 @@ fun CounterStore(
 
 ### For Platforms Without Flow/StateFlow Access
 
-On platforms where Store's `.state` (StateFlow) and `.event` (Flow) cannot be consumed directly (e.g., iOS), use `.collectState()` and `.collectEvent()`.
+On platforms where Store's `.state` (StateFlow) and `.event` (Flow) cannot be consumed directly (e.g., iOS), use `.observeState()` and `.observeEvent()`.
 If the *State* or *Event* changes, you will be notified through these callbacks.
 These callbacks run in the Store's execution context. Actron does not automatically switch to a UI thread, so move to the appropriate UI thread before touching UI components when needed.
 
-Store startup is lazy. By default, the Store starts on the first `.dispatch(...)` or when state collection begins through `.state` or `.collectState()`.
+Store startup is lazy. By default, the Store starts on the first `.dispatch(...)` or when state collection begins through `.state` or `.observeState()`.
 If you want state collection not to start the Store automatically, set `autoStartPolicy(AutoStartPolicy.OnDispatch)` and call `.start()` when you want to trigger startup explicitly.
 
 ## Compose

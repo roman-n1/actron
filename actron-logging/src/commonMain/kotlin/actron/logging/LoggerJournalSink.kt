@@ -1,6 +1,5 @@
 package actron.logging
 
-import actron.core.ExperimentalActronApi
 import actron.observability.JournalEntry
 import actron.observability.JournalFormat
 import actron.observability.JournalRecord
@@ -21,7 +20,6 @@ import actron.observability.JournalSink
  * are informational and everything else is debug
  * @param format The line to write for a record
  */
-@ExperimentalActronApi
 class LoggerJournalSink(
     private val logger: Logger = DefaultLogger,
     private val tag: String = "Actron",

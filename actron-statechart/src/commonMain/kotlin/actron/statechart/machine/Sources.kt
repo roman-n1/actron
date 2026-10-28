@@ -1,7 +1,5 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
-
 /**
  * The state of an external source as data, taken in a cut: what a branch needs to script the
  * source's next data, and what the inspector shows. [fields] are the source's own vocabulary
@@ -42,7 +40,6 @@ data class SourceSnapshot(
  * group cannot know which resources it acquired. Cleanup should not suspend in a cancelled
  * context (use a non-cancellable context when suspending cleanup is necessary).
  */
-@ExperimentalActronApi
 interface ExternalSource {
     val id: SourceId
 

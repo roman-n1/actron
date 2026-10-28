@@ -44,7 +44,7 @@ class DebugWeatherRootComponent(
             coroutineContext,
             session = history.session,
             searchFactory = DefaultCitySearchComponentFactory(citySearch, coroutineContext, history.session, { WeatherSettingsButton(settings::open) }, history.recording()),
-            weatherFactory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history.session, history.recording()),
+            weatherFactory = DefaultCityWeatherComponentFactory(api, hourlyApi, coroutineContext, history.session, history.weatherRecordings()),
         )
 
     override fun getChildStack() = root.getChildStack()

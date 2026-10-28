@@ -2,7 +2,6 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.FailureDescriptor
@@ -28,7 +27,7 @@ import kotlinx.coroutines.launch
  * [checkpoint] needs. Commands and timers run as children of [parent] in a scope of their own,
  * cancelled by [close].
  */
-@OptIn(ExperimentalActronApi::class)
+
 internal class CommandScheduler<C : Any, A : Action, CMD : Any, E : Event>(
     parent: CoroutineScope,
     initial: MachineSnapshot<C>,

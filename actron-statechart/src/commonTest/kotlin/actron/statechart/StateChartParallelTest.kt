@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.Store
 import actron.core.createRuntimeStore
@@ -57,7 +56,7 @@ import kotlin.test.assertTrue
  * Online --Escape--> Offline
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartParallelTest {
     sealed interface MessengerAction : Action {
         data object Connect : MessengerAction

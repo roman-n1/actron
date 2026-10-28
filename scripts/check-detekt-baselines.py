@@ -16,6 +16,11 @@ AUTHORIZED_RELOCATIONS = {
             ("CurrentIssues", "TooGenericExceptionCaught:LoggingDelivery.kt:LoggingDelivery$e: Exception"),
         ),
     ),
+    # User-authorized identity-only update after removing StoreLifecycle, 2026-10-26.
+    "config/detekt/baselines/actron-statechart.xml": (
+        (("CurrentIssues", 'TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> : InvokedMachineStoreStoreLifecycle'), ("CurrentIssues", 'TooManyFunctions:InvokedMachineStore.kt:InvocationStoreImpl<PC : Any, PA : Action, PCMD : Any, PE : Event, CC : Any, CA : Action, CCMD : Any, CE : Event> : InvokedMachineStore')),
+        (("CurrentIssues", 'TooManyFunctions:MachineStore.kt:MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event> : MachineStoreStoreInternalApiStoreLifecycle'), ("CurrentIssues", 'TooManyFunctions:MachineStore.kt:MachineStoreImpl<C : Any, A : Action, CMD : Any, E : Event> : MachineStoreStoreInternalApi')),
+    ),
 }
 
 

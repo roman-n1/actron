@@ -31,12 +31,10 @@ Use the default ordered mode while investigating transition order.
 ## Structured logs for a group
 
 ```kotlin
-import actron.core.ExperimentalActronApi
 import actron.logging.LoggerJournalSink
 import actron.observability.RecordingSession
 import kotlinx.coroutines.CoroutineScope
 
-@OptIn(ExperimentalActronApi::class)
 fun recordingSession(scope: CoroutineScope) = RecordingSession(
     scope = scope,
     sinks = listOf(LoggerJournalSink()),

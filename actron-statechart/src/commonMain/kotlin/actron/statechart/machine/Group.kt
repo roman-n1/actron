@@ -2,7 +2,6 @@ package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.InputAttribution
 import actron.core.InputId
 import actron.observability.FailureDescriptor
@@ -149,7 +148,7 @@ fun interface CutListener {
  * @param session The journal that gets [JournalEntry.BridgeSent], [JournalEntry.BridgeReceived],
  * [JournalEntry.BridgeDropped] and [JournalEntry.CheckpointCreated]
  */
-@OptIn(ExperimentalActronApi::class)
+
 class MachineGroup(
     private val session: JournalPublisher = JournalPublisher.Disabled,
 ) {
@@ -210,7 +209,7 @@ class MachineGroup(
      *
      * @throws IllegalArgumentException if a source with the same id is attached
      */
-    @ExperimentalActronApi
+
     fun source(source: ExternalSource) {
         locked {
             require(sourceList.none { it.id == source.id }) { "[Actron] ${source.id} is already attached to this group" }

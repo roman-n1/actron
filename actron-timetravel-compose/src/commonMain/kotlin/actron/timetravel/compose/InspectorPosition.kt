@@ -1,8 +1,8 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel.compose
 
-import actron.core.ExperimentalActronApi
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.definition_at
+import actron.timetravel.compose.resources.explain_next
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun InspectorPosition(
@@ -29,17 +30,17 @@ internal fun InspectorPosition(
     val model = inspectorPosition(state)
     Column(modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
         Column(Modifier.semantics(mergeDescendants = true) {}.testTag("position")) {
-            InspectorHeading(model.heading)
+            InspectorHeading(model.heading.resolve())
             when (val content = model.content) {
                 is InspectorPositionContent.Prompt -> {
-                    Text(content.text, style = MaterialTheme.typography.bodySmall)
+                    Text(content.text.resolve(), style = MaterialTheme.typography.bodySmall)
                 }
 
                 is InspectorPositionContent.Journal -> {
                     for (line in content.lines) Text(line.text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, fontWeight = line.weight)
                     for (notice in content.notices) {
                         Spacer(Modifier.height(8.dp))
-                        Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                        Text(notice.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     }
                 }
             }
@@ -51,7 +52,7 @@ internal fun InspectorPosition(
 @Composable
 internal fun InspectorReplayPosition(replay: ReplayControls<*, *, *, *>) {
     Spacer(Modifier.height(8.dp))
-    OutlinedButton(onClick = { replay.explainNext() }, modifier = Modifier.testTag("explain-next")) { Text("Explain next input / check invariants") }
+    OutlinedButton(onClick = { replay.explainNext() }, modifier = Modifier.testTag("explain-next")) { Text(stringResource(resource = Res.string.explain_next)) }
     val inspection = replay.inspection
     if (inspection is ChartInspection.Decided) Text(inspection.outcome)
     StateChartPanel(
@@ -63,10 +64,9 @@ internal fun InspectorReplayPosition(replay: ReplayControls<*, *, *, *>) {
                 .configuration.active,
         inspection = inspection,
     )
-    DefinitionPanel(replay.mermaid(), "Definition of ${replay.store} at ${replay.position}", tag = "definition")
+    DefinitionPanel(replay.mermaid(), stringResource(resource = Res.string.definition_at, replay.store, replay.position), tag = "definition")
 }
 
-@ExperimentalActronApi
 @Composable
 internal fun InspectorDefinition(
     mermaid: String,

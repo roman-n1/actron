@@ -93,7 +93,7 @@ without running the network calls again.
 
 That gives a bug report a concrete next step: **open the recording, find the decision, try an
 alternative.** Deterministic replay requires the pure Machine path and compatible definitions
-and codecs. Replay, branching and inspector APIs are currently experimental.
+and codecs. Replay, branching and inspector APIs are part of the supported API.
 
 ### Start small. Make complexity explicit.
 
@@ -322,8 +322,7 @@ kotlin {
 ```
 
 The publishing convention sets the included projects' group/version, so Gradle substitutes
-the matching coordinates. Add only the modules you need. External sources and debug
-tools currently need `@OptIn(actron.core.ExperimentalActronApi::class)` at their use sites.
+the matching coordinates. Add only the modules you need; no Actron opt-in is required.
 Keep all Actron modules on the same version. Actron uses `actron.*` packages and requires
 recompiling consumers that previously imported `koma.*`; it is not a binary replacement.
 For an Android-only build, the same dependency line belongs in `dependencies { … }`.
@@ -353,9 +352,9 @@ releases. Compose helpers, messaging, logging and runtime test support remain.
 | UI/test integration | Core Compose and test helpers | Retained effect mailbox, virtual Machine test driver and inspector |
 | Runtime/build assurance | Original runtime and build | Documented race/error fixes, API dumps, debug dependency checks and six CI targets |
 
-The pure chart/Machine data model, journal and recording formats have a stable API/format
-policy. Evolving Store-adapter configuration, external-source integration, replay and inspector
-APIs retain experimental markers; see the [stability boundary](doc/internal/adr/2026-10-01-stable-core.md).
+The chart/Machine model, Store adapters, external sources, replay, inspector and test helpers
+are supported API. Before the first release, obsolete aliases and previous-format readers
+are removed; see the [unreleased API baseline](doc/internal/adr/2026-10-26-unreleased-api-baseline.md).
 The supported subset includes eventless/completion transitions, final states, internal
 transitions and cancellable invocation. Device measurements and messenger integration
 remain separate work. The [divergence inventory](doc/internal/design/2026-09-28-statechart-roadmap.md#divergence-inventory-vs-upstream-400)

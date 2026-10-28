@@ -1,8 +1,15 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package actron.timetravel.compose
 
 import actron.observability.StoreInstanceId
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.advance_second
+import actron.timetravel.compose.resources.answer
+import actron.timetravel.compose.resources.awaiting_command
+import actron.timetravel.compose.resources.complete_command
+import actron.timetravel.compose.resources.fail_command
+import actron.timetravel.compose.resources.offline_experiment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
@@ -19,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
@@ -29,8 +37,8 @@ internal fun PanelBranchBody(
 ) {
     val request = branch.request
     if (request is BranchRequest.Refused) PanelProblem(request.reason)
-    Text("Offline experiment · recording unchanged", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    TextButton(onClick = { branch.advance(1.seconds) }, modifier = Modifier.testTag("panel-advance")) { Text("Advance 1 second") }
+    Text(stringResource(resource = Res.string.offline_experiment), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    TextButton(onClick = { branch.advance(1.seconds) }, modifier = Modifier.testTag("panel-advance")) { Text(stringResource(resource = Res.string.advance_second)) }
     for (store in branch.members.filter { filter.includes(it) }) {
         PanelBranchMember(branch, store, expanded)
     }
@@ -47,7 +55,7 @@ internal fun PanelAnswerPicker(
     val answers = branch.inputsOf(store).filterIsInstance<BranchInput.Answer>()
     if (answers.isNotEmpty()) {
         Box {
-            TextButton(onClick = { open = true }, modifier = Modifier.testTag("panel-answers-${store.value}-${command.value}")) { Text("Answer…") }
+            TextButton(onClick = { open = true }, modifier = Modifier.testTag("panel-answers-${store.value}-${command.value}")) { Text(stringResource(resource = Res.string.answer)) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 for (answer in answers) {
                     DropdownMenuItem(
@@ -81,11 +89,11 @@ private fun PanelBranchMember(
         }
     }
     for (command in branch.awaiting(store)) {
-        Text("Awaiting ${command.command}", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(resource = Res.string.awaiting_command, command.command), style = MaterialTheme.typography.bodySmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             PanelAnswerPicker(branch, store, command.id)
-            TextButton(onClick = { branch.complete(store, command.id) }, modifier = Modifier.testTag("panel-complete-${store.value}-${command.id.value}")) { Text("Complete") }
-            TextButton(onClick = { branch.fail(store, command.id) }, modifier = Modifier.testTag("panel-fail-${store.value}-${command.id.value}")) { Text("Fail") }
+            TextButton(onClick = { branch.complete(store, command.id) }, modifier = Modifier.testTag("panel-complete-${store.value}-${command.id.value}")) { Text(stringResource(resource = Res.string.complete_command)) }
+            TextButton(onClick = { branch.fail(store, command.id) }, modifier = Modifier.testTag("panel-fail-${store.value}-${command.id.value}")) { Text(stringResource(resource = Res.string.fail_command)) }
         }
     }
     if (expanded) PanelLines(listOf("Clock: ${branch.now(store).sinceStart}", "Queued: ${branch.queued(store)}"))

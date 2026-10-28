@@ -1,14 +1,14 @@
 # Weather application
 
 A two-screen Compose Multiplatform application for Android, Desktop, iOS and the browser.
-Search for a city, open its current weather and six-hour forecast, refresh or go back.
+Search for a city, open its current weather, six-hour forecast and dismissible weather advice, refresh or go back.
 Settings contains an optional debug history panel, shown only on the right. Recording starts
 with the machines, independently of panel visibility.
 
 ## Read the example
 
 Start with [How Weather uses Actron](docs/architecture.md): the path from UI intent to machine
-decision and HTTP result, the typed search DSL, parallel weather regions, component lifetime,
+decision and HTTP result, the typed search DSL, independent weather machines, component lifetime,
 and the distinction between preview and restoration.
 
 For tests, read [the test-source README](debugTools/src/commonTest/README.md). It maps the scripted,
@@ -78,7 +78,7 @@ Desktop. The old article, replay and CLI-check modes have been removed from this
 - **Decompose** owns the component tree, lifecycle and navigation stack. The root handles only
   `CitySelected(city)` and `BackClicked`. The weather configuration carries the selected city.
 - **Actron** owns each feature's `MachineStore`, state, transitions, timers, command execution
-  and cancellation. Search and weather have independent stores; weather contains two parallel regions.
+  and cancellation. Search and weather have independent stores; weather has a screen parent and three independent child stores.
 - **Command handlers** call feature repositories and return typed result actions. Network
   access is outside the pure machine definitions.
 - **Compose** reads the machine snapshot and sends screen intents. UI models are pure formatting
@@ -102,7 +102,10 @@ feature/cities/
 feature/weather/
   data/                          Current/hourly HTTP and offline repositories
   domain/                        Weather data and repository interfaces
-  presentation/                  Component, parallel machine, command handler, screen and UI projection
+  presentation/                  Parent machine, screen and derived UI projection
+currentweather/presentation/     Standalone current-weather context, actions, machine and handler
+hourlyforecast/presentation/     Standalone forecast context, actions, machine and handler
+weatheradvice/presentation/      Standalone advice context, actions, machine and handler
 ```
 
 Application component factories retain each `MachineInstance` through Decompose's `InstanceKeeper`.
@@ -131,7 +134,7 @@ val store = componentContext.retainedMachine(
 
 Add `restoration = session.searchRestoration()` to restore/track search checkpoints.
 Independently add `recording = history.recording()` to enable recording and profiling. The option binds once, before
-startup. `initialActions = listOf(WeatherAction.Refresh)` runs only on fresh creation.
+startup. Weather retains four stores with typed MachineGroup routes and starts the parent after the children enter Ready; the parent emits the first refresh event automatically.
 The adapter owns retention/start/close and the command scope; UI subscriptions still belong
 to their component. See [the installation contract](docs/architecture.md#one-call-machine-installation).
 The helper is part of `actron-decompose`; these changes have not yet been released to Maven Central.
@@ -139,15 +142,33 @@ The helper is part of `actron-decompose`; these changes have not yet been releas
 ## State machines
 
 `CitySearchMachine` uses `RequestState<List<CityOption>>`:
-`Idle → Debouncing → Loading → Success / Error / TimedOut`.
-Every edit updates the query and revision; 350 ms of quiet starts the request, even for one letter.
+`Idle → QueryChanged → Debouncing → Loading → Success / Error`.
+Every edit enters `QueryChanged` and updates the query and revision once. Its guarded `always`
+transitions select `Idle` for blank input or `Debouncing` otherwise, within the same decision.
+350 ms of quiet starts the request, even for one letter.
 Clearing cancels pending work and restores `Idle`. An empty server response is `Success(emptyList())`.
 Responses for outdated revisions are ignored. Requests time out after eight seconds.
 
-`CityWeatherMachine` uses the typed parallel DSL with `Current` and `Hourly` regions, containing
-`RequestState<WeatherReading>` and `RequestState<HourlyForecast>`. Each declares
-`Idle`, `Loading`, `Success`, `Error` and `TimedOut`. Refresh loads both; retrying the forecast
-only restarts `Hourly`. Responses, errors and timeouts are independent.
+`CityWeatherMachine` owns the city header and accepts `WeatherScreenAction.Refresh`. Its Active
+entry emits one `WeatherScreenEvent.RefreshChildren` on fresh startup and every Refresh self-loop.
+`WeatherMachines` attaches four stores to a MachineGroup and declares three typed routes:
+
+- RefreshChildren → `CurrentWeatherAction.Refresh` for CurrentWeatherMachine.
+- RefreshChildren → `HourlyForecastAction.Refresh` for HourlyForecastMachine.
+- RefreshChildren → `WeatherAdviceAction.Refresh` for WeatherAdviceMachine.
+
+The children have their own contexts, action types, commands, handlers and serialized queues.
+They know neither the parent nor one another. They start in Ready without requests or timers;
+then the parent's first event starts loading automatically. Current and Hourly use
+Ready / Loading / Success / Error. Advice uses Ready / Loading / Hidden / Visible / Error /
+Dismissed and interprets its own reading as weather tips. A global update makes two independent
+current-weather calls and one hourly call. Local Hourly Retry and Advice Retry/Dismiss preserve siblings.
+
+Every child accepts its Refresh from every state, including Loading and Dismissed. Re-entering
+Loading cancels the old work and starts a new request and timeout. Group delivery is not an atomic
+multi-store transaction; the immutable UI projection may briefly show mixed phases. Saved and
+continuable frames include all four checkpoints and require all routed messages to be settled.
+Restoration preserves completed and dismissed children, restarting only pending work.
 
 The state variants define graph identity through the DSL. There are no independent state IDs,
 loading/error flags or string guards/effects. `RequestState` uses generated `@Serializable`
@@ -171,7 +192,7 @@ city data: [GeoNames](https://www.geonames.org/).
 ```
 
 Tests cover HTTP decoding, debounce and revisions, cancellation and timeouts, independent
-parallel requests, generic serialization, navigation, host recreation and request cleanup.
+independent requests, typed routes, generic serialization, navigation, host recreation and request cleanup.
 The optional debugTools module integrates the library's recording/replay and inspector APIs; its host adapter
 owns only Weather display frames, screen restoration and platform file access.
 
@@ -197,7 +218,7 @@ use the device's local time zone and locale.
 
 Selecting an event immediately renders the saved application frame with inputs disabled, without calling any
 repositories. Live recording continues in the background. Switching to **Live** exits preview.
-**Continue here** replaces the Decompose stack and executors with the selected frame and exits preview. Search context and both parallel weather regions are restored
+**Continue here** replaces the Decompose stack and executors with the selected frame and exits preview. Search context and both independent weather machines are restored
 together. Completed requests stay completed; running read requests restart, queued commands
 keep their lanes and timers keep their remaining delay. Old executors are closed; callbacks
 from an earlier branch cannot modify the new frame. After successful restoration, entries after the selected event are removed. Earlier entries
@@ -230,7 +251,7 @@ Android release uses the ordinary root without diagnostics; Android debug, Deskt
 opt into `debugTools` and `actron-timetravel-compose`.
 
 Tests cover bounded history, pinned selection after eviction, action details, preview/continue,
-restoring navigation and a pending parallel request, local timestamp formatting, and lifecycle
+restoring navigation and a pending child request, local timestamp formatting, and lifecycle
 retention. Core restart tests verify command queues, remaining timer delays and entry hooks.
 
 
@@ -283,12 +304,12 @@ Validation:
 [GeneratedWeatherScenarios.kt](debugTools/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt)
 shows the developer-facing `machine.scenarios(initial) { ... }` API:
 
-- `actions`: finite search values (empty, Moscow, Kazan), refresh and forecast retry.
+- `actions`: finite search values (empty, Moscow, Kazan), global refresh, forecast/advice retries and advice dismissal.
 - `replies`: success/failure data derived from commands actually emitted by the machine.
 - `rule`: each query edit immediately cancels the old request; old search answers cannot
-  change context; forecast replies/retries preserve current weather.
+  change context. Production composition tests separately check that local child retries preserve siblings.
 - `goal`: require a late Moscow reply during Kazan's request, subsequent Kazan success, and
-  both orders of the two parallel weather responses.
+  a concrete successful current-weather path. Production composition tests cover independent response order and retries.
 
 Actron discovers the order of actions, real debounce/timeout timers and command responses from
 the graph and decisions. The tests do not prescribe the Moscow→Kazan sequence. They verify
@@ -305,9 +326,10 @@ suspended HTTP operation receives cancellation before Kazan starts. Late-answer 
 separate defensive check for an already queued callback or a source that ignores cancellation;
 it does not mean the obsolete HTTP request is intentionally kept running.
 
-With the checked-in data and bounds, search explores 763 decisions and selects 14 scenarios,
-covering **16/16 transitions**; weather explores 59 decisions and selects 12 scenarios, covering
-**21/21 transitions**. Both machines cover all declared timer transitions. This is bounded pure
+With the checked-in data and bounds, search explores 763 decisions and selects 7 scenarios,
+covering **11/11 transitions**. Current Weather explores 12 decisions / 4 scenarios (**7/7**),
+Hourly 27 / 6 (**11/11**), and Advice 21 / 8 (**14/14**). A separate parent test covers its Refresh
+transition and single emitted event. The child models cover all declared timer transitions. This is bounded pure
 model coverage, not exhaustive payload/guard coverage or verification of executor scheduling.
 Existing queued-store tests continue to cover actual command execution and cancellation.
 
@@ -322,7 +344,7 @@ Files appear in `examples/weather/debugTools/build/generated-scenarios/`:
 - `late-moscow-command.actron.json`: search Moscow, switch to Kazan, ignore Moscow's late
   command result, then display Kazan's result.
 - `late-moscow-action.actron.json`: the independent revision-guard check.
-- `parallel-forecast-first.actron.json`: forecast succeeds while current weather is still loading.
+- `current-weather-success.actron.json`: a standalone current-weather machine reaches Success.
 
 Enable the inspector and use **Import** beside the machine filter. Select events to see the
 recorded search/weather screen, before/action/after and graph coverage. The export includes
@@ -347,3 +369,5 @@ The Android release graph uses only `shared`; debug adds `debugTools`. Desktop/W
 included SwiftUI host opt into the debugger explicitly. There is one Weather application;
 the module split keeps diagnostics out of normal runtime dependencies. The production tests
 verify that recorder/panel classes are absent and checkpoint restoration still works.
+
+UI translations use native XML resources: [localization guide](../../doc/guides/localization.md).

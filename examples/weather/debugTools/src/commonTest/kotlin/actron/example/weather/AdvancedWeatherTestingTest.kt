@@ -1,10 +1,11 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.example.weather
 
 import actron.example.weather.core.mvi.*
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherAction
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherContext
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
 import actron.example.weather.feature.weather.domain.*
 import actron.example.weather.feature.weather.presentation.*
 import actron.statechart.Trigger
@@ -53,43 +54,35 @@ class AdvancedWeatherTestingTest {
         assertTrue(rules.check(loading).pending.isNotEmpty())
     }
 
-    @Test fun actualParallelExecutorExploresResultsErrorsAndTimeoutOrder() =
-        runTest {
-            val machine = CityWeatherMachine.create()
+    @Test fun actualCurrentExecutorExploresResultFailureAndTimeout() =
+        runTest(testBody = {
             val report =
-                machine.exploreSchedules(
-                    WeatherContext(kazan),
-                    this,
-                    maxDepth = 2,
-                    maxRuns = 30,
-                    setup = { send(WeatherAction.Refresh) },
+                CurrentWeatherMachine.create().exploreSchedules(
+                    initial = CurrentWeatherContext(city = kazan),
+                    scope = this,
+                    maxDepth = 1,
+                    maxRuns = 20,
+                    setup = { send(action = CurrentWeatherAction.Refresh) },
                     choices = {
                         if (runningCommands.isEmpty()) {
                             emptyList()
                         } else {
                             runningCommands.flatMap { command ->
-                                val answers: List<WeatherAction> =
-                                    when (command.command) {
-                                        is WeatherCommand.Current -> listOf(WeatherAction.Loaded(reading(kazan)), WeatherAction.Unavailable("offline"))
-                                        is WeatherCommand.Hourly -> listOf(WeatherAction.ForecastLoaded(HourlyForecast(kazan, emptyList())), WeatherAction.ForecastFailed("offline"))
-                                    }
-                                answers.map { ScheduleOperation.Answer(command.id, it) }
-                            } + ScheduleOperation.Advance(8.seconds)
+                                listOf(
+                                    ScheduleOperation.Answer(command = command.id, action = CurrentWeatherAction.Loaded(reading = reading(city = kazan))),
+                                    ScheduleOperation.Answer(command = command.id, action = CurrentWeatherAction.Failed(message = "offline")),
+                                )
+                            } + ScheduleOperation.Advance(duration = 8.seconds)
                         }
                     },
                     check = {
-                        val current = snapshot.context.current
-                        val hourly = snapshot.context.hourly
-                        if (current is RequestState.Success) assertEquals(kazan, current.value.city)
-                        if (hourly is RequestState.Success) assertEquals(kazan, hourly.value.city)
+                        val state = snapshot.context.state
+                        if (state is RequestState.Success) assertEquals(expected = kazan, actual = state.value.city)
                     },
                 )
             report.assertSuccess()
-            val orders = report.completed.map { path -> path.filterIsInstance<ScheduleOperation.Answer<WeatherAction>>().map { it.action::class } }
-            assertTrue(listOf(WeatherAction.Loaded::class, WeatherAction.ForecastLoaded::class) in orders)
-            assertTrue(listOf(WeatherAction.ForecastLoaded::class, WeatherAction.Loaded::class) in orders)
-            assertTrue(report.completed.any { it.first() is ScheduleOperation.Advance })
-        }
+            assertEquals(expected = 3, actual = report.completed.size)
+        })
 
     @Test fun actualSearchExecutorExploresAnswerBeforeAndAfterQueryReplacement() =
         runTest {
@@ -127,18 +120,18 @@ class AdvancedWeatherTestingTest {
 
     @Test fun weatherTestsDetectRemovalOfCityGuard() =
         runTest {
-            val machine = CityWeatherMachine.create()
-            val loaded = WeatherAction.Loaded(reading(moscow))
+            val machine = CurrentWeatherMachine.create()
+            val loaded = CurrentWeatherAction.Loaded(reading = reading(city = moscow))
             val index = machine.chart.transitions.indexOfFirst { (it.trigger as? Trigger.OnAction)?.matcher?.matches(loaded) == true }
             assertTrue(index >= 0)
             val report =
                 machine.testMutations(listOf(TransitionMutation(TransitionId(index), MutationKind.RemoveGuard))) { variant ->
-                    val driver = MachineTestDriver(variant, WeatherContext(kazan), this)
+                    val driver = MachineTestDriver(machine = variant, context = CurrentWeatherContext(city = kazan), scope = this)
                     try {
                         driver.start()
-                        driver.send(WeatherAction.Refresh)
+                        driver.send(action = CurrentWeatherAction.Refresh)
                         driver.send(loaded)
-                        assertIs<RequestState.Loading>(driver.snapshot.context.current, "Another city's answer must be ignored")
+                        assertIs<RequestState.Loading>(driver.snapshot.context.state, "Another city's answer must be ignored")
                     } finally {
                         driver.close()
                     }

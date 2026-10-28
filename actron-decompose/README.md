@@ -125,7 +125,7 @@ Register and close these handles on the lifecycle's owning thread. The callback 
 the Store's execution context; it is not switched to Main. State observation follows the existing
 startup policy and is asynchronous/conflated. Event observation is ready before returning, does
 not start the Store and does not replay past events. Attach it before startup or dispatching the
-initial action. Core's old collectEvent remains asynchronous for compatibility.
+initial action. Observation is part of the Store contract; event registration completes before returning.
 
 InstanceKeeper.onDestroy is synchronous: it calls Store.close(), without blocking the lifecycle
 thread. When an external coroutine must await all cleanup, use the core closeAndJoin extension.

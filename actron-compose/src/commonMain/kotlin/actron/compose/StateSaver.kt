@@ -1,6 +1,5 @@
 package actron.compose
 
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.core.StateSaver
 import androidx.compose.runtime.Composable
@@ -28,7 +27,6 @@ private class StateSaverImpl<S : State> : StateSaver<S> {
  *
  * @return A [StateSaver] for preserving state snapshots in Compose
  */
-@ExperimentalActronApi
 @Composable
 fun <S : State> rememberStateSaver(): StateSaver<S> =
     rememberRetained {

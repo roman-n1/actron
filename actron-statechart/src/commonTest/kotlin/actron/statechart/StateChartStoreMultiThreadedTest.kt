@@ -2,7 +2,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -30,7 +29,7 @@ import kotlin.test.assertEquals
  * }
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartStoreMultiThreadedTest {
     sealed interface UiAction : Action {
         data object Toggle : UiAction

@@ -249,7 +249,7 @@ class CounterUseCaseTest {
             val store = createTestStore(AppState.Active(5))
 
             val capturedEventObservations = mutableListOf<AppEvent>()
-            store.collectEvent { event ->
+            store.observeEvent { event ->
                 capturedEventObservations.add(event)
             }
 
@@ -266,7 +266,7 @@ class CounterUseCaseTest {
             val store = createTestStore(AppState.Active(9))
 
             val thresholdEventObservations = mutableListOf<AppEvent.ThresholdReached>()
-            store.collectEvent { event ->
+            store.observeEvent { event ->
                 if (event is AppEvent.ThresholdReached) {
                     thresholdEventObservations.add(event)
                 }

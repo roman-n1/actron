@@ -7,7 +7,10 @@ import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherRoute
 import actron.example.weather.app.session.WeatherSession
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
+import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
+import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastMachine
 import actron.example.weather.feature.weather.presentation.CityWeatherMachine
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceMachine
 import actron.statechart.machine.*
 import actron.timetravel.*
 import actron.timetravel.compose.HistoryGraph
@@ -42,7 +45,13 @@ class WeatherHistory(
     val panelLayout = actron.timetravel.compose.HistoryPanelLayoutState()
     val panelVisible = MutableStateFlow(false)
     private val searchChart = CitySearchMachine.create().chart
-    private val weatherChart = CityWeatherMachine.create().chart
+    private val weatherCharts =
+        mapOf(
+            "city-weather" to CityWeatherMachine.create().chart,
+            "current-weather" to CurrentWeatherMachine.create().chart,
+            "hourly-forecast" to HourlyForecastMachine.create().chart,
+            "weather-advice" to WeatherAdviceMachine.create().chart,
+        )
 
     fun graph(entry: HistoryEntry<WeatherHistoryFrame>): HistoryGraph =
         when (entry.machine.stableId) {
@@ -59,7 +68,7 @@ class WeatherHistory(
                 )
             }
 
-            "city-weather" -> {
+            "city-weather", "current-weather", "hourly-forecast", "weather-advice" -> {
                 when (val route = entry.snapshot.application.route) {
                     WeatherRoute.Search -> {
                         HistoryGraph.Unavailable
@@ -67,11 +76,30 @@ class WeatherHistory(
 
                     is WeatherRoute.Weather -> {
                         HistoryGraph.Machine(
-                            weatherChart,
-                            route.checkpoint.snapshot.configuration.active
-                                .toSet(),
+                            weatherCharts.getValue(entry.machine.stableId),
+                            when (entry.machine.stableId) {
+                                "current-weather" -> {
+                                    route.checkpoint.current.snapshot.configuration.active
+                                        .toSet()
+                                }
+
+                                "hourly-forecast" -> {
+                                    route.checkpoint.hourly.snapshot.configuration.active
+                                        .toSet()
+                                }
+
+                                "weather-advice" -> {
+                                    route.checkpoint.advice.snapshot.configuration.active
+                                        .toSet()
+                                }
+
+                                else -> {
+                                    route.checkpoint.screen.snapshot.configuration.active
+                                        .toSet()
+                                }
+                            },
                             HistoryGraphCoverage.Recorded(
-                                entry.snapshot.coverage[DefinitionId("city-weather")]
+                                entry.snapshot.coverage[DefinitionId(entry.machine.stableId)]
                                     ?.hits
                                     .orEmpty(),
                             ),
@@ -95,6 +123,9 @@ class WeatherHistory(
                 when (machine.id.value) {
                     "city-search" -> "City Search"
                     "city-weather" -> "City Weather"
+                    "current-weather" -> "Current Weather"
+                    "hourly-forecast" -> "Hourly Forecast"
+                    "weather-advice" -> "Weather Advice"
                     else -> machine.id.value
                 },
                 stableId = machine.id.value,
@@ -176,6 +207,7 @@ class WeatherHistory(
                                     is MachineInput.Dispatch -> "Action"
                                     is MachineInput.TimerFired -> "Timer"
                                     is MachineInput.CommandResult -> "Command result"
+                                    is MachineInput.BridgeReceived -> "Bridge"
                                     else -> "Runtime"
                                 },
                             outcome = decision.outcome.toString(),

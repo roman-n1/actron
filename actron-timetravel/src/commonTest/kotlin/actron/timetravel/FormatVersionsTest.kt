@@ -1,8 +1,5 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.timetravel
 
-import actron.core.ExperimentalActronApi
 import actron.observability.JOURNAL_FORMAT_VERSION
 import actron.observability.file.JOURNAL_FILE_FORMAT_VERSION
 import actron.timetravel.file.GroupRecordingFileFormat
@@ -40,7 +37,7 @@ class FormatVersionsTest {
             frozen,
             current,
             "A format version changed. The freeze policy (doc/internal/adr/2026-10-01-format-freeze-policy.md) asks, in the same change: " +
-                "(1) the history line at the constant; (2) a reader of the previous version (a FormatMigration for RECORDING_FORMAT_VERSION, " +
+                "(1) the history line at the constant; (2) explicit rejection of unsupported versions (" +
                 "a branch on the header's version for a layout, a stated meaning of an absent field for the order file); " +
                 "(3) the test that reads a segment or fixture of the previous version; (4) the golden of the current version re-pinned; " +
                 "(5) this table.",

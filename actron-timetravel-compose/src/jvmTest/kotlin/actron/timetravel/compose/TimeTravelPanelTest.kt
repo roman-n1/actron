@@ -1,4 +1,4 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class, androidx.compose.ui.test.ExperimentalTestApi::class)
+@file:OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 
 package actron.timetravel.compose
 
@@ -96,7 +96,17 @@ class TimeTravelPanelTest {
             val state = InspectorState(Inspector.of(emptyList()))
             setContent { MaterialTheme { Column(Modifier.width(320.dp)) { TimeTravelPanel(state) } } }
             onNodeWithTag("time-travel-panel").assertIsDisplayed()
-            onNodeWithTag("panel-empty").assertTextContains("No recorded inputs", substring = true)
+            onNodeWithTag("panel-empty").assertTextContains(
+                if (java.util.Locale
+                        .getDefault()
+                        .language == "ru"
+                ) {
+                    "нет записанных входов"
+                } else {
+                    "No recorded inputs"
+                },
+                substring = true,
+            )
             onNodeWithTag("panel-machines").assertIsNotEnabled()
         }
 

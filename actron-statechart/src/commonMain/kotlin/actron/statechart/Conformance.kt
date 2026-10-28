@@ -2,7 +2,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.Plugin
 import actron.core.PluginScope
 import actron.core.State

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cities">Cities</string>
+    <string name="search_cities">Search cities</string>
+    <string name="enter_city">Enter a city name</string>
+    <string name="debouncing">Waiting for typing…</string>
+    <string name="searching">Searching…</string>
+    <string name="retry">Retry</string>
+    <string name="no_cities">No cities found</string>
+    <string name="search_failed">Could not load cities. Try again.</string>
+    <string name="back">Back</string>
+    <string name="refresh">Refresh</string>
+    <string name="next_hours">Next 6 hours</string>
+    <string name="retry_forecast">Retry forecast</string>
+    <string name="feels_like">Feels like %1$s° · wind %2$s km/h</string>
+    <string name="loading_weather">Loading weather…</string>
+    <string name="weather_failed">Could not load weather. Refresh to try again.</string>
+    <string name="choose_weather_city">Choose a city to see the weather</string>
+    <string name="loading_forecast">Loading forecast…</string>
+    <string name="forecast_failed">Could not load the forecast. Try again.</string>
+    <string name="choose_city">Choose a city</string>
+    <string name="wind">Wind %1$s km/h</string>
+    <string name="rain">Rain %1$s%</string>
+    <string name="updated">Updated %1$s</string>
+    <string name="timestamp">%1$s · %2$s ms</string>
+    <string name="temperature">%1$s°</string>
+    <string name="unknown_temperature">—</string>
+    <string name="advice_title">Weather advice</string>
+    <string name="advice_loading">Checking the weather for advice…</string>
+    <string name="advice_failed">Could not load weather advice. Try again.</string>
+    <string name="advice_dismiss">Dismiss weather advice</string>
+    <string name="advice_close_symbol">×</string>
+    <string name="advice_umbrella">It is raining — take an umbrella.</string>
+    <string name="advice_ice">Freezing precipitation — roads may be slippery.</string>
+    <string name="advice_wind">Strong wind — take care outdoors.</string>
+    <string name="advice_heat">It is hot — take water with you.</string>
+    <string name="advice_cold">It is freezing — dress warmly.</string>
+    <string name="weather_in_city">Weather — %1$s</string>
+    <string name="current_weather">Current weather</string>
+    <string name="advice_storm">Thunderstorm — consider staying indoors.</string>
+    <string name="weather_ready">Press Refresh to load the weather.</string>
+    <string name="forecast_ready">Press Refresh to load the forecast.</string>
+    <string name="advice_ready">Press Refresh to check weather conditions.</string>
+</resources>

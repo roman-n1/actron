@@ -97,9 +97,11 @@ internal class TestStore(
         dispatchedActions += action
     }
 
-    override fun collectState(state: (UiState) -> Unit) = Unit
+    override fun observeState(observer: (UiState) -> Unit): AutoCloseable = AutoCloseable {}
 
-    override fun collectEvent(event: (UiEvent) -> Unit) = Unit
+    override fun observeEvent(observer: (UiEvent) -> Unit): AutoCloseable = AutoCloseable {}
+
+    override suspend fun closeAndJoin() = close()
 
     override fun close() {
         closeCount++

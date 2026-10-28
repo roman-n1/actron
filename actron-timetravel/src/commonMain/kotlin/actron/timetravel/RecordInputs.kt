@@ -2,7 +2,6 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.*
 
 /**
@@ -11,7 +10,6 @@ import actron.statechart.machine.*
  * Use authentic checkpoint data for a started workflow, including its unfinished command payloads.
  * This debug artifact retains supplied context/action/command data; codecs/redaction belong to the app.
  */
-@ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.recordInputs(
     start: ExecutorCheckpoint<C, CMD>,
     inputs: List<MachineInput<A>>,
@@ -41,7 +39,6 @@ fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.recordInpu
 }
 
 /** Whole generated/shrunk run from an unstarted snapshot; started workflows require the checkpoint overload. */
-@ExperimentalActronApi
 fun <C : Any, A : Action, CMD : Any, E : Event> Machine<C, A, CMD, E>.recordInputs(
     initial: MachineSnapshot<C>,
     inputs: List<MachineInput<A>>,

@@ -1,7 +1,6 @@
 package actron.statechart.test
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.CommandEnvelope
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.CommandId
@@ -17,7 +16,6 @@ import kotlinx.coroutines.flow.update
  * `Branch` does in a replay (handoff §12: the harness does not execute commands). What the
  * executor started, cancelled and finished is recorded for the test to read.
  */
-@ExperimentalActronApi
 class ScriptedCommandHandler<CMD : Any, A : Action> : CommandHandler<CMD, A> {
     private class Running<A : Action>(
         val sink: ResultSink<A>,

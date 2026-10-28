@@ -1,7 +1,5 @@
 package actron.statechart
 
-import actron.core.ExperimentalActronApi
-
 /**
  * A walk through a statechart: [transitions] taken one after another, starting with [start] as the
  * active leaf, one action per transition.

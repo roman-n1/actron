@@ -17,44 +17,61 @@ class HistoryEventSummaryPresentationTest {
                 listOf(StateField("active", "Idle"), StateField("query", "Paris"), StateField("unchanged", "same"), StateField("revision", "1")),
                 listOf(StateField("active", "Loading"), StateField("query", "Oslo"), StateField("unchanged", "same"), StateField("revision", "2"), StateField("result", "a".repeat(80)), StateField("count", "12")),
             )
-        val summary = historyEventSummary(details)
+        val summary = summarize(details)
         assertEquals("Search", summary.action)
         assertEquals("Idle", summary.before)
         assertEquals("Loading", summary.after)
-        assertEquals("Changed fields: query, result · more: 1", summary.changes)
-        assertFalse(summary.changes.contains("unchanged"))
-        assertFalse(summary.changes.contains("revision"))
+        assertEquals(HistoryChanges(fields = listOf("query", "result"), remaining = 1), summary.changes)
+        assertFalse(
+            summary.changes.fields
+                .joinToString()
+                .contains("unchanged"),
+        )
+        assertFalse(
+            summary.changes.fields
+                .joinToString()
+                .contains("revision"),
+        )
     }
 
     @Test
     fun unchangedEventsExplainTheEmptyPreview() {
         val fields = listOf(StateField("active", "Idle"), StateField("query", "Paris"))
-        val summary = historyEventSummary(HistoryDetails("Refresh", "Action", "Unchanged", fields, fields))
+        val summary = summarize(HistoryDetails("Refresh", "Action", "Unchanged", fields, fields))
         assertEquals("Refresh", summary.action)
-        assertEquals("No other field changes", summary.changes)
+        assertEquals(HistoryChanges(fields = emptyList(), remaining = 0), summary.changes)
     }
 
     @Test
     fun metadataOnlyChangesExplainTheEmptyPreview() {
         val summary =
-            historyEventSummary(
+            summarize(
                 HistoryDetails("Start", "Runtime", "Handled", listOf(StateField("active", "Idle"), StateField("revision", "1")), listOf(StateField("active", "Loading"), StateField("revision", "2"))),
             )
-        assertEquals("No other field changes", summary.changes)
+        assertEquals(HistoryChanges(fields = emptyList(), remaining = 0), summary.changes)
     }
 
     @Test
     fun longFieldNamesAreBoundedAndNestedTypesStayVisible() {
         val path = "nested." + "a".repeat(80)
-        val summary = historyEventSummary(HistoryDetails("Load", "Action", "Handled", emptyList(), listOf(StateField(path, "secret-value"), StateField("phase.type", "Loaded"))))
-        assertEquals("Changed fields: nested.aaaaaaaaaaaaaaaaaaaa…, phase.type", summary.changes)
-        assertFalse(summary.changes.contains("secret-value"))
+        val summary = summarize(HistoryDetails("Load", "Action", "Handled", emptyList(), listOf(StateField(path, "secret-value"), StateField("phase.type", "Loaded"))))
+        assertEquals(HistoryChanges(fields = listOf("nested.aaaaaaaaaaaaaaaaaaaa…", "phase.type"), remaining = 0), summary.changes)
+        assertFalse(
+            summary.changes.fields
+                .joinToString()
+                .contains("secret-value"),
+        )
     }
 
     @Test
     fun russianSummaryNamesChangesAndExplainsMetadataOnlyEvents() {
         val details = HistoryDetails("Load", "Action", "Handled", emptyList(), listOf(StateField("query", "Oslo"), StateField("phase.type", "Loading"), StateField("count", "12")))
-        assertEquals("Изменены поля: query, phase.type · ещё 1", historyEventSummary(details, "ru-RU").changes)
-        assertEquals("Других изменений полей нет", historyEventSummary(details.copy(after = listOf(StateField("revision", "2"))), "ru").changes)
+        assertEquals(HistoryChanges(fields = listOf("query", "phase.type"), remaining = 1), summarize(details, "ru-RU").changes)
+        assertEquals(HistoryChanges(fields = emptyList(), remaining = 0), summarize(details.copy(after = listOf(StateField("revision", "2"))), "ru").changes)
     }
 }
+
+private fun summarize(
+    details: actron.timetravel.HistoryDetails,
+    language: String = "en",
+): HistoryEventSummary = historyEventSummary(details = details, unchanged = summaryCopy(language = language).getValue(key = HistoryText.NoStateChange))

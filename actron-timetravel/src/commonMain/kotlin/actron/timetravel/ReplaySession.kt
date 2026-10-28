@@ -2,7 +2,6 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.Decision
 import actron.statechart.machine.ExecutorCheckpoint
 import actron.statechart.machine.Machine
@@ -18,7 +17,6 @@ import actron.statechart.machine.MachineSnapshot
  * @property actual What the machine decided now, on the snapshot the replay had at [position]
  * @property differences One line per field that differs, for the inspector
  */
-@ExperimentalActronApi
 data class ReplayMismatch<C : Any, A : Action, CMD : Any, E : Event>(
     val position: Int,
     val input: MachineInput<A>,
@@ -32,7 +30,6 @@ data class ReplayMismatch<C : Any, A : Action, CMD : Any, E : Event>(
 /**
  * The result of one forward step of a [ReplaySession].
  */
-@ExperimentalActronApi
 sealed interface ReplayStep<C : Any, A : Action, CMD : Any, E : Event> {
     /** The cursor reached the checkpoint after the final recorded input. */
     data class Finished<C : Any, A : Action, CMD : Any, E : Event>(
@@ -66,7 +63,6 @@ sealed interface ReplayStep<C : Any, A : Action, CMD : Any, E : Event> {
  *
  * @throws IllegalArgumentException if [recording] is not [Compatibility.Replayable] by [machine]
  */
-@ExperimentalActronApi
 class ReplaySession<C : Any, A : Action, CMD : Any, E : Event>(
     val machine: Machine<C, A, CMD, E>,
     val recording: Recording<C, A, CMD, E>,

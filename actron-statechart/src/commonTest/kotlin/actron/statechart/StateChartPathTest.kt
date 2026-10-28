@@ -1,7 +1,6 @@
 package actron.statechart
 
 import actron.core.Action
-import actron.core.ExperimentalActronApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -18,7 +17,7 @@ import kotlin.test.assertNull
  * Orphan  --Retry--> Idle          (Orphan is unreachable)
  * ```
  */
-@OptIn(ExperimentalActronApi::class)
+
 class StateChartPathTest {
     sealed interface FormAction : Action {
         data object Submit : FormAction

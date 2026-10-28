@@ -1,6 +1,8 @@
 package actron.example.weather.app.debug
 
 import actron.example.weather.core.mvi.RequestState
+import actron.example.weather.debug.resources.Res
+import actron.example.weather.debug.resources.settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -29,12 +31,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
 internal fun WeatherSettingsButton(openSettings: () -> Unit) {
-    val settingsLabel = if (androidx.compose.ui.text.intl.Locale.current.language == "ru") "Настройки" else "Settings"
+    val settingsLabel = stringResource(resource = Res.string.settings)
     IconButton(onClick = openSettings, modifier = Modifier.testTag("debug-settings").semantics { contentDescription = settingsLabel }) {
         val color = MaterialTheme.colorScheme.onSurfaceVariant
         Canvas(Modifier.size(24.dp)) {

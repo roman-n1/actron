@@ -92,15 +92,6 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
     @PublishedApi
     internal fun <S2 : S> narrow(isNarrowed: (S) -> Boolean): ViewStore<S2, A, E> = ViewStore(stateRef = NarrowedStoreState(stateRef, isNarrowed), dispatch = dispatch, eventFlow = eventFlow)
 
-    @Deprecated(
-        message = "Use stateContent instead.",
-        replaceWith = ReplaceWith("stateContent<S2>(block)"),
-        level = DeprecationLevel.WARNING,
-    )
-    @Suppress("ComposableNaming")
-    @Composable
-    inline fun <reified S2 : S> render(block: @Composable ViewStore<S2, A, E>.() -> Unit) = stateContent<S2>(block)
-
     /**
      * Collects only events of type [E2] while this composable is in the composition.
      *
@@ -124,15 +115,6 @@ class ViewStore<S : State, A : Action, E : Event> internal constructor(
             }
         }
     }
-
-    @Deprecated(
-        message = "Use eventEffect instead.",
-        replaceWith = ReplaceWith("eventEffect<E2>(block)"),
-        level = DeprecationLevel.WARNING,
-    )
-    @Suppress("ComposableNaming")
-    @Composable
-    inline fun <reified E2 : E> handle(noinline block: ViewStore<S, A, E>.(event: E2) -> Unit) = eventEffect<E2>(block)
 }
 
 /**

@@ -50,7 +50,7 @@ fun StateChartDefinition.analyzeReachability(
     require(states.map { it.id }.distinct().size == states.size && hasNode(initial)) { "[Actron] Analysis requires declared unique states" }
     require(transitions.all { hasNode(it.source) && hasNode(it.target) }) { "[Actron] Analysis requires declared endpoints" }
     require(node(initial) !is HistoryState) { "[Actron] Initial state cannot be history" }
-    // Validate only structure here: validate() itself enumerates the unbounded legacy graph.
+    // Validate only structure here: validate() itself enumerates the full unbounded graph.
     for (state in states) {
         val chain = linkedSetOf(state.id)
         var parent = state.parent

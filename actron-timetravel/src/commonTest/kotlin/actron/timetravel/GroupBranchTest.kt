@@ -1,8 +1,7 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package actron.timetravel
 
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.MessageId
 import actron.timetravel.GroupFixture.PickerAct
 import actron.timetravel.GroupFixture.PickerCtx

@@ -10,6 +10,7 @@ import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.weather.domain.*
 import actron.example.weather.feature.weather.presentation.*
+import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceState
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.instancekeeper.InstanceKeeperDispatcher
 import com.arkivanov.essenty.instancekeeper.getOrCreate
@@ -70,10 +71,10 @@ class WeatherProcessRestoreTest {
                     root
                         .getChildStack()
                         .value.active.instance,
-                ).state.value.context
+                ).state.value
             assertIs<RequestState.Success<WeatherReading>>(oldWeather.current)
             assertEquals(RequestState.Loading, oldWeather.hourly)
-            assertEquals(1, currentCalls)
+            assertEquals(2, currentCalls)
             assertEquals(1, forecastCalls)
             repeat(2) {
                 // A real serialization round trip, then destroy every retained instance.
@@ -100,9 +101,9 @@ class WeatherProcessRestoreTest {
                             .getChildStack()
                             .value.active.instance,
                     )
-                assertEquals(oldWeather, restored.state.value.context)
+                assertEquals(oldWeather, restored.state.value)
                 assertEquals("Lis", history.session.frame.search.snapshot.context.query)
-                assertEquals(1, currentCalls, "Completed requests must not repeat")
+                assertEquals(2, currentCalls, "Completed requests must not repeat")
                 assertEquals(it + 2, forecastCalls, "Each new process restarts the pending request once")
             }
             val weather =
@@ -135,7 +136,7 @@ class WeatherProcessRestoreTest {
             val current =
                 WeatherRepository { city ->
                     currentCalls++
-                    WeatherReading(city, 10.0, 9.0, 1.0, 0, "saved")
+                    WeatherReading(city = city, temperature = 10.0, feelsLike = 9.0, wind = 1.0, code = 61, time = "saved")
                 }
             val forecast =
                 HourlyForecastRepository { city ->
@@ -154,12 +155,17 @@ class WeatherProcessRestoreTest {
                     .value.active.instance,
             ).onUiEvent(CitySearchIntent.SelectCity(demoCities[0]))
             testScheduler.runCurrent()
-            val expected =
+            val weather =
                 assertIs<CityWeatherComponent>(
                     root
                         .getChildStack()
                         .value.active.instance,
-                ).state.value.context
+                )
+            assertIs<WeatherAdviceState.Visible>(weather.state.value.advice)
+            weather.onUiEvent(event = CityWeatherIntent.DismissAdvice)
+            testScheduler.runCurrent()
+            val expected = weather.state.value
+            assertEquals(expected = WeatherAdviceState.Dismissed, actual = expected.advice)
             val bytes = Json.encodeToString(SerializableContainer.serializer(), state.save())
             lifecycle.destroy()
             keeper.destroy()
@@ -175,9 +181,9 @@ class WeatherProcessRestoreTest {
                     restored
                         .getChildStack()
                         .value.active.instance,
-                ).state.value.context,
+                ).state.value,
             )
-            assertEquals(1, currentCalls)
+            assertEquals(2, currentCalls)
             assertEquals(1, forecastCalls)
             newLifecycle.destroy()
             newKeeper.destroy()

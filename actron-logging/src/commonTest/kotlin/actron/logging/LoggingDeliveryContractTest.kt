@@ -10,7 +10,6 @@ import actron.core.State
 import actron.core.Store
 import actron.core.StoreProbe
 import actron.core.StoreTrace
-import actron.core.closeAndJoin
 import actron.core.createRuntimeStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher

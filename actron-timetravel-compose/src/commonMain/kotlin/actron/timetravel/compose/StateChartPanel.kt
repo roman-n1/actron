@@ -4,6 +4,9 @@ import actron.statechart.StateChartDefinition
 import actron.statechart.StateId
 import actron.statechart.machine.MachineSnapshot
 import actron.statechart.machine.TransitionId
+import actron.timetravel.compose.resources.Res
+import actron.timetravel.compose.resources.invariant_failed
+import actron.timetravel.compose.resources.snapshot_counts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Interactive diagram over read-only model/snapshot data. Select a node or transition to inspect
@@ -36,8 +40,8 @@ fun <C : Any> StateChartPanel(
     val outline = MaterialTheme.colorScheme.outlineVariant
     val highlight = MaterialTheme.colorScheme.primary
     Column(modifier.testTag("statechart-panel"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Revision ${snapshot.revision} · ${snapshot.commands.size} commands · ${snapshot.timers.size} timers")
-        for (violation in inspection.violations) Text("Invariant failed: ${violation.name}", color = MaterialTheme.colorScheme.error)
+        Text(stringResource(resource = Res.string.snapshot_counts, snapshot.revision, snapshot.commands.size, snapshot.timers.size))
+        for (violation in inspection.violations) Text(stringResource(resource = Res.string.invariant_failed, violation.name), color = MaterialTheme.colorScheme.error)
         StateChartDiagram(chartNodes(positions, snapshot, previousActive), chartEdges(chart, positions, selection, inspection), highlight, outline) { selection = ChartSelection.Node(it) }
         for ((index, transition) in chart.transitions.withIndex()) {
             OutlinedButton(onClick = { selection = ChartSelection.Transition(TransitionId(index)) }, modifier = Modifier.testTag("chart-transition-$index")) {

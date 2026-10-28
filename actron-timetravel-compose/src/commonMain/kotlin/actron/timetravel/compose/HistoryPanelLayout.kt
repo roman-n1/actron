@@ -38,12 +38,12 @@ internal fun <S : Any> HistoryPanelBody(
     graphViewports: MutableMap<String, GraphViewport>,
     graph: (HistoryEntry<S>) -> HistoryGraph,
     onContinue: (HistoryEntry<S>) -> Unit,
-    continuation: (S) -> HistoryContinuation,
+    continuation: @Composable (S) -> HistoryContinuation,
     readOnly: Boolean,
     modifier: Modifier,
 ) {
     val inspection = state.inspection
-    val counter = historyEventCounter(state, entries, timeline.capacity, Locale.current.language)
+    val counter = historyEventCounter(state, entries, timeline.capacity)
     BoxWithConstraints(modifier) {
         val narrow = maxWidth < 640.dp
         val listExpanded = remember { mutableStateOf(true) }
@@ -121,7 +121,7 @@ private fun <S : Any> HistorySelectionDetail(
     graphViewports: MutableMap<String, GraphViewport>,
     graph: (HistoryEntry<S>) -> HistoryGraph,
     onContinue: (HistoryEntry<S>) -> Unit,
-    continuation: (S) -> HistoryContinuation,
+    continuation: @Composable (S) -> HistoryContinuation,
     readOnly: Boolean,
     modifier: Modifier,
     onReveal: () -> Unit,

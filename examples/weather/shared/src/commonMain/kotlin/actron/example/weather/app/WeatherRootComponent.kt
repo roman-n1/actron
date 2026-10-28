@@ -112,7 +112,7 @@ class DefaultWeatherRootComponent(
         session.beginBranch(frame)
         when (val route = frame.route) {
             WeatherRoute.Search -> navigation.replaceAll(ChildConfiguration.Search(session.branch))
-            is WeatherRoute.Weather -> navigation.replaceAll(ChildConfiguration.Search(session.branch), ChildConfiguration.Weather(route.checkpoint.snapshot.context.city, session.branch))
+            is WeatherRoute.Weather -> navigation.replaceAll(ChildConfiguration.Search(session.branch), ChildConfiguration.Weather(route.checkpoint.screen.snapshot.context.city, session.branch))
         }
     }
 

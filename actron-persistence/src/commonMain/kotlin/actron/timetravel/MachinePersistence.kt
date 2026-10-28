@@ -2,7 +2,6 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.statechart.machine.CommandHandler
 import actron.statechart.machine.CommandRecoveryDecision
 import actron.statechart.machine.CommandRecoveryStrategy
@@ -21,7 +20,6 @@ import kotlin.coroutines.CoroutineContext
  * lifecycle. No history, accepted-but-undecided inputs or platform objects are saved.
  * Running commands restart at least once; handlers must be safe to repeat.
  */
-@ExperimentalActronApi
 class MachinePersistence<C : Any, A : Action, CMD : Any, E : Event>(
     private val machine: Machine<C, A, CMD, E>,
     codec: RecordingCodec<C, A, CMD, E>,
@@ -58,7 +56,6 @@ class MachinePersistence<C : Any, A : Action, CMD : Any, E : Event>(
 }
 
 /** Uses generated serializers; supply a [RecordingCodec] to [MachinePersistence] for custom serializers. */
-@ExperimentalActronApi
 inline fun <reified C : Any, reified A : Action, reified CMD : Any, reified E : Event> machinePersistence(
     machine: Machine<C, A, CMD, E>,
 ): MachinePersistence<C, A, CMD, E> = MachinePersistence(machine, RecordingCodec(serializer<C>(), serializer<A>(), serializer<CMD>(), serializer<E>()))

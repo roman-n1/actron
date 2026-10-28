@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.PendingActionPolicy
 import actron.core.State
 import actron.core.Store
@@ -58,7 +57,7 @@ import kotlin.time.Duration.Companion.seconds
  * Online --Logout--> Offline
  * ```
  */
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartTimerTest {
     sealed interface MessengerAction : Action {
         data object Connect : MessengerAction

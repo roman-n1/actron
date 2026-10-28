@@ -87,13 +87,6 @@ public final class actron/timetravel/DecodedRecording$Unsupported : actron/timet
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class actron/timetravel/FormatMigration {
-	public fun <init> (IILkotlin/jvm/functions/Function1;)V
-	public final fun getFrom ()I
-	public final fun getMigrate ()Lkotlin/jvm/functions/Function1;
-	public final fun getTo ()I
-}
-
 public final class actron/timetravel/InvocationPersistence {
 	public fun <init> (Lactron/statechart/machine/InvokedMachine;Lactron/timetravel/RecordingCodec;Lactron/timetravel/RecordingCodec;)V
 	public final fun restore (Ljava/lang/String;)Lactron/statechart/machine/InvocationCheckpoint;
@@ -172,8 +165,7 @@ public final class actron/timetravel/Recording {
 }
 
 public final class actron/timetravel/RecordingCodec {
-	public fun <init> (Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Ljava/util/List;)V
-	public synthetic fun <init> (Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;Lkotlinx/serialization/KSerializer;)V
 	public final fun decode (Ljava/lang/String;)Lactron/timetravel/DecodedRecording;
 	public final fun decodeCheckpoint-iuOhK6o (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
 	public final fun decodeStep-iuOhK6o (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lactron/timetravel/RecordedStep;

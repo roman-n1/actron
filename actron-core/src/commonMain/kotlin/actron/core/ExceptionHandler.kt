@@ -28,13 +28,6 @@ interface ExceptionHandler {
             }
 
         /**
-         * Deprecated alias for [Ignore].
-         */
-        @Deprecated(message = "Use Ignore", replaceWith = ReplaceWith("ExceptionHandler.Ignore"))
-        val Noop: ExceptionHandler
-            get() = Ignore
-
-        /**
          * Prints the exception message and stack trace for debugging.
          */
         val Log: ExceptionHandler =
@@ -52,13 +45,6 @@ interface ExceptionHandler {
             object : ExceptionHandler {
                 override fun handle(error: Throwable): Unit = throw error
             }
-
-        /**
-         * Deprecated alias for [Rethrow].
-         */
-        @Deprecated(message = "Use Rethrow", replaceWith = ReplaceWith("ExceptionHandler.Rethrow"))
-        val Unhandled: ExceptionHandler
-            get() = Rethrow
     }
 }
 

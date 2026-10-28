@@ -1,11 +1,8 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.StateSaver
-import actron.core.closeAndJoin
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.StateChartDefinition

@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
  * Store startup is lazy.
  * Startup processing begins when [start] is called, when an action is [dispatch]ed, and,
  * with [AutoStartPolicy.OnDispatchOrStateCollection], when [state] starts being collected
- * or [collectState] is called.
- * Collecting [event], calling [collectEvent], or reading [currentState] alone does not start the
+ * or [observeState] is called.
+ * Collecting [event], calling [observeEvent], or reading [currentState] alone does not start the
  * Store.
  */
 interface Store<S : State, A : Action, E : Event> : AutoCloseable {
@@ -63,44 +63,28 @@ interface Store<S : State, A : Action, E : Event> : AutoCloseable {
     fun dispatch(action: A)
 
     /**
-     * Collects committed state snapshots using a callback.
-     *
-     * This API is intended for platforms where [StateFlow] cannot be consumed directly.
-     * Calling this method starts the Store if it has not started yet and the configured
-     * [AutoStartPolicy] includes state collection as a trigger.
-     *
-     * The callback runs in the Store's execution context.
-     * Actron does not switch to a UI thread automatically and does not guarantee delivery
-     * on the thread that called [collectState].
-     * If your platform requires UI-thread access, move to the appropriate UI thread
-     * before touching UI components from the callback.
-     *
-     * Collection continues until the Store is closed.
-     *
-     * @param state Callback called when the state changes
+     * Observes state in the Store's execution context, with the same startup policy as state collection.
+     * Closing the handle cancels only this observer, repeatedly and without waiting. An already
+     * executing callback may finish. Closing the Store cancels all its observers.
+     * Registration is asynchronous; StateFlow conflation and callback failure policy still apply.
      */
-    fun collectState(state: (state: S) -> Unit)
+    fun observeState(observer: (S) -> Unit): AutoCloseable
 
     /**
-     * Collects one-off events using a callback.
-     *
-     * This API is intended for platforms where [Flow] cannot be consumed directly.
-     * Calling this method does not start the Store by itself.
-     * If you need startup processing to run, also trigger startup through [start], [dispatch],
-     * [state], or [collectState].
-     *
-     * The callback runs in the Store's execution context.
-     * Actron does not switch to a UI thread automatically and does not guarantee delivery
-     * on the thread that called [collectEvent].
-     * If your platform requires UI-thread access, move to the appropriate UI thread
-     * before touching UI components from the callback.
-     *
-     * Collection continues until the Store is closed.
-     * Events emitted before collection starts are not replayed.
-     *
-     * @param event Callback called when an event is emitted
+     * Observes events in the Store's execution context without starting it or replaying past events.
+     * The collector is registered before this method returns, so subsequent startup or dispatch
+     * cannot overtake registration. Past events are not replayed. Callbacks run in the Store's
+     * execution context. The handle has the same cancellation guarantees as [observeState].
      */
-    fun collectEvent(event: (event: E) -> Unit)
+    fun observeEvent(observer: (E) -> Unit): AutoCloseable
+
+    /**
+     * Cancels the Store and waits for every owned coroutine, including cancellation cleanup.
+     * Repeated calls are safe. Waiting is cancellable; cancelling the caller never reopens the Store.
+     * Calling from an owned coroutine (including a launch, hook or observer) throws before closing:
+     * it would wait for itself. Use [close] there. A peer Store can be closed and awaited.
+     */
+    suspend fun closeAndJoin()
 
     /**
      * Cancels the Store and releases its resources.
@@ -108,14 +92,4 @@ interface Store<S : State, A : Action, E : Event> : AutoCloseable {
      * Active state-scoped coroutines, plugin coroutines, and callback collectors are cancelled.
      */
     override fun close()
-
-    /**
-     * Releases the Store's resources.
-     *
-     * Kept for backward compatibility. Use [close] instead.
-     */
-    @Deprecated(message = "Use close()", replaceWith = ReplaceWith("close()"))
-    fun dispose() {
-        close()
-    }
 }

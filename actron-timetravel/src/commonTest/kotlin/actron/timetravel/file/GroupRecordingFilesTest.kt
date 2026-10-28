@@ -1,11 +1,10 @@
-@file:OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package actron.timetravel.file
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.observability.MachineGroupId
 import actron.observability.StoreInstanceId
 import actron.observability.file.Framing
@@ -507,15 +506,11 @@ class GroupRecordingFilesTest {
         }
         assertEquals(groupId to 3, GroupRecordingFileFormat.parseSegmentName("pingpong-000003.group"))
         assertIs<SegmentMark.UnsupportedFormat>(GroupRecordingFileFormat.decodeSegment("n", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = GroupRecordingFileFormat.VERSION + 1)) + Framing.END).mark)
-        // A format 1 segment, written before cuts existed, reads as one without a cut; a format 2
-        // segment, written before pairs, as routes without pairs.
-        val unpaired = listOf(GroupRoute(pingId, pongId))
-        val old = GroupRecordingFileFormat.decodeSegment("old", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = 1, routes = unpaired, boundary = GroupBoundary.Continuation)) + GroupRecordingFileFormat.entryFrame(entries[0]) + Framing.END)
-        assertEquals(header.copy(fileFormatVersion = 1, routes = unpaired, boundary = GroupBoundary.Continuation), old.header)
-        assertEquals(entries.take(1), old.entries)
-        assertTrue(old.finished && !old.ending.withIssue {})
-        val v2 = GroupRecordingFileFormat.decodeSegment("v2", GroupRecordingFileFormat.header(header.copy(fileFormatVersion = 2, routes = unpaired)) + Framing.END)
-        assertEquals(header.copy(fileFormatVersion = 2, routes = unpaired), v2.header)
+        for (version in 1 until GroupRecordingFileFormat.VERSION) {
+            val previous = GroupRecordingFileFormat.decodeSegment(name = "previous", bytes = GroupRecordingFileFormat.header(header = header.copy(fileFormatVersion = version)) + GroupRecordingFileFormat.entryFrame(entry = entries[0]) + Framing.END)
+            assertTrue(actual = previous.entries.isEmpty())
+            assertIs<SegmentMark.UnsupportedFormat>(previous.mark)
+        }
     }
 
     @Test

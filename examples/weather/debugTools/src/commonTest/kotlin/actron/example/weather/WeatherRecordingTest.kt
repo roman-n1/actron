@@ -10,6 +10,7 @@ import actron.example.weather.app.debug.WeatherRecordingFrame
 import actron.example.weather.app.debug.WeatherRecordingViewer
 import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherRoute
+import actron.example.weather.app.session.freshWeather
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.presentation.*
@@ -26,8 +27,21 @@ internal fun recordingHistory(): WeatherHistory {
     val details = HistoryDetails("ChangeQuery(Москва)", "Action", "Handled", emptyList(), listOf(StateField("query", "Москва")))
     history.timeline.append(history.timeline.machine("City Search", "city-search"), 0, details, WeatherHistoryFrame(searching))
     val city = City("Москва", 55.75, 37.62)
-    val weather = CityWeatherMachine.create().initialSnapshot(WeatherContext(city, RequestState.Loading, RequestState.Loading))
-    history.timeline.append(history.timeline.machine("City Weather", "city-weather"), 0, details.copy(input = "Refresh"), WeatherHistoryFrame(searching.copy(route = WeatherRoute.Weather(ExecutorCheckpoint.initial(weather)))))
+    val weather =
+        freshWeather(city = city).let { cut ->
+            cut.copy(
+                current =
+                    cut.current.copy(
+                        snapshot =
+                            cut.current.snapshot.copy(
+                                context =
+                                    cut.current.snapshot.context
+                                        .copy(state = RequestState.Loading),
+                            ),
+                    ),
+            )
+        }
+    history.timeline.append(history.timeline.machine("City Weather", "city-weather"), 0, details.copy(input = "Refresh"), WeatherHistoryFrame(searching.copy(route = WeatherRoute.Weather(checkpoint = weather))))
     return history
 }
 

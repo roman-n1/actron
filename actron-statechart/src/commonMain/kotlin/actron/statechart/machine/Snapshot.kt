@@ -1,6 +1,5 @@
 package actron.statechart.machine
 
-import actron.core.ExperimentalActronApi
 import actron.core.State
 import actron.statechart.StateChartDefinition
 import actron.statechart.StateConfiguration

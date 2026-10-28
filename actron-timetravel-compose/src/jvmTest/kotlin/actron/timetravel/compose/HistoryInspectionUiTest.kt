@@ -106,7 +106,7 @@ class HistoryInspectionUiTest {
             onNodeWithTag("history-navigation-menu").performClick()
             onNodeWithTag("history-pin-comparison").performClick()
             // A equals B: use Full state to inspect an unchanged field.
-            onNodeWithText(HistoryText.FullState.forLanguage(Locale.getDefault().language)).performScrollTo().performClick()
+            onNodeWithText(expectedHistoryText(text = HistoryText.FullState, language = Locale.getDefault().language)).performScrollTo().performClick()
             onNodeWithTag("history-field-menu-query").performScrollTo().performClick()
             onNodeWithTag("history-field-previous").performClick()
             runOnIdle { assertEquals(1L, state.selection.single().id) }
@@ -156,7 +156,7 @@ class HistoryInspectionUiTest {
                 timeline.append(machine, 0, details("Oslo", "Rome"), "Rome")
                 timeline.append(machine, 0, details("Rome", "London"), "London")
             }
-            onNodeWithTag("history-selection-status").assertTextEquals(HistoryText.OutsideWindow.forLanguage(Locale.getDefault().language))
+            onNodeWithTag("history-selection-status").assertTextEquals(expectedHistoryText(text = HistoryText.OutsideWindow, language = Locale.getDefault().language))
             onNodeWithTag("history-reveal-selection").assertDoesNotExist()
             runOnIdle {
                 assertEquals("Oslo", state.preview.single().snapshot)

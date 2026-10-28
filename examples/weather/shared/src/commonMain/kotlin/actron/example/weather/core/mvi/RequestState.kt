@@ -9,6 +9,13 @@ sealed interface RequestState<out T : Any> {
     data object Idle : RequestState<Nothing>
 
     @Serializable
+    data object Ready : RequestState<Nothing>
+
+    /** Search-only transient state; automatic transitions select Idle or Debouncing. */
+    @Serializable
+    data object QueryChanged : RequestState<Nothing>
+
+    @Serializable
     data object Debouncing : RequestState<Nothing>
 
     @Serializable
@@ -21,9 +28,18 @@ sealed interface RequestState<out T : Any> {
 
     @Serializable
     data class Error(
-        val message: String,
+        val cause: RequestFailure,
     ) : RequestState<Nothing>
+}
+
+/** The reason is data inside Error; retry behavior belongs to the single error state. */
+@Serializable
+sealed interface RequestFailure {
+    @Serializable
+    data class Unavailable(
+        val message: String,
+    ) : RequestFailure
 
     @Serializable
-    data object TimedOut : RequestState<Nothing>
+    data object Timeout : RequestFailure
 }

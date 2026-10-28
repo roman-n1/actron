@@ -13,6 +13,8 @@ version = libs.versions.actron.get()
 
 kotlin {
     android {
+        // Compose Resources must be packaged as Android assets for this KMP target.
+        androidResources.enable = true
         namespace = "actron.timetravel.compose"
         compileSdk =
             libs.versions.android.compileSdk
@@ -54,6 +56,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(compose.components.resources)
             api(project(":actron-timetravel"))
             api(compose.runtime)
             implementation(compose.foundation)
@@ -81,4 +84,14 @@ tasks.withType<Test>().configureEach {
     if (System.getProperty("os.name", "").startsWith("Mac")) {
         jvmArgs("--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED")
     }
+}
+
+compose.resources {
+    packageOfResClass = "actron.timetravel.compose.resources"
+}
+
+// Assertions use a reproducible baseline; locale integration tests override and restore it.
+tasks.withType<Test>().configureEach {
+    systemProperty("user.language", "en")
+    systemProperty("user.country", "US")
 }

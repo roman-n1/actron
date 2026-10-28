@@ -5,7 +5,7 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Fixed pre-refactor fingerprints guard RNG consumption, IDs, legacy choices and dispatchers. */
+/** Seeded fingerprints guard the current registration sequence, IDs and dispatchers. */
 class RoutingGenerationSnapshotTest {
     @Test
     fun seededDefinitionsKeepTheirExactRegistrationSequence() {
@@ -16,7 +16,7 @@ class RoutingGenerationSnapshotTest {
                         RoutingProgram.random(Random(seed), legacy = legacy).blocks.joinToString(";") { block -> block.fingerprint() }
                     }.hashCode()
             }
-        assertEquals(listOf(-1308250026, 1134967912), hashes)
+        assertEquals(listOf(-1386353220, 1706387900), hashes)
     }
 
     private fun Block.fingerprint(): String =
@@ -28,7 +28,7 @@ class RoutingGenerationSnapshotTest {
             is Block.StateBlock -> {
                 "S:${stateKinds.indexOf(stateKind)}:" +
                     inner.joinToString(",") { handler ->
-                        "${handler.id}:${handler.declaration.fingerprint()}:${handler.deprecatedAlias}:${handler.dispatcher == Dispatchers.Unconfined}"
+                        "${handler.id}:${handler.declaration.fingerprint()}:${handler.dispatcher == Dispatchers.Unconfined}"
                     }
             }
         }

@@ -1,11 +1,8 @@
-@file:OptIn(ExperimentalActronApi::class)
-
 package actron.statechart.machine
 
 import actron.core.Action
 import actron.core.Event
 import actron.core.ExceptionHandler
-import actron.core.ExperimentalActronApi
 import actron.statechart.ActionMatcher
 import actron.statechart.AtomicState
 import actron.statechart.CompoundState

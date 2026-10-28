@@ -4,7 +4,6 @@ package actron.statechart
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 import actron.core.StateSaver
 import actron.core.Store
 import actron.test.dispatchAndAwait
@@ -46,7 +45,7 @@ import kotlin.time.Duration.Companion.seconds
  * state B { [*] --> B1 }           onEnter/onExit hooks logged, an activity per node
  * ```
  */
-@OptIn(ExperimentalActronApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class StateChartStorePropertyTest {
     // Well above what the walks need on JVM; browsers on CI are many times slower.
     private val testTimeout = 5.minutes

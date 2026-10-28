@@ -1,5 +1,3 @@
-@file:OptIn(actron.core.ExperimentalActronApi::class)
-
 package actron.timetravel
 
 internal fun <C : Any, A : actron.core.Action, CMD : Any, E : actron.core.Event> ReplaySession<C, A, CMD, E>.verify(

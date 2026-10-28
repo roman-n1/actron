@@ -1,5 +1,10 @@
 # Kotlin code style
 
+Use explicit parameter names for arguments in new or edited Kotlin calls, including
+constructors and DSL callbacks (`build = { ... }`, `to = { ... }`). Calls without arguments
+need no extra syntax. Keep positional syntax only where Kotlin forbids named arguments,
+such as Java methods, function-type invocation, operators and vararg elements.
+
 All authored `.kt` and `.kts` files use the root `.editorconfig`, including library modules,
 examples, tests, Gradle scripts, included builds and standalone tooling/verification builds.
 Build outputs, IDE caches and downloaded dependencies are excluded.

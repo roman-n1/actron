@@ -4,7 +4,7 @@ package actron.example.weather
 
 import actron.core.InputAttribution
 import actron.example.weather.app.debug.WeatherHistory
-import actron.example.weather.app.debug.continuation
+import actron.example.weather.app.debug.continuationWork
 import actron.example.weather.app.debug.retainedWeatherHistory
 import actron.example.weather.app.session.WeatherFrame
 import actron.example.weather.app.session.WeatherSavedState
@@ -48,7 +48,7 @@ class WeatherHistoryTest {
     @Test
     fun continuationExplainsExecutorRestrictionsInsteadOfGuessingFromState() {
         val initial = WeatherFrame()
-        assertIs<HistoryContinuation.Available>(initial.continuation(false))
+        assertEquals(expected = 0, actual = initial.continuationWork().endings + initial.continuationWork().effects)
         val machine = CitySearchMachine.create()
         val started = machine.decide(initial.search.snapshot, MachineInput.Start(MachineTime.Zero))
         val editing = machine.decide(started.snapshot, MachineInput.Dispatch(CitySearchAction.ChangeQuery("Paris"), MachineTime.Zero))
@@ -56,9 +56,9 @@ class WeatherHistoryTest {
         val loading = machine.decide(editing.snapshot, MachineInput.TimerFired(timer.id, timer.deadline))
         val ending = initial.copy(search = ExecutorCheckpoint(loading.snapshot, timer.deadline, ending = loading.commands.associateBy { it.id }))
         assertFalse(ending.canResume())
-        val blocked = assertIs<HistoryContinuation.Unavailable>(ending.continuation(false))
-        assertTrue(blocked.reason.contains("Command completions"))
-        assertFalse(blocked.reason.contains("Effects"))
+        val blocked = ending.continuationWork()
+        assertEquals(expected = 1, actual = blocked.endings)
+        assertEquals(expected = 0, actual = blocked.effects)
     }
 
     @Test
@@ -107,29 +107,32 @@ class WeatherHistoryTest {
         val selectedGraph = history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine
         assertEquals(actron.timetravel.compose.HistoryGraphProfile.Unavailable, selectedGraph.profile)
         val selectedHits = (selectedGraph.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits
-        assertEquals(2L, selectedHits.values.sum())
+        // Each edit takes both the ChangeQuery transition and its automatic choice.
+        assertEquals(expected = 4L, actual = selectedHits.values.sum())
         assertEquals(
-            3L,
-            history
-                .snapshot()
-                .coverage.values
-                .single()
-                .hits.values
-                .sum(),
+            expected = 6L,
+            actual =
+                history
+                    .snapshot()
+                    .coverage.values
+                    .single()
+                    .hits.values
+                    .sum(),
         )
         history.session.beginBranch(history.restoreDiagnostics(selected.snapshot))
         traceEdits(history, listOf("Paris"))
         assertEquals(
-            3L,
-            history
-                .snapshot()
-                .coverage.values
-                .single()
-                .hits.values
-                .sum(),
+            expected = 6L,
+            actual =
+                history
+                    .snapshot()
+                    .coverage.values
+                    .single()
+                    .hits.values
+                    .sum(),
         )
-        assertEquals(2L, selectedHits.values.sum(), "Historical coverage is immutable")
-        assertEquals(2L, (history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine).let { (it.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits.values.sum() })
+        assertEquals(expected = 4L, actual = selectedHits.values.sum(), message = "Historical coverage is immutable")
+        assertEquals(expected = 4L, actual = (history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine).let { (it.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits.values.sum() })
     }
 
     private fun traceEdits(

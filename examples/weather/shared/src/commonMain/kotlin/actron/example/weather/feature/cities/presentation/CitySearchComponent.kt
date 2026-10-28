@@ -68,6 +68,6 @@ class DefaultCitySearchComponent(
     override fun Render() {
         // The library collects snapshots for UI; formatting is a pure context -> UI projection.
         val snapshot by state.collectAsUiState()
-        CitySearchScreen(snapshot.context.toUiState(snapshot.isStarted), onIntent = ::onUiEvent, settingsAction = settingsAction)
+        CitySearchScreen(snapshot.context.toUiState(enabled = snapshot.isStarted), onIntent = ::onUiEvent, settingsAction = settingsAction)
     }
 }

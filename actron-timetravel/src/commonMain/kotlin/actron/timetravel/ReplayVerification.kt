@@ -2,10 +2,8 @@ package actron.timetravel
 
 import actron.core.Action
 import actron.core.Event
-import actron.core.ExperimentalActronApi
 
 /** Result of verifying a replay range without moving its cursor. */
-@ExperimentalActronApi
 sealed interface ReplayVerification<out C : Any, out A : Action, out CMD : Any, out E : Event> {
     /** Every input in the requested range matched, including an empty range. */
     data object Passed : ReplayVerification<Nothing, Nothing, Nothing, Nothing>

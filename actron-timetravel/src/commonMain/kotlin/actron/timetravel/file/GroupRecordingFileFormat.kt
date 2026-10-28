@@ -147,7 +147,7 @@ object GroupRecordingFileFormat {
             } catch (e: IllegalArgumentException) {
                 return DecodedGroupSegment.Unreadable(SegmentMark.Corrupt(name, frames[0].offset, 0, "header: ${e.message}"))
             }
-        if (header.fileFormatVersion > VERSION) return DecodedGroupSegment.Readable(header, emptyList(), SegmentEnding.Stopped(SegmentMark.UnsupportedFormat(name, header.fileFormatVersion, 0)))
+        if (header.fileFormatVersion != VERSION) return DecodedGroupSegment.Readable(header, emptyList(), SegmentEnding.Stopped(SegmentMark.UnsupportedFormat(name, header.fileFormatVersion, 0)))
         val entries = mutableListOf<GroupOrderEntry>()
         for (frame in frames.drop(1)) {
             val entry =

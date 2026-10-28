@@ -39,6 +39,8 @@ internal fun <S : Any> HistoryNavigation(
     onReveal: () -> Unit,
 ) {
     val inspection = state.inspection
+    val previousLabel = historyText(text = HistoryText.PreviousEvent)
+    val nextLabel = historyText(text = HistoryText.NextEvent)
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("history-navigation")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -49,12 +51,12 @@ internal fun <S : Any> HistoryNavigation(
             IconButton(
                 { visible.lastOrNull { it.id < entry.id }?.let(state::select) },
                 enabled = visible.any { it.id < entry.id },
-                modifier = Modifier.testTag("history-previous").semantics { contentDescription = HistoryText.PreviousEvent.forLanguage(androidx.compose.ui.text.intl.Locale.current.language) },
+                modifier = Modifier.testTag("history-previous").semantics { contentDescription = previousLabel },
             ) { HistoryArrow(back = true) }
             IconButton(
                 { visible.firstOrNull { it.id > entry.id }?.let(state::select) },
                 enabled = visible.any { it.id > entry.id },
-                modifier = Modifier.testTag("history-next").semantics { contentDescription = HistoryText.NextEvent.forLanguage(androidx.compose.ui.text.intl.Locale.current.language) },
+                modifier = Modifier.testTag("history-next").semantics { contentDescription = nextLabel },
             ) { HistoryArrow() }
             Box {
                 TextButton({ menu = true }, Modifier.testTag("history-navigation-menu")) { Text(historyText(HistoryText.More)) }

@@ -205,7 +205,7 @@ public final class actron/timetravel/compose/ComposableSingletons$GroupTimeTrave
 public final class actron/timetravel/compose/ComposableSingletons$HistoryEventDetailKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryEventDetailKt;
 	public fun <init> ()V
-	public final fun getLambda$-1207304075$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1272787048$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class actron/timetravel/compose/ComposableSingletons$HistoryEventListKt {
@@ -239,14 +239,14 @@ public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelKt
 	public fun <init> ()V
 	public final fun getLambda$-1911225578$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 	public final fun getLambda$402596983$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$471632189$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$468866922$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelLayoutKt {
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelLayoutKt;
 	public fun <init> ()V
-	public final fun getLambda$1186433791$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$600843126$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-1561833556$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$41025379$actron_timetravel_compose ()Lkotlin/jvm/functions/Function2;
 }
 
 public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelNavigationKt {
@@ -327,6 +327,37 @@ public final class actron/timetravel/compose/ComposableSingletons$TimeTravelNavi
 	public final fun getLambda$923815472$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
 
+public abstract interface class actron/timetravel/compose/ForwardStepAvailability {
+}
+
+public final class actron/timetravel/compose/ForwardStepAvailability$Available : actron/timetravel/compose/ForwardStepAvailability {
+	public static final field $stable I
+	public static final field INSTANCE Lactron/timetravel/compose/ForwardStepAvailability$Available;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/compose/ForwardStepAvailability$Diverged : actron/timetravel/compose/ForwardStepAvailability {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lactron/timetravel/compose/ForwardStepAvailability$Diverged;
+	public static synthetic fun copy$default (Lactron/timetravel/compose/ForwardStepAvailability$Diverged;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/compose/ForwardStepAvailability$Diverged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDescription ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/compose/ForwardStepAvailability$EndReached : actron/timetravel/compose/ForwardStepAvailability {
+	public static final field $stable I
+	public static final field INSTANCE Lactron/timetravel/compose/ForwardStepAvailability$EndReached;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class actron/timetravel/compose/GroupReplayControls {
 	public static final field $stable I
 	public fun <init> (Lactron/timetravel/GroupReplaySession;)V
@@ -334,7 +365,7 @@ public final class actron/timetravel/compose/GroupReplayControls {
 	public final fun checkpoint-nThWMHI (Ljava/lang/String;)Lactron/statechart/machine/ExecutorCheckpoint;
 	public final fun getCanStepBackward ()Z
 	public final fun getCanStepForward ()Z
-	public final fun getForwardAvailability ()Lactron/timetravel/inspect/Availability;
+	public final fun getForwardAvailability ()Lactron/timetravel/compose/ForwardStepAvailability;
 	public final fun getHasSelection ()Z
 	public final fun getLength ()I
 	public final fun getMembers ()Ljava/util/List;
@@ -572,7 +603,7 @@ public final class actron/timetravel/compose/HistoryGraphProfile$Unavailable : a
 
 public final class actron/timetravel/compose/HistoryPanelKt {
 	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
-	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun HistoryRecordingPanel (Lactron/timetravel/HistoryRecording;Lactron/timetravel/compose/HistoryPanelState;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 }
 
@@ -680,7 +711,7 @@ public final class actron/timetravel/compose/ReplayControls {
 	public final fun explainNext ()V
 	public final fun getCanStepBackward ()Z
 	public final fun getCanStepForward ()Z
-	public final fun getForwardAvailability ()Lactron/timetravel/inspect/Availability;
+	public final fun getForwardAvailability ()Lactron/timetravel/compose/ForwardStepAvailability;
 	public final fun getInspection ()Lactron/timetravel/compose/ChartInspection;
 	public final fun getLength ()I
 	public final fun getMovement ()Lactron/timetravel/compose/ReplayMovement;
@@ -724,14 +755,26 @@ public final class actron/timetravel/compose/ReplayMovement$Open : actron/timetr
 public abstract interface class actron/timetravel/compose/ReplayVerification {
 }
 
-public final class actron/timetravel/compose/ReplayVerification$Checked : actron/timetravel/compose/ReplayVerification {
+public final class actron/timetravel/compose/ReplayVerification$Diverged : actron/timetravel/compose/ReplayVerification {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lactron/timetravel/compose/ReplayVerification$Checked;
-	public static synthetic fun copy$default (Lactron/timetravel/compose/ReplayVerification$Checked;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/compose/ReplayVerification$Checked;
+	public final fun copy (Ljava/lang/String;)Lactron/timetravel/compose/ReplayVerification$Diverged;
+	public static synthetic fun copy$default (Lactron/timetravel/compose/ReplayVerification$Diverged;Ljava/lang/String;ILjava/lang/Object;)Lactron/timetravel/compose/ReplayVerification$Diverged;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getVerdict ()Ljava/lang/String;
+	public final fun getDescription ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/timetravel/compose/ReplayVerification$Passed : actron/timetravel/compose/ReplayVerification {
+	public static final field $stable I
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lactron/timetravel/compose/ReplayVerification$Passed;
+	public static synthetic fun copy$default (Lactron/timetravel/compose/ReplayVerification$Passed;IILjava/lang/Object;)Lactron/timetravel/compose/ReplayVerification$Passed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getSteps ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
