@@ -33,6 +33,16 @@ class RecordingFilesTest {
         compose.onNodeWithTag("debug-settings-done").performClick()
     }
 
+    private fun awaitAppNode(tag: String) {
+        // DocumentsUI can still own the foreground window while its result is returning.
+        compose.waitUntil(timeoutMillis = timeout, condition = {
+            compose
+                .onAllNodesWithTag(testTag = tag)
+                .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                .isNotEmpty()
+        })
+    }
+
     private fun downloads() {
         if (device.hasObject(By.desc("Show roots"))) device.findObject(By.desc("Show roots")).click()
         val label = By.text("Downloads")
@@ -47,22 +57,24 @@ class RecordingFilesTest {
         downloads()
         checkNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), timeout)).text = name
         checkNotNull(device.wait(Until.findObject(By.text(Pattern.compile("(?i)save"))), timeout)).click()
-        compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-open").fetchSemanticsNodes().isNotEmpty() }
+        awaitAppNode(tag = "recording-open")
         compose.onNodeWithTag("recording-open").performClick()
         awaitDocumentsUi()
         downloads()
         checkNotNull(device.wait(Until.findObject(By.text(name)), timeout)).click()
-        compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-close").fetchSemanticsNodes().isNotEmpty() }
+        awaitAppNode(tag = "recording-close")
         compose.onNodeWithTag("history-live").assertDoesNotExist()
         compose.onNodeWithTag("history-continue").assertDoesNotExist()
         compose.onNodeWithTag("recording-open").performClick()
         awaitDocumentsUi()
         device.pressBack()
+        awaitAppNode(tag = "recording-close")
         compose.onNodeWithTag("recording-close").assertExists().performClick()
         compose.onNodeWithTag("history-live").assertExists()
         compose.onNodeWithTag("recording-save").performClick()
         awaitDocumentsUi()
         device.pressBack()
+        awaitAppNode(tag = "recording-save")
         compose.onNodeWithTag("recording-save").assertIsEnabled()
     }
 
@@ -85,7 +97,7 @@ class RecordingFilesTest {
             awaitDocumentsUi()
             downloads()
             checkNotNull(device.wait(Until.findObject(By.text(name)), timeout)).click()
-            compose.waitUntil(timeout) { compose.onAllNodesWithTag("recording-error").fetchSemanticsNodes().isNotEmpty() }
+            awaitAppNode(tag = "recording-error")
             compose.onNodeWithText("OK").performClick()
             compose.onNodeWithTag("recording-close").assertDoesNotExist()
             compose.onNodeWithTag("history-live").assertExists()
