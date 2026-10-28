@@ -71,6 +71,10 @@ fun CitySearchScreen(
                 modifier = Modifier.fillMaxWidth().testTag("city-search"),
             )
             when (val phase = state.phase) {
+                RequestState.QueryChanged -> {
+                    // Automatic transitions settle before publication; there is no intermediate UI.
+                }
+
                 RequestState.Idle, RequestState.Ready -> {
                     Text(stringResource(resource = Res.string.enter_city), modifier = Modifier.testTag("city-search-hint"))
                 }

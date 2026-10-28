@@ -48,7 +48,7 @@ class WeatherMachinesCoverageTest {
             }
             val coverage = reports.reduce { a, b -> a.merge(b) }
             coverage.assertTransitionsCovered()
-            assertEquals(14, coverage.transitions.covered.size)
+            assertEquals(expected = 11, actual = coverage.transitions.covered.size)
             println("City Search\n${coverage.describe()}")
         }
 

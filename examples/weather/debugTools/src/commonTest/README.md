@@ -75,7 +75,7 @@ println(trace.coverage.describe(model.machine.chart))
 `generate` is bounded pure-model exploration using the real decision function. It does not
 test coroutine scheduling, HTTP behavior or executor lane arbitration. Its `assertSuccess`
 rejects rule failures, budget exhaustion, uncovered target transitions and missing goals.
-With the current data, the selected scenarios cover 14/14 search, 7/7 current-weather, 11/11 forecast and 14/14 advice transitions; the parent Refresh is tested separately.
+With the current data, the selected scenarios cover 11/11 search, 7/7 current-weather, 11/11 forecast and 14/14 advice transitions; the parent Refresh is tested separately.
 This does not imply every guard outcome, payload or longer sequence was tested.
 
 `record` reruns the discovered inputs from the same initial context and retains each actual

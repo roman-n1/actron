@@ -50,6 +50,7 @@ Start with [CitySearchMachine.kt](../shared/src/commonMain/kotlin/actron/example
 | `readState` / `writeState` | Select `context.phase` and copy its new value into the context |
 | `state<T>` | Declares the transitions/handlers available in that state |
 | `on<Action, Target>` | Optional guard/reducer plus construction of the target state |
+| `always<Target>` | Automatic guarded choice from the updated context, without a new action |
 | `after<Target>` | A timer owned by this state's current activation |
 | `onEnter { command(...) }` | Request work when entering the state; execute it outside the decision |
 
@@ -68,9 +69,13 @@ lane names are structural identifiers, not string keys for guards or effects.
 ### Search, cancellation and late answers
 
 ```text
-Idle → ChangeQuery("Москва") → Debouncing → after 350 ms → Loading
-Loading → ChangeQuery("Казань") → Debouncing → after 350 ms → Loading
+Idle → ChangeQuery("Москва") → QueryChanged → always → Debouncing → after 350 ms → Loading
+Loading → ChangeQuery("Казань") → QueryChanged → always → Debouncing → after 350 ms → Loading
+Any search state → ChangeQuery(" ") → QueryChanged → always → Idle
 ```
+
+`QueryChanged` owns both guards. The edit updates query/revision once before that choice;
+the same decision settles in `Idle` or `Debouncing`, so the UI does not render an intermediate frame.
 
 The second edit updates the query/revision and exits the old `Loading` activation. Its command
 and timeout are cancelled immediately, before the next debounce expires. Further edits restart

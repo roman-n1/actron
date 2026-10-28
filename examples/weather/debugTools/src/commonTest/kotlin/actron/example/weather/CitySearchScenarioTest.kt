@@ -34,7 +34,7 @@ class CitySearchScenarioTest {
                     dispatch(CitySearchAction.ChangeQuery(""))
                     expectState<RequestState.Idle> { it.phase }
                 }
-            assertEquals(4, report.transitions.covered.size)
+            assertEquals(expected = 6, actual = report.transitions.covered.size)
         }
 
     @Test

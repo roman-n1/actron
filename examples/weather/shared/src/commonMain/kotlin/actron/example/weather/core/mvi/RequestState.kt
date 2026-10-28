@@ -11,6 +11,10 @@ sealed interface RequestState<out T : Any> {
     @Serializable
     data object Ready : RequestState<Nothing>
 
+    /** Search-only transient state; automatic transitions select Idle or Debouncing. */
+    @Serializable
+    data object QueryChanged : RequestState<Nothing>
+
     @Serializable
     data object Debouncing : RequestState<Nothing>
 

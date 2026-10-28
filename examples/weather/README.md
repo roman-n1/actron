@@ -142,8 +142,10 @@ The helper is part of `actron-decompose`; these changes have not yet been releas
 ## State machines
 
 `CitySearchMachine` uses `RequestState<List<CityOption>>`:
-`Idle → Debouncing → Loading → Success / Error`.
-Every edit updates the query and revision; 350 ms of quiet starts the request, even for one letter.
+`Idle → QueryChanged → Debouncing → Loading → Success / Error`.
+Every edit enters `QueryChanged` and updates the query and revision once. Its guarded `always`
+transitions select `Idle` for blank input or `Debouncing` otherwise, within the same decision.
+350 ms of quiet starts the request, even for one letter.
 Clearing cancels pending work and restores `Idle`. An empty server response is `Success(emptyList())`.
 Responses for outdated revisions are ignored. Requests time out after eight seconds.
 
@@ -324,8 +326,8 @@ suspended HTTP operation receives cancellation before Kazan starts. Late-answer 
 separate defensive check for an already queued callback or a source that ignores cancellation;
 it does not mean the obsolete HTTP request is intentionally kept running.
 
-With the checked-in data and bounds, search explores 763 decisions and selects 12 scenarios,
-covering **14/14 transitions**. Current Weather explores 12 decisions / 4 scenarios (**7/7**),
+With the checked-in data and bounds, search explores 763 decisions and selects 7 scenarios,
+covering **11/11 transitions**. Current Weather explores 12 decisions / 4 scenarios (**7/7**),
 Hourly 27 / 6 (**11/11**), and Advice 21 / 8 (**14/14**). A separate parent test covers its Refresh
 transition and single emitted event. The child models cover all declared timer transitions. This is bounded pure
 model coverage, not exhaustive payload/guard coverage or verification of executor scheduling.

@@ -52,14 +52,19 @@ object CitySearchMachine {
         typedStateMachine(
             // Stable identity groups instances in the inspector; version protects persisted data.
             id = DefinitionId(value = "city-search"),
-            version = DefinitionVersion(value = "9"),
+            version = DefinitionVersion(value = "10"),
             initial = RequestState.Idle,
             // phase is the single state value; the DSL derives its graph nodes from state<T>.
             readState = { context: CitySearchState -> context.phase },
             writeState = { context, phase: RequestState<List<CityOption>> -> context.copy(phase = phase) },
             build = {
-                state<RequestState.Idle>(build = { queryChanges() })
-                state<RequestState.Debouncing>(build = {
+                state(value = RequestState.Idle, build = { queryChanges() })
+                state(value = RequestState.QueryChanged, build = {
+                    // Resolve the updated query before the executor publishes this decision.
+                    always<RequestState.Idle>(guard = { context -> context.query.isBlank() })
+                    always<RequestState.Debouncing>(guard = { context -> context.query.isNotBlank() })
+                })
+                state(value = RequestState.Debouncing, build = {
                     queryChanges()
                     // Leaving/re-entering Debouncing cancels/restarts this activation's timer.
                     after<RequestState.Loading>(delay = 350.milliseconds, to = { RequestState.Loading })
@@ -93,17 +98,9 @@ object CitySearchMachine {
     }
 
     private fun TypedMachineStateBuilder<CitySearchState, RequestState<List<CityOption>>, CitySearchAction, SearchCitiesCommand, NoEvent>.queryChanges() {
-        // Two guarded targets for the same action: clear to Idle, otherwise start a new debounce.
-        // reduce changes query data; the target lambda supplies phase through writeState.
-        on<CitySearchAction.ChangeQuery, RequestState.Idle>(
-            guard = { _, action -> action.query.isBlank() },
+        // Every edit updates query/revision once; QueryChanged owns the automatic choice.
+        transition<CitySearchAction.ChangeQuery, RequestState.QueryChanged>(
             reduce = { context, action -> context.copy(query = action.query, revision = context.revision + 1) },
-            to = { _, _ -> RequestState.Idle },
-        )
-        on<CitySearchAction.ChangeQuery, RequestState.Debouncing>(
-            guard = { _, action -> action.query.isNotBlank() },
-            reduce = { context, action -> context.copy(query = action.query, revision = context.revision + 1) },
-            to = { _, _ -> RequestState.Debouncing },
         )
     }
 }

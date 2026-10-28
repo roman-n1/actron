@@ -107,29 +107,32 @@ class WeatherHistoryTest {
         val selectedGraph = history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine
         assertEquals(actron.timetravel.compose.HistoryGraphProfile.Unavailable, selectedGraph.profile)
         val selectedHits = (selectedGraph.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits
-        assertEquals(2L, selectedHits.values.sum())
+        // Each edit takes both the ChangeQuery transition and its automatic choice.
+        assertEquals(expected = 4L, actual = selectedHits.values.sum())
         assertEquals(
-            3L,
-            history
-                .snapshot()
-                .coverage.values
-                .single()
-                .hits.values
-                .sum(),
+            expected = 6L,
+            actual =
+                history
+                    .snapshot()
+                    .coverage.values
+                    .single()
+                    .hits.values
+                    .sum(),
         )
         history.session.beginBranch(history.restoreDiagnostics(selected.snapshot))
         traceEdits(history, listOf("Paris"))
         assertEquals(
-            3L,
-            history
-                .snapshot()
-                .coverage.values
-                .single()
-                .hits.values
-                .sum(),
+            expected = 6L,
+            actual =
+                history
+                    .snapshot()
+                    .coverage.values
+                    .single()
+                    .hits.values
+                    .sum(),
         )
-        assertEquals(2L, selectedHits.values.sum(), "Historical coverage is immutable")
-        assertEquals(2L, (history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine).let { (it.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits.values.sum() })
+        assertEquals(expected = 4L, actual = selectedHits.values.sum(), message = "Historical coverage is immutable")
+        assertEquals(expected = 4L, actual = (history.graph(selected) as actron.timetravel.compose.HistoryGraph.Machine).let { (it.coverage as actron.timetravel.compose.HistoryGraphCoverage.Recorded).hits.values.sum() })
     }
 
     private fun traceEdits(
