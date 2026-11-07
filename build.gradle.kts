@@ -16,6 +16,12 @@ plugins {
     alias(libs.plugins.kotlinx.bcv)
 }
 
+// Kotlin reads this during plugin application. These modules have no Compose resources,
+// but still need the Compose plugin for the browser test runtime.
+for (module in listOf(":actron-compose", ":actron-statechart-compose")) {
+    project(module).extra["kotlin.mpp.enableResourcesPublication"] = false
+}
+
 // Public API and ABI on BCV-supported targets, JVM and klib alike, are dumped under each
 // module's api/ directory; `apiCheck` (run by CI) fails when the code and the dumps differ, so a
 // change of the public surface is a deliberate `apiDump` in the same change.

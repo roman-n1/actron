@@ -60,6 +60,13 @@ for module in sorted(modules):
         assert component["group"] == group and component["module"] == module and component["version"] == version, artifact
         if artifact != module:
             assert (folder / component["url"]).is_file(), (artifact, "missing root metadata")
+        if module in {"actron-compose", "actron-statechart-compose"}:
+            assert not any(folder.glob("*-kotlin_resources.kotlin_resources.zip")), (
+                artifact, "unexpected Compose resources archive"
+            )
+            assert not any("ResourcesElements" in variant["name"] for variant in metadata["variants"]), (
+                artifact, "unexpected Compose resources variant"
+            )
         for variant in metadata["variants"]:
             attributes = variant.get("attributes", {})
             if attributes.get("org.jetbrains.kotlin.platform.type") == "jvm":
