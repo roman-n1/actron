@@ -4,8 +4,7 @@
 
 **Kotlin Multiplatform MVI with typed state machines.**
 
-The first Actron release, `1.0.0-beta.1`, is available on
-[Maven Central](https://central.sonatype.com/artifact/io.github.roman-n1/actron-statechart/1.0.0-beta.1).
+[![Maven Central version](https://img.shields.io/maven-central/v/io.github.roman-n1/actron-statechart)](https://central.sonatype.com/artifact/io.github.roman-n1/actron-statechart)
 
 Describe states, actions and transitions in Kotlin. Actron processes actions in order,
 publishes state, and runs suspending entry work such as network requests. The same machine definition
@@ -280,24 +279,31 @@ verify the resolved Actron version and use its matching signatures and examples.
 
 ## Installation
 
-Add `mavenCentral()` to your Gradle dependency repositories and use
-**`io.github.roman-n1:<module>:1.0.0-beta.1`**. For Kotlin Multiplatform, add the
-modules you need to `commonMain`:
+Add `mavenCentral()` to your Gradle dependency repositories. Set `actronVersion` to the
+version shown in the Maven Central badge above. For Kotlin Multiplatform, add the modules
+you need to `commonMain`.
 
 ```kotlin
 // Kotlin Multiplatform build.gradle.kts in your application
+val actronVersion = "VERSION_FROM_MAVEN_CENTRAL"
+
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.roman-n1:actron-statechart:1.0.0-beta.1")
-            // For Decompose: implementation("io.github.roman-n1:actron-decompose:1.0.0-beta.1")
+            implementation("io.github.roman-n1:actron-statechart:$actronVersion")
+            // For Decompose: implementation("io.github.roman-n1:actron-decompose:$actronVersion")
         }
     }
 }
 ```
 
 For an Android-only build, the same dependency line belongs in `dependencies { … }`.
-Keep all Actron modules on the same version.
+Use a single version for the Actron modules in your build.
+
+The `1.0.0-beta.2` release contains `actron-core`, `actron-observability`,
+`actron-statechart`, `actron-decompose`, `actron-compose`, `actron-persistence` and
+`actron-bom`. The other modules are available in the complete `1.0.0-beta.1` release
+and from a source checkout.
 
 To develop against a local Actron checkout, add `includeBuild("../actron")` to your
 application's `settings.gradle.kts`. Gradle substitutes the local projects for the
