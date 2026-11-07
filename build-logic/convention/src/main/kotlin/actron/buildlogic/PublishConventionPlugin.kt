@@ -22,8 +22,7 @@ private val coreReleaseProjects =
         ":actron-statechart",
     )
 
-fun Project.isIncludedInActronRelease(): Boolean =
-    providers.gradleProperty("actron.release.coreOnly").orNull != "true" || path in coreReleaseProjects
+fun Project.isIncludedInActronRelease(): Boolean = providers.gradleProperty("actron.release.coreOnly").orNull != "true" || path in coreReleaseProjects
 
 @Suppress("unused")
 class PublishConventionPlugin : Plugin<Project> {
