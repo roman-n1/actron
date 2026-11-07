@@ -26,10 +26,17 @@ Use tag `v<VERSION>` or `<VERSION>`, matching `actron.fork.version` in `gradle.p
 and `versions.actron` in `gradle/libs.versions.toml`. The workflow rejects mismatches and
 SNAPSHOT versions before running builds. It does not change the version for you.
 
-With no credentials, leave `MAVEN_CENTRAL_PUBLISH_ENABLED` unset. Release checks and all
-publication tasks still run, and Actions stores an `unsigned-maven-repository` artifact.
-It contains every module/target plus the BOM and can be inspected without uploading to Central.
-It is an unsigned verification artifact, not a signed Central Portal upload bundle.
+The release workflow uses `-Pactron.release.coreOnly=true` to publish `actron-core`,
+`actron-observability`, `actron-statechart`, `actron-decompose`, `actron-compose`,
+`actron-persistence` and `actron-bom`. Each library retains all its platforms. The BOM
+manages only coordinates in the release. The default local consumer checks exercise all modules.
+
+Actions validates the selected coordinates and reports the estimated Maven Central file count
+and headroom before the upload job. Preparation fails if the estimate exceeds
+`MAVEN_CENTRAL_FILE_BUDGET` (default 1,000 files). This is a per-release budget. Check the
+organization's remaining monthly quota in Central Portal before starting a release.
+Actions stores the validated `unsigned-maven-repository` artifact. Leave
+`MAVEN_CENTRAL_PUBLISH_ENABLED` unset to run the workflow through this preparation step.
 
 To enable automatic uploads later:
 
@@ -43,7 +50,7 @@ To enable automatic uploads later:
    Keep these values in GitHub Secrets, never in repository files.
 4. Set repository variable `MAVEN_CENTRAL_PUBLISH_ENABLED=true`.
 5. Publish the next GitHub release. After the checks pass, `publishAndReleaseToMavenCentral`
-   signs and uploads **all** library publications, including `actron-bom`, then waits for
+   signs and uploads the selected publications, including `actron-bom`, then waits for
    Central's `PUBLISHED` state. No manual Portal release button is required.
 
 Central versions are immutable: rerun a failed upload only after checking its deployment in

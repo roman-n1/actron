@@ -11,18 +11,34 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.create
 
+private val coreReleaseProjects =
+    setOf(
+        ":actron-bom",
+        ":actron-compose",
+        ":actron-core",
+        ":actron-decompose",
+        ":actron-observability",
+        ":actron-persistence",
+        ":actron-statechart",
+    )
+
+fun Project.isIncludedInActronRelease(): Boolean =
+    providers.gradleProperty("actron.release.coreOnly").orNull != "true" || path in coreReleaseProjects
+
 @Suppress("unused")
 class PublishConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.alias(libs.plugin("vanniktech-mavenPublish"))
             val consumerRepository = providers.gradleProperty("actron.consumer.repository")
+            val includedInRelease = isIncludedInActronRelease()
 
             mavenPublishing {
-                publishToMavenCentral()
-
-                if (!consumerRepository.isPresent && providers.environmentVariable("ORG_GRADLE_PROJECT_mavenCentralUsername").isPresent) {
-                    signAllPublications()
+                if (includedInRelease) {
+                    publishToMavenCentral()
+                    if (!consumerRepository.isPresent && providers.environmentVariable("ORG_GRADLE_PROJECT_mavenCentralUsername").isPresent) {
+                        signAllPublications()
+                    }
                 }
 
                 pom(repoUrl = providers.gradleProperty("actron.fork.url").getOrElse("https://github.com/roman-n1/actron/"), fork = providers.gradleProperty("actron.fork.url").isPresent)
@@ -30,7 +46,7 @@ class PublishConventionPlugin : Plugin<Project> {
 
             // An isolated repository for external-consumer verification. Only explicitly named
             // Consumer publication tasks write here; no MavenLocal/Central uploads are involved.
-            if (consumerRepository.isPresent) {
+            if (includedInRelease && consumerRepository.isPresent) {
                 extensions.configure<PublishingExtension> {
                     repositories.maven {
                         name = "Consumer"

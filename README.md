@@ -299,6 +299,11 @@ kotlin {
 For an Android-only build, the same dependency line belongs in `dependencies { … }`.
 Keep all Actron modules on the same version.
 
+The planned Maven Central release `1.0.0-beta.2` includes `actron-core`, `actron-observability`,
+`actron-statechart`, `actron-decompose`, `actron-compose`, `actron-persistence` and
+`actron-bom` across their existing platforms. The other modules are available on Maven
+Central at `1.0.0-beta.1` and from a source checkout.
+
 To develop against a local Actron checkout, add `includeBuild("../actron")` to your
 application's `settings.gradle.kts`. Gradle substitutes the local projects for the
 matching Maven coordinates.

@@ -3,13 +3,15 @@ on:
   # published covers both stable releases and prereleases, including publication from a draft.
   release:
     types: [published]
+  push:
+    branches: [codex/stage-actron-beta-2]
 
 permissions:
   contents: read
 
 # Never interrupt an upload, and serialize reruns for the same immutable Maven version.
 concurrency:
-  group: publish-${{ github.event.release.tag_name }}
+  group: publish-${{ github.event.release.tag_name || 'v1.0.0-beta.2' }}
   cancel-in-progress: false
 
 jobs:
@@ -20,7 +22,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Verify tag and publication coordinates
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || 'v1.0.0-beta.2' }}
         run: |
           python3 -m unittest discover -s scripts -p 'test_release.py'
           python3 scripts/validate-release.py . "$RELEASE_TAG"
@@ -42,7 +44,6 @@ jobs:
   prepare:
     name: Prepare unsigned Maven repository
     timeout-minutes: 120
-    if: vars.MAVEN_CENTRAL_PUBLISH_ENABLED != 'true'
     needs: [test, consumer]
     runs-on: macos-26
     steps:
@@ -56,15 +57,18 @@ jobs:
           path: ~/.konan
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
       - uses: gradle/actions/setup-gradle@v5
-      - name: Build every publication without credentials
-        run: ./gradlew publishAllPublicationsToConsumerRepository -Pactron.consumer.repository="$RUNNER_TEMP/maven" --no-configuration-cache --max-workers=2
+      - name: Build core release publications without credentials
+        run: ./gradlew publishAllPublicationsToConsumerRepository -Pactron.release.coreOnly=true -Pactron.consumer.repository="$RUNNER_TEMP/maven" --no-configuration-cache --max-workers=2
       - name: Validate prepared Maven metadata and payloads
+        env:
+          CENTRAL_FILE_BUDGET: ${{ vars.MAVEN_CENTRAL_FILE_BUDGET || '1000' }}
         run: |
           group=$(python3 verification/published-consumer/config.py . group)
           version=$(python3 verification/published-consumer/config.py . version)
           for target in jvm android js wasm ios; do
-            python3 verification/published-consumer/verify_metadata.py "$RUNNER_TEMP/maven" "$group" "$version" "$target"
+            python3 verification/published-consumer/verify_metadata.py "$RUNNER_TEMP/maven" "$group" "$version" "$target" --core-only
           done
+          python3 verification/published-consumer/report_file_count.py "$RUNNER_TEMP/maven" "$group" "$version" --max-files "$CENTRAL_FILE_BUDGET" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: unsigned-maven-repository
@@ -73,9 +77,9 @@ jobs:
   publish:
     # Enable only after Central Portal namespace, user token and signing key are configured.
     if: vars.MAVEN_CENTRAL_PUBLISH_ENABLED == 'true'
-    name: Release to Maven Central
+    name: Send deployment to Maven Central Portal
     timeout-minutes: 120
-    needs: [test, consumer]
+    needs: prepare
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v5
@@ -88,7 +92,7 @@ jobs:
           path: ~/.konan
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
       - uses: gradle/actions/setup-gradle@v5
-      - name: Validate credentials and publish all modules including BOM
+      - name: Validate credentials and publish core release including BOM
         shell: bash
         run: |
           for name in ORG_GRADLE_PROJECT_mavenCentralUsername ORG_GRADLE_PROJECT_mavenCentralPassword ORG_GRADLE_PROJECT_signingInMemoryKey; do
@@ -104,7 +108,11 @@ jobs:
           if [[ -z "$ORG_GRADLE_PROJECT_signingInMemoryKeyPassword" ]]; then
             unset ORG_GRADLE_PROJECT_signingInMemoryKeyPassword
           fi
-          ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache --max-workers=2
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            ./gradlew publishToMavenCentral -Pactron.release.coreOnly=true -PmavenCentralAutomaticPublishing=false -PmavenCentralDeploymentValidation=VALIDATED --no-configuration-cache --max-workers=2
+          else
+            ./gradlew publishAndReleaseToMavenCentral -Pactron.release.coreOnly=true --no-configuration-cache --max-workers=2
+          fi
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}

@@ -1,3 +1,4 @@
+import actron.buildlogic.isIncludedInActronRelease
 import org.gradle.api.publish.maven.MavenPublication
 
 plugins {
@@ -15,7 +16,7 @@ publishConvention {
 gradle.projectsEvaluated {
     dependencies.constraints {
         rootProject.subprojects
-            .filter { it != project && it.pluginManager.hasPlugin("actron.publish") }
+            .filter { it != project && it.pluginManager.hasPlugin("actron.publish") && it.isIncludedInActronRelease() }
             .forEach { library ->
                 library.extensions
                     .getByType<PublishingExtension>()

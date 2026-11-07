@@ -6,7 +6,9 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
-repo, group, version, target = Path(sys.argv[1]), *sys.argv[2:]
+repo, group, version, target = Path(sys.argv[1]), *sys.argv[2:5]
+core_only = sys.argv[5:] == ["--core-only"]
+assert not sys.argv[5:] or core_only, "Expected optional --core-only"
 production = {"actron-decompose", "actron-core", "actron-compose", "actron-logging", "actron-message", "actron-statechart", "actron-observability", "actron-statechart-compose", "actron-persistence"}
 tooling = {"actron-test", "actron-statechart-test", "actron-timetravel", "actron-timetravel-test", "actron-timetravel-compose"}
 production.add("actron-diagnostics")
@@ -15,6 +17,9 @@ if target in {"jvm", "android"}:
 if target == "android":
     production.add("actron-diagnostics-crashlytics")
 modules = production | tooling
+if core_only:
+    production = {"actron-core", "actron-observability", "actron-statechart", "actron-decompose", "actron-compose", "actron-persistence"}
+    modules = production
 suffixes = {"jvm": ["jvm"], "android": ["android"], "js": ["js"], "wasm": ["wasm-js"], "ios": ["iosarm64", "iossimulatorarm64"]}[target]
 ns = {"m": "http://maven.apache.org/POM/4.0.0"}
 edges = {module: set() for module in modules}
@@ -30,7 +35,17 @@ for item in bom.findall("m:dependencyManagement/m:dependencies/m:dependency", ns
     assert item.findtext("m:groupId", namespaces=ns) == group
     assert item.findtext("m:version", namespaces=ns) == version
     managed[item.findtext("m:artifactId", namespaces=ns)] = version
-assert modules | {"actron-diagnostics", "actron-diagnostics-sdk", "actron-diagnostics-crashlytics"} <= managed.keys(), managed
+if core_only:
+    expected = modules | {
+        f"{module}-{suffix}"
+        for module in modules
+        for suffix in ("android", "jvm", "js", "wasm-js", "iosarm64", "iossimulatorarm64")
+    }
+    assert expected == managed.keys(), ("unexpected core release BOM coordinates", expected ^ managed.keys())
+    actual = {folder.name for folder in bom_folder.parent.parent.iterdir() if (folder / version).is_dir()}
+    assert actual == expected | {"actron-bom"}, ("unexpected core release artifacts", actual ^ (expected | {"actron-bom"}))
+else:
+    assert modules | {"actron-diagnostics", "actron-diagnostics-sdk", "actron-diagnostics-crashlytics"} <= managed.keys(), managed
 assert {module + "-" + suffix for module in modules for suffix in suffixes} <= managed.keys(), managed
 
 def dependency(owner, dependency_group, name, dependency_version):
