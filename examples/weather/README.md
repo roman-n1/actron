@@ -9,7 +9,7 @@ with the machines, independently of panel visibility.
 
 Start with [How Weather uses Actron](docs/architecture.md): the path from UI intent to machine
 decision and HTTP result, the typed search DSL, independent weather machines, component lifetime,
-and the distinction between preview and restoration.
+and the optional history inspector.
 
 For tests, read [the test-source README](debugTools/src/commonTest/README.md). It maps the scripted,
 generated and HTTP-cancellation examples to the library APIs and shows how to inspect a
@@ -25,7 +25,7 @@ Suggested source order:
 3. [CityWeatherMachine](shared/src/commonMain/kotlin/actron/example/weather/feature/weather/presentation/CityWeatherMachine.kt):
    independent regions in one machine.
 4. [MachineInstance](../../actron-decompose/src/commonMain/kotlin/actron/decompose/MachineInstance.kt)
-   and [WeatherRootComponent](shared/src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt):
+   and [WeatherRootComponent](shared/src/commonMain/kotlin/actron/example/weather/app/root/WeatherRootComponent.kt):
    connect Actron execution to Decompose lifetime and navigation.
 5. [GeneratedWeatherScenarios](debugTools/src/commonTest/kotlin/actron/example/weather/GeneratedWeatherScenarios.kt):
    describe test data and properties, then let the graph explorer discover sequences.
@@ -34,7 +34,6 @@ Suggested source order:
 
 ```sh
 ./gradlew :weather:desktopApp:run
-./gradlew :weather:desktopApp:run --args='--offline'
 ./gradlew :weather:webApp:wasmJsBrowserDevelopmentRun
 ./gradlew :weather:webApp:jsBrowserDevelopmentRun
 ./gradlew :weather:androidApp:assembleDebug
@@ -44,7 +43,7 @@ The modules follow the same separation as `MyApplication`:
 
 ```text
 examples/weather/
-  shared/       Production Compose UI, machines, repositories and current checkpoints
+  shared/       Production Compose UI, machines and repositories
   debugTools/   Optional recorder, history UI and platform file dialogs
   androidApp/   Android Activity, manifest and device tests
   desktopApp/   JVM entry point and desktop runtime
@@ -69,8 +68,7 @@ import/export through the browser's file picker and downloads.
 
 In Android Studio select the `weather:androidApp` application module. The debug APK is
 `examples/weather/androidApp/build/outputs/apk/debug/androidApp-debug.apk` (Android 7.0+).
-Live data uses Open-Meteo without an API key. `--offline` selects explicit local fixtures on
-Desktop. The old article, replay and CLI-check modes have been removed from this application.
+Live data uses Open-Meteo without an API key.
 
 ## Responsibilities
 
@@ -89,18 +87,18 @@ its own intents. The KMP-style parent/child bridge carries navigation news only.
 state broadcasts are needed; the corresponding action type is `Nothing`.
 
 ```text
-app/WeatherRootComponent.kt       Decompose Search / Weather(city) stack
-app/WeatherComponentFactories.kt  Retained feature Store assembly
-app/session/                     Current checkpoints and process restoration
+app/root/                       Decompose Search / Weather(city) stack
+app/theme/                      Shared Compose theme
+app/assembly/                   Feature factories, retained machines and recording contracts
 debugTools/app/debug/            Optional recording, preview and platform file adapters
 core/component/                  Base/StackComponent and bridges
 core/mvi/RequestState.kt          Shared typed request lifecycle
 feature/cities/
-  data/                          HTTP and offline search repositories
+  data/                          Open-Meteo search and sample data for tests/debug tools
   domain/                        CitySearchRepository
   presentation/                  Component, machine, screen and UI projection
 feature/weather/
-  data/                          Current/hourly HTTP and offline repositories
+  data/                          Open-Meteo current/hourly weather and sample data for tests/debug tools
   domain/                        Weather data and repository interfaces
   presentation/                  Parent machine, screen and derived UI projection
 currentweather/presentation/     Standalone current-weather state, actions and machine
@@ -109,14 +107,14 @@ weatheradvice/presentation/      Standalone advice state, actions and machine
 ```
 
 Application component factories retain each `MachineInstance` through Decompose's `InstanceKeeper`.
-Feature components receive the Store; they do not know about recording or checkpoint restoration.
-Recreating the host with its saved navigation state reuses the same executor. Returning from
+Feature components receive their machines and expose read-only UI projections.
+Recreating the host with the same InstanceKeeper reuses the same executor. Returning from
 weather destroys that child and cancels its requests. Search stays in the back stack with its
 query and results. Opening another city creates a new weather child and executor. Merely opening
 search does not request weather for a default city.
 
-Platform entry points select the ordinary or debug root and call `root.Render()`.
-Desktop constructs/destroys it on the Swing UI thread; Android uses the Activity component context.
+Platform entry points construct `WeatherRootComponent` with an explicit UI context and feature factories. The root renders its own stack through `Render()`. Debug hosts compose the inspector around that rendering; the root has no rendering callback or debugger dependency.
+Desktop's [main](desktopApp/src/main/kotlin/actron/example/weather/Main.kt) assembles dependencies on the UI thread, opens the window and renders Weather. It closes the root and HTTP client when the window leaves composition. Android uses the Activity component context.
 Each screen owns its padding and scrolling. There is no `WeatherApp` or `WeatherAppContent` wrapper.
 
 ## Concise machine setup
@@ -132,8 +130,7 @@ val store = componentContext.retainedMachine(
 )
 ```
 
-Add `restoration = session.searchRestoration()` to restore/track search checkpoints.
-Independently add `recording = history.recording()` to enable recording and profiling. The option binds once, before
+Add `recording = history.recording()` to enable recording and profiling. The option binds once, before
 startup. Weather retains four stores with typed MachineGroup routes and starts the parent after the children enter Ready; the parent emits the first refresh event automatically.
 The adapter owns retention/start/close and the entry scope; UI subscriptions still belong
 to their component. See [the installation contract](docs/architecture.md#one-call-machine-installation).
@@ -166,9 +163,8 @@ current-weather calls and one hourly call. Local Hourly Retry and Advice Retry/D
 
 Every child accepts its Refresh from every state, including Loading and Dismissed. Re-entering
 Loading cancels the old work and starts a new request. Group delivery is not an atomic
-multi-store transaction; the immutable UI projection may briefly show mixed phases. Saved and
-continuable frames include all four checkpoints and require all routed messages to be settled.
-Restoration preserves completed and dismissed children, restarting only pending work.
+multi-store transaction; the immutable UI projection may briefly show mixed phases. Decompose
+retains the existing machines during host recreation. A fresh process starts new requests.
 
 The state variants define graph identity through the DSL. There are no independent state IDs,
 loading/error flags or string guards/effects. `RequestState` uses generated `@Serializable`
@@ -194,66 +190,36 @@ city data: [GeoNames](https://www.geonames.org/).
 Tests cover HTTP decoding, debounce and revisions, cancellation and request failures, independent
 independent requests, typed routes, generic serialization, navigation, host recreation and request cleanup.
 The optional debugTools module integrates the library's recording/replay and inspector APIs; its host adapter
-owns only Weather display frames, screen restoration and platform file access.
+owns only Weather display frames, recording and platform file access.
 
 ## Session history and replay
 
-Every debug feature executor attaches the library's `BoundedMachineRecorder` through a
-`DecisionTraceObserver` before `start()`. The debug shell retains one `WeatherHistory` across host
-recreation and supplies recording to both feature factories. `WeatherSession` independently owns
-checkpoints, route and time; it has no UI hooks or diagnostic fields. Its timeline enforces **500 entries in
-total**, including closed weather screens. Evicting a timeline entry also trims that feature's
-recorder with `discardBefore`, advancing its replay checkpoint. Closed feature recorders are
-released when their last timeline entry disappears; indices remain stable.
+The machines own live feature state. Decompose owns navigation and keeps machine instances
+through host recreation. After process death, Decompose can restore the route; the feature
+machines start fresh and request their data again. Debug hosts wrap the ordinary root with
+`RestorableComponent` from `actron-decompose-session`; restoration belongs to the library.
 
-Open the gear next to **Cities**, then enable **Debug panel** for the reusable library `HistoryPanel`. The global
-chronology contains only machine events and groups lifetimes by stable machine ID.
-Navigation stays in the example: `WeatherFrame` carries the route. The debug-only
-`WeatherHistoryFrame` adds frozen transition coverage. The debug shell unwraps the application
-frame and asks the ordinary root to restore its Decompose stack. The library treats the combined
-frame as an opaque snapshot. Each selection shows
-the input action with its payload between the before/after active states, structured field
-changes. Technical diagnostics remain in the recording model. Event and update timestamps
-use the device's local time zone and locale.
+Debug hosts attach a `BoundedMachineRecorder` before each machine starts. `WeatherHistory`
+retains up to **500 events total**, including closed weather screens. Eviction trims each
+recorder too. These immutable snapshots contain display data, active graph nodes and transition
+coverage. Safe positions also carry a library session checkpoint, including the Decompose route
+and all live machine instances. Positions with unfinished event delivery remain preview-only.
 
-Selecting an event immediately renders the saved application frame with inputs disabled, without calling any
-repositories. Live recording continues in the background. Switching to **Live** exits preview.
-**Continue here** replaces the Decompose stack and executors with the selected frame and exits preview. Search context and all four weather machines are restored
-together. Completed requests stay completed; pending reads restart from their Loading entry. Restoring search v16 preserves the remaining debounce duration; the timer
-deadline is stored in the machine snapshot. Old executors are closed; callbacks
-from an earlier branch cannot modify the new frame. After successful restoration, entries after the selected event are removed. Earlier entries
-and the selected event stay available; new execution extends this linear history. The original
-running session is replaced. This is an at-least-once restart of read-only
-work, not replay of arbitrary external side effects. Unsupported checkpoints with pending
-effects or terminal command outcomes cannot be continued.
+Enable **Debug panel** from the gear next to **Cities**. Selecting an event previews that
+feature with inputs disabled and without repository calls. Recording continues in the background.
+**Live** returns to the running application. **Continue from here** cancels the current executors,
+recreates the saved navigation tree and resumes its machines. The future branch is removed only
+after successful restoration. Running read requests can restart; this does not undo remote effects.
+Search and weather record separately; weather projections combine its four machines for display.
+Coverage in an old event remains frozen as new events arrive.
 
-The example declares a typed `checkpointGroup` for search and optional weather checkpoints.
-One `save(frame)` / `restore(text)` call handles all machines and compatibility checks.
-Its host adapter maps the application route and retains branch metadata.
-The root registers a versioned current checkpoint with Essenty `StateKeeper`, which the Android
-host connects to saved instance state. After system-initiated process death, a new
-`InstanceKeeper` restores search data, weather state and pending entries before creating children.
-Decompose independently restores the screen stack. Completed reads are retained; pending HTTP
-reads are issued again. The debounce timer resumes with the delay remaining at save time,
-so time spent without a process is paused. Saving again after restoration is supported.
+History is memory-only and disappears on full application restart. The count limit is not a byte
+quota. Selection can pin a snapshot after eviction. Android release uses the ordinary root;
+Android debug, Desktop, Web and iOS add the optional inspector.
 
-Only the latest resumable application checkpoint is saved, not the timeline or preview selection.
-A transient checkpoint with unacknowledged effects/terminal commands falls back to the latest
-resumable frame. Unsupported machine versions or invalid checkpoint payloads start fresh.
-This is Android saved-state restoration of the task, not durable storage after force-stop or
-removing the task. It restores the last saved checkpoint, not inputs accepted after that save.
-The bounded city results and six-hour forecast fit the example's saved state; larger production
-payloads should live on disk with only a reference in saved state.
-
-History is memory-only and disappears on full application restart. The count limit is not a
-byte quota. Selection and preview can each pin an immutable application frame after eviction.
-Android release uses the ordinary root without diagnostics; Android debug, Desktop, Web and iOS
-opt into `debugTools` and `actron-timetravel-compose`.
-
-Tests cover bounded history, pinned selection after eviction, action details, preview/continue,
-restoring navigation and a pending child request, local timestamp formatting, and lifecycle
-retention. Core restart tests verify command queues, remaining timer delays and entry hooks.
-
+Tests cover component retention, navigation, request cancellation, fresh loads after process
+recreation, bounded history, frozen coverage, preview isolation, cross-screen continuation,
+serialized session restoration and view-only import/export.
 
 Desktop `:weather:desktopApp:run` copies its classpath into a per-run temporary snapshot before
 starting. Rebuilding project JARs while the app is open therefore cannot invalidate classes
@@ -261,11 +227,13 @@ that the running app has not loaded yet. Normal exit removes the snapshot.
 
 ## MVI execution
 
-The root gives its stores a shared sequential dispatcher on `Dispatchers.Default` and runs navigation on
-`Dispatchers.Main`. Supply `machineContext` and `uiContext` at root creation to override these defaults.
+The ordinary root accepts `machineContext` and `uiContext`. Restorable debug roots run machine
+decisions and navigation on the same UI dispatcher so a committed history point can capture both.
 Search calls the repository directly in its cancellable Loading entry. Both feature components expose read-only UI-model StateFlows, and both screens collect those
 on Main with `collectAsUiState`. Machine snapshots and the weather aggregate stay behind the
-presentation boundary. See the [threading contract](../../doc/guides/machine-mvi.md).
+presentation boundary. `store.present(...)` connects UI-state and UI-event mappers: UI events become
+business actions before dispatch, and navigation comes from committed domain outputs.
+See the [session integration](../../actron-decompose-session/README.md) and [threading contract](../../doc/guides/machine-mvi.md).
 
 ## Share a view-only recording
 
@@ -279,8 +247,7 @@ Import opens a separate read-only session: selecting a recorded event renders th
 search or weather screen, including pending, failed and successful requests. No stores,
 HTTP requests, subscriptions, commands or timers are started by import. Existing live work
 may complete independently in the background. Back to session restores the existing live
-view; closing or failing an import never replaces its state or history. A file cannot be used
-with Continue here. Export while viewing a file re-exports its display recording.
+view; closing or failing an import never replaces its state or history. Imported files expose no continuation controls. Export while viewing a file re-exports its display recording.
 
 The viewer validates the file format, display schema, both machine versions and structural
 graph declarations. Incompatible files are rejected, including changes to a graph without a
@@ -333,13 +300,33 @@ See the [developer guide](../../doc/guides/temporal-schedules-and-profiling.md) 
 In the inspector, select an event, open **Graph**, then enable **Profile**. Click a state or
 transition to inspect completed queue/processing/command samples. Weather stores immutable
 measurements before each event, per executor instance; old history never follows live metrics.
-Imported display recordings currently omit profiling. Continuing from history starts a new
-measurement window with the recreated executor.
+Imported display recordings currently omit profiling.
 
 
 The Android release graph uses only `shared`; debug adds `debugTools`. Desktop/Web and the
 included SwiftUI host opt into the debugger explicitly. There is one Weather application;
 the module split keeps diagnostics out of normal runtime dependencies. The production tests
-verify that recorder/panel classes are absent and checkpoint restoration still works.
+verify that recorder/panel classes are absent and normal navigation and rendering still work.
 
 UI translations use native XML resources: [localization guide](../../doc/guides/localization.md).
+
+## Adding a feature operation
+
+The flow is `UiEvent → toAction → MachineStore → screenMachine → domain State → toUiState → Compose`.
+For a synchronous operation, add a UI event and its mapper case, a domain action, then an `on<Action>`
+handler in the allowed states. For async work, enter a Loading state with `onEnter`, call the
+repository there and dispatch typed success/failure actions; handle both through guarded transitions.
+Keep cancellation distinct from a domain error. Refresh in Loading cancels/replaces the previous
+activation; independent child machines retain their own policy.
+
+The feature's `*Machine.kt` contains domain states/actions and transition declarations;
+`*Mapper.kt` owns both UI boundaries, `*Component.kt` installs the presenter and lifecycle-bound
+output observation, and `*Screen.kt` renders UI models. Debug root assembly is
+`debugTools/.../RestorableWeatherRoot.kt`; generic restoration belongs to Actron.
+
+Use pure machine tests for guards/targets and controlled repositories with `runTest` for actual
+store behavior. `WeatherContinuationTest` covers replacement and encoded checkpoints;
+`WeatherAppTest.continueFromSearchReplacesWeatherAndAcceptsNewInput` clicks the real history button.
+See [architecture](../../doc/architecture/mvi-state-machine.md),
+[audit and measurements](../../doc/architecture/api-audit.md) and
+[migration](../../doc/architecture/migration-guide.md).

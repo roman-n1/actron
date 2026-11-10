@@ -2,8 +2,12 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.WeatherTheme
-import actron.example.weather.app.debug.DebugWeatherRootComponent
+import actron.example.weather.app.debug.Render
+import actron.example.weather.app.debug.WeatherDebugLayout
+import actron.example.weather.app.debug.WeatherHistory
+import actron.example.weather.app.debug.WeatherSettings
+import actron.example.weather.app.debug.restorableWeatherRoot
+import actron.example.weather.app.theme.WeatherTheme
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -26,6 +30,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -44,6 +49,24 @@ import com.arkivanov.essenty.lifecycle.resume
 import kotlin.test.Test
 
 class WeatherAppTest {
+    @Test
+    fun continueFromSearchReplacesWeatherAndAcceptsNewInput() =
+        runComposeUiTest {
+            setRootContent(SampleWeatherRepository)
+            onNodeWithTag("debug-settings").performClick()
+            onNodeWithTag("debug-panel-switch").performClick()
+            onNodeWithTag("debug-settings-done").performClick()
+            onNodeWithTag("city-search").performTextInput("Lisbon")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Lisbon").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("city-Lisbon").performClick()
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("weather-updated-at").fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithTag("history-entry-2").performClick()
+            onNodeWithTag("history-continue").assertIsEnabled().performClick()
+            onNodeWithTag("city-search").assertIsEnabled().assertTextContains("Lisbon")
+            onNodeWithTag("city-search").performTextReplacement("Tokyo")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
+        }
+
     @Test
     fun graphFollowsSearchAndIndependentWeatherHistory() =
         runComposeUiTest {
@@ -73,12 +96,14 @@ class WeatherAppTest {
             onNodeWithTag("graph-zoom-in").performClick()
             onNodeWithTag("graph-fit").performClick()
             onNodeWithTag("history-event-tab").performClick()
-            onNodeWithTag("history-continue").performClick()
+            onNodeWithTag("history-continue").assertIsEnabled()
+            onNodeWithTag("weather-refresh").assertIsNotEnabled()
+            onNodeWithTag("history-live").performClick()
             onNodeWithTag("weather-refresh").assertIsEnabled()
         }
 
     @Test
-    fun continueHereRestoresSearchAndAcceptsNewInput() =
+    fun previewKeepsLiveSearchAndLiveAcceptsNewInput() =
         runComposeUiTest {
             setRootContent(SampleWeatherRepository)
             onNodeWithTag("city-search").performTextInput("Lisbon")
@@ -87,7 +112,7 @@ class WeatherAppTest {
             onNodeWithTag("debug-panel-switch").performClick()
             onNodeWithTag("debug-settings-done").performClick()
             onNodeWithTag("history-entry-1").performClick()
-            onNodeWithTag("history-continue").performClick()
+            onNodeWithTag("history-continue").assertIsEnabled()
             onNodeWithTag("city-search").assert(
                 SemanticsMatcher.expectValue(
                     androidx.compose.ui.semantics.SemanticsProperties.EditableText,
@@ -95,6 +120,9 @@ class WeatherAppTest {
                         .AnnotatedString(""),
                 ),
             )
+            onNodeWithTag("city-search").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.IsEditable, false))
+            onNodeWithTag("history-live").performClick()
+            onNodeWithTag("city-search").assertTextContains("Lisbon")
             onNodeWithTag("city-search").performTextReplacement("Tokyo")
             waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag("city-Tokyo").fetchSemanticsNodes().isNotEmpty() }
         }
@@ -260,9 +288,11 @@ private fun ComposeUiTest.setRootContent(
     citySearch: CitySearchRepository = LocalCitySearchRepository,
 ) {
     val lifecycle = LifecycleRegistry()
+    val settings = WeatherSettings()
+    val history = WeatherHistory()
     val root =
         runOnUiThread {
-            DebugWeatherRootComponent(DefaultComponentContext(lifecycle), api, citySearch, SampleHourlyRepository)
+            restorableWeatherRoot(DefaultComponentContext(lifecycle), api, citySearch, SampleHourlyRepository, history, settings)
         }
     setContent {
         DisposableEffect(root) {
@@ -270,7 +300,9 @@ private fun ComposeUiTest.setRootContent(
             onDispose { lifecycle.destroy() }
         }
         WeatherTheme {
-            Box(Modifier.width(1180.dp).height(900.dp)) { root.Render() }
+            Box(Modifier.width(1180.dp).height(900.dp)) {
+                WeatherDebugLayout(history, settings = settings) { root.Render() }
+            }
         }
     }
 }

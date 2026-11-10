@@ -5,10 +5,8 @@ import actron.core.Event
 import actron.core.InputAttribution
 import actron.decompose.MachineDiagnostics
 import actron.decompose.MachineRecording
-import actron.example.weather.app.WeatherMachineRecordings
-import actron.example.weather.app.WeatherMachines
-import actron.example.weather.app.session.WeatherSession
-import actron.example.weather.app.session.freshWeather
+import actron.example.weather.app.assembly.WeatherMachineRecordings
+import actron.example.weather.app.assembly.WeatherMachines
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherAction
 import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
@@ -37,8 +35,13 @@ class WeatherRoutingTest {
             val adviceInputs = mutableListOf<MachineInput<WeatherAdviceAction>>()
             val machines =
                 WeatherMachines(
-                    session = WeatherSession(clockFactory = { MachineClock.monotonic(timeSource = testScheduler.timeSource) }),
-                    initial = freshWeather(city = demoCities.first()),
+                    componentContext =
+                        com.arkivanov.decompose.DefaultComponentContext(
+                            com.arkivanov.essenty.lifecycle
+                                .LifecycleRegistry(),
+                        ),
+                    city = demoCities.first(),
+                    clock = MachineClock.monotonic(timeSource = testScheduler.timeSource),
                     currentRepository = WeatherRepository { awaitCancellation() },
                     hourlyRepository = HourlyForecastRepository { awaitCancellation() },
                     coroutineContext = coroutineContext,
@@ -70,24 +73,6 @@ class WeatherRoutingTest {
                 machines.onDestroy()
             }
         })
-
-    @Test
-    fun aChildFromAnotherCityCannotBeResumedAsPartOfThisScreen() {
-        val cut = freshWeather(city = demoCities.first())
-        val wrong =
-            cut.copy(
-                current =
-                    cut.current.copy(
-                        snapshot =
-                            cut.current.snapshot.copy(
-                                context =
-                                    actron.example.weather.feature.currentweather.presentation.CurrentWeatherState
-                                        .Ready(demoCities[1]),
-                            ),
-                    ),
-            )
-        assertFalse(actual = wrong.canResume())
-    }
 }
 
 private fun <C : Any, A : Action, CMD : Any, E : Event> recordInputs(inputs: MutableList<MachineInput<A>>): MachineRecording<C, A, CMD, E> =

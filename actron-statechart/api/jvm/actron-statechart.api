@@ -2853,6 +2853,7 @@ public final class actron/statechart/machine/MachineGroup$Member : actron/statec
 	public fun onFailed (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/observability/FailureDescriptor;)V
 	public fun onIgnored (Lactron/core/InputAttribution;Lactron/statechart/machine/MachineInput;Lactron/statechart/machine/IgnoreReason;)V
 	public fun onRejected (Lactron/core/Action;Lactron/statechart/machine/Admission$Rejected;)V
+	public final fun release ()V
 }
 
 public final class actron/statechart/machine/MachineGroup$Route {
@@ -3098,6 +3099,7 @@ public final class actron/statechart/machine/MachineStateBuilder {
 	public final fun getSource-R_ntUPU ()Ljava/lang/String;
 	public final fun onEnter (Lkotlin/jvm/functions/Function1;)V
 	public final fun onExit (Lkotlin/jvm/functions/Function1;)V
+	public final fun output (Lactron/statechart/ActionMatcher;Lkotlin/jvm/functions/Function2;)V
 }
 
 public abstract interface class actron/statechart/machine/MachineStore : actron/core/Store {
@@ -3165,6 +3167,18 @@ public final class actron/statechart/machine/MessageId {
 public final class actron/statechart/machine/MigrationKt {
 	public static final fun migrateSnapshot (Lactron/statechart/machine/Machine;Lactron/statechart/machine/MachineSnapshot;Lactron/statechart/machine/SnapshotMigration;)Lactron/statechart/machine/MachineSnapshot;
 	public static final fun validateSnapshot (Lactron/statechart/machine/Machine;Lactron/statechart/machine/MachineSnapshot;)Ljava/util/List;
+}
+
+public abstract interface class actron/statechart/machine/MviPresentation {
+	public abstract fun getState ()Lkotlinx/coroutines/flow/StateFlow;
+	public abstract fun onUiEvent (Ljava/lang/Object;)V
+}
+
+public final class actron/statechart/machine/MviPresentationKt {
+	public static final fun combineStates (Lkotlinx/coroutines/flow/StateFlow;Lkotlinx/coroutines/flow/StateFlow;Lkotlin/jvm/functions/Function2;)Lkotlinx/coroutines/flow/StateFlow;
+	public static final fun present (Lactron/statechart/machine/MachineStore;Lkotlin/jvm/functions/Function1;Lactron/statechart/machine/UiActionMapper;)Lactron/statechart/machine/MviPresentation;
+	public static final fun present (Lactron/statechart/machine/MachineStore;Lkotlinx/coroutines/flow/StateFlow;Lactron/statechart/machine/UiActionMapper;)Lactron/statechart/machine/MviPresentation;
+	public static final fun projectState (Lkotlinx/coroutines/flow/StateFlow;Lkotlin/jvm/functions/Function1;)Lkotlinx/coroutines/flow/StateFlow;
 }
 
 public final class actron/statechart/machine/PairRole : java/lang/Enum {
@@ -3422,7 +3436,9 @@ public final class actron/statechart/machine/ScreenMachine : actron/statechart/m
 
 public final class actron/statechart/machine/ScreenMachineBuilder {
 	public fun <init> (Lactron/statechart/machine/TypedStateMachineBuilder;)V
+	public final fun getOutputs ()Ljava/util/List;
 	public final fun getRoot ()Lactron/statechart/machine/TypedStateMachineBuilder;
+	public final fun getStates ()Ljava/util/List;
 }
 
 public final class actron/statechart/machine/ScreenMachineKt {
@@ -3736,5 +3752,9 @@ public final class actron/statechart/machine/TypedStateRegistry {
 	public final fun getReferences ()Ljava/util/LinkedHashMap;
 	public final fun getStates ()Ljava/util/LinkedHashMap;
 	public final fun getValueTargets ()Ljava/util/Set;
+}
+
+public abstract interface class actron/statechart/machine/UiActionMapper {
+	public abstract fun map (Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)V
 }
 

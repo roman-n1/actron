@@ -98,7 +98,7 @@ owns the city header and accepts only `WeatherScreenAction.Refresh`. Its `Weathe
 `WeatherScreenEvent.RefreshChildren`, both on fresh Start and on the Refresh self-loop.
 It has no child action imports, repository calls or loading state.
 
-[WeatherMachines.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/WeatherMachines.kt)
+[WeatherMachines.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/assembly/WeatherMachines.kt)
 is the retained composition owner. It creates four MachineStores, attaches them to a MachineGroup,
 registers three typed routes, starts the children and then starts the parent. Children enter Ready
 without commands or timers before their own routed Refresh starts loading:
@@ -126,15 +126,12 @@ A group route delivers `MachineInput.BridgeReceived` with the sender/effect Mess
 has its own serialized queue, entries and timers: three deliveries are not one atomic decision.
 `WeatherMachines` combines immutable snapshots into `WeatherContext`, a derived view rather
 than another mutable owner. The component projects it into `CityWeatherUiState` before UI access.
-WeatherCheckpoints projects all four checkpoints plus in-flight delivery identities. Parent
-observers mark committed routing intents before the group delivers them; child observers then
-project the group's actual remaining messages. Frames with deliveries in flight cannot be
-continued or saved as resumable checkpoints. This preserves per-member failure isolation without
-pretending that group delivery is a distributed transaction.
+Group deliveries remain independent decisions. The screen's combined StateFlow is a read-only
+projection; it does not coordinate checkpoints or create another owner of live state.
 
 ## Components and lifetime
 
-[WeatherRootComponent.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/WeatherRootComponent.kt)
+[WeatherRootComponent.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/root/WeatherRootComponent.kt)
 creates the Decompose stack and feature factories. Selection/back events travel through the
 example's `ParentBridge`/`BridgeEndpoint` to the root; they are not Actron actions controlling
 navigation. `BaseComponent.Render()` and `StackComponent` render the active child.
@@ -142,50 +139,43 @@ navigation. `BaseComponent.Render()` and `StackComponent` render the active chil
 [MachineInstance.kt](../../../actron-decompose/src/commonMain/kotlin/actron/decompose/MachineInstance.kt)
 owns the Store and its coroutine scope, starts it after construction and closes/cancels it on
 destruction. It has no knowledge of Weather, recording, profiling or restoration.
-[WeatherComponentFactories.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/WeatherComponentFactories.kt)
+[WeatherComponentFactories.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/assembly/WeatherComponentFactories.kt)
 uses [retainedMachine](../../../actron-decompose/src/commonMain/kotlin/actron/decompose/RetainedMachine.kt)
 for search. Weather retains a WeatherMachines owner through its child InstanceKeeper; that owner
 closes all four stores and its scope together when the weather child is popped. Recording is an optional, lazy configuration supplied by
 [WeatherMachineRecording](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherMachineRecording.kt).
-The adapters bind it before startup and choose fresh creation or checkpoint resumption per machine. The search child
+The adapters bind it before startup. The search child
 stays on the back stack while weather is open; popping weather destroys that weather executor.
-A restored weather component does not dispatch a fresh `Refresh` over the restored state.
+Host recreation with the same InstanceKeeper retains the existing stores. A new process creates fresh stores; Decompose may restore the route, and the parent starts a new refresh.
 
-## Recording, preview and restoration
-
-These are different representations with different capabilities:
+## Recording and preview
 
 | Representation | Contains | Used for |
 | --- | --- | --- |
 | `MachineSnapshot<C>` | Context and runtime configuration/identities | Current state and pure decisions |
-| `ExecutorCheckpoint<C, CMD>` | Snapshot plus work/timing needed by the executor | Restarting pending operations |
-| `WeatherFrame` | Search plus four weather checkpoints, route and in-flight delivery projection | Current application checkpoint and restoration |
-| `WeatherHistoryFrame` | Application frame, frozen transition coverage | Live history preview and continuation |
-| `WeatherRecordingFrame` | Display data, active nodes and coverage | Imported view-only history |
+| `ExecutorCheckpoint<C, CMD>` | Executor snapshot and bookkeeping | Recording a machine's initial state and trace |
+| `WeatherHistoryFrame` | Display state, active nodes, frozen coverage and optional session continuation | Preview and continuation |
+| `WeatherRecordingFrame` | Serializable display state, active nodes and coverage | Imported view-only history |
 
 [WeatherHistory.kt](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherHistory.kt)
-attaches `DecisionTraceObserver` before the store starts. `BoundedMachineRecorder` retains the
-machine trace; `HistoryTimeline` combines instances into a session-wide limit of 500 entries.
-The host supplies field projections and a `WeatherHistoryFrame`; Actron does not interpret its route.
+attaches `DecisionTraceObserver` before each store starts. `BoundedMachineRecorder` retains its
+trace; `HistoryTimeline` bounds all instances to 500 events. The recording adapter derives an
+immutable display projection from committed machine events. That projection never drives live
+machines, components or navigation.
 
-Selecting a history entry renders its saved data without running commands. Continuing from a
-resumable live entry calls the root's `continueFrom`: it replaces the Decompose children and
-recreates executors from their checkpoints. Pending read requests restart; completed reads stay
-completed. Search v16 preserves the remaining debounce duration.
-The other weather machines still restart their unfinished entry bodies on resume. This does not restore a suspended call stack or
-guarantee exactly-once external side effects. Later history is removed after successful continuation.
-
-[WeatherSavedState.kt](../shared/src/commonMain/kotlin/actron/example/weather/app/session/WeatherSavedState.kt)
-declares `checkpointGroup` with one search checkpoint and zero or one weather checkpoints.
-`machinePersistence` validates/serializes each machine. The host maps those checkpoints into its
-frame and registers the encoded result with Essenty `StateKeeper`; Android supplies the saved
-instance-state transport. Only the latest resumable frame is saved, not the debug timeline.
+Selecting an event renders that feature's saved data without running commands. Returning to
+**Live** shows the existing components. **Continue from here** uses `RestorableComponent` from
+`actron-decompose-session` to replace the complete tree and resume all saved machine instances.
+Ordinary `childStack` serializers provide navigation state; the app does not implement a restoration
+coordinator. Each component installs its machine with `sessionMachine`; outside a restorable root
+that helper behaves like `retainedMachine`. Checkpoints are memory-only in the demo, but the library
+provides `encode`/`decode` for application-owned storage. A normal fresh process still reloads data.
 
 [WeatherRecording.kt](../debugTools/src/commonMain/kotlin/actron/example/weather/app/debug/WeatherRecording.kt)
-uses `HistoryRecordingCodec` with the display schema and both graph definitions. Import checks
-schema, machine versions and graph compatibility before displaying data. `HistoryRecordingPanel`
-has no continuation path. Platform `HistoryFiles` adapters open/save bytes; the library has no
-Android or Decompose dependency. File import never creates a feature component or HTTP command.
+keeps the existing `actron.weather.display/3` schema and machine definitions. Import validates
+schema, machine versions and graphs before displaying data. `HistoryRecordingPanel` has no
+continuation controls. Platform `HistoryFiles` adapters open/save bytes. Import never creates a
+feature component or HTTP command.
 
 ## Which Actron modules are involved?
 
@@ -193,7 +183,6 @@ Android or Decompose dependency. File import never creates a feature component o
 | --- | --- |
 | `actron-statechart` | Machine DSL, decisions, queued Store, commands and timers |
 | `actron-compose` | UI-safe collection of store snapshots |
-| `actron-persistence` | Checkpoint persistence and resumption |
 | `actron-timetravel` | Recording, bounded history and display codecs |
 | `actron-decompose` | Retained machine setup and component-bound observation |
 | `actron-timetravel-compose` | Reusable history/graph inspector and resizing |
@@ -216,7 +205,7 @@ and `ContactDetailFeatureGraph` under `feature/contact-detail/impl`.
 | Navigation | Decompose components, parent-owned bridges, child factories | The same pattern for search and weather; root handles selection/back |
 | Feature state | A feature owns its state and exposes a component contract | Each Actron Store is the only live feature-state writer; UI models are projections |
 | Creation and lifetime | Factories/feature graphs assemble dependencies; lifecycle releases component work | App factories retain Store owners; components cancel only their own bridge scope |
-| Diagnostics | Shell/tooling integrations sit outside feature contracts | Recording, preview and file adapters live in `debugTools`; current checkpoints and persistence live in `shared/app/session` |
+| Diagnostics | Shell/tooling integrations sit outside feature contracts | Recording, display projections and file adapters live only in `debugTools` |
 | Dependency size | Multiple feature API/implementation modules and substantial feature graphs | One production module, an optional debug module and two feature factories; no DI framework |
 
 The reusable `core` has no dependency on either feature or application composition. Feature
@@ -225,20 +214,17 @@ feature. Its component receives its Store and a bridge endpoint. The search tool
 an explicit composable settings slot; the app shell owns settings visibility. There is no diagnostic
 composition-local to discover from feature code.
 
-App factories connect feature implementations to `WeatherSession` and an optional recording option:
-that is the composition boundary. The debug root supplies recording and the settings action. Repository calls and their result/error mapping stay in each
+App factories connect feature repositories to retained machines and optional recording:
+that is the composition boundary. The debug assembly supplies recording and the settings action. Repository calls and their result/error mapping stay in each
 feature. Search calls its repository directly from the Loading entry. The former `SearchCitiesUseCase` only delegated to the repository
 and added no policy, so it was removed. Introduce a use case if a distinct business rule or
 cross-repository operation actually appears.
 
-`WeatherSession` alone owns current checkpoints, route, branch and logical time. It has no Compose
-hooks, recording option, coverage or profile fields. The ordinary root renders its feature stack.
-`DebugWeatherRootComponent` wraps that root with settings and the inspector; `WeatherHistory`
-receives the retained session through composition and owns only recording/diagnostic metadata.
-Each immutable `WeatherHistoryFrame` pairs an application frame with frozen transition coverage.
-Continuation restores those metadata before the ordinary root replaces its children. The fake
-graph-error demonstration has been removed; the inspector displays the actual machine graph. Recording schema `actron.weather.display/3` uses the new app
-package names; previous exported files are intentionally unsupported.
+Each machine owns its live state. Decompose owns navigation and retention. The root receives its
+component context, UI context and two feature factories explicitly, without constructor defaults.
+It renders its own stack. Debug hosts compose the inspector around `root.Render()`.
+`WeatherHistory` owns diagnostic data only, and each weather component gets a separate display
+projection for its four recorders. Display schema `actron.weather.display/3` stays unchanged.
 
 The scale trade-off is explicit: Messenger's separate feature graphs are useful with many
 consumers and implementations; copying them into this two-screen example would add boundaries
@@ -265,22 +251,20 @@ A stable key identifies a Store for the lifetime of that `InstanceKeeper`. Recre
 with that key returns the original Store and does not replace its dependencies. Distinct business
 instances require distinct keys (or, as in Weather, distinct child keepers).
 
-Diagnostics and checkpoint continuation are independent options on the same call:
+Search optionally adds recording to that same retained-machine call:
 
 ```kotlin
 recording = history.recording()
-// For the weather feature: recording = history.recording()
 ```
 
-Each option is bound only when a new retained Store is created. Restoration supplies checkpoints,
-clock and tracking; recording supplies history observers. The adapter attaches them before
-startup, so the first decision is recorded. Recreating a host does not bind another recorder.
-Handlers/options must not retain a component, bridge endpoint or UI-lifecycle scope.
+The weather factory receives `recordings = history::weatherRecordings`, creating one diagnostic
+projection per weather component. Observers attach before startup, so the first decision is
+recorded. Recreating a host with the same keeper does not bind another recorder.
+Handlers must not retain a component, bridge endpoint or UI-lifecycle scope.
 
 Weather starts its children before its screen parent. A fresh parent emits RefreshChildren on
-entry; resuming its already-started checkpoint skips entry hooks. No startup Refresh is dispatched
-over restored children. Existing completed regions are not refreshed by
-host recreation or continuation. Destroying the keeper closes the Store and cancels its entries.
+entry. Reusing the same keeper preserves completed regions and does not start them again.
+Destroying the keeper closes the stores and cancels their entries.
 
 A single `actron-decompose` module exposes the standard machine/Store integration. It depends
 on core/statechart and Decompose, and has no time-travel, persistence-codec or Compose dependency.
@@ -302,8 +286,8 @@ restoration, graph edges and both outcomes of response guards.
 The weather screen and its three feature machines also use `screenMachine`. Each Loading entry
 calls its repository and dispatches Loaded or Failed. A restored Loading entry starts a fresh repository call. The parent’s entry emits RefreshChildren.
 
-The parent now uses definition version 12 and the three loaders use version 5. Weather starts
-fresh when a saved checkpoint belongs to an incompatible machine definition.
+The parent uses definition version 12 and the three loaders use version 5. Display recordings
+validate these versions and their graphs before preview. The host does not persist executor checkpoints.
 
 ## Presentation boundaries
 
@@ -320,4 +304,4 @@ technical failures remain behind the component boundary. Forecast cards receive 
 text; the mapper parses update timestamps, and Compose resolves locale-dependent resources.
 Screen intents are mapped back to the owning machine or to navigation news; components
 only execute the mapped commands. Debug previews use the same mappers with read-only
-controls. Recording and restoration retain their machine snapshots and formats.
+controls. Recording stores immutable display data; it never becomes an owner of live state.

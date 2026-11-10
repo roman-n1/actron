@@ -1,8 +1,8 @@
 package actron.example.weather
 
 import actron.example.weather.core.fixtures.demoCities
-import actron.example.weather.core.mvi.NoEvent
 import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.feature.cities.presentation.CitySearchEvent
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherAction
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherState
@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class WeatherMachinesCoverageTest {
     private enum class Phase { Idle, Debouncing, Loading, Success, Error }
 
-    private suspend fun MachineTestScenario<CitySearchState, CitySearchAction, Unit, NoEvent>.preparePhase(phase: Phase) {
+    private suspend fun MachineTestScenario<CitySearchState, CitySearchAction, Unit, CitySearchEvent>.preparePhase(phase: Phase) {
         if (phase != Phase.Idle) dispatch(CitySearchAction.ChangeQuery("London"))
         if (phase != Phase.Idle && phase != Phase.Debouncing) advanceTimeBy(350.milliseconds)
         when (phase) {

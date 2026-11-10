@@ -1,7 +1,9 @@
 package actron.example.weather
 
-import actron.example.weather.app.DefaultWeatherRootComponent
-import actron.example.weather.app.WeatherTheme
+import actron.example.weather.app.assembly.DefaultCitySearchComponentFactory
+import actron.example.weather.app.assembly.DefaultCityWeatherComponentFactory
+import actron.example.weather.app.root.WeatherRootComponent
+import actron.example.weather.app.theme.WeatherTheme
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.weather.data.SampleHourlyRepository
 import actron.example.weather.feature.weather.data.SampleWeatherRepository
@@ -13,6 +15,7 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
+import kotlinx.coroutines.Dispatchers
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
@@ -34,7 +37,26 @@ class WeatherProductionUiTest {
             val lifecycle = LifecycleRegistry()
             val root =
                 runOnUiThread {
-                    DefaultWeatherRootComponent(DefaultComponentContext(lifecycle), SampleWeatherRepository, LocalCitySearchRepository, SampleHourlyRepository)
+                    val context = DefaultComponentContext(lifecycle)
+                    val uiContext = Dispatchers.Main
+                    val machineContext = Dispatchers.Default.limitedParallelism(1)
+                    WeatherRootComponent(
+                        componentContext = context,
+                        uiContext = uiContext,
+                        searchFactory =
+                            DefaultCitySearchComponentFactory(
+                                repository = LocalCitySearchRepository,
+                                uiContext = uiContext,
+                                machineContext = machineContext,
+                            ),
+                        weatherFactory =
+                            DefaultCityWeatherComponentFactory(
+                                repository = SampleWeatherRepository,
+                                hourlyRepository = SampleHourlyRepository,
+                                uiContext = uiContext,
+                                machineContext = machineContext,
+                            ),
+                    )
                 }
             setContent {
                 DisposableEffect(root) {

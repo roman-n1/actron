@@ -3,7 +3,6 @@ package actron.example.weather
 import actron.decompose.retainedMachine
 import actron.example.weather.app.debug.WeatherHistory
 import actron.example.weather.app.debug.recording
-import actron.example.weather.app.session.searchRestoration
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
@@ -88,7 +87,6 @@ class RetainedMachineTest {
                     key = "search",
                     machine = CitySearchMachine.create(LocalCitySearchRepository),
                     initial = CitySearchState.Idle(),
-                    restoration = history.session.searchRestoration(),
                     recording = history.recording(),
                     coroutineContext = coroutineContext,
                 )

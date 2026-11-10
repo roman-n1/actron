@@ -405,6 +405,7 @@ class MachineGroup(
 
         // Under the group's lock: the member left with [detach].
         private var detached = false
+        private var released = false
 
         // Under the lock: a store is attached and open, and the member has not left.
         internal val isReachable: Boolean get() = storeOpen() && !detached
@@ -428,6 +429,7 @@ class MachineGroup(
         fun attach(store: MachineStore<C, A, CMD, E>) {
             require(store is MachineStoreImpl<C, A, CMD, E>) { "[Actron] Only a MachineStore built by MachineStore(...) can join a group" }
             locked {
+                check(!released) { "[Actron] A released group member cannot be attached again" }
                 storeOpen = { !store.isClosed }
                 visitStore = { visit -> visit(store) }
                 detached = false
@@ -448,6 +450,20 @@ class MachineGroup(
          */
         fun detach() {
             locked { detached = true }
+        }
+
+        /** Permanently releases a closed member's Store references; route history remains intact. */
+        fun release() {
+            locked {
+                check(!storeOpen()) { "[Actron] Close the member Store before releasing it" }
+                if (released) return@locked
+                released = true
+                detached = true
+                members.remove(id)
+                routeList.removeAll { it.from == id || it.to == id }
+                storeOpen = { false }
+                visitStore = {}
+            }
         }
 
         override fun onCommitted(

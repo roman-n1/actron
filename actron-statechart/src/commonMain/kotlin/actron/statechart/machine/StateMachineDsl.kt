@@ -56,6 +56,14 @@ class MachineStateBuilder<C : Any, A : Action, CMD : Any, E : Event>
         private val implementation: MachineBuilder<C, A, CMD, E>,
         private val transitions: MutableList<Transition>,
     ) {
+        @PublishedApi
+        internal fun output(
+            matcher: ActionMatcher,
+            produce: (C, Action) -> E,
+        ) {
+            implementation.onAction(source, matcher) { event(produce(context, action)) }
+        }
+
         internal fun entryActivity(block: suspend ScreenEntryScope<C, A, E>.() -> Unit) {
             require(source !in implementation.activities) { "Only one onEnter per state" }
             implementation.activities[source] = { execution ->

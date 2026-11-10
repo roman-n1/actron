@@ -5,6 +5,28 @@ the runtime serializes inputs, commits snapshots, executes commands, and feeds t
 back to the same queue. Reducers use Actron's own StateChart implementation. The low-level Store
 engine is internal; applications cannot install competing handwritten reducers.
 
+## UI boundary
+
+```text
+UI event → UI action mapper → domain Action → Machine → domain State → state mapper → UI state
+                                               ↓
+                                      committed domain Event → navigation / parent
+```
+
+Use `store.present(stateMapper, actionMapper)` from `actron-statechart`. It exposes only
+`state: StateFlow<UiState>` and `onUiEvent(UiEvent)`. `UiActionMapper` receives the UI event,
+current domain context and a dispatch callback; it can validate/convert UI payloads and emit no
+action for obsolete selections. The machine never needs a UI type. Keep both mappers pure.
+`projectState` and `combineStates` expose derived StateFlows without another mutable state owner.
+
+`screenMachine` supports `onEvent<DomainAction> { state, action -> DomainEvent(...) }` at the
+root or in a state. It emits an output after commit without re-entering the state or restarting
+its entry request. A state-local transition takes precedence over a root output handler.
+
+For cross-screen time travel, add the optional [Decompose session adapter](../../actron-decompose-session/README.md).
+Machine serialization cannot infer navigation or reverse server mutations: routing must participate
+through Decompose's serializers and resumed commands must be safe to restart.
+
 ## One writer, one ordered input stream
 
 ```text
@@ -119,4 +141,4 @@ It also cannot write store state. Timers, lane policies, checkpoint identities a
 work identically with both handler APIs.
 
 See the [actual search machine](../../examples/weather/shared/src/commonMain/kotlin/actron/example/weather/feature/cities/presentation/CitySearchMachine.kt)
-and [Weather machine composition](../../examples/weather/shared/src/commonMain/kotlin/actron/example/weather/app/WeatherMachines.kt).
+and [Weather machine composition](../../examples/weather/shared/src/commonMain/kotlin/actron/example/weather/app/assembly/WeatherMachines.kt).

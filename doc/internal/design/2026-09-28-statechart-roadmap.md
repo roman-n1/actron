@@ -546,3 +546,11 @@ Weather uses the screen DSL for search, current weather, hourly forecast, advice
 parent screen. Search v16 checkpoints only the debounce timer; Loading restarts the
 repository call. The shared HTTP client owns request deadlines. The screen DSL accepts an
 initial state type when the initial value comes from the caller.
+
+### MVI boundary and Decompose continuation (2026-11)
+
+Fork additions: `MachineStore.present`, reusable StateFlow projections and screen output handlers
+make UI/domain mapping explicit without introducing another reducer. Optional
+`actron-decompose-session` restores existing Decompose routes and machine checkpoints together;
+`ResumableHistoryPanel` waits for completion before discarding the future branch. See the
+[API audit](../../architecture/api-audit.md) for ownership, migration and limitations.

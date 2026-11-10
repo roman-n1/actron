@@ -238,6 +238,7 @@ public final class actron/timetravel/compose/ComposableSingletons$HistoryPanelKt
 	public static final field INSTANCE Lactron/timetravel/compose/ComposableSingletons$HistoryPanelKt;
 	public fun <init> ()V
 	public final fun getLambda$-1911225578$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1450151876$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 	public final fun getLambda$402596983$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 	public final fun getLambda$468866922$actron_timetravel_compose ()Lkotlin/jvm/functions/Function3;
 }
@@ -605,6 +606,7 @@ public final class actron/timetravel/compose/HistoryPanelKt {
 	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun HistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun HistoryRecordingPanel (Lactron/timetravel/HistoryRecording;Lactron/timetravel/compose/HistoryPanelState;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun ResumableHistoryPanel (Lactron/timetravel/HistoryTimeline;Lactron/timetravel/compose/HistoryPanelState;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class actron/timetravel/compose/HistoryPanelLayoutState {

@@ -3,6 +3,7 @@ package actron.statechart.machine
 import actron.core.Action
 import actron.core.ActronStoreDsl
 import actron.core.Event
+import actron.statechart.ActionMatcher
 import actron.statechart.StateChartDefinition
 import kotlin.reflect.KClass
 import kotlin.time.Duration
@@ -30,7 +31,7 @@ fun <S : Any, A : Action, E : Event> screenMachine(
 ): ScreenMachine<S, A, E> {
     val implementation = MachineBuilder<S, A, Unit, E>()
     val root = TypedStateMachineBuilder<S, S, A, Unit, E>({ it }, { _, state -> state }, implementation)
-    ScreenMachineBuilder(root).build()
+    ScreenMachineBuilder(root).apply(build).complete()
     return ScreenMachine(id, version, root.definition(initialType), implementation)
 }
 
@@ -40,8 +41,25 @@ class ScreenMachineBuilder<S : Any, A : Action, E : Event>
     internal constructor(
         @PublishedApi internal val root: TypedStateMachineBuilder<S, S, A, Unit, E>,
     ) {
+        @PublishedApi internal val states = mutableListOf<ScreenStateBuilder<S, A, E>>()
+
+        @PublishedApi internal val outputs = mutableListOf<ScreenStateBuilder<S, A, E>.() -> Unit>()
+
+        /** Common MVI output. Local transitions take priority; state and activation are preserved. */
+        inline fun <reified T : A> onEvent(noinline produce: (S, T) -> E) {
+            outputs += { onEvent(produce) }
+        }
+
         inline fun <reified T : S> state(noinline build: ScreenStateBuilder<S, A, E>.() -> Unit = {}) {
-            root.state<T> { ScreenStateBuilder(this).build() }
+            root.state<T> {
+                val screen = ScreenStateBuilder(this)
+                this@ScreenMachineBuilder.states += screen
+                screen.build()
+            }
+        }
+
+        internal fun complete() {
+            for (state in states) for (output in outputs) state.output()
         }
     }
 
@@ -51,6 +69,14 @@ class ScreenStateBuilder<S : Any, A : Action, E : Event>
     internal constructor(
         @PublishedApi internal val rules: TypedMachineStateBuilder<S, S, A, Unit, E>,
     ) {
+        /** Emits a domain event after commit, without changing state or restarting its work. */
+        inline fun <reified T : A> onEvent(noinline produce: (S, T) -> E) {
+            rules.delegate.output(ActionMatcher.of<T>(requireNotNull(T::class.simpleName))) { state, action ->
+                require(action is T)
+                produce(state, action)
+            }
+        }
+
         inline fun <reified T : A> on(noinline transition: TransitionRuleBuilder<S, S, T>.() -> Unit) = rules.on(transition)
 
         fun always(transition: TransitionRuleBuilder<S, S, Unit>.() -> Unit) = rules.always(transition)

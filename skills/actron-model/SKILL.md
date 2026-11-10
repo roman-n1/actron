@@ -34,7 +34,7 @@ the signatures in `actron-statechart/src/commonMain/kotlin/actron/statechart/mac
 - Use parallel regions for concurrent phases within one machine/snapshot. For independently
   owned features, use separate machines and `MachineGroup` typed member routes. A route maps
   synchronously and carries zero or one action per event; separate routes provide fan-out.
-  Group members retain separate queues and commits. Weather's `app/WeatherMachines.kt`
+  Group members retain separate queues and commits. Weather's `app/assembly/WeatherMachines.kt`
   demonstrates screen/current/hourly/advice composition, not a single parallel machine.
   Use hierarchical states for shared lifetime and typed invocation for parent-owned children
   requiring an atomic snapshot. Do not rebuild these contracts with flags or detached jobs.

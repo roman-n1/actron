@@ -1,10 +1,14 @@
 package actron.example.weather.feature.weather.presentation
 
 import actron.compose.collectAsUiState
-import actron.example.weather.app.WeatherMachines
+import actron.decompose.observeEvent
+import actron.example.weather.app.assembly.WeatherMachines
 import actron.example.weather.core.component.BaseComponent
 import actron.example.weather.core.component.BridgeEndpoint
 import actron.example.weather.core.domain.City
+import actron.statechart.machine.UiActionMapper
+import actron.statechart.machine.combineStates
+import actron.statechart.machine.present
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import com.arkivanov.decompose.ComponentContext
@@ -42,21 +46,21 @@ class DefaultCityWeatherComponent(
 ) : CityWeatherComponent,
     ComponentContext by componentContext {
     private val scope = CoroutineScope(coroutineContext + SupervisorJob())
-    override val state: StateFlow<CityWeatherUiState> = CityWeatherUiStateFlow(machines.state, machines.screen.state)
+    private val presentation =
+        machines.screen.present(
+            uiState = combineStates(machines.state, machines.screen.state) { weather, screen -> weather.toUiState(enabled = screen.isStarted) },
+            actionMapper = UiActionMapper<CityWeatherIntent, WeatherScreenState, WeatherScreenAction> { event, _, dispatch -> dispatch(event.toAction()) },
+        )
+    override val state: StateFlow<CityWeatherUiState> = presentation.state
 
     init {
         lifecycle.doOnDestroy { scope.cancel() }
-    }
-
-    override fun onUiEvent(event: CityWeatherIntent) {
-        if (!machines.screen.state.value.isStarted) return
-        when (val command = event.toCommand()) {
-            is CityWeatherUiCommand.Advice -> machines.advice.dispatch(command.action)
-            is CityWeatherUiCommand.Screen -> machines.screen.dispatch(command.action)
-            is CityWeatherUiCommand.Forecast -> machines.hourly.dispatch(command.action)
-            is CityWeatherUiCommand.Publish -> scope.launch { endpoint.news.emit(command.news) }
+        machines.screen.observeEvent(lifecycle) { event ->
+            if (event == WeatherScreenEvent.BackRequested) scope.launch { endpoint.news.emit(CityWeatherComponent.News.BackClicked) }
         }
     }
+
+    override fun onUiEvent(event: CityWeatherIntent) = presentation.onUiEvent(event)
 
     @Composable
     override fun Render() {

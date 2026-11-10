@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import kotlin.time.Instant
@@ -34,7 +36,7 @@ fun <S : Any> HistoryPanel(
 ) {
     val ready = historyText(HistoryText.ContinueReady)
     val unavailable = historyText(HistoryText.Unsafe)
-    HistoryPanelContent(timeline, state, onContinue, modifier, { snapshot ->
+    HistoryPanelContent(timeline, state, { onContinue(it) }, modifier, { snapshot ->
         if (canContinue(snapshot)) HistoryContinuation.Available(ready) else HistoryContinuation.Unavailable(unavailable)
     }, graph, false, actions)
 }
@@ -50,7 +52,21 @@ fun <S : Any> HistoryPanel(
     graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    HistoryPanelContent(timeline, state, onContinue, modifier, continuation, graph, false, actions)
+    HistoryPanelContent(timeline, state, { onContinue(it) }, modifier, continuation, graph, false, actions)
+}
+
+/** Waits for executor cleanup and replacement before truncating history or leaving preview. */
+@Composable
+fun <S : Any> ResumableHistoryPanel(
+    timeline: HistoryTimeline<S>,
+    state: HistoryPanelState<S>,
+    resume: suspend (HistoryEntry<S>) -> Unit,
+    continuation: @Composable (S) -> HistoryContinuation,
+    modifier: Modifier = Modifier,
+    graph: (HistoryEntry<S>) -> HistoryGraph = { HistoryGraph.Unavailable },
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    HistoryPanelContent(timeline, state, resume, modifier, continuation, graph, false, actions)
 }
 
 /** Detached recording viewer: deliberately exposes no continuation callback or live mode. */
@@ -71,7 +87,7 @@ fun <S : Any> HistoryRecordingPanel(
 private fun <S : Any> HistoryPanelContent(
     timeline: HistoryTimeline<S>,
     state: HistoryPanelState<S>,
-    onContinue: (HistoryEntry<S>) -> Unit,
+    onContinue: suspend (HistoryEntry<S>) -> Unit,
     modifier: Modifier,
     continuation: @Composable (S) -> HistoryContinuation,
     graph: (HistoryEntry<S>) -> HistoryGraph,
@@ -83,6 +99,8 @@ private fun <S : Any> HistoryPanelContent(
     val entries by timeline.entries.collectAsState()
     val inspection = state.inspection
     val graphViewports = remember { mutableMapOf<String, GraphViewport>() }
+    val runner = remember(state, source) { HistoryContinuationRunner() }
+    val scope = rememberCoroutineScope()
     val visible = remember(entries, inspection.filter, inspection.query, inspection.bookmarksOnly, inspection.bookmarks) { entries.filter(inspection::includes) }
     SideEffect { inspection.retain(entries.map { it.id }.toSet()) }
     Surface(modifier.testTag("history-panel").historyNavigation(state, entries, visible), color = MaterialTheme.colorScheme.surface) {
@@ -90,13 +108,17 @@ private fun <S : Any> HistoryPanelContent(
             HistoryPanelHeader(state, visible, readOnly)
             HorizontalDivider()
             HistoryMachinePicker(entries, inspection, actions)
+            if (runner.failure.isNotEmpty()) Text(runner.failure, color = MaterialTheme.colorScheme.error)
             HorizontalDivider()
             HistoryPanelBody(timeline, state, entries, visible, graphViewports, graph, { selected ->
                 val previousHead = timeline.entries.value.fold(selected.id) { id, item -> maxOf(id, item.id) }
-                onContinue(selected)
-                timeline.truncateAfter(selected.id, previousHead)
-                state.clearSelection()
-            }, continuation, readOnly, Modifier.weight(1f))
+                runner.continueFrom(scope, { onContinue(selected) }) {
+                    timeline.truncateAfter(selected.id, previousHead)
+                    state.clearSelection()
+                }
+            }, { snapshot ->
+                if (runner.running) HistoryContinuation.Unavailable(historyText(HistoryText.Unsafe)) else continuation(snapshot)
+            }, readOnly, Modifier.weight(1f))
         }
     }
 }

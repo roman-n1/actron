@@ -1,7 +1,6 @@
 package actron.example.weather.android
 
-import actron.example.weather.app.DefaultWeatherRootComponent
-import actron.example.weather.app.WeatherTheme
+import actron.example.weather.app.theme.WeatherTheme
 import actron.example.weather.core.network.weatherHttpClient
 import actron.example.weather.feature.cities.data.OpenMeteoCitySearchRepository
 import actron.example.weather.feature.weather.data.OpenMeteoHourlyRepository
@@ -33,10 +32,9 @@ class MainActivity : ComponentActivity() {
     private fun showWeather() {
         val context = defaultComponentContext()
         val network = context.instanceKeeper.getOrCreate { NetworkDependencies() }
-        val root = createWeatherRoot(context, network.weather, network.cities, network.hourly)
         setContent {
             WeatherTheme {
-                Box(Modifier.fillMaxSize().safeDrawingPadding()) { root.Render() }
+                Box(Modifier.fillMaxSize().safeDrawingPadding()) { WeatherContent(context, network.weather, network.cities, network.hourly) }
             }
         }
     }

@@ -8,9 +8,6 @@ import actron.example.weather.app.debug.WeatherHistoryFrame
 import actron.example.weather.app.debug.WeatherRecording
 import actron.example.weather.app.debug.WeatherRecordingFrame
 import actron.example.weather.app.debug.WeatherRecordingViewer
-import actron.example.weather.app.session.WeatherFrame
-import actron.example.weather.app.session.WeatherRoute
-import actron.example.weather.app.session.freshWeather
 import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
@@ -24,25 +21,15 @@ internal fun recordingHistory(): WeatherHistory {
     val history = WeatherHistory()
     val search = CitySearchMachine.create(LocalCitySearchRepository)
     val searchState = search.initialSnapshot(CitySearchState.Loading("Москва", 0))
-    val searching = WeatherFrame(search = ExecutorCheckpoint.initial(searchState))
+    val searching = WeatherHistoryFrame(WeatherDisplay.Search(searchState.context), searchState.configuration.active.toSet())
     val details = HistoryDetails("ChangeQuery(Москва)", "Action", "Handled", emptyList(), listOf(StateField("query", "Москва")))
-    history.timeline.append(history.timeline.machine("City Search", "city-search"), 0, details, WeatherHistoryFrame(searching))
+    history.timeline.append(history.timeline.machine("City Search", "city-search"), 0, details, searching)
     val city = City("Москва", 55.75, 37.62)
-    val weather =
-        freshWeather(city = city).let { cut ->
-            cut.copy(
-                current =
-                    cut.current.copy(
-                        snapshot =
-                            cut.current.snapshot.copy(
-                                context =
-                                    actron.example.weather.feature.currentweather.presentation.CurrentWeatherState
-                                        .Loading(city),
-                            ),
-                    ),
-            )
-        }
-    history.timeline.append(history.timeline.machine("City Weather", "city-weather"), 0, details.copy(input = "Refresh"), WeatherHistoryFrame(searching.copy(route = WeatherRoute.Weather(checkpoint = weather))))
+    val weather = WeatherContext(city, current = RequestState.Loading)
+    val machine = CityWeatherMachine.create()
+    val initial = machine.initialSnapshot(WeatherScreenState(city))
+    val active = initial.configuration.active.toSet()
+    history.timeline.append(history.timeline.machine("City Weather", "city-weather"), 0, details.copy(input = "Refresh"), WeatherHistoryFrame(WeatherDisplay.Weather(weather), active))
     return history
 }
 
@@ -66,7 +53,6 @@ internal class RecordingTestFiles(
 class WeatherRecordingTest {
     @Test fun pendingRequestsBecomeDisplayDataOnlyAndLiveSessionIsUntouched() {
         val history = recordingHistory()
-        val previous = history.session.frame
         val events = history.timeline.entries.value
         val bytes = WeatherRecording.export(history)
         val viewer = WeatherRecordingViewer()
@@ -76,13 +62,10 @@ class WeatherRecordingTest {
         assertEquals("Москва", (entries.first().snapshot.screen as WeatherDisplay.Search).state.query)
         assertEquals(RequestState.Loading, (entries.last().snapshot.screen as WeatherDisplay.Weather).state.current)
         entries.forEach(imported.panel::select)
-        assertSame(previous, history.session.frame)
         assertEquals(events, history.timeline.entries.value)
-        assertEquals(0, history.session.branch)
         assertFalse(bytes.decodeToString().contains("checkpoints"))
         viewer.close()
         assertTrue(viewer.imported.isEmpty())
-        assertSame(previous, history.session.frame)
     }
 
     @Test fun failedOrCancelledOpenKeepsExistingRecordingAndSaveDoesNotChangeSession() {

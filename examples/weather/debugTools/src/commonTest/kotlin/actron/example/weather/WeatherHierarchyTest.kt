@@ -2,9 +2,7 @@ package actron.example.weather
 
 import actron.core.Action
 import actron.core.Event
-import actron.example.weather.app.WeatherMachines
-import actron.example.weather.app.session.WeatherSession
-import actron.example.weather.app.session.freshWeather
+import actron.example.weather.app.assembly.WeatherMachines
 import actron.example.weather.core.fixtures.demoCities
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
@@ -51,8 +49,12 @@ class WeatherHierarchyTest {
             var hourlyCalls = 0
             val machines =
                 WeatherMachines(
-                    session = WeatherSession(clockFactory = { MachineClock.monotonic(timeSource = testScheduler.timeSource) }),
-                    initial = freshWeather(city = city),
+                    componentContext =
+                        com.arkivanov.decompose.DefaultComponentContext(
+                            com.arkivanov.essenty.lifecycle
+                                .LifecycleRegistry(),
+                        ),
+                    city = city,
                     currentRepository =
                         WeatherRepository { selected ->
                             if (++currentCalls > 2) awaitCancellation()
@@ -64,6 +66,7 @@ class WeatherHierarchyTest {
                             awaitCancellation()
                         },
                     coroutineContext = coroutineContext,
+                    clock = MachineClock.monotonic(timeSource = testScheduler.timeSource),
                 )
             try {
                 machines.start()
@@ -130,11 +133,16 @@ class WeatherHierarchyTest {
             }
             val machines =
                 WeatherMachines(
-                    session = WeatherSession(clockFactory = { MachineClock.monotonic(timeSource = testScheduler.timeSource) }),
-                    initial = freshWeather(city = demoCities.first()),
+                    componentContext =
+                        com.arkivanov.decompose.DefaultComponentContext(
+                            com.arkivanov.essenty.lifecycle
+                                .LifecycleRegistry(),
+                        ),
+                    city = demoCities.first(),
                     currentRepository = WeatherRepository { pending() },
                     hourlyRepository = HourlyForecastRepository { pending() },
                     coroutineContext = coroutineContext,
+                    clock = MachineClock.monotonic(timeSource = testScheduler.timeSource),
                 )
             try {
                 machines.start()

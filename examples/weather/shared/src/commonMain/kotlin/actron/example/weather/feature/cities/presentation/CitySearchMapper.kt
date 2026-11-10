@@ -1,5 +1,6 @@
 package actron.example.weather.feature.cities.presentation
 
+import actron.example.weather.core.domain.City
 import actron.example.weather.core.presentation.WeatherText
 import actron.example.weather.resources.Res
 import actron.example.weather.resources.debouncing
@@ -31,7 +32,7 @@ fun CitySearchState.toUiState(controls: CitySearchControls = CitySearchControls.
                             name = option.city.name,
                             details = listOf(option.region).filter(String::isNotBlank),
                             testTag = "city-${option.city.name}",
-                            select = CitySearchIntent.SelectCity(option.city),
+                            select = option.city.toSearchSelection(),
                         )
                     }
                 }
@@ -42,22 +43,20 @@ fun CitySearchState.toUiState(controls: CitySearchControls = CitySearchControls.
             },
     )
 
-/** Destinations distinguish machine input from navigation news without performing either effect. */
-internal sealed interface CitySearchUiCommand {
-    data class Dispatch(
-        val action: CitySearchAction,
-    ) : CitySearchUiCommand
+/** UI selection data is converted to a domain object before entering the machine. */
+fun City.toSearchSelection(): CitySearchIntent.SelectCity = CitySearchIntent.SelectCity(name, latitude, longitude)
 
-    data class Publish(
-        val news: CitySearchComponent.News,
-    ) : CitySearchUiCommand
+internal fun CitySearchIntent.toAction(
+    state: CitySearchState,
+    dispatch: (CitySearchAction) -> Unit,
+) {
+    dispatch(
+        when (this) {
+            is CitySearchIntent.QueryChanged -> CitySearchAction.ChangeQuery(query)
+            CitySearchIntent.Retry -> CitySearchAction.ChangeQuery(state.query)
+            is CitySearchIntent.SelectCity -> CitySearchAction.SelectCity(City(name, latitude, longitude))
+        },
+    )
 }
-
-internal fun CitySearchIntent.toCommand(state: CitySearchState): CitySearchUiCommand =
-    when (this) {
-        is CitySearchIntent.QueryChanged -> CitySearchUiCommand.Dispatch(CitySearchAction.ChangeQuery(query))
-        CitySearchIntent.Retry -> CitySearchUiCommand.Dispatch(CitySearchAction.ChangeQuery(state.query))
-        is CitySearchIntent.SelectCity -> CitySearchUiCommand.Publish(CitySearchComponent.News.CitySelected(city))
-    }
 
 internal fun MachineSnapshot<CitySearchState>.toUiState(): CitySearchUiState = context.toUiState(if (isStarted) CitySearchControls.Interactive else CitySearchControls.ReadOnly)
