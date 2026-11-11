@@ -5,26 +5,21 @@ import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.presentation.CitySearchAction
-import actron.example.weather.feature.cities.presentation.CitySearchComponent
 import actron.example.weather.feature.cities.presentation.CitySearchControls
 import actron.example.weather.feature.cities.presentation.CitySearchIntent
 import actron.example.weather.feature.cities.presentation.CitySearchState
-import actron.example.weather.feature.cities.presentation.CitySearchUiCommand
-import actron.example.weather.feature.cities.presentation.toCommand
+import actron.example.weather.feature.cities.presentation.toAction
+import actron.example.weather.feature.cities.presentation.toSearchSelection
 import actron.example.weather.feature.cities.presentation.toUiState
-import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
 import actron.example.weather.feature.weather.domain.ForecastHour
 import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.WeatherReading
-import actron.example.weather.feature.weather.presentation.CityWeatherComponent
 import actron.example.weather.feature.weather.presentation.CityWeatherIntent
-import actron.example.weather.feature.weather.presentation.CityWeatherUiCommand
 import actron.example.weather.feature.weather.presentation.WeatherContext
 import actron.example.weather.feature.weather.presentation.WeatherScreenAction
 import actron.example.weather.feature.weather.presentation.WeatherUpdateUiModel
-import actron.example.weather.feature.weather.presentation.toCommand
+import actron.example.weather.feature.weather.presentation.toAction
 import actron.example.weather.feature.weather.presentation.toUiState
-import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceAction
 import actron.example.weather.resources.Res
 import actron.example.weather.resources.debouncing
 import actron.example.weather.resources.enter_city
@@ -107,21 +102,22 @@ class WeatherPresentationMappingTest {
                 .isEmpty(),
         )
         assertEquals(listOf("Texas, United States"), model.results.last().details)
-        assertEquals(CitySearchIntent.SelectCity(city), model.results.last().select)
-        assertEquals(
-            CitySearchUiCommand.Publish(CitySearchComponent.News.CitySelected(city)),
-            model.results
-                .last()
-                .select
-                .toCommand(CitySearchState.Idle()),
-        )
+        assertEquals(city.toSearchSelection(), model.results.last().select)
+        val actions = mutableListOf<CitySearchAction>()
+        model.results
+            .last()
+            .select
+            .toAction(CitySearchState.Idle(), actions::add)
+        assertEquals(listOf<CitySearchAction>(CitySearchAction.SelectCity(city)), actions)
     }
 
     @Test
     fun searchIntentMappingUsesCurrentQueryForRetryAndKeepsInputUntrimmed() {
         val state = CitySearchState.Debouncing(" Paris ", 5)
-        assertEquals(CitySearchUiCommand.Dispatch(CitySearchAction.ChangeQuery(" Tokyo ")), CitySearchIntent.QueryChanged(" Tokyo ").toCommand(state))
-        assertEquals(CitySearchUiCommand.Dispatch(CitySearchAction.ChangeQuery(" Paris ")), CitySearchIntent.Retry.toCommand(state))
+        val actions = mutableListOf<CitySearchAction>()
+        CitySearchIntent.QueryChanged(" Tokyo ").toAction(state, actions::add)
+        CitySearchIntent.Retry.toAction(state, actions::add)
+        assertEquals(listOf<CitySearchAction>(CitySearchAction.ChangeQuery(" Tokyo "), CitySearchAction.ChangeQuery(" Paris ")), actions)
     }
 
     @Test
@@ -150,10 +146,10 @@ class WeatherPresentationMappingTest {
 
     @Test
     fun weatherIntentsTargetTheirOwningMachineOrNavigation() {
-        assertEquals(CityWeatherUiCommand.Screen(WeatherScreenAction.Refresh), CityWeatherIntent.Refresh.toCommand())
-        assertEquals(CityWeatherUiCommand.Forecast(HourlyForecastAction.Retry), CityWeatherIntent.RetryForecast.toCommand())
-        assertEquals(CityWeatherUiCommand.Advice(WeatherAdviceAction.Retry), CityWeatherIntent.RetryAdvice.toCommand())
-        assertEquals(CityWeatherUiCommand.Advice(WeatherAdviceAction.Dismiss), CityWeatherIntent.DismissAdvice.toCommand())
-        assertEquals(CityWeatherUiCommand.Publish(CityWeatherComponent.News.BackClicked), CityWeatherIntent.Back.toCommand())
+        assertEquals(WeatherScreenAction.Refresh, CityWeatherIntent.Refresh.toAction())
+        assertEquals(WeatherScreenAction.RetryForecast, CityWeatherIntent.RetryForecast.toAction())
+        assertEquals(WeatherScreenAction.RetryAdvice, CityWeatherIntent.RetryAdvice.toAction())
+        assertEquals(WeatherScreenAction.DismissAdvice, CityWeatherIntent.DismissAdvice.toAction())
+        assertEquals(WeatherScreenAction.Back, CityWeatherIntent.Back.toAction())
     }
 }

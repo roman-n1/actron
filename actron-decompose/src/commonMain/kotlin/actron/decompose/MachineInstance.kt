@@ -12,13 +12,14 @@ import kotlin.coroutines.CoroutineContext
 /** Owns a retained Store and its work; configuration and diagnostics belong to its creator. */
 internal class MachineInstance<C : Any, A : Action, CMD : Any, E : Event>(
     context: CoroutineContext,
+    start: Boolean = true,
     createStore: (CoroutineScope) -> MachineStore<C, A, CMD, E>,
 ) : InstanceKeeper.Instance {
     private val scope = CoroutineScope(context + SupervisorJob())
     val store = runCatching { createStore(scope) }.onFailure { scope.cancel() }.getOrThrow()
 
     init {
-        store.start()
+        if (start) store.start()
     }
 
     override fun onDestroy() {

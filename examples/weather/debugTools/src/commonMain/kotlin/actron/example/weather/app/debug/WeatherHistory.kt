@@ -3,9 +3,10 @@ package actron.example.weather.app.debug
 import actron.core.Action
 import actron.core.Event
 import actron.core.InputAttribution
-import actron.example.weather.app.session.WeatherFrame
-import actron.example.weather.app.session.WeatherRoute
-import actron.example.weather.app.session.WeatherSession
+import actron.decompose.session.RestorableComponent
+import actron.decompose.session.SessionCheckpoint
+import actron.decompose.session.SessionContinuation
+import actron.example.weather.app.root.WeatherRootComponent
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.presentation.CitySearchMachine
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
@@ -14,6 +15,7 @@ import actron.example.weather.feature.weather.data.SampleHourlyRepository
 import actron.example.weather.feature.weather.data.SampleWeatherRepository
 import actron.example.weather.feature.weather.presentation.CityWeatherMachine
 import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceMachine
+import actron.statechart.StateId
 import actron.statechart.machine.*
 import actron.timetravel.*
 import actron.timetravel.compose.HistoryGraph
@@ -23,37 +25,44 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** Immutable diagnostic projection; application checkpoints remain owned by WeatherSession. */
+/** Display projection plus the library's immutable continuation point, when delivery is settled. */
 data class WeatherHistoryFrame(
-    val application: WeatherFrame,
+    val screen: WeatherDisplay,
+    val active: Set<StateId>,
     val coverage: Map<DefinitionId, TransitionCoverage> = emptyMap(),
+    val continuation: SessionContinuation = SessionContinuation.Unavailable("Recording is view-only"),
 )
 
-/** Owns recording and diagnostic metadata; navigation and checkpoints belong to the session. */
+/** Optional diagnostic history. Live application state belongs exclusively to the machines. */
 class WeatherHistory(
     val capacity: Int = 500,
     val exportSettings: HistoryExportSettings = HistoryExportSettings("Weather"),
-    val session: WeatherSession = WeatherSession(),
 ) : com.arkivanov.essenty.instancekeeper.InstanceKeeper.Instance {
     private val lock = SynchronizedObject()
     private var coverage: Map<DefinitionId, TransitionCoverage> = emptyMap()
+    private var capture: () -> SessionContinuation = { SessionContinuation.Unavailable("Recording is view-only") }
+    private var resume: suspend (SessionCheckpoint) -> Unit = { error("No restorable root is connected") }
 
-    fun snapshot(): WeatherHistoryFrame = synchronized(lock) { WeatherHistoryFrame(session.frame, coverage) }
+    fun connect(root: RestorableComponent<WeatherRootComponent>) {
+        capture = root::recordedCheckpoint
+        resume = root::continueFrom
+    }
 
-    fun beginBranch(snapshot: WeatherHistoryFrame): WeatherFrame =
-        synchronized(lock) {
-            session.beginBranch(snapshot.application)
-            coverage = snapshot.coverage
-            snapshot.application
-        }
+    suspend fun continueFrom(frame: WeatherHistoryFrame) {
+        val point = frame.continuation
+        require(point is SessionContinuation.Ready) { "This history position cannot continue" }
+        val previous = coverage
+        coverage = frame.coverage
+        runCatching { resume(point.checkpoint) }.onFailure { coverage = previous }.getOrThrow()
+    }
 
     val timeline = HistoryTimeline<WeatherHistoryFrame>(capacity)
     val panel = HistoryPanelState<WeatherHistoryFrame>()
     val panelLayout = actron.timetravel.compose.HistoryPanelLayoutState()
     val panelVisible = MutableStateFlow(false)
-    private val searchChart = CitySearchMachine.create(LocalCitySearchRepository).chart
-    private val weatherCharts =
+    private val charts =
         mapOf(
+            "city-search" to CitySearchMachine.create(LocalCitySearchRepository).chart,
             "city-weather" to CityWeatherMachine.create().chart,
             "current-weather" to CurrentWeatherMachine.create(SampleWeatherRepository).chart,
             "hourly-forecast" to HourlyForecastMachine.create(SampleHourlyRepository).chart,
@@ -61,69 +70,25 @@ class WeatherHistory(
         )
 
     fun graph(entry: HistoryEntry<WeatherHistoryFrame>): HistoryGraph =
-        when (entry.machine.stableId) {
-            "city-search" -> {
-                HistoryGraph.Machine(
-                    searchChart,
-                    entry.snapshot.application.search.snapshot.configuration.active
-                        .toSet(),
-                    HistoryGraphCoverage.Recorded(
-                        entry.snapshot.coverage[DefinitionId("city-search")]
-                            ?.hits
-                            .orEmpty(),
-                    ),
-                )
-            }
-
-            "city-weather", "current-weather", "hourly-forecast", "weather-advice" -> {
-                when (val route = entry.snapshot.application.route) {
-                    WeatherRoute.Search -> {
-                        HistoryGraph.Unavailable
-                    }
-
-                    is WeatherRoute.Weather -> {
-                        HistoryGraph.Machine(
-                            weatherCharts.getValue(entry.machine.stableId),
-                            when (entry.machine.stableId) {
-                                "current-weather" -> {
-                                    route.checkpoint.current.snapshot.configuration.active
-                                        .toSet()
-                                }
-
-                                "hourly-forecast" -> {
-                                    route.checkpoint.hourly.snapshot.configuration.active
-                                        .toSet()
-                                }
-
-                                "weather-advice" -> {
-                                    route.checkpoint.advice.snapshot.configuration.active
-                                        .toSet()
-                                }
-
-                                else -> {
-                                    route.checkpoint.screen.snapshot.configuration.active
-                                        .toSet()
-                                }
-                            },
-                            HistoryGraphCoverage.Recorded(
-                                entry.snapshot.coverage[DefinitionId(entry.machine.stableId)]
-                                    ?.hits
-                                    .orEmpty(),
-                            ),
-                        )
-                    }
-                }
-            }
-
-            else -> {
-                HistoryGraph.Unavailable
-            }
+        if (entry.machine.stableId in charts) {
+            HistoryGraph.Machine(
+                charts.getValue(entry.machine.stableId),
+                entry.snapshot.active,
+                HistoryGraphCoverage.Recorded(
+                    entry.snapshot.coverage[DefinitionId(entry.machine.stableId)]
+                        ?.hits
+                        .orEmpty(),
+                ),
+            )
+        } else {
+            HistoryGraph.Unavailable
         }
 
     fun <C : Any, A : Action, CMD : Any, E : Event> observer(
         machine: Machine<C, A, CMD, E>,
         checkpoint: ExecutorCheckpoint<C, CMD>,
         describe: (C) -> List<StateField>,
+        project: (C) -> WeatherDisplay,
     ): DecisionTraceObserver<C, A, CMD, E> {
         val identity =
             timeline.machine(
@@ -137,12 +102,12 @@ class WeatherHistory(
                 },
                 stableId = machine.id.value,
             )
-        val generation = session.branch
+        project(checkpoint.snapshot.context)
         // The per-instance ring buffer retains executable decisions; timeline stores host frames.
         val recorder = BoundedMachineRecorder(machine, checkpoint, capacity)
         var previous = checkpoint
         return object : DecisionTraceObserver<C, A, CMD, E> {
-            // Trace precedes commit. Append only after the independent session observer updated its checkpoint.
+            // Keep a decision pending until the executor confirms processing.
             private var pending: () -> Unit = {}
 
             private fun committed() {
@@ -174,8 +139,7 @@ class WeatherHistory(
                 machineInput: MachineInput<A>,
                 explained: ExplainedDecision<C, CMD, E>,
             ) {
-                pending = append@{
-                    if (generation != session.branch) return@append
+                pending = {
                     val decision = explained.decision
                     val step: RecordedStep<C, A, CMD, E> =
                         when (val outcome = decision.outcome) {
@@ -202,21 +166,8 @@ class WeatherHistory(
                     fun fields(value: MachineSnapshot<C>) = listOf(StateField("active", value.configuration.active.joinToString()), StateField("revision", value.revision.toString())) + describe(value.context)
                     val details =
                         HistoryDetails(
-                            input =
-                                when (machineInput) {
-                                    is MachineInput.Dispatch -> machineInput.action.toString()
-                                    is MachineInput.CommandResult -> machineInput.action.toString()
-                                    is MachineInput.BridgeReceived -> machineInput.action.toString()
-                                    else -> machineInput.toString()
-                                },
-                            source =
-                                when (machineInput) {
-                                    is MachineInput.Dispatch -> "Action"
-                                    is MachineInput.TimerFired -> "Timer"
-                                    is MachineInput.CommandResult -> "Command result"
-                                    is MachineInput.BridgeReceived -> "Bridge"
-                                    else -> "Runtime"
-                                },
+                            input = machineInput.description(),
+                            source = machineInput.source(),
                             outcome = decision.outcome.toString(),
                             before = fields(previous.snapshot),
                             after = fields(after.snapshot),
@@ -228,9 +179,35 @@ class WeatherHistory(
                     previous = after
                     val index = recorder.nextStep
                     // Global eviction trims the corresponding recorder too, bounding both histories.
-                    timeline.append(identity, generation, details, snapshot(), discard = { recorder.discardBefore(index) })
+                    val frame =
+                        WeatherHistoryFrame(
+                            screen = project(after.snapshot.context),
+                            active =
+                                after.snapshot.configuration.active
+                                    .toSet(),
+                            coverage = coverage,
+                            continuation = capture(),
+                        )
+                    timeline.append(identity, 0, details, frame, discard = { recorder.discardBefore(index) })
                 }
             }
         }
     }
 }
+
+private fun MachineInput<*>.description(): String =
+    when (this) {
+        is MachineInput.Dispatch -> action.toString()
+        is MachineInput.CommandResult -> action.toString()
+        is MachineInput.BridgeReceived -> action.toString()
+        else -> toString()
+    }
+
+private fun MachineInput<*>.source(): String =
+    when (this) {
+        is MachineInput.Dispatch -> "Action"
+        is MachineInput.TimerFired -> "Timer"
+        is MachineInput.CommandResult -> "Command result"
+        is MachineInput.BridgeReceived -> "Bridge"
+        else -> "Runtime"
+    }

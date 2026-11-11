@@ -36,7 +36,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
-internal fun WeatherSettingsButton(openSettings: () -> Unit) {
+fun WeatherSettingsButton(openSettings: () -> Unit) {
     val settingsLabel = stringResource(resource = Res.string.settings)
     IconButton(onClick = openSettings, modifier = Modifier.testTag("debug-settings").semantics { contentDescription = settingsLabel }) {
         val color = MaterialTheme.colorScheme.onSurfaceVariant

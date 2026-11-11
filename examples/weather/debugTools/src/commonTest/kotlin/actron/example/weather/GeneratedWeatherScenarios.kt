@@ -4,9 +4,9 @@ import actron.core.Action
 import actron.core.Event
 import actron.core.InputAttribution
 import actron.example.weather.core.domain.City
-import actron.example.weather.core.mvi.NoEvent
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.presentation.*
+import actron.example.weather.feature.cities.presentation.CitySearchEvent
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherAction
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherState
@@ -33,7 +33,7 @@ object GeneratedWeatherScenarios {
     val moscow = City(name = "Москва", latitude = 55.75, longitude = 37.62)
     val kazan = City(name = "Казань", latitude = 55.79, longitude = 49.12)
 
-    suspend fun search(scope: TestScope): ScenarioTrace<CitySearchState, CitySearchAction, Unit, NoEvent> {
+    suspend fun search(scope: TestScope): ScenarioTrace<CitySearchState, CitySearchAction, Unit, CitySearchEvent> {
         val finishKazan = CompletableDeferred<Unit>()
         return recorded(
             machine =

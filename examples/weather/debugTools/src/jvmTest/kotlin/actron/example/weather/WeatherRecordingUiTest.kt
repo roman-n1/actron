@@ -1,12 +1,12 @@
 package actron.example.weather
 
-import actron.example.weather.app.WeatherTheme
 import actron.example.weather.app.debug.HistoryFileResult
 import actron.example.weather.app.debug.WeatherDebugLayout
 import actron.example.weather.app.debug.WeatherRecording
 import actron.example.weather.app.debug.WeatherRecordingViewer
 import actron.example.weather.app.debug.readHistoryFile
 import actron.example.weather.app.debug.writeHistoryFile
+import actron.example.weather.app.theme.WeatherTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
@@ -25,8 +25,7 @@ class WeatherRecordingUiTest {
             val viewer = WeatherRecordingViewer()
             val files = RecordingTestFiles(HistoryFileResult.Opened("sample.json", WeatherRecording.export(history)))
             viewer.open(files)
-            var continuations = 0
-            setContent { WeatherTheme { Box(Modifier.size(1300.dp, 1000.dp)) { WeatherDebugLayout(history, { continuations++ }, files = files, viewer = viewer) { Text("LIVE SESSION") } } } }
+            setContent { WeatherTheme { Box(Modifier.size(1300.dp, 1000.dp)) { WeatherDebugLayout(history, files = files, viewer = viewer) { Text("LIVE SESSION") } } } }
             onNodeWithTag("city-search").assertExists()
             onNodeWithTag("history-continue").assertDoesNotExist()
             onNodeWithTag("history-live").assertDoesNotExist()
@@ -37,7 +36,6 @@ class WeatherRecordingUiTest {
             onNodeWithTag("recording-close").performClick()
             onNodeWithText("LIVE SESSION").assertExists()
             runOnIdle {
-                assertEquals(0, continuations)
                 assertEquals(2, history.timeline.entries.value.size)
             }
         }

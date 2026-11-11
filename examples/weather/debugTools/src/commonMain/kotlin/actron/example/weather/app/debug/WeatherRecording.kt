@@ -1,6 +1,5 @@
 package actron.example.weather.app.debug
 
-import actron.example.weather.app.session.WeatherRoute
 import actron.example.weather.feature.cities.data.LocalCitySearchRepository
 import actron.example.weather.feature.cities.presentation.*
 import actron.example.weather.feature.currentweather.presentation.CurrentWeatherMachine
@@ -52,12 +51,7 @@ object WeatherRecording {
     ): ByteArray {
         val entries =
             history.timeline.entries.value.map { entry ->
-                val frame = entry.snapshot.application
-                val screen =
-                    when (val route = frame.route) {
-                        WeatherRoute.Search -> WeatherDisplay.Search(frame.search.snapshot.context)
-                        is WeatherRoute.Weather -> WeatherDisplay.Weather(route.checkpoint.context())
-                    }
+                val screen = entry.snapshot.screen
                 val graph = history.graph(entry)
                 val active = if (graph is HistoryGraph.Machine) graph.active.map { it.value } else emptyList()
                 val hits =

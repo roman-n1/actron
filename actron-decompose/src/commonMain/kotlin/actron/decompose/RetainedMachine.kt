@@ -29,7 +29,8 @@ fun <C : Any, A : Action, E : Event> ComponentContext.retainedMachine(
         MachineRecording { _, _, commands -> MachineDiagnostics(commands) },
     coroutineContext: CoroutineContext = Dispatchers.Main,
     initialActions: List<A> = emptyList(),
-): MachineStore<C, A, Unit, E> = retainedMachine(key, machine, initial, noCommandHandler(), restoration, recording, coroutineContext, initialActions)
+    start: Boolean = true,
+): MachineStore<C, A, Unit, E> = retainedMachine(key, machine, initial, noCommandHandler(), restoration, recording, coroutineContext, initialActions, start)
 
 fun <C : Any, A : Action, CMD : Any, E : Event> ComponentContext.retainedMachine(
     key: String,
@@ -41,14 +42,16 @@ fun <C : Any, A : Action, CMD : Any, E : Event> ComponentContext.retainedMachine
         MachineRecording { _, _, commands -> MachineDiagnostics(commands) },
     coroutineContext: CoroutineContext = Dispatchers.Main,
     initialActions: List<A> = emptyList(),
+    start: Boolean = true,
 ): MachineStore<C, A, CMD, E> =
     instanceKeeper
         .getOrCreate(key = key) {
+            require(start || initialActions.isEmpty()) { "Deferred machines dispatch initial actions after explicit startup" }
             val checkpoint = restoration.restore(machine, initial)
             require(checkpoint.snapshot.definition == machine.id && checkpoint.snapshot.version == machine.version) { "Checkpoint belongs to a different machine" }
             val setup = recording.prepare(machine, checkpoint, handler)
             val observers = restoration.observers(machine, checkpoint) + setup.observers
-            MachineInstance(coroutineContext) { scope ->
+            MachineInstance(coroutineContext, start) { scope ->
                 if (checkpoint.snapshot.isStarted) {
                     resumeMachineStore(machine, checkpoint, setup.handler, scope, coroutineContext, restoration.clock, observers, builder = setup.configure)
                 } else {

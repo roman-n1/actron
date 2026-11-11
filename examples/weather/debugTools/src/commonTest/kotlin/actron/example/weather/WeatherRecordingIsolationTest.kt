@@ -2,7 +2,6 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.debug.DebugWeatherRootComponent
 import actron.example.weather.app.debug.HistoryFileResult
 import actron.example.weather.app.debug.WeatherHistory
 import actron.example.weather.app.debug.WeatherRecording
@@ -27,7 +26,7 @@ class WeatherRecordingIsolationTest {
             val lifecycle = LifecycleRegistry()
             val history = WeatherHistory()
             val root =
-                DebugWeatherRootComponent(
+                weatherRootFixture(
                     DefaultComponentContext(lifecycle),
                     WeatherRepository {
                         weatherCalls++
@@ -57,7 +56,7 @@ class WeatherRecordingIsolationTest {
                 testScheduler.advanceTimeBy(350)
                 testScheduler.runCurrent()
                 assertEquals(1, searchCalls)
-                val frame = history.session.frame
+                val state = component.state.value
                 val viewer = WeatherRecordingViewer()
                 viewer.open(RecordingTestFiles(HistoryFileResult.Opened("another-account.json", WeatherRecording.export(recordingHistory()))))
                 val imported = viewer.imported.single()
@@ -74,7 +73,7 @@ class WeatherRecordingIsolationTest {
                         .getChildStack()
                         .value.active.instance,
                 )
-                assertSame(frame, history.session.frame)
+                assertEquals(state, component.state.value)
                 viewer.close()
                 assertSame(
                     component,

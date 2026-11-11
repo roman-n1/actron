@@ -12,6 +12,7 @@ import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.HourlyForecastRepository
 import actron.example.weather.feature.weather.domain.WeatherRepository
 import actron.example.weather.feature.weather.presentation.*
+import actron.statechart.machine.MachineClock
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -122,17 +123,15 @@ class HourlyForecastTest {
 private fun kotlinx.coroutines.test.TestScope.weatherStore(
     current: WeatherRepository,
     hourly: HourlyForecastRepository,
-) = actron.example.weather.app.WeatherMachines(
-    session =
-        actron.example.weather.app.session
-            .WeatherSession(clockFactory = {
-                actron.statechart.machine.MachineClock
-                    .monotonic(timeSource = testScheduler.timeSource)
-            }),
-    initial =
-        actron.example.weather.app.session
-            .freshWeather(city = demoCities.first()),
+) = actron.example.weather.app.assembly.WeatherMachines(
+    componentContext =
+        com.arkivanov.decompose.DefaultComponentContext(
+            com.arkivanov.essenty.lifecycle
+                .LifecycleRegistry(),
+        ),
+    city = demoCities.first(),
     currentRepository = current,
     hourlyRepository = hourly,
     coroutineContext = coroutineContext,
+    clock = MachineClock.monotonic(timeSource = testScheduler.timeSource),
 )

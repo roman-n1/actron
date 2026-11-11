@@ -42,7 +42,7 @@ kotlin {
         commonMain.dependencies {
             implementation(compose.components.resources)
             api(project(":actron-decompose"))
-            implementation(project(":actron-persistence"))
+            api(project(":actron-decompose-session"))
             implementation(project(":actron-compose"))
             implementation("com.arkivanov.decompose:decompose:3.5.0")
             implementation("com.arkivanov.decompose:extensions-compose:3.5.0")

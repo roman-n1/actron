@@ -28,7 +28,7 @@ consumer_value() {
 }
 GROUP=$(value group)
 VERSION=$(value version)
-MODULES=(actron-decompose actron-core actron-compose actron-logging actron-message actron-test actron-statechart actron-observability actron-persistence actron-timetravel actron-statechart-test actron-timetravel-test actron-timetravel-compose actron-statechart-compose)
+MODULES=(actron-decompose actron-decompose-session actron-core actron-compose actron-logging actron-message actron-test actron-statechart actron-observability actron-persistence actron-timetravel actron-statechart-test actron-timetravel-test actron-timetravel-compose actron-statechart-compose)
 MODULES+=(actron-diagnostics)
 case "$TARGET" in
   jvm) MODULES+=(actron-diagnostics-sdk) ;;

@@ -134,10 +134,18 @@ internal fun WeatherRecordingScreen(
     if (selection.isEmpty()) {
         Text(stringResource(resource = Res.string.select_recording), Modifier.padding(24.dp))
     } else {
-        when (val screen = selection.single().snapshot.screen) {
-            is WeatherDisplay.Search -> CitySearchScreen(uiState = screen.state.toUiState(CitySearchControls.ReadOnly), onIntent = {}, settingsAction = { WeatherSettingsButton(onSettings) })
-            is WeatherDisplay.Weather -> CityWeatherScreen(screen.state.toUiState(enabled = false), onIntent = {})
-        }
+        WeatherPreview(selection.single().snapshot.screen, onSettings)
+    }
+}
+
+@Composable
+internal fun WeatherPreview(
+    screen: WeatherDisplay,
+    onSettings: () -> Unit,
+) {
+    when (screen) {
+        is WeatherDisplay.Search -> CitySearchScreen(uiState = screen.state.toUiState(CitySearchControls.ReadOnly), onIntent = {}, settingsAction = { WeatherSettingsButton(onSettings) })
+        is WeatherDisplay.Weather -> CityWeatherScreen(screen.state.toUiState(enabled = false), onIntent = {})
     }
 }
 

@@ -1,0 +1,54 @@
+public final class actron/decompose/session/RestorableComponent : java/lang/AutoCloseable {
+	public fun <init> (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/CoroutineContext;Lactron/statechart/machine/MachineClock;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun checkpoint (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun close ()V
+	public final fun continueFrom (Lactron/decompose/session/SessionCheckpoint;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun decode (Ljava/lang/String;)Lactron/decompose/session/SessionCheckpoint;
+	public final fun encode (Lactron/decompose/session/SessionCheckpoint;)Ljava/lang/String;
+	public final fun getComponent ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun recordedCheckpoint ()Lactron/decompose/session/SessionContinuation;
+}
+
+public final class actron/decompose/session/SessionCheckpoint {
+}
+
+public final class actron/decompose/session/SessionComponentContextKt {
+	public static final fun sessionMachine (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Lactron/decompose/session/SessionMachine;Ljava/lang/Object;Lactron/decompose/MachineRecording;Lkotlin/coroutines/CoroutineContext;Ljava/util/List;ZLactron/statechart/machine/MachineClock;)Lactron/statechart/machine/MachineStore;
+	public static final fun sessionMachine (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Lactron/decompose/session/SessionMachine;Ljava/lang/Object;Lactron/statechart/machine/CommandHandler;Lactron/decompose/MachineRecording;Lkotlin/coroutines/CoroutineContext;Ljava/util/List;ZLactron/statechart/machine/MachineClock;)Lactron/statechart/machine/MachineStore;
+	public static synthetic fun sessionMachine$default (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Lactron/decompose/session/SessionMachine;Ljava/lang/Object;Lactron/decompose/MachineRecording;Lkotlin/coroutines/CoroutineContext;Ljava/util/List;ZLactron/statechart/machine/MachineClock;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
+	public static synthetic fun sessionMachine$default (Lcom/arkivanov/decompose/ComponentContext;Ljava/lang/String;Lactron/decompose/session/SessionMachine;Ljava/lang/Object;Lactron/statechart/machine/CommandHandler;Lactron/decompose/MachineRecording;Lkotlin/coroutines/CoroutineContext;Ljava/util/List;ZLactron/statechart/machine/MachineClock;ILjava/lang/Object;)Lactron/statechart/machine/MachineStore;
+	public static final fun trackSessionGroup (Lcom/arkivanov/decompose/ComponentContext;Lactron/statechart/machine/MachineGroup;)V
+	public static final fun whenSessionReady (Lcom/arkivanov/decompose/ComponentContext;Lkotlin/jvm/functions/Function0;)V
+}
+
+public abstract interface class actron/decompose/session/SessionContinuation {
+}
+
+public final class actron/decompose/session/SessionContinuation$Ready : actron/decompose/session/SessionContinuation {
+	public fun <init> (Lactron/decompose/session/SessionCheckpoint;)V
+	public final fun component1 ()Lactron/decompose/session/SessionCheckpoint;
+	public final fun copy (Lactron/decompose/session/SessionCheckpoint;)Lactron/decompose/session/SessionContinuation$Ready;
+	public static synthetic fun copy$default (Lactron/decompose/session/SessionContinuation$Ready;Lactron/decompose/session/SessionCheckpoint;ILjava/lang/Object;)Lactron/decompose/session/SessionContinuation$Ready;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckpoint ()Lactron/decompose/session/SessionCheckpoint;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/decompose/session/SessionContinuation$Unavailable : actron/decompose/session/SessionContinuation {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lactron/decompose/session/SessionContinuation$Unavailable;
+	public static synthetic fun copy$default (Lactron/decompose/session/SessionContinuation$Unavailable;Ljava/lang/String;ILjava/lang/Object;)Lactron/decompose/session/SessionContinuation$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class actron/decompose/session/SessionMachine {
+	public fun <init> (Lactron/statechart/machine/Machine;Lactron/timetravel/RecordingCodec;)V
+	public final fun getMachine ()Lactron/statechart/machine/Machine;
+}
+

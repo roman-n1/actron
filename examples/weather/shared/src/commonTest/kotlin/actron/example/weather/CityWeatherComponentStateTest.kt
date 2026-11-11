@@ -2,9 +2,7 @@
 
 package actron.example.weather
 
-import actron.example.weather.app.WeatherMachines
-import actron.example.weather.app.session.WeatherSession
-import actron.example.weather.app.session.freshWeather
+import actron.example.weather.app.assembly.WeatherMachines
 import actron.example.weather.core.component.ParentBridge
 import actron.example.weather.core.domain.City
 import actron.example.weather.feature.weather.domain.ForecastHour
@@ -41,8 +39,12 @@ class CityWeatherComponentStateTest {
             val lifecycle = LifecycleRegistry()
             val machines =
                 WeatherMachines(
-                    session = WeatherSession(),
-                    initial = freshWeather(city),
+                    componentContext =
+                        com.arkivanov.decompose.DefaultComponentContext(
+                            com.arkivanov.essenty.lifecycle
+                                .LifecycleRegistry(),
+                        ),
+                    city = city,
                     currentRepository = { current.await() },
                     hourlyRepository = { forecast.await() },
                     coroutineContext = coroutineContext,

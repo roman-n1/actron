@@ -194,7 +194,7 @@ Use separate machines with `MachineGroup` when each feature owns its own state, 
 commands. Typed routes translate an event from one member into an action for another.
 Each machine keeps its own queue; the group does not make their state commits atomic.
 
-The current [Weather composition](examples/weather/shared/src/commonMain/kotlin/actron/example/weather/app/WeatherMachines.kt)
+The current [Weather composition](examples/weather/shared/src/commonMain/kotlin/actron/example/weather/app/assembly/WeatherMachines.kt)
 uses a screen machine and three independent machines for current weather, hourly forecast
 and advice. The screen emits refresh events; routes deliver each feature's refresh action.
 The UI combines their snapshots without introducing another writable owner of feature state.
@@ -250,16 +250,16 @@ and step through recorded snapshots. **Live** returns to the running application
 transition coverage. Pan, zoom, fit the diagram and select states or transitions for details.
 The inspector is reusable through [actron-timetravel-compose](actron-timetravel-compose/README.md).
 
-## 4. Time Travel from a real saved run
+## 4. Inspect and share a recorded run
 
-![Search Rome, inspect earlier events, then continue execution from a saved checkpoint.](doc/assets/weather-time-travel.gif)
+Viewing Weather history renders saved feature data without repeating network calls.
+**Live** returns to the existing components. **Export** shares a recording; **Import** opens it
+in view-only mode. Live history also supports **Continue from here**: `actron-decompose-session`
+restores machine executors and Decompose navigation together. The application supplies definitions
+and ordinary component factories, with no handwritten restoration coordinator.
 
-Viewing history renders saved frames without repeating network calls. **Continue here**
-restores a compatible checkpoint and starts a new continuation. City search retains the remaining
-debounce duration; an unfinished HTTP request starts again. Other Weather features
-restart unfinished behavior entry work from its beginning. Later history is replaced. The host restores
-navigation. **Export** shares a recording; **Import** opens it in view-only mode.
-See [Weather's restoration and replay contract](examples/weather/README.md#session-history-and-replay).
+The library's checkpoint and continuation APIs remain available for applications that need them.
+See [Weather's recording and preview contract](examples/weather/README.md#session-history-and-replay).
 
 ```sh
 ./gradlew :weather:desktopApp:run
@@ -317,6 +317,7 @@ Every library module has its own README with setup, examples and its contract.
 |---|---|
 | [actron-core](actron-core/README.md) | Internal execution engine and shared action/event/lifetime contracts |
 | [actron-decompose](actron-decompose/README.md) | One-call retained machine setup and lifecycle-bound observation for Decompose |
+| [actron-decompose-session](actron-decompose-session/README.md) | Optional restoration of Decompose trees and machine checkpoints |
 | [actron-compose](actron-compose/README.md) | `ViewStore`, state rendering, derived UI values and transient event collection |
 | [actron-message](actron-message/README.md) | Transient messages from command handlers and runtime subscriptions |
 | [actron-logging](actron-logging/README.md) | Store logging and structured journal output |
@@ -362,3 +363,6 @@ Library and example sources follow the [absence policy](doc/guides/absence-polic
   Android, JS, Wasm and iOS variants.
 
 Published-consumer checks reject upstream Koma dependencies in Actron's dependency graphs.
+
+The [MVI architecture audit](doc/architecture/api-audit.md) records API decisions, measured Weather changes
+and the [migration path](doc/architecture/migration-guide.md).

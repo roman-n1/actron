@@ -2,7 +2,7 @@
 
 package actron.example.weather.feature.weather.presentation
 
-import actron.example.weather.app.session.formatWeatherTime
+import actron.example.weather.core.presentation.formatWeatherTime
 import actron.example.weather.core.presentation.resolve
 import actron.example.weather.resources.Res
 import actron.example.weather.resources.advice_close_symbol

@@ -3,10 +3,8 @@
     <string name="settings">Settings</string>
     <string name="debug_panel">Debug panel</string>
     <string name="done">Done</string>
-    <string name="retention">The last %1$s events are recorded throughout this session. Preview does not run requests. Continue here removes later history and restarts unfinished requests.</string>
-    <string name="restart_requests">Unfinished requests will be restarted.</string>
-    <string name="pending_completions">Command completions awaiting a decision: %1$s.</string>
-    <string name="pending_effects">Effects awaiting acknowledgement: %1$s.</string>
+    <string name="retention">The last %1$s events are recorded throughout this session. Preview never runs requests or changes the application.</string>
+    <string name="view_only_history">This example supports viewing history only.</string>
     <string name="select_recording">Select a recorded event</string>
     <string name="import">Import</string>
     <string name="export">Export</string>
@@ -15,4 +13,5 @@
     <string name="o_k">OK</string>
     <string name="open_recording">Open Actron recording</string>
     <string name="save_recording">Save Actron recording</string>
+    <string name="resume_reads">Unfinished reads will restart.</string>
 </resources>

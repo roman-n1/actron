@@ -1,7 +1,8 @@
 package actron.example.weather.feature.cities.presentation
 
 import actron.core.Action
-import actron.example.weather.core.mvi.NoEvent
+import actron.core.Event
+import actron.example.weather.core.domain.City
 import actron.example.weather.core.mvi.RequestFailure
 import actron.example.weather.feature.cities.domain.CityOption
 import actron.example.weather.feature.cities.domain.CitySearchRepository
@@ -59,6 +60,10 @@ sealed interface CitySearchState {
 
 @Serializable
 sealed interface CitySearchAction : Action {
+    @Serializable data class SelectCity(
+        val city: City,
+    ) : CitySearchAction
+
     @Serializable
     data class ChangeQuery(
         val query: String,
@@ -77,15 +82,23 @@ sealed interface CitySearchAction : Action {
     ) : CitySearchAction
 }
 
+@Serializable
+sealed interface CitySearchEvent : Event {
+    @Serializable data class CitySelected(
+        val city: City,
+    ) : CitySearchEvent
+}
+
 /** Declared transitions share one graph with execution, guards and activation-owned timers. */
 object CitySearchMachine {
-    fun create(repository: CitySearchRepository): ScreenMachine<CitySearchState, CitySearchAction, NoEvent> =
+    fun create(repository: CitySearchRepository): ScreenMachine<CitySearchState, CitySearchAction, CitySearchEvent> =
         screenMachine(
             id = DefinitionId(value = "city-search"),
             // v16 retains the debounce timer; Loading only owns the repository call.
-            version = DefinitionVersion(value = "16"),
+            version = DefinitionVersion(value = "17"),
             initial = CitySearchState.Idle(),
         ) {
+            onEvent<CitySearchAction.SelectCity> { _, action -> CitySearchEvent.CitySelected(action.city) }
             state<CitySearchState.Idle> {
                 on<CitySearchAction.ChangeQuery> {
                     target { action -> CitySearchState.QueryChanged(query = action.query, revision = state.revision + 1) }

@@ -1,7 +1,5 @@
 package actron.example.weather.feature.cities.presentation
 
-import actron.example.weather.core.domain.City
-
 sealed interface CitySearchIntent {
     data class QueryChanged(
         val query: String,
@@ -10,7 +8,9 @@ sealed interface CitySearchIntent {
     data object Retry : CitySearchIntent
 
     data class SelectCity(
-        val city: City,
+        val name: String,
+        val latitude: Double,
+        val longitude: Double,
     ) : CitySearchIntent
 }
 

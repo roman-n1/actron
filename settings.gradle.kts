@@ -48,3 +48,5 @@ project(":nullability-guard").projectDir = file("verification/nullability-guard"
 include(":actron-persistence")
 
 include(":actron-bom")
+
+include(":actron-decompose-session")

@@ -33,7 +33,7 @@ endpoint or a component-lifecycle scope.
 Two independent optional parameters extend that same call:
 
 ```kotlin
-restoration = session.searchRestoration(), // App-owned checkpoint and checkpoint tracking.
+restoration = appRestoration,             // Application-supplied MachineRestoration.
 recording = history.recording(),          // Optional diagnostic observers/profiling.
 ```
 
@@ -46,8 +46,8 @@ The library does not prescribe a serialization format or a debugger implementati
 `initialActions` are dispatched once after a fresh Store starts. They are skipped on checkpoint
 resumption and host recreation. A mismatching definition/version is rejected before startup.
 Destroying the keeper closes the Store and cancels its scope; construction failure cancels the
-new scope too. The Weather application demonstrates the minimal path, checkpoint-only operation,
-and the same feature with diagnostics enabled in its `debugTools` module.
+new scope too. The Weather application demonstrates the minimal path and the same features
+with optional diagnostics in its `debugTools` module.
 
 ## Two lifetimes
 
@@ -139,3 +139,10 @@ cancellation, new observers receiving retained state, keeper shutdown, independe
 and destroyed/reentrant lifecycle registration. They also verify that event observation is ready
 before startup without starting the Store, and closing one event handle leaves sibling event/state
 observers alive. Tests run on JVM, JS, Wasm, iOS and Android host.
+
+## Restore a whole navigation tree
+
+For cross-screen continuation, use the optional [actron-decompose-session](../actron-decompose-session/README.md)
+adapter. It builds on this module and persistence, keeping the base lifecycle adapter independent
+of serialization. `sessionMachine` falls back to ordinary retention outside a restorable root.
+Use `start = false` only when wiring a group before explicitly starting its stores.

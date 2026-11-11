@@ -2,10 +2,8 @@ package actron.example.weather.feature.weather.presentation
 
 import actron.example.weather.core.mvi.RequestState
 import actron.example.weather.core.presentation.WeatherText
-import actron.example.weather.feature.hourlyforecast.presentation.HourlyForecastAction
 import actron.example.weather.feature.weather.domain.HourlyForecast
 import actron.example.weather.feature.weather.domain.WeatherAdvice
-import actron.example.weather.feature.weatheradvice.presentation.WeatherAdviceAction
 import actron.example.weather.feature.weatheradvice.presentation.WeatherAdvicePhase
 import actron.example.weather.resources.Res
 import actron.example.weather.resources.advice_cold
@@ -141,31 +139,13 @@ private fun forecastStatus(state: RequestState<HourlyForecast>): List<WeatherTex
     }
 
 /** Routes UI intentions without coupling rendering to a particular machine or bridge. */
-internal sealed interface CityWeatherUiCommand {
-    data class Screen(
-        val action: WeatherScreenAction,
-    ) : CityWeatherUiCommand
-
-    data class Forecast(
-        val action: HourlyForecastAction,
-    ) : CityWeatherUiCommand
-
-    data class Advice(
-        val action: WeatherAdviceAction,
-    ) : CityWeatherUiCommand
-
-    data class Publish(
-        val news: CityWeatherComponent.News,
-    ) : CityWeatherUiCommand
-}
-
-internal fun CityWeatherIntent.toCommand(): CityWeatherUiCommand =
+internal fun CityWeatherIntent.toAction(): WeatherScreenAction =
     when (this) {
-        CityWeatherIntent.DismissAdvice -> CityWeatherUiCommand.Advice(WeatherAdviceAction.Dismiss)
-        CityWeatherIntent.RetryAdvice -> CityWeatherUiCommand.Advice(WeatherAdviceAction.Retry)
-        CityWeatherIntent.Refresh -> CityWeatherUiCommand.Screen(WeatherScreenAction.Refresh)
-        CityWeatherIntent.RetryForecast -> CityWeatherUiCommand.Forecast(HourlyForecastAction.Retry)
-        CityWeatherIntent.Back -> CityWeatherUiCommand.Publish(CityWeatherComponent.News.BackClicked)
+        CityWeatherIntent.DismissAdvice -> WeatherScreenAction.DismissAdvice
+        CityWeatherIntent.RetryAdvice -> WeatherScreenAction.RetryAdvice
+        CityWeatherIntent.Refresh -> WeatherScreenAction.Refresh
+        CityWeatherIntent.RetryForecast -> WeatherScreenAction.RetryForecast
+        CityWeatherIntent.Back -> WeatherScreenAction.Back
     }
 
 private fun String.toUpdateUiModels(): List<WeatherUpdateUiModel> {

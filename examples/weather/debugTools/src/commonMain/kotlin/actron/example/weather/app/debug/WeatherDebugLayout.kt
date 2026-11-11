@@ -1,24 +1,16 @@
 package actron.example.weather.app.debug
 
-import actron.example.weather.app.session.WeatherFrame
-import actron.example.weather.app.session.WeatherRoute
+import actron.decompose.session.SessionContinuation
 import actron.example.weather.debug.resources.Res
 import actron.example.weather.debug.resources.debug_panel
 import actron.example.weather.debug.resources.done
-import actron.example.weather.debug.resources.pending_completions
-import actron.example.weather.debug.resources.pending_effects
-import actron.example.weather.debug.resources.restart_requests
+import actron.example.weather.debug.resources.resume_reads
 import actron.example.weather.debug.resources.retention
 import actron.example.weather.debug.resources.settings
-import actron.example.weather.feature.cities.presentation.CitySearchControls
-import actron.example.weather.feature.cities.presentation.CitySearchScreen
-import actron.example.weather.feature.cities.presentation.toUiState
-import actron.example.weather.feature.weather.presentation.CityWeatherScreen
-import actron.example.weather.feature.weather.presentation.toUiState
 import actron.timetravel.compose.HistoryContinuation
-import actron.timetravel.compose.HistoryPanel
 import actron.timetravel.compose.HistoryRecordingPanel
 import actron.timetravel.compose.ResizableHistoryLayout
+import actron.timetravel.compose.ResumableHistoryPanel
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +21,6 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun WeatherDebugLayout(
     history: WeatherHistory,
-    onContinue: (WeatherHistoryFrame) -> Unit,
     files: HistoryFiles = rememberHistoryFiles(),
     settings: WeatherSettings = remember { WeatherSettings() },
     viewer: WeatherRecordingViewer = remember { WeatherRecordingViewer() },
@@ -44,26 +35,7 @@ fun WeatherDebugLayout(
             } else if (selection.isEmpty()) {
                 content()
             } else {
-                val frame = selection.single().snapshot.application
-                when (val route = frame.route) {
-                    WeatherRoute.Search -> {
-                        CitySearchScreen(
-                            frame.search.snapshot.context
-                                .toUiState(CitySearchControls.ReadOnly),
-                            onIntent = {},
-                            settingsAction = { WeatherSettingsButton(settings::open) },
-                        )
-                    }
-
-                    is WeatherRoute.Weather -> {
-                        CityWeatherScreen(
-                            route.checkpoint
-                                .context()
-                                .toUiState(enabled = false),
-                            onIntent = {},
-                        )
-                    }
-                }
+                WeatherPreview(selection.single().snapshot.screen, settings::open)
             }
         }
         if (visible) {
@@ -74,8 +46,12 @@ fun WeatherDebugLayout(
                 panel = {
                     Column(Modifier.fillMaxSize()) {
                         if (viewer.imported.isEmpty()) {
-                            // The reusable panel delegates continuation/navigation to the host.
-                            HistoryPanel(history.timeline, history.panel, { onContinue(it.snapshot) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), continuation = { it.application.continuation() }, graph = { history.graph(it) }, actions = { RecordingActions(viewer, files, history) })
+                            ResumableHistoryPanel(history.timeline, history.panel, { history.continueFrom(it.snapshot) }, modifier = Modifier.weight(1f).testTag("weather-history-panel"), continuation = { frame ->
+                                when (val point = frame.continuation) {
+                                    is SessionContinuation.Ready -> HistoryContinuation.Available(stringResource(Res.string.resume_reads))
+                                    is SessionContinuation.Unavailable -> HistoryContinuation.Unavailable(point.reason)
+                                }
+                            }, graph = { history.graph(it) }, actions = { RecordingActions(viewer, files, history) })
                         } else {
                             val imported = viewer.imported.single()
                             // Display-only records have no executor checkpoint or continuation callback.
@@ -106,40 +82,6 @@ fun WeatherDebugLayout(
             confirmButton = { TextButton(onClick = { settings.close() }, modifier = Modifier.testTag("debug-settings-done")) { Text(stringResource(resource = Res.string.done)) } },
         )
     }
-}
-
-internal data class ContinuationWork(
-    val endings: Int,
-    val effects: Int,
-)
-
-/** The executor owns continuation eligibility; UI only supplies localized explanations. */
-internal fun WeatherFrame.continuationWork(): ContinuationWork {
-    val ending =
-        search.ending.size +
-            when (val screen = route) {
-                WeatherRoute.Search -> 0
-                is WeatherRoute.Weather -> listOf(screen.checkpoint.screen, screen.checkpoint.current, screen.checkpoint.hourly, screen.checkpoint.advice).sumOf { it.ending.size }
-            }
-    val effects =
-        search.effects.size +
-            when (val screen = route) {
-                WeatherRoute.Search -> 0
-                is WeatherRoute.Weather -> listOf(screen.checkpoint.screen, screen.checkpoint.current, screen.checkpoint.hourly, screen.checkpoint.advice).sumOf { it.effects.size } + screen.checkpoint.inFlight.size
-            }
-    return ContinuationWork(endings = ending, effects = effects)
-}
-
-@Composable
-internal fun WeatherFrame.continuation(): HistoryContinuation {
-    val work = continuationWork()
-    if (work.endings + work.effects == 0) {
-        return HistoryContinuation.Available(consequences = stringResource(resource = Res.string.restart_requests))
-    }
-    val reasons = mutableListOf<String>()
-    if (work.endings > 0) reasons.add(stringResource(resource = Res.string.pending_completions, work.endings))
-    if (work.effects > 0) reasons.add(stringResource(resource = Res.string.pending_effects, work.effects))
-    return HistoryContinuation.Unavailable(reason = reasons.joinToString(separator = " "))
 }
 
 internal fun WeatherHistory.setPanelVisible(
